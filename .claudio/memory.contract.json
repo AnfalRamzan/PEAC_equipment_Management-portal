@@ -1,0 +1,492 @@
+{
+  "version": "1",
+  "workspaceId": "271b161f8b07d86d",
+  "workspaceName": "hospital-equipment-management",
+  "enabled": true,
+  "updatedAt": "2026-08-02T16:39:30.198Z",
+  "detectedStack": {
+    "languages": [
+      "JavaScript/TypeScript"
+    ],
+    "frameworks": [
+      "Express",
+      "React",
+      "Vite"
+    ],
+    "packageManager": "npm",
+    "uiLibraries": [
+      "MUI"
+    ],
+    "orm": [],
+    "authLibraries": [],
+    "validationLibraries": [],
+    "paymentLibraries": [],
+    "testTools": [],
+    "scripts": {
+      "backend/start": "node server.js",
+      "backend/dev": "nodemon server.js",
+      "frontend/start": "vite",
+      "frontend/build": "vite build",
+      "frontend/preview": "vite preview"
+    },
+    "importantDirs": [
+      "backend",
+      "frontend"
+    ],
+    "sensitiveFiles": []
+  },
+  "sections": {
+    "stack": [],
+    "packageManager": [],
+    "architectureRules": [],
+    "codingConventions": [],
+    "sensitiveFiles": [
+      {
+        "id": "05703663d872dabf",
+        "text": "Environment file: backend/.env",
+        "kind": "risk",
+        "source": "repo_detected",
+        "confidence": "confirmed",
+        "scope": "workspace",
+        "evidence": {
+          "file": "backend/.env"
+        },
+        "lastVerifiedAt": "2026-08-02T16:39:30.197Z"
+      },
+      {
+        "id": "0a5f7f28e818bc4d",
+        "text": "DB schema: database/schema.sql",
+        "kind": "risk",
+        "source": "repo_detected",
+        "confidence": "confirmed",
+        "scope": "workspace",
+        "evidence": {
+          "file": "database/schema.sql"
+        },
+        "lastVerifiedAt": "2026-08-02T16:39:30.197Z"
+      },
+      {
+        "id": "2725c4ff8848d479",
+        "text": "Auth code: backend/api/auth/index.js",
+        "kind": "risk",
+        "source": "repo_detected",
+        "confidence": "confirmed",
+        "scope": "workspace",
+        "evidence": {
+          "file": "backend/api/auth/index.js"
+        },
+        "lastVerifiedAt": "2026-08-02T16:39:30.197Z"
+      },
+      {
+        "id": "2b39acd5c7f07e73",
+        "text": "Auth code: backend/middleware/auth.js",
+        "kind": "risk",
+        "source": "repo_detected",
+        "confidence": "confirmed",
+        "scope": "workspace",
+        "evidence": {
+          "file": "backend/middleware/auth.js"
+        },
+        "lastVerifiedAt": "2026-08-02T16:39:30.197Z"
+      },
+      {
+        "id": "0052aa723a258a97",
+        "text": "Auth code: frontend/src/components/Auth/ProtectedRoute.jsx",
+        "kind": "risk",
+        "source": "repo_detected",
+        "confidence": "confirmed",
+        "scope": "workspace",
+        "evidence": {
+          "file": "frontend/src/components/Auth/ProtectedRoute.jsx"
+        },
+        "lastVerifiedAt": "2026-08-02T16:39:30.197Z"
+      },
+      {
+        "id": "25ebd5098feec796",
+        "text": "Dashboard area: frontend/src/pages/Dashboard.jsx",
+        "kind": "risk",
+        "source": "repo_detected",
+        "confidence": "confirmed",
+        "scope": "workspace",
+        "evidence": {
+          "file": "frontend/src/pages/Dashboard.jsx"
+        },
+        "lastVerifiedAt": "2026-08-02T16:39:30.197Z"
+      },
+      {
+        "id": "4a123d1ff2c02781",
+        "text": "Login flow: frontend/src/pages/Login.jsx",
+        "kind": "risk",
+        "source": "repo_detected",
+        "confidence": "confirmed",
+        "scope": "workspace",
+        "evidence": {
+          "file": "frontend/src/pages/Login.jsx"
+        },
+        "lastVerifiedAt": "2026-08-02T16:39:30.197Z"
+      },
+      {
+        "id": "3173b98a5e55b647",
+        "text": "Dashboard area: backend/api/dashboard.js",
+        "kind": "risk",
+        "source": "repo_detected",
+        "confidence": "confirmed",
+        "scope": "workspace",
+        "evidence": {
+          "file": "backend/api/dashboard.js"
+        },
+        "lastVerifiedAt": "2026-08-02T16:39:30.197Z"
+      }
+    ],
+    "forbiddenActions": [
+      {
+        "id": "082d3141d8b5614b",
+        "text": "Never log or commit values for env names: JWT_SECRET, DB_PASSWORD.",
+        "kind": "constraint",
+        "source": "repo_detected",
+        "confidence": "confirmed",
+        "scope": "workspace",
+        "lastVerifiedAt": "2026-08-02T16:39:30.197Z"
+      }
+    ],
+    "allowedCommands": [
+      {
+        "id": "1e014e6b797b5e1f",
+        "text": "npm run dev (in backend) -> node api/index.js",
+        "kind": "command",
+        "source": "repo_detected",
+        "confidence": "confirmed",
+        "scope": "workspace",
+        "evidence": {
+          "file": "backend/package.json"
+        },
+        "appliesTo": [
+          "backend"
+        ],
+        "lastVerifiedAt": "2026-08-02T14:23:49.447Z"
+      },
+      {
+        "id": "9bcbace113d04b96",
+        "text": "npm run start (in backend) -> node api/index.js",
+        "kind": "command",
+        "source": "repo_detected",
+        "confidence": "confirmed",
+        "scope": "workspace",
+        "evidence": {
+          "file": "backend/package.json"
+        },
+        "appliesTo": [
+          "backend"
+        ],
+        "lastVerifiedAt": "2026-08-02T14:23:49.447Z"
+      },
+      {
+        "id": "114366436957f43d",
+        "text": "npm run dev (in frontend) -> vite",
+        "kind": "command",
+        "source": "repo_detected",
+        "confidence": "confirmed",
+        "scope": "workspace",
+        "evidence": {
+          "file": "frontend/package.json"
+        },
+        "appliesTo": [
+          "frontend"
+        ],
+        "lastVerifiedAt": "2026-08-02T13:52:03.909Z"
+      },
+      {
+        "id": "bd2916f51b4c88ba",
+        "text": "npm run build (in frontend) -> vite build",
+        "kind": "command",
+        "source": "repo_detected",
+        "confidence": "confirmed",
+        "scope": "workspace",
+        "evidence": {
+          "file": "frontend/package.json"
+        },
+        "appliesTo": [
+          "frontend"
+        ],
+        "lastVerifiedAt": "2026-08-02T16:39:30.198Z"
+      },
+      {
+        "id": "6c1edbac0eae1df1",
+        "text": "npm run lint (in frontend) -> oxlint",
+        "kind": "command",
+        "source": "repo_detected",
+        "confidence": "confirmed",
+        "scope": "workspace",
+        "evidence": {
+          "file": "frontend/package.json"
+        },
+        "appliesTo": [
+          "frontend"
+        ],
+        "lastVerifiedAt": "2026-08-02T13:52:03.910Z"
+      },
+      {
+        "id": "774771f13625dd2f",
+        "text": "npm run start (in frontend) -> vite",
+        "kind": "command",
+        "source": "repo_detected",
+        "confidence": "confirmed",
+        "scope": "workspace",
+        "evidence": {
+          "file": "frontend/package.json"
+        },
+        "appliesTo": [
+          "frontend"
+        ],
+        "lastVerifiedAt": "2026-08-02T16:39:30.198Z"
+      },
+      {
+        "id": "866b98a23d9ff55a",
+        "text": "npm run start (in backend) -> node server.js",
+        "kind": "command",
+        "source": "repo_detected",
+        "confidence": "confirmed",
+        "scope": "workspace",
+        "evidence": {
+          "file": "backend/package.json"
+        },
+        "appliesTo": [
+          "backend"
+        ],
+        "lastVerifiedAt": "2026-08-02T16:39:30.197Z"
+      },
+      {
+        "id": "d888bdbe6cd27fd0",
+        "text": "npm run dev (in backend) -> nodemon server.js",
+        "kind": "command",
+        "source": "repo_detected",
+        "confidence": "confirmed",
+        "scope": "workspace",
+        "evidence": {
+          "file": "backend/package.json"
+        },
+        "appliesTo": [
+          "backend"
+        ],
+        "lastVerifiedAt": "2026-08-02T16:39:30.198Z"
+      }
+    ],
+    "businessRules": [],
+    "integrationRules": [],
+    "testingExpectations": [],
+    "agentInstructions": [],
+    "openQuestions": []
+  },
+  "packages": [
+    {
+      "path": "backend",
+      "name": "hospital-equipment-backend",
+      "detectedStack": {
+        "languages": [
+          "JavaScript/TypeScript"
+        ],
+        "frameworks": [
+          "Express"
+        ],
+        "packageManager": "npm",
+        "uiLibraries": [],
+        "orm": [],
+        "authLibraries": [],
+        "validationLibraries": [],
+        "paymentLibraries": [],
+        "testTools": [],
+        "scripts": {
+          "start": "node server.js",
+          "dev": "nodemon server.js"
+        },
+        "importantDirs": [],
+        "sensitiveFiles": []
+      },
+      "items": [
+        {
+          "id": "backend:fact:Project name: hospital-equipment-backend",
+          "text": "Project name: hospital-equipment-backend",
+          "kind": "fact",
+          "source": "repo_detected",
+          "confidence": "confirmed",
+          "scope": "package",
+          "evidence": {
+            "file": "backend/package.json"
+          },
+          "appliesTo": [
+            "backend"
+          ],
+          "lastVerifiedAt": "2026-08-02T16:39:30.195Z"
+        },
+        {
+          "id": "backend:fact:Framework detected: Express.",
+          "text": "Framework detected: Express.",
+          "kind": "fact",
+          "source": "repo_detected",
+          "confidence": "confirmed",
+          "scope": "package",
+          "evidence": {
+            "file": "backend/package.json"
+          },
+          "appliesTo": [
+            "backend"
+          ],
+          "lastVerifiedAt": "2026-08-02T16:39:30.195Z"
+        },
+        {
+          "id": "backend:command:npm run start -> node server.js",
+          "text": "npm run start -> node server.js",
+          "kind": "command",
+          "source": "repo_detected",
+          "confidence": "confirmed",
+          "scope": "package",
+          "evidence": {
+            "file": "backend/package.json"
+          },
+          "appliesTo": [
+            "backend"
+          ],
+          "lastVerifiedAt": "2026-08-02T16:39:30.195Z"
+        },
+        {
+          "id": "backend:command:npm run dev -> nodemon server.js",
+          "text": "npm run dev -> nodemon server.js",
+          "kind": "command",
+          "source": "repo_detected",
+          "confidence": "confirmed",
+          "scope": "package",
+          "evidence": {
+            "file": "backend/package.json"
+          },
+          "appliesTo": [
+            "backend"
+          ],
+          "lastVerifiedAt": "2026-08-02T16:39:30.195Z"
+        },
+        {
+          "id": "backend:constraint:Vercel deployment config detected. Treat",
+          "text": "Vercel deployment config detected. Treat env vars as production unless documented otherwise.",
+          "kind": "constraint",
+          "source": "repo_detected",
+          "confidence": "confirmed",
+          "scope": "package",
+          "evidence": {
+            "file": "backend/vercel.json"
+          },
+          "appliesTo": [
+            "backend"
+          ],
+          "lastVerifiedAt": "2026-08-02T16:39:30.195Z"
+        }
+      ]
+    },
+    {
+      "path": "frontend",
+      "name": "hospital-equipment-frontend",
+      "detectedStack": {
+        "languages": [
+          "JavaScript/TypeScript"
+        ],
+        "frameworks": [
+          "React",
+          "Vite"
+        ],
+        "packageManager": "npm",
+        "uiLibraries": [
+          "MUI"
+        ],
+        "orm": [],
+        "authLibraries": [],
+        "validationLibraries": [],
+        "paymentLibraries": [],
+        "testTools": [],
+        "scripts": {
+          "start": "vite",
+          "build": "vite build",
+          "preview": "vite preview"
+        },
+        "importantDirs": [
+          "src"
+        ],
+        "sensitiveFiles": []
+      },
+      "items": [
+        {
+          "id": "frontend:fact:Project name: hospital-equipment-fronten",
+          "text": "Project name: hospital-equipment-frontend",
+          "kind": "fact",
+          "source": "repo_detected",
+          "confidence": "confirmed",
+          "scope": "package",
+          "evidence": {
+            "file": "frontend/package.json"
+          },
+          "appliesTo": [
+            "frontend"
+          ],
+          "lastVerifiedAt": "2026-08-02T16:39:30.195Z"
+        },
+        {
+          "id": "frontend:fact:Framework detected: React.",
+          "text": "Framework detected: React.",
+          "kind": "fact",
+          "source": "repo_detected",
+          "confidence": "confirmed",
+          "scope": "package",
+          "evidence": {
+            "file": "frontend/package.json"
+          },
+          "appliesTo": [
+            "frontend"
+          ],
+          "lastVerifiedAt": "2026-08-02T16:39:30.195Z"
+        },
+        {
+          "id": "frontend:fact:Framework detected: Vite.",
+          "text": "Framework detected: Vite.",
+          "kind": "fact",
+          "source": "repo_detected",
+          "confidence": "confirmed",
+          "scope": "package",
+          "evidence": {
+            "file": "frontend/package.json"
+          },
+          "appliesTo": [
+            "frontend"
+          ],
+          "lastVerifiedAt": "2026-08-02T16:39:30.195Z"
+        },
+        {
+          "id": "frontend:command:npm run start -> vite",
+          "text": "npm run start -> vite",
+          "kind": "command",
+          "source": "repo_detected",
+          "confidence": "confirmed",
+          "scope": "package",
+          "evidence": {
+            "file": "frontend/package.json"
+          },
+          "appliesTo": [
+            "frontend"
+          ],
+          "lastVerifiedAt": "2026-08-02T16:39:30.195Z"
+        },
+        {
+          "id": "frontend:command:npm run build -> vite build",
+          "text": "npm run build -> vite build",
+          "kind": "command",
+          "source": "repo_detected",
+          "confidence": "confirmed",
+          "scope": "package",
+          "evidence": {
+            "file": "frontend/package.json"
+          },
+          "appliesTo": [
+            "frontend"
+          ],
+          "lastVerifiedAt": "2026-08-02T16:39:30.195Z"
+        }
+      ]
+    }
+  ]
+}

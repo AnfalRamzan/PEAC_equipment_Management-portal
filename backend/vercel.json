@@ -1,0 +1,22 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "api/index.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "api/index.js"
+    }
+  ],
+  "env": {
+    "JWT_SECRET": "your-super-secret-jwt-key",
+    "DB_HOST": "localhost",
+    "DB_USER": "root",
+    "DB_PASSWORD": "",
+    "DB_NAME": "hospital_equipment_management"
+  }
+}
