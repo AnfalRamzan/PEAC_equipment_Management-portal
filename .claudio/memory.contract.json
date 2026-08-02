@@ -3,40 +3,63 @@
   "workspaceId": "271b161f8b07d86d",
   "workspaceName": "hospital-equipment-management",
   "enabled": true,
-  "updatedAt": "2026-08-02T16:39:30.198Z",
+  "updatedAt": "2026-08-02T18:24:19.351Z",
   "detectedStack": {
     "languages": [
       "JavaScript/TypeScript"
     ],
     "frameworks": [
-      "Express",
-      "React",
-      "Vite"
+      "Express"
     ],
     "packageManager": "npm",
-    "uiLibraries": [
-      "MUI"
-    ],
+    "uiLibraries": [],
     "orm": [],
     "authLibraries": [],
     "validationLibraries": [],
     "paymentLibraries": [],
     "testTools": [],
     "scripts": {
-      "backend/start": "node server.js",
-      "backend/dev": "nodemon server.js",
-      "frontend/start": "vite",
-      "frontend/build": "vite build",
-      "frontend/preview": "vite preview"
+      "build": "cd frontend && npm install && npm run build"
     },
-    "importantDirs": [
-      "backend",
-      "frontend"
-    ],
-    "sensitiveFiles": []
+    "importantDirs": [],
+    "sensitiveFiles": [
+      "backend/.env",
+      "backend/api/auth/index.js",
+      "backend/api/dashboard.js",
+      "backend/middleware/auth.js",
+      "database/schema.sql",
+      "frontend/src/components/Auth/ProtectedRoute.jsx",
+      "frontend/src/pages/Dashboard.jsx",
+      "frontend/src/pages/Login.jsx"
+    ]
   },
   "sections": {
-    "stack": [],
+    "stack": [
+      {
+        "id": "e1e3fec73f86e851",
+        "text": "Project name: paec-equipment-management",
+        "kind": "fact",
+        "source": "repo_detected",
+        "confidence": "confirmed",
+        "scope": "workspace",
+        "evidence": {
+          "file": "package.json"
+        },
+        "lastVerifiedAt": "2026-08-02T18:24:19.350Z"
+      },
+      {
+        "id": "5b46ca042bc416fb",
+        "text": "Framework detected: Express.",
+        "kind": "fact",
+        "source": "repo_detected",
+        "confidence": "confirmed",
+        "scope": "workspace",
+        "evidence": {
+          "file": "package.json"
+        },
+        "lastVerifiedAt": "2026-08-02T18:24:19.350Z"
+      }
+    ],
     "packageManager": [],
     "architectureRules": [],
     "codingConventions": [],
@@ -51,7 +74,7 @@
         "evidence": {
           "file": "backend/.env"
         },
-        "lastVerifiedAt": "2026-08-02T16:39:30.197Z"
+        "lastVerifiedAt": "2026-08-02T18:24:19.350Z"
       },
       {
         "id": "0a5f7f28e818bc4d",
@@ -63,7 +86,7 @@
         "evidence": {
           "file": "database/schema.sql"
         },
-        "lastVerifiedAt": "2026-08-02T16:39:30.197Z"
+        "lastVerifiedAt": "2026-08-02T18:24:19.350Z"
       },
       {
         "id": "2725c4ff8848d479",
@@ -75,7 +98,7 @@
         "evidence": {
           "file": "backend/api/auth/index.js"
         },
-        "lastVerifiedAt": "2026-08-02T16:39:30.197Z"
+        "lastVerifiedAt": "2026-08-02T18:24:19.350Z"
       },
       {
         "id": "2b39acd5c7f07e73",
@@ -87,7 +110,7 @@
         "evidence": {
           "file": "backend/middleware/auth.js"
         },
-        "lastVerifiedAt": "2026-08-02T16:39:30.197Z"
+        "lastVerifiedAt": "2026-08-02T18:24:19.350Z"
       },
       {
         "id": "0052aa723a258a97",
@@ -99,7 +122,7 @@
         "evidence": {
           "file": "frontend/src/components/Auth/ProtectedRoute.jsx"
         },
-        "lastVerifiedAt": "2026-08-02T16:39:30.197Z"
+        "lastVerifiedAt": "2026-08-02T18:24:19.350Z"
       },
       {
         "id": "25ebd5098feec796",
@@ -111,7 +134,7 @@
         "evidence": {
           "file": "frontend/src/pages/Dashboard.jsx"
         },
-        "lastVerifiedAt": "2026-08-02T16:39:30.197Z"
+        "lastVerifiedAt": "2026-08-02T18:24:19.350Z"
       },
       {
         "id": "4a123d1ff2c02781",
@@ -123,7 +146,7 @@
         "evidence": {
           "file": "frontend/src/pages/Login.jsx"
         },
-        "lastVerifiedAt": "2026-08-02T16:39:30.197Z"
+        "lastVerifiedAt": "2026-08-02T18:24:19.350Z"
       },
       {
         "id": "3173b98a5e55b647",
@@ -135,7 +158,7 @@
         "evidence": {
           "file": "backend/api/dashboard.js"
         },
-        "lastVerifiedAt": "2026-08-02T16:39:30.197Z"
+        "lastVerifiedAt": "2026-08-02T18:24:19.350Z"
       }
     ],
     "forbiddenActions": [
@@ -147,6 +170,15 @@
         "confidence": "confirmed",
         "scope": "workspace",
         "lastVerifiedAt": "2026-08-02T16:39:30.197Z"
+      },
+      {
+        "id": "fbb699a0194f1b53",
+        "text": "Never log or commit values for env names: DB_PASSWORD, JWT_SECRET.",
+        "kind": "constraint",
+        "source": "repo_detected",
+        "confidence": "confirmed",
+        "scope": "workspace",
+        "lastVerifiedAt": "2026-08-02T18:24:19.350Z"
       }
     ],
     "allowedCommands": [
@@ -208,7 +240,7 @@
         "appliesTo": [
           "frontend"
         ],
-        "lastVerifiedAt": "2026-08-02T16:39:30.198Z"
+        "lastVerifiedAt": "2026-08-02T18:24:19.351Z"
       },
       {
         "id": "6c1edbac0eae1df1",
@@ -238,7 +270,7 @@
         "appliesTo": [
           "frontend"
         ],
-        "lastVerifiedAt": "2026-08-02T16:39:30.198Z"
+        "lastVerifiedAt": "2026-08-02T18:24:19.351Z"
       },
       {
         "id": "866b98a23d9ff55a",
@@ -253,7 +285,7 @@
         "appliesTo": [
           "backend"
         ],
-        "lastVerifiedAt": "2026-08-02T16:39:30.197Z"
+        "lastVerifiedAt": "2026-08-02T18:24:19.350Z"
       },
       {
         "id": "d888bdbe6cd27fd0",
@@ -268,11 +300,36 @@
         "appliesTo": [
           "backend"
         ],
-        "lastVerifiedAt": "2026-08-02T16:39:30.198Z"
+        "lastVerifiedAt": "2026-08-02T18:24:19.350Z"
+      },
+      {
+        "id": "931250c7ad93c61f",
+        "text": "npm run build -> cd frontend && npm install && npm run build",
+        "kind": "command",
+        "source": "repo_detected",
+        "confidence": "confirmed",
+        "scope": "workspace",
+        "evidence": {
+          "file": "package.json"
+        },
+        "lastVerifiedAt": "2026-08-02T18:24:19.350Z"
       }
     ],
     "businessRules": [],
-    "integrationRules": [],
+    "integrationRules": [
+      {
+        "id": "b51d52158801c6eb",
+        "text": "Vercel deployment config detected. Treat env vars as production unless documented otherwise.",
+        "kind": "constraint",
+        "source": "repo_detected",
+        "confidence": "confirmed",
+        "scope": "workspace",
+        "evidence": {
+          "file": "vercel.json"
+        },
+        "lastVerifiedAt": "2026-08-02T18:24:19.350Z"
+      }
+    ],
     "testingExpectations": [],
     "agentInstructions": [],
     "openQuestions": []
@@ -316,7 +373,7 @@
           "appliesTo": [
             "backend"
           ],
-          "lastVerifiedAt": "2026-08-02T16:39:30.195Z"
+          "lastVerifiedAt": "2026-08-02T18:24:19.349Z"
         },
         {
           "id": "backend:fact:Framework detected: Express.",
@@ -331,7 +388,7 @@
           "appliesTo": [
             "backend"
           ],
-          "lastVerifiedAt": "2026-08-02T16:39:30.195Z"
+          "lastVerifiedAt": "2026-08-02T18:24:19.349Z"
         },
         {
           "id": "backend:command:npm run start -> node server.js",
@@ -346,7 +403,7 @@
           "appliesTo": [
             "backend"
           ],
-          "lastVerifiedAt": "2026-08-02T16:39:30.195Z"
+          "lastVerifiedAt": "2026-08-02T18:24:19.349Z"
         },
         {
           "id": "backend:command:npm run dev -> nodemon server.js",
@@ -361,7 +418,7 @@
           "appliesTo": [
             "backend"
           ],
-          "lastVerifiedAt": "2026-08-02T16:39:30.195Z"
+          "lastVerifiedAt": "2026-08-02T18:24:19.349Z"
         },
         {
           "id": "backend:constraint:Vercel deployment config detected. Treat",
@@ -376,7 +433,7 @@
           "appliesTo": [
             "backend"
           ],
-          "lastVerifiedAt": "2026-08-02T16:39:30.195Z"
+          "lastVerifiedAt": "2026-08-02T18:24:19.349Z"
         }
       ]
     },
@@ -424,7 +481,7 @@
           "appliesTo": [
             "frontend"
           ],
-          "lastVerifiedAt": "2026-08-02T16:39:30.195Z"
+          "lastVerifiedAt": "2026-08-02T18:24:19.350Z"
         },
         {
           "id": "frontend:fact:Framework detected: React.",
@@ -439,7 +496,7 @@
           "appliesTo": [
             "frontend"
           ],
-          "lastVerifiedAt": "2026-08-02T16:39:30.195Z"
+          "lastVerifiedAt": "2026-08-02T18:24:19.350Z"
         },
         {
           "id": "frontend:fact:Framework detected: Vite.",
@@ -454,7 +511,7 @@
           "appliesTo": [
             "frontend"
           ],
-          "lastVerifiedAt": "2026-08-02T16:39:30.195Z"
+          "lastVerifiedAt": "2026-08-02T18:24:19.350Z"
         },
         {
           "id": "frontend:command:npm run start -> vite",
@@ -469,7 +526,7 @@
           "appliesTo": [
             "frontend"
           ],
-          "lastVerifiedAt": "2026-08-02T16:39:30.195Z"
+          "lastVerifiedAt": "2026-08-02T18:24:19.350Z"
         },
         {
           "id": "frontend:command:npm run build -> vite build",
@@ -484,7 +541,7 @@
           "appliesTo": [
             "frontend"
           ],
-          "lastVerifiedAt": "2026-08-02T16:39:30.195Z"
+          "lastVerifiedAt": "2026-08-02T18:24:19.350Z"
         }
       ]
     }
