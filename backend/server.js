@@ -5092,10 +5092,13 @@ app.use((err, req, res, next) => {
 });
 
 // ============================================================
-// ✅ START SERVER
+// ✅ EXPORT FOR VERCEL
 // ============================================================
 module.exports = app;
 
+// ============================================================
+// ✅ LOCAL DEVELOPMENT SERVER
+// ============================================================
 if (require.main === module) {
     const PORT = process.env.PORT || 5000;
     const server = app.listen(PORT, '0.0.0.0', () => {
