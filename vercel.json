@@ -4,6 +4,10 @@
     {
       "src": "paec-backend/server.js",
       "use": "@vercel/node"
+    },
+    {
+      "src": "dist/**",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
@@ -12,20 +16,12 @@
       "dest": "paec-backend/server.js"
     },
     {
-      "src": "/assets/(.*)",
-      "dest": "/assets/$1"
-    },
-    {
-      "src": "/icons/(.*)",
-      "dest": "/icons/$1"
-    },
-    {
-      "src": "/(.*)\\.(js|css|png|jpg|svg|ico|woff2?|ttf|eot|json|map)$",
-      "dest": "/$1.$2"
+      "src": "/(.*)",
+      "dest": "dist/$1"
     },
     {
       "src": "/(.*)",
-      "dest": "/index.html"
+      "dest": "dist/index.html"
     }
   ],
   "env": {
