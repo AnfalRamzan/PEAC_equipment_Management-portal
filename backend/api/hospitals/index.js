@@ -3,9 +3,24 @@ const router = express.Router();
 const { query } = require('../../config/database');
 const { authenticate, authorize } = require('../../middleware/auth');
 
-// Get all hospitals (Super Admin only)
-router.get('/', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
+// Get all hospitals (Super Admin sees all, Hospital Admin sees only own hospital)
+router.get('/', authenticate, async (req, res) => {
     try {
+        if (req.user.role_name !== 'SUPER_ADMIN' && req.user.role_name !== 'HOSPITAL_ADMIN') {
+            return res.status(403).json({
+                success: false,
+                message: 'Insufficient permissions'
+            });
+        }
+
+        const hospitalFilter = req.user.role_name === 'HOSPITAL_ADMIN'
+            ? 'WHERE h.is_active = TRUE AND h.id = ?'
+            : 'WHERE h.is_active = TRUE';
+
+        const params = req.user.role_name === 'HOSPITAL_ADMIN'
+            ? [req.user.hospital_id]
+            : [];
+
         const hospitals = await query(`
             SELECT h.*, 
                    COUNT(DISTINCT u.id) as engineer_count,
@@ -13,10 +28,10 @@ router.get('/', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
             FROM hospitals h
             LEFT JOIN users u ON u.hospital_id = h.id AND u.is_active = TRUE
             LEFT JOIN equipment e ON e.hospital_id = h.id
-            WHERE h.is_active = TRUE
+            ${hospitalFilter}
             GROUP BY h.id
             ORDER BY h.name
-        `);
+        `, params);
         
         res.json({
             success: true,

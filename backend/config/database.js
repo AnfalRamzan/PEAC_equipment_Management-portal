@@ -1,47 +1,47 @@
-const mysql = require('mysql2');
-const dotenv = require('dotenv');
+const mysql = require('mysql2/promise');
 
-dotenv.config();
-
-// Create connection pool
+// ✅ Create connection pool with SSL for Aiven Cloud
 const pool = mysql.createPool({
     host: process.env.DB_HOST || 'localhost',
+    port: parseInt(process.env.DB_PORT) || 3306,
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'hospital_equipment_management',
+    database: process.env.DB_NAME || 'defaultdb',
     waitForConnections: true,
-    connectionLimit: 10,
-    queueLimit: 0
+    connectionLimit: 1,
+    queueLimit: 0,
+    connectTimeout: 30000,
+    ssl: {
+        rejectUnauthorized: false
+    },
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 0
 });
 
-// Promisify pool queries
-const query = (sql, values) => {
-    return new Promise((resolve, reject) => {
-        pool.query(sql, values, (error, results) => {
-            if (error) {
-                reject(error);
-            } else {
-                resolve(results);
-            }
-        });
-    });
+// ✅ Test connection function
+const testConnection = async () => {
+    try {
+        const connection = await pool.getConnection();
+        console.log('✅ Database connected successfully!');
+        connection.release();
+        return true;
+    } catch (error) {
+        console.error('❌ Database connection failed:', error.message);
+        console.error('❌ Error code:', error.code);
+        return false;
+    }
 };
 
-// Get connection from pool
-const getConnection = () => {
-    return new Promise((resolve, reject) => {
-        pool.getConnection((err, connection) => {
-            if (err) {
-                reject(err);
-            } else {
-                resolve(connection);
-            }
-        });
-    });
+// ✅ Query function
+const query = async (sql, params = []) => {
+    try {
+        const [rows] = await pool.execute(sql, params);
+        return rows;
+    } catch (error) {
+        console.error('❌ SQL Error:', error.message);
+        console.error('❌ SQL Query:', sql);
+        throw error;
+    }
 };
 
-module.exports = {
-    pool,
-    query,
-    getConnection
-};
+module.exports = { query, pool, testConnection };

@@ -14,6 +14,9 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Static files for uploads
+app.use('/uploads', express.static('uploads'));
+
 // Import routes
 const authRoutes = require('./auth');
 const hospitalRoutes = require('./hospitals');
@@ -30,8 +33,9 @@ const purchaseOrderRoutes = require('./purchaseOrders');
 const procurementRoutes = require('./procurement');
 const notificationRoutes = require('./notifications');
 const dashboardRoutes = require('./dashboard');
+const searchRoutes = require('./search');  // ✅ ADDED: Search routes import
 
-// Routes - ALL MUST BE DEFINED
+// ✅ ALL ROUTES - MOUNTED
 app.use('/api/auth', authRoutes);
 app.use('/api/hospitals', hospitalRoutes);
 app.use('/api/users', userRoutes);
@@ -47,6 +51,7 @@ app.use('/api/purchase-orders', purchaseOrderRoutes);
 app.use('/api/procurement', procurementRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/search', searchRoutes);  // ✅ ADDED: Search route registration
 
 // Health check
 app.get('/api/health', (req, res) => {

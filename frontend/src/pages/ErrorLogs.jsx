@@ -1,4 +1,6 @@
+// src/pages/ErrorLogs.jsx
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Box,
   Paper,
@@ -24,8 +26,15 @@ import {
   Select,
   FormControl,
   InputLabel,
-  Tab,
-  Tabs
+  Tooltip,
+  Divider,
+  Alert,
+  CircularProgress,
+  Card,
+  CardContent,
+  Avatar,
+  Stack,
+  FormHelperText
 } from '@mui/material'
 import {
   Add,
@@ -33,41 +42,129 @@ import {
   Edit,
   Delete,
   Visibility,
-  FilterList,
   Close,
-  Upload,
-  AttachFile
+  Refresh,
+  AttachFile,
+  Person,
+  Error as ErrorIcon,
+  CheckCircle,
+  Close as CloseIcon,
+  Assignment,
+  PersonAdd,
+  Cancel,
+  PictureAsPdf,
+  Description,
+  TableChart,
+  InsertDriveFile,
+  Build,
+  Warning,
+  Info,
+  Check,
+  Schedule,
+  Business,
+  MedicalServices,
+  Email,
+  Phone,
+  LocationOn,
+  CalendarToday,
+  Pending,
+  Verified,
+  Save
 } from '@mui/icons-material'
-import { errorService, equipmentService } from '../api/services'
+import { errorService, equipmentService, hospitalService, userService } from '../api/services'
 import { toast } from 'react-toastify'
+import { useSelector } from 'react-redux'
+import FileUpload from '../components/FileUpload'
+import api from '../api/axios'
 
 const ErrorLogs = () => {
+  const { user } = useSelector((state) => state.auth)
+  const navigate = useNavigate()
+  
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN'
+  const isHospitalAdmin = user?.role === 'HOSPITAL_ADMIN'
+  const isEngineer = user?.role === 'ENGINEER'
+  
+  // ✅ PERMISSIONS
+  const canReport = isSuperAdmin || isHospitalAdmin || isEngineer
+  const canDelete = isSuperAdmin // ✅ ONLY Super Admin can delete
+  
+  // ✅ Hospital Admin can ONLY VIEW - NO EDIT/DELETE/STATUS CHANGE
+  const canEditError = (error) => {
+    if (isSuperAdmin) return true // Super Admin can edit
+    if (isHospitalAdmin) return false // ❌ Hospital Admin CANNOT edit
+    if (isEngineer) {
+      return error.assigned_to === user?.id // Engineer can edit only assigned to them
+    }
+    return false
+  }
+
+  // ✅ Hospital Admin can ONLY VIEW - NO STATUS CHANGE
+  const canChangeStatus = () => {
+    return isSuperAdmin // ✅ ONLY Super Admin can change status
+  }
+
   const [errors, setErrors] = useState([])
   const [equipment, setEquipment] = useState([])
+  const [hospitals, setHospitals] = useState([])
+  const [departments, setDepartments] = useState([])
+  const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [openDialog, setOpenDialog] = useState(false)
+  const [openViewDialog, setOpenViewDialog] = useState(false)
   const [editingError, setEditingError] = useState(null)
-  const [tabValue, setTabValue] = useState(0)
+  const [viewingError, setViewingError] = useState(null)
+  const [statusUpdateLoading, setStatusUpdateLoading] = useState(false)
+
+  const [tempStatus, setTempStatus] = useState('')
+
+  const [errors_validation, setErrors_validation] = useState({
+    equipment_id: '',
+    error_title: '',
+    severity: '',
+    priority: '',
+    error_date: ''
+  })
+
   const [filters, setFilters] = useState({
     status: '',
-    severity: '',
-    dateRange: ''
+    severity: ''
   })
-  const [formData, setFormData] = useState({
+
+  const [errorFormData, setErrorFormData] = useState({
     equipment_id: '',
     error_code: '',
     error_title: '',
     error_description: '',
     severity: 'Medium',
-    images: '',
-    videos: '',
-    documents: ''
+    priority: 'Medium',
+    status: 'Pending',
+    error_date: new Date().toISOString().slice(0, 16),
+    reported_by: user?.id || 1,
+    hospital_id: user?.hospital_id || '',
+    department_id: '',
+    attachments: '',
+    assigned_to: ''
   })
+
+  const getFullUrl = (url) => {
+    if (!url) return ''
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url
+    }
+    if (url.startsWith('/uploads')) {
+      return `http://localhost:5000${url}`
+    }
+    return url
+  }
 
   useEffect(() => {
     fetchErrors()
     fetchEquipment()
+    fetchHospitals()
+    fetchDepartments()
+    fetchUsers()
   }, [])
 
   const fetchErrors = async () => {
@@ -91,30 +188,145 @@ const ErrorLogs = () => {
     }
   }
 
+  const fetchHospitals = async () => {
+    try {
+      const response = await hospitalService.getAll()
+      setHospitals(response.data.hospitals || [])
+    } catch (error) {
+      console.error('Failed to fetch hospitals:', error)
+    }
+  }
+
+  const fetchDepartments = async () => {
+    try {
+      const hospitalId = user?.hospital_id || errorFormData.hospital_id
+      if (!hospitalId) {
+        setDepartments([])
+        return
+      }
+      const response = await api.get(`/departments/hospital/${hospitalId}`)
+      setDepartments(response.data.departments || [])
+    } catch (error) {
+      console.error('Failed to fetch departments:', error)
+    }
+  }
+
+  const fetchUsers = async () => {
+    try {
+      const response = await userService.getAll()
+      setUsers(response.data.users || [])
+    } catch (error) {
+      console.error('Failed to fetch users:', error)
+    }
+  }
+
+  const validateField = (name, value) => {
+    let error = ''
+    switch (name) {
+      case 'equipment_id':
+        if (!value) error = 'Equipment is required'
+        break
+      case 'error_title':
+        if (!value || value.trim() === '') error = 'Error title is required'
+        break
+      case 'severity':
+        if (!value) error = 'Severity is required'
+        break
+      case 'priority':
+        if (!value) error = 'Priority is required'
+        break
+      case 'error_date':
+        if (!value) error = 'Error date is required'
+        break
+      default:
+        break
+    }
+    return error
+  }
+
+  const handleBlur = (e) => {
+    const { name, value } = e.target
+    const error = validateField(name, value)
+    setErrors_validation(prev => ({ ...prev, [name]: error }))
+  }
+
+  const isFormValid = () => {
+    const equipmentError = validateField('equipment_id', errorFormData.equipment_id)
+    const titleError = validateField('error_title', errorFormData.error_title)
+    const severityError = validateField('severity', errorFormData.severity)
+    const priorityError = validateField('priority', errorFormData.priority)
+    const dateError = validateField('error_date', errorFormData.error_date)
+    
+    setErrors_validation(prev => ({
+      ...prev,
+      equipment_id: equipmentError,
+      error_title: titleError,
+      severity: severityError,
+      priority: priorityError,
+      error_date: dateError
+    }))
+    
+    return !equipmentError && !titleError && !severityError && !priorityError && !dateError
+  }
+
   const handleOpenDialog = (error = null) => {
+    // ✅ Hospital Admin cannot edit
+    if (isHospitalAdmin) {
+      toast.error('Hospital Admin can only view errors. Super Admin can edit.')
+      return
+    }
+    
+    if (isSuperAdmin) {
+      toast.error('Super Admin cannot edit errors. Use the Status Update in View Details.')
+      return
+    }
+    
+    if (error && !canEditError(error)) {
+      toast.error('You do not have permission to edit this error')
+      return
+    }
+    
+    setErrors_validation({
+      equipment_id: '',
+      error_title: '',
+      severity: '',
+      priority: '',
+      error_date: ''
+    })
+    
     if (error) {
       setEditingError(error)
-      setFormData({
-        equipment_id: error.equipment_id,
+      setErrorFormData({
+        equipment_id: error.equipment_id || '',
         error_code: error.error_code || '',
-        error_title: error.error_title,
+        error_title: error.error_title || '',
         error_description: error.error_description || '',
         severity: error.severity || 'Medium',
-        images: error.images || '',
-        videos: error.videos || '',
-        documents: error.documents || ''
+        priority: error.priority || 'Medium',
+        status: error.status || 'Pending',
+        error_date: error.error_date ? error.error_date.slice(0, 16) : new Date().toISOString().slice(0, 16),
+        reported_by: error.reported_by || user?.id || 1,
+        hospital_id: error.hospital_id || user?.hospital_id || '',
+        department_id: error.department_id || '',
+        attachments: error.attachments || '',
+        assigned_to: error.assigned_to || ''
       })
     } else {
       setEditingError(null)
-      setFormData({
+      setErrorFormData({
         equipment_id: '',
         error_code: '',
         error_title: '',
         error_description: '',
         severity: 'Medium',
-        images: '',
-        videos: '',
-        documents: ''
+        priority: 'Medium',
+        status: 'Pending',
+        error_date: new Date().toISOString().slice(0, 16),
+        reported_by: user?.id || 1,
+        hospital_id: user?.hospital_id || '',
+        department_id: '',
+        attachments: '',
+        assigned_to: ''
       })
     }
     setOpenDialog(true)
@@ -123,71 +335,149 @@ const ErrorLogs = () => {
   const handleCloseDialog = () => {
     setOpenDialog(false)
     setEditingError(null)
-  }
-
-  const handleFormChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
+    setErrors_validation({
+      equipment_id: '',
+      error_title: '',
+      severity: '',
+      priority: '',
+      error_date: ''
     })
   }
 
+  const handleViewError = (error) => {
+    setViewingError({
+      ...error,
+      attachments: error.attachments || ''
+    })
+    setTempStatus(error.status || 'Pending')
+    setOpenViewDialog(true)
+  }
+
+  const handleCloseView = () => {
+    setOpenViewDialog(false)
+    setViewingError(null)
+    setTempStatus('')
+  }
+
+  const handleFormChange = (e) => {
+    const { name, value } = e.target
+    setErrorFormData({
+      ...errorFormData,
+      [name]: value
+    })
+    
+    if (errors_validation[name]) {
+      setErrors_validation(prev => ({ ...prev, [name]: '' }))
+    }
+    
+    if (name === 'hospital_id') {
+      fetchDepartments()
+    }
+  }
+
   const handleSubmit = async () => {
+    // ✅ Hospital Admin cannot submit/edit
+    if (isHospitalAdmin) {
+      toast.error('Hospital Admin can only view errors')
+      return
+    }
+
+    if (!isFormValid()) {
+      toast.error('Please fill all required fields')
+      return
+    }
+
     try {
+      const submitData = {
+        equipment_id: parseInt(errorFormData.equipment_id),
+        error_code: errorFormData.error_code || null,
+        error_title: errorFormData.error_title.trim(),
+        error_description: errorFormData.error_description || '',
+        severity: errorFormData.severity || 'Medium',
+        priority: errorFormData.priority || 'Medium',
+        status: errorFormData.status || 'Pending',
+        error_date: errorFormData.error_date || new Date().toISOString().slice(0, 19).replace('T', ' '),
+        assigned_to: errorFormData.assigned_to || null,
+        attachments: errorFormData.attachments || ''
+      }
+
       if (editingError) {
-        await errorService.update(editingError.id, formData)
+        await errorService.update(editingError.id, submitData)
         toast.success('Error updated successfully')
       } else {
-        await errorService.create(formData)
+        await errorService.create(submitData)
         toast.success('Error reported successfully')
       }
+      
       fetchErrors()
       handleCloseDialog()
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Operation failed')
+      console.error('❌ Submit error:', error)
+      toast.error(error.response?.data?.message || error.message || 'Operation failed')
     }
   }
 
-  const handleStatusChange = async (id, status) => {
+  // ✅ ONLY Super Admin can save status
+  const handleSaveStatus = async () => {
+    if (!isSuperAdmin) {
+      toast.error('Only Super Admin can change error status')
+      return
+    }
+
+    if (!viewingError) return
+    if (tempStatus === viewingError.status) {
+      toast.info('No changes to save')
+      return
+    }
+
     try {
-      await errorService.updateStatus(id, status)
-      toast.success('Status updated successfully')
+      setStatusUpdateLoading(true)
+
+      await errorService.update(viewingError.id, { status: tempStatus })
+      
+      const statusMessages = {
+        'Pending': '⏳ Error marked as Pending',
+        'In Progress': '🔄 Error in progress',
+        'Completed': '✅ Error completed',
+        'Resolved': '✅ Error resolved',
+        'Closed': '🔒 Error closed',
+        'Rejected': '❌ Error rejected'
+      }
+      
+      toast.success(statusMessages[tempStatus] || `Status updated to ${tempStatus}`)
+      setStatusUpdateLoading(false)
       fetchErrors()
+      setViewingError({ ...viewingError, status: tempStatus })
+      
     } catch (error) {
-      toast.error('Failed to update status')
+      console.error('Status update error:', error)
+      toast.error(error.response?.data?.message || 'Failed to update status')
+      setStatusUpdateLoading(false)
     }
   }
 
-  const handleDelete = async (id) => {
+  const handleStatusChange = (event) => {
+    setTempStatus(event.target.value)
+  }
+
+  const handleErrorDelete = async (id) => {
+    if (!canDelete) {
+      toast.error('Only Super Admin can delete errors')
+      return
+    }
+    
     if (window.confirm('Are you sure you want to delete this error log?')) {
       try {
         await errorService.delete(id)
         toast.success('Error deleted successfully')
         fetchErrors()
+        if (openViewDialog) {
+          handleCloseView()
+        }
       } catch (error) {
         toast.error('Failed to delete error')
       }
     }
-  }
-
-  const getStatusColor = (status) => {
-    const colors = {
-      'Pending': 'warning',
-      'In Progress': 'info',
-      'Resolved': 'success',
-      'Closed': 'default'
-    }
-    return colors[status] || 'default'
-  }
-
-  const getSeverityColor = (severity) => {
-    const colors = {
-      'Low': 'success',
-      'Medium': 'info',
-      'High': 'warning',
-      'Critical': 'error'
-    }
-    return colors[severity] || 'default'
   }
 
   const filteredErrors = errors.filter(error => {
@@ -199,44 +489,106 @@ const ErrorLogs = () => {
     return matchesSearch && matchesStatus && matchesSeverity
   })
 
+  const totalErrors = errors.length
+  const openErrors = errors.filter(e => e.status === 'Pending' || e.status === 'In Progress').length
+  const completedErrors = errors.filter(e => e.status === 'Completed').length
+  const resolvedErrors = errors.filter(e => e.status === 'Resolved' || e.status === 'Closed').length
+  const criticalErrors = errors.filter(e => e.severity === 'Critical').length
+
   if (loading) {
     return <LinearProgress />
   }
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      {/* Header */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Typography variant="h5" sx={{ fontWeight: 700, color: '#2C3E50' }}>
           Error Logs
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<Add />}
-          onClick={() => handleOpenDialog()}
-          sx={{
-            bgcolor: '#0B5FA5',
-            '&:hover': { bgcolor: '#084a8a' }
-          }}
-        >
-          Report Error
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          <Button
+            variant="outlined"
+            startIcon={<Refresh />}
+            onClick={fetchErrors}
+            size="small"
+          >
+            Refresh
+          </Button>
+          {canReport && !isHospitalAdmin && (
+            <Button
+              variant="contained"
+              startIcon={<Add />}
+              onClick={() => handleOpenDialog()}
+              sx={{ bgcolor: '#0B5FA5', '&:hover': { bgcolor: '#084a8a' } }}
+            >
+              Report Error
+            </Button>
+          )}
+        </Box>
       </Box>
 
+      {/* Stats Cards */}
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={6} sm={3}>
+          <Card sx={{ borderRadius: 2 }}>
+            <CardContent sx={{ textAlign: 'center', py: 2 }}>
+              <Typography variant="h4" color="#0B5FA5" fontWeight={700}>
+                {totalErrors}
+              </Typography>
+              <Typography variant="body2" color="textSecondary">Total Errors</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={6} sm={3}>
+          <Card sx={{ borderRadius: 2, bgcolor: '#fff3e0' }}>
+            <CardContent sx={{ textAlign: 'center', py: 2 }}>
+              <Typography variant="h4" color="#ff9800" fontWeight={700}>
+                {openErrors}
+              </Typography>
+              <Typography variant="body2" color="textSecondary">Open</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={6} sm={3}>
+          <Card sx={{ borderRadius: 2, bgcolor: '#e3f2fd' }}>
+            <CardContent sx={{ textAlign: 'center', py: 2 }}>
+              <Typography variant="h4" color="#0B5FA5" fontWeight={700}>
+                {completedErrors}
+              </Typography>
+              <Typography variant="body2" color="textSecondary">Completed</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={6} sm={3}>
+          <Card sx={{ borderRadius: 2, bgcolor: '#e8f5e9' }}>
+            <CardContent sx={{ textAlign: 'center', py: 2 }}>
+              <Typography variant="h4" color="#28a745" fontWeight={700}>
+                {resolvedErrors}
+              </Typography>
+              <Typography variant="body2" color="textSecondary">Resolved</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      {criticalErrors > 0 && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          <Typography variant="body2">
+            <strong>{criticalErrors}</strong> critical error{criticalErrors > 1 ? 's' : ''} need immediate attention!
+          </Typography>
+        </Alert>
+      )}
+
+      {/* Filters & Search */}
       <Paper sx={{ p: 2, mb: 3, borderRadius: 2 }}>
-        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
           <TextField
             size="small"
             placeholder="Search errors..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             sx={{ flexGrow: 1, minWidth: 200 }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Search />
-                </InputAdornment>
-              )
-            }}
           />
           <FormControl size="small" sx={{ minWidth: 150 }}>
             <InputLabel>Status</InputLabel>
@@ -248,8 +600,10 @@ const ErrorLogs = () => {
               <MenuItem value="">All</MenuItem>
               <MenuItem value="Pending">Pending</MenuItem>
               <MenuItem value="In Progress">In Progress</MenuItem>
+              <MenuItem value="Completed">Completed</MenuItem>
               <MenuItem value="Resolved">Resolved</MenuItem>
               <MenuItem value="Closed">Closed</MenuItem>
+              <MenuItem value="Rejected">Rejected</MenuItem>
             </Select>
           </FormControl>
           <FormControl size="small" sx={{ minWidth: 150 }}>
@@ -266,24 +620,22 @@ const ErrorLogs = () => {
               <MenuItem value="Critical">Critical</MenuItem>
             </Select>
           </FormControl>
-          <Button variant="outlined" startIcon={<FilterList />}>
-            More Filters
-          </Button>
         </Box>
       </Paper>
 
+      {/* Table */}
       <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
         <Table>
           <TableHead sx={{ bgcolor: '#0B5FA5' }}>
             <TableRow>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Error</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Equipment</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Code</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Priority</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Assigned To</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Severity</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Status</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Reported By</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Date</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }} align="center">Actions</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, textAlign: 'center' }}>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -302,39 +654,70 @@ const ErrorLogs = () => {
                     <Typography variant="body2" fontWeight={500}>
                       {error.error_title}
                     </Typography>
-                  </TableCell>
-                  <TableCell>{error.equipment_name}</TableCell>
-                  <TableCell>
-                    <Chip label={error.error_code || 'N/A'} size="small" variant="outlined" />
-                  </TableCell>
-                  <TableCell>
-                    <Chip 
-                      label={error.severity} 
-                      color={getSeverityColor(error.severity)}
-                      size="small"
-                    />
+                    <Typography variant="caption" color="textSecondary">
+                      {error.error_code || 'No code'}
+                    </Typography>
                   </TableCell>
                   <TableCell>
-                    <Chip 
-                      label={error.status} 
-                      color={getStatusColor(error.status)}
-                      size="small"
-                    />
+                    <Typography variant="body2">
+                      {error.equipment_name}
+                    </Typography>
                   </TableCell>
-                  <TableCell>{error.reported_by_name}</TableCell>
                   <TableCell>
-                    {new Date(error.created_at).toLocaleDateString()}
+                    <Typography variant="body2">
+                      {error.priority || 'Medium'}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    {error.assigned_to_name ? (
+                      <Typography variant="body2" fontWeight={500} sx={{ color: '#0B5FA5' }}>
+                        {error.assigned_to_name}
+                      </Typography>
+                    ) : (
+                      <Typography variant="body2" color="textSecondary">Unassigned</Typography>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2">
+                      {error.severity || 'Medium'}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2" fontWeight={500}>
+                      {error.status}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2">
+                      {new Date(error.created_at).toLocaleDateString()}
+                    </Typography>
                   </TableCell>
                   <TableCell align="center">
-                    <IconButton size="small" color="primary">
-                      <Visibility />
-                    </IconButton>
-                    <IconButton size="small" color="info" onClick={() => handleOpenDialog(error)}>
-                      <Edit />
-                    </IconButton>
-                    <IconButton size="small" color="error" onClick={() => handleDelete(error.id)}>
-                      <Delete />
-                    </IconButton>
+                    <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+                      <Tooltip title="View Details">
+                        <IconButton size="small" color="primary" onClick={() => handleViewError(error)}>
+                          <Visibility fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      
+                      {/* ✅ ONLY Engineer can edit (if assigned to them) */}
+                      {canEditError(error) && !isSuperAdmin && !isHospitalAdmin && (
+                        <Tooltip title="Edit Error">
+                          <IconButton size="small" color="info" onClick={() => handleOpenDialog(error)}>
+                            <Edit fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      
+                      {/* ✅ ONLY Super Admin can delete */}
+                      {canDelete && (
+                        <Tooltip title="Delete Error">
+                          <IconButton size="small" color="error" onClick={() => handleErrorDelete(error.id)}>
+                            <Delete fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                    </Box>
                   </TableCell>
                 </TableRow>
               ))
@@ -343,121 +726,562 @@ const ErrorLogs = () => {
         </Table>
       </TableContainer>
 
-      {/* Report Error Dialog */}
+      {/* ADD/EDIT ERROR DIALOG - Only for Engineers and Super Admin */}
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
-        <DialogTitle>
-          {editingError ? 'Edit Error' : 'Report New Error'}
-          <IconButton
-            onClick={handleCloseDialog}
-            sx={{ position: 'absolute', right: 8, top: 8 }}
-          >
-            <Close />
-          </IconButton>
+        <DialogTitle sx={{ bgcolor: '#0B5FA5', color: 'white' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="h6" fontWeight={600}>
+              {editingError ? 'Edit Error' : 'Report New Error'}
+            </Typography>
+            <IconButton onClick={handleCloseDialog} sx={{ color: 'white' }}>
+              <Close />
+            </IconButton>
+          </Box>
         </DialogTitle>
-        <DialogContent>
+        <DialogContent dividers>
           <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12}>
-              <FormControl fullWidth required>
-                <InputLabel>Equipment</InputLabel>
+            {/* Hospital - Optional */}
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>Hospital</InputLabel>
                 <Select
-                  name="equipment_id"
-                  value={formData.equipment_id}
+                  name="hospital_id"
+                  value={errorFormData.hospital_id}
                   onChange={handleFormChange}
-                  label="Equipment"
+                  label="Hospital"
+                  disabled={isHospitalAdmin || isSuperAdmin}
                 >
-                  <MenuItem value="">Select Equipment</MenuItem>
-                  {equipment.map(item => (
-                    <MenuItem key={item.id} value={item.id}>
-                      {item.name} - {item.model}
-                    </MenuItem>
+                  <MenuItem value="">Select Hospital (Optional)</MenuItem>
+                  {hospitals.map(h => (
+                    <MenuItem key={h.id} value={h.id}>{h.name}</MenuItem>
                   ))}
                 </Select>
               </FormControl>
             </Grid>
+
+            {/* Department - Optional */}
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth>
+                <InputLabel>Department</InputLabel>
+                <Select
+                  name="department_id"
+                  value={errorFormData.department_id}
+                  onChange={handleFormChange}
+                  label="Department"
+                >
+                  <MenuItem value="">Select Department (Optional)</MenuItem>
+                  {departments.map(d => (
+                    <MenuItem key={d.id} value={d.id}>{d.name}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+
+            {/* Equipment - REQUIRED */}
+            <Grid item xs={12}>
+              <FormControl fullWidth required error={!!errors_validation.equipment_id}>
+                <InputLabel>Equipment *</InputLabel>
+                <Select
+                  name="equipment_id"
+                  value={errorFormData.equipment_id}
+                  onChange={handleFormChange}
+                  onBlur={handleBlur}
+                  label="Equipment *"
+                >
+                  <MenuItem value="">Select Equipment</MenuItem>
+                  {equipment.map(item => (
+                    <MenuItem key={item.id} value={item.id}>
+                      {item.name} - {item.model} ({item.hospital_name || 'No Hospital'})
+                    </MenuItem>
+                  ))}
+                </Select>
+                {errors_validation.equipment_id && (
+                  <FormHelperText error>{errors_validation.equipment_id}</FormHelperText>
+                )}
+              </FormControl>
+            </Grid>
+
+            {/* Error Code - Optional */}
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                label="Error Code"
+                label="Error Code (Optional)"
                 name="error_code"
-                value={formData.error_code}
+                value={errorFormData.error_code}
                 onChange={handleFormChange}
+                placeholder="e.g., ERR-001"
               />
             </Grid>
+
+            {/* Severity - REQUIRED */}
             <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel>Severity</InputLabel>
+              <FormControl fullWidth required error={!!errors_validation.severity}>
+                <InputLabel>Severity *</InputLabel>
                 <Select
                   name="severity"
-                  value={formData.severity}
+                  value={errorFormData.severity}
                   onChange={handleFormChange}
-                  label="Severity"
+                  onBlur={handleBlur}
+                  label="Severity *"
                 >
                   <MenuItem value="Low">Low</MenuItem>
                   <MenuItem value="Medium">Medium</MenuItem>
                   <MenuItem value="High">High</MenuItem>
                   <MenuItem value="Critical">Critical</MenuItem>
                 </Select>
+                {errors_validation.severity && (
+                  <FormHelperText error>{errors_validation.severity}</FormHelperText>
+                )}
               </FormControl>
             </Grid>
+
+            {/* Priority - REQUIRED */}
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth required error={!!errors_validation.priority}>
+                <InputLabel>Priority *</InputLabel>
+                <Select
+                  name="priority"
+                  value={errorFormData.priority}
+                  onChange={handleFormChange}
+                  onBlur={handleBlur}
+                  label="Priority *"
+                >
+                  <MenuItem value="Low">Low</MenuItem>
+                  <MenuItem value="Medium">Medium</MenuItem>
+                  <MenuItem value="High">High</MenuItem>
+                  <MenuItem value="Critical">Critical</MenuItem>
+                </Select>
+                {errors_validation.priority && (
+                  <FormHelperText error>{errors_validation.priority}</FormHelperText>
+                )}
+              </FormControl>
+            </Grid>
+
+            {/* Status - Optional */}
+            <Grid item xs={12} md={6}>
+              {isSuperAdmin ? (
+                <FormControl fullWidth>
+                  <InputLabel>Status</InputLabel>
+                  <Select
+                    name="status"
+                    value={errorFormData.status}
+                    onChange={handleFormChange}
+                    label="Status"
+                  >
+                    <MenuItem value="Pending">Pending</MenuItem>
+                    <MenuItem value="In Progress">In Progress</MenuItem>
+                    <MenuItem value="Completed">Completed</MenuItem>
+                    <MenuItem value="Resolved">Resolved</MenuItem>
+                    <MenuItem value="Closed">Closed</MenuItem>
+                    <MenuItem value="Rejected">Rejected</MenuItem>
+                  </Select>
+                </FormControl>
+              ) : (
+                <TextField
+                  fullWidth
+                  label="Status"
+                  value={errorFormData.status || 'Pending'}
+                  disabled
+                />
+              )}
+            </Grid>
+
+            {/* Error Title - REQUIRED */}
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Error Title"
-                name="error_title"
-                value={formData.error_title}
-                onChange={handleFormChange}
                 required
+                label="Error Title *"
+                name="error_title"
+                value={errorFormData.error_title}
+                onChange={handleFormChange}
+                onBlur={handleBlur}
+                placeholder="Brief error title"
+                error={!!errors_validation.error_title}
+                helperText={errors_validation.error_title}
               />
             </Grid>
+
+            {/* Error Description - Optional */}
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Error Description"
+                label="Error Description (Optional)"
                 name="error_description"
-                value={formData.error_description}
+                value={errorFormData.error_description}
                 onChange={handleFormChange}
                 multiline
-                rows={4}
+                rows={3}
+                placeholder="Detailed description of the error"
               />
             </Grid>
-            <Grid item xs={12}>
-              <Button
-                variant="outlined"
-                component="label"
-                startIcon={<Upload />}
+
+            {/* Error Date - REQUIRED */}
+            <Grid item xs={12} md={6}>
+              <TextField
                 fullWidth
-                sx={{ py: 2 }}
-              >
-                Upload Images
-                <input type="file" hidden multiple accept="image/*" />
-              </Button>
+                required
+                label="Error Date *"
+                name="error_date"
+                type="datetime-local"
+                value={errorFormData.error_date}
+                onChange={handleFormChange}
+                onBlur={handleBlur}
+                InputLabelProps={{ shrink: true }}
+                error={!!errors_validation.error_date}
+                helperText={errors_validation.error_date}
+              />
             </Grid>
+
+            {/* Attachments - Optional */}
             <Grid item xs={12}>
-              <Button
-                variant="outlined"
-                component="label"
-                startIcon={<AttachFile />}
-                fullWidth
-                sx={{ py: 2 }}
-              >
-                Attach Documents
-                <input type="file" hidden multiple />
-              </Button>
+              <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                Attachments (Optional)
+              </Typography>
+              <FileUpload
+                endpoint="/api/upload"
+                accept="image/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx"
+                multiple={true}
+                label="Click to upload images, videos, or documents"
+                maxFiles={5}
+                maxSize={50}
+                showPreview={true}
+                onUploadComplete={(files) => {
+                  const urls = files.map(f => f.url || f.fileUrl).filter(Boolean)
+                  const currentFiles = errorFormData.attachments ? errorFormData.attachments.split(',') : []
+                  const updatedFiles = [...currentFiles, ...urls]
+                  setErrorFormData(prev => ({ 
+                    ...prev, 
+                    attachments: updatedFiles.join(',') 
+                  }))
+                  toast.success(`${files.length} file(s) uploaded successfully`)
+                }}
+                onUploadError={(error) => toast.error('Upload failed: ' + error)}
+                onDelete={(file) => {
+                  const currentFiles = errorFormData.attachments?.split(',') || []
+                  const updatedFiles = currentFiles.filter(f => f !== file.url)
+                  setErrorFormData(prev => ({ 
+                    ...prev, 
+                    attachments: updatedFiles.join(',') 
+                  }))
+                  toast.info('File removed')
+                }}
+                existingFiles={errorFormData.attachments ? errorFormData.attachments.split(',').filter(Boolean).map(url => ({
+                  url: url,
+                  name: url.split('/').pop(),
+                  type: url.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i) ? 'image' :
+                        url.match(/\.(mp4|webm|ogg|mov)$/i) ? 'video' : 'document'
+                })) : []}
+              />
             </Grid>
           </Grid>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
           <Button onClick={handleCloseDialog}>Cancel</Button>
-          <Button
-            variant="contained"
-            onClick={handleSubmit}
-            sx={{
-              bgcolor: '#0B5FA5',
-              '&:hover': { bgcolor: '#084a8a' }
-            }}
+          <Button 
+            variant="contained" 
+            onClick={handleSubmit} 
+            sx={{ bgcolor: '#0B5FA5', '&:hover': { bgcolor: '#084a8a' } }}
           >
             {editingError ? 'Update' : 'Report Error'}
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* VIEW ERROR DIALOG */}
+      <Dialog 
+        open={openViewDialog} 
+        onClose={handleCloseView} 
+        maxWidth="md" 
+        fullWidth
+        PaperProps={{
+          sx: { borderRadius: 3 }
+        }}
+      >
+        <DialogTitle sx={{ 
+          bgcolor: '#0B5FA5', 
+          color: 'white',
+          pb: 1
+        }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <Box>
+              <Typography variant="h6" fontWeight={600}>
+                Error Details
+              </Typography>
+              <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                ID: {viewingError?.id} • {new Date(viewingError?.created_at).toLocaleString()}
+              </Typography>
+            </Box>
+            <IconButton onClick={handleCloseView} sx={{ color: 'white', mt: -1 }}>
+              <Close />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        
+        <DialogContent dividers sx={{ pt: 3 }}>
+          {viewingError && (
+            <Box>
+              <Card sx={{ mb: 3, bgcolor: '#f8f9fa', borderRadius: 2 }}>
+                <CardContent>
+                  <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
+                    <Box flex={1}>
+                      <Typography variant="h6" fontWeight={700}>
+                        {viewingError.error_title}
+                      </Typography>
+                      <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 0.5 }}>
+                        <Typography variant="body2" fontWeight={500}>
+                          Status: {viewingError.status}
+                        </Typography>
+                        <Typography variant="body2" color="textSecondary">|</Typography>
+                        <Typography variant="body2">
+                          Severity: {viewingError.severity || 'Medium'}
+                        </Typography>
+                        <Typography variant="body2" color="textSecondary">|</Typography>
+                        <Typography variant="body2">
+                          Priority: {viewingError.priority || 'Medium'}
+                        </Typography>
+                        {viewingError.error_code && (
+                          <>
+                            <Typography variant="body2" color="textSecondary">|</Typography>
+                            <Typography variant="body2" color="textSecondary">
+                              Code: {viewingError.error_code}
+                            </Typography>
+                          </>
+                        )}
+                      </Stack>
+                    </Box>
+                  </Stack>
+                </CardContent>
+              </Card>
+
+              <Grid container spacing={2} sx={{ mb: 3 }}>
+                <Grid item xs={12} sm={6}>
+                  <Paper sx={{ p: 2, bgcolor: '#f8f9fa', borderRadius: 2 }}>
+                    <Typography variant="caption" color="textSecondary">Equipment</Typography>
+                    <Typography variant="body2" fontWeight={600}>{viewingError.equipment_name || 'N/A'}</Typography>
+                  </Paper>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Paper sx={{ p: 2, bgcolor: '#f8f9fa', borderRadius: 2 }}>
+                    <Typography variant="caption" color="textSecondary">Hospital</Typography>
+                    <Typography variant="body2" fontWeight={600}>{viewingError.hospital_name || 'N/A'}</Typography>
+                  </Paper>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Paper sx={{ p: 2, bgcolor: '#f8f9fa', borderRadius: 2 }}>
+                    <Typography variant="caption" color="textSecondary">Reported By</Typography>
+                    <Typography variant="body2" fontWeight={600}>{viewingError.reported_by_name || 'Unknown'}</Typography>
+                  </Paper>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Paper sx={{ p: 2, bgcolor: '#f8f9fa', borderRadius: 2 }}>
+                    <Typography variant="caption" color="textSecondary">Assigned To</Typography>
+                    <Typography variant="body2" fontWeight={600} sx={{ color: viewingError.assigned_to_name ? '#28a745' : '#6c757d' }}>
+                      {viewingError.assigned_to_name || 'Unassigned'}
+                    </Typography>
+                  </Paper>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Paper sx={{ p: 2, bgcolor: '#f8f9fa', borderRadius: 2 }}>
+                    <Typography variant="caption" color="textSecondary">Error Date</Typography>
+                    <Typography variant="body2" fontWeight={600}>
+                      {viewingError.error_date ? new Date(viewingError.error_date).toLocaleString() : 'N/A'}
+                    </Typography>
+                  </Paper>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Paper sx={{ p: 2, bgcolor: '#f8f9fa', borderRadius: 2 }}>
+                    <Typography variant="caption" color="textSecondary">Department</Typography>
+                    <Typography variant="body2" fontWeight={600}>{viewingError.department_name || 'N/A'}</Typography>
+                  </Paper>
+                </Grid>
+              </Grid>
+
+              <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1, color: '#0B5FA5' }}>
+                Error Description
+              </Typography>
+              <Paper sx={{ p: 2, bgcolor: '#f5f5f5', borderRadius: 2, mb: 3 }}>
+                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                  {viewingError.error_description || 'No description provided'}
+                </Typography>
+              </Paper>
+
+              {viewingError.attachments && viewingError.attachments.split(',').filter(Boolean).length > 0 && (
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1, color: '#0B5FA5' }}>
+                    Attachments ({viewingError.attachments.split(',').filter(Boolean).length})
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
+                    {viewingError.attachments.split(',').filter(Boolean).map((url, index) => {
+                      const isImage = url.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i)
+                      const isVideo = url.match(/\.(mp4|webm|ogg|mov|avi)$/i)
+                      const isPDF = url.match(/\.(pdf)$/i)
+                      const isWord = url.match(/\.(doc|docx)$/i)
+                      const isExcel = url.match(/\.(xls|xlsx)$/i)
+                      
+                      const fullUrl = getFullUrl(url)
+                      
+                      return (
+                        <Box 
+                          key={index} 
+                          sx={{ 
+                            position: 'relative',
+                            width: isImage ? 150 : 120,
+                            height: isImage ? 150 : 120,
+                            borderRadius: 2,
+                            overflow: 'hidden',
+                            border: '1px solid #e9ecef',
+                            bgcolor: '#f8f9fa',
+                            cursor: 'pointer',
+                            transition: 'transform 0.2s',
+                            '&:hover': {
+                              transform: 'scale(1.05)',
+                              boxShadow: 4
+                            }
+                          }}
+                          onClick={() => window.open(fullUrl, '_blank')}
+                        >
+                          {isImage ? (
+                            <Box
+                              component="img"
+                              src={fullUrl}
+                              alt={`Attachment ${index + 1}`}
+                              sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                              onError={(e) => {
+                                e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="150" height="150" viewBox="0 0 24 24" fill="%23ccc"%3E%3Crect width="24" height="24" fill="%23f0f0f0"/%3E%3Ctext x="12" y="12" text-anchor="middle" dy=".3em" font-size="10" fill="%23999"%3ENo Image%3C/text%3E%3C/svg%3E'
+                              }}
+                            />
+                          ) : isVideo ? (
+                            <video style={{ width: '100%', height: '100%', objectFit: 'cover' }} onClick={(e) => e.stopPropagation()}>
+                              <source src={fullUrl} />
+                            </video>
+                          ) : isPDF ? (
+                            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', p: 1 }}>
+                              <Typography variant="caption" align="center" noWrap>{url.split('/').pop()}</Typography>
+                              <Typography variant="caption" color="textSecondary">PDF</Typography>
+                            </Box>
+                          ) : isWord ? (
+                            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', p: 1 }}>
+                              <Typography variant="caption" align="center" noWrap>{url.split('/').pop()}</Typography>
+                              <Typography variant="caption" color="textSecondary">Word</Typography>
+                            </Box>
+                          ) : isExcel ? (
+                            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', p: 1 }}>
+                              <Typography variant="caption" align="center" noWrap>{url.split('/').pop()}</Typography>
+                              <Typography variant="caption" color="textSecondary">Excel</Typography>
+                            </Box>
+                          ) : (
+                            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', p: 1 }}>
+                              <Typography variant="caption" align="center" noWrap>{url.split('/').pop()}</Typography>
+                              <Typography variant="caption" color="textSecondary">File</Typography>
+                            </Box>
+                          )}
+                          <Box sx={{ 
+                            position: 'absolute', 
+                            bottom: 0, 
+                            left: 0, 
+                            right: 0, 
+                            bgcolor: 'rgba(0,0,0,0.6)',
+                            color: 'white',
+                            p: 0.5,
+                            textAlign: 'center'
+                          }}>
+                            <Typography variant="caption" sx={{ fontSize: '9px', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {url.split('/').pop().substring(0, 20)}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      )
+                    })}
+                  </Box>
+                </Box>
+              )}
+
+              {/* ✅ STATUS UPDATE - ONLY for Super Admin */}
+              {isSuperAdmin && (
+                <Box sx={{ mt: 3 }}>
+                  <Divider sx={{ mb: 2 }} />
+                  <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2, color: '#0B5FA5' }}>
+                    Update Status
+                  </Typography>
+                  
+                  <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <FormControl size="small" sx={{ minWidth: 200 }}>
+                      <InputLabel>Select Status</InputLabel>
+                      <Select
+                        value={tempStatus}
+                        onChange={handleStatusChange}
+                        label="Select Status"
+                        disabled={statusUpdateLoading}
+                      >
+                        <MenuItem value="Pending">⏳ Pending</MenuItem>
+                        <MenuItem value="In Progress">🔄 In Progress</MenuItem>
+                        <MenuItem value="Completed">✅ Completed</MenuItem>
+                        <MenuItem value="Resolved">✅ Resolved</MenuItem>
+                        <MenuItem value="Closed">🔒 Closed</MenuItem>
+                        <MenuItem value="Rejected">❌ Rejected</MenuItem>
+                      </Select>
+                    </FormControl>
+
+                    <Button
+                      variant="contained"
+                      startIcon={statusUpdateLoading ? <CircularProgress size={20} color="inherit" /> : <Save />}
+                      onClick={handleSaveStatus}
+                      disabled={statusUpdateLoading || tempStatus === viewingError.status}
+                      sx={{ 
+                        bgcolor: statusUpdateLoading ? '#6c757d' : '#28a745',
+                        '&:hover': { bgcolor: statusUpdateLoading ? '#6c757d' : '#1e7e34' },
+                        minWidth: 120
+                      }}
+                    >
+                      {statusUpdateLoading ? 'Saving...' : 'Save Status'}
+                    </Button>
+
+                    {tempStatus !== viewingError.status && !statusUpdateLoading && (
+                      <Typography variant="caption" color="warning.main">
+                        ⚠️ Status changed, click Save to apply
+                      </Typography>
+                    )}
+                  </Box>
+
+                  {viewingError.assigned_to_name && (
+                    <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mt: 1 }}>
+                      👤 Assigned to: <strong>{viewingError.assigned_to_name}</strong>
+                    </Typography>
+                  )}
+                </Box>
+              )}
+
+              {/* ✅ HOSPITAL ADMIN - View Only Message */}
+              {isHospitalAdmin && (
+                <Alert severity="info" sx={{ mt: 3 }}>
+                  <Typography variant="body2">
+                    <strong>👀 View Only Mode:</strong> You can view all error details. 
+                    Status updates are managed by Super Admin only.
+                  </Typography>
+                </Alert>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        
+        <DialogActions sx={{ p: 3, justifyContent: 'space-between' }}>
+          <Button onClick={handleCloseView}>Close</Button>
+          {isSuperAdmin && viewingError && (
+            <Button
+              variant="contained"
+              color="error"
+              onClick={() => {
+                if (window.confirm('Are you sure you want to delete this error?')) {
+                  handleErrorDelete(viewingError.id)
+                  handleCloseView()
+                }
+              }}
+              startIcon={<Delete />}
+            >
+              Delete
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
     </Box>
