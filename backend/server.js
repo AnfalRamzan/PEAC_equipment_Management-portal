@@ -15,16 +15,70 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-key-2024';
 testConnection();
 
 // ============================================================
-// ✅ MIDDLEWARE
+// ✅ MIDDLEWARE - CORS FIXED FOR VERCEL
 // ============================================================
 app.use(cors({ 
-    origin: '*', 
+    origin: function (origin, callback) {
+        // Allow all origins for Vercel deployment
+        if (!origin) {
+            return callback(null, true);
+        }
+        
+        // Allow all Vercel domains and localhost
+        if (origin.includes('vercel.app') || 
+            origin.includes('localhost') || 
+            origin.includes('127.0.0.1')) {
+            return callback(null, true);
+        }
+        
+        // Allow all origins (for development)
+        // In production, you can restrict to specific domains
+        callback(null, true);
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+    exposedHeaders: ['Content-Range', 'X-Content-Range']
 }));
+
+// ✅ Handle preflight requests
+app.options('*', cors());
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// ============================================================
+// ✅ ROOT ROUTE - REQUIRED FOR VERCEL
+// ============================================================
+app.get('/', (req, res) => {
+    res.json({
+        success: true,
+        message: '🏥 Hospital Equipment Management System API',
+        version: '1.0.0',
+        endpoints: {
+            health: '/api/health',
+            auth: '/api/auth/login',
+            users: '/api/users',
+            equipment: '/api/equipment',
+            errors: '/api/errors',
+            repairs: '/api/repairs',
+            maintenance: '/api/maintenance',
+            knowledge: '/api/knowledge-base',
+            procurement: '/api/procurement',
+            purchaseOrders: '/api/purchase-orders',
+            amc: '/api/amc',
+            departments: '/api/departments',
+            hospitals: '/api/hospitals',
+            notifications: '/api/notifications',
+            upload: '/api/upload',
+            search: '/api/search',
+            websocket: '/api/websocket/status',
+            serviceDocumentation: '/api/service-documentation'
+        },
+        docs: 'https://github.com/your-repo',
+        timestamp: new Date().toISOString()
+    });
+});
 
 // ============================================================
 // ✅ CREATE UPLOAD DIRECTORIES (Vercel Compatible)

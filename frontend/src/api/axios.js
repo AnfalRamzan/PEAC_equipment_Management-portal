@@ -2,7 +2,7 @@ import axios from 'axios'
 import { store } from '../redux/store'        // ✅ ADDED: Redux store import
 import { logout } from '../redux/slices/authSlice'  // ✅ ADDED: logout action import
 
-const API_URL = '/api'
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 const api = axios.create({
   baseURL: API_URL,
