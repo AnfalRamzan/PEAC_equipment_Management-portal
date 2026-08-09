@@ -1,24 +1,30 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "server.js",
-      "use": "@vercel/node"
+    "version": 2,
+    "builds": [
+        {
+            "src": "server.js",
+            "use": "@vercel/node"
+        }
+    ],
+    "routes": [
+        {
+            "src": "/api/(.*)",
+            "dest": "server.js"
+        },
+        {
+            "src": "/(.*)",
+            "dest": "server.js"
+        }
+    ],
+    "env": {
+        "NODE_ENV": "production",
+        "DB_HOST": "mysql-24c4e904-anfalramzan548-cc66.j.aivencloud.com",
+        "DB_PORT": "28080",
+        "DB_USER": "avnadmin",
+        "DB_PASSWORD": "AVNS_H6sUyjUqjeTtlMLKjU3",
+        "DB_NAME": "defaultdb",
+        "DB_SSL": "true",
+        "JWT_SECRET": "your-super-secret-key-2024",
+        "MAX_FILE_SIZE": "52428800"
     }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "server.js"
-    }
-  ],
-  "env": {
-    "JWT_SECRET": "your-super-secret-key-2024",
-    "DB_HOST": "mysql-24c4e904-anfalramzan548-cc66.j.aivencloud.com",
-    "DB_PORT": "28080",
-    "DB_USER": "avnadmin",
-    "DB_PASSWORD": "AVNS_H6sUyjUqjeTtlMLKjU3",
-    "DB_NAME": "defaultdb",
-    "NODE_ENV": "production"
-  }
 }

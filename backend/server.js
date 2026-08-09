@@ -32,7 +32,6 @@ app.use(cors({
         }
         
         // Allow all origins (for development)
-        // In production, you can restrict to specific domains
         callback(null, true);
     },
     credentials: true,
@@ -2314,6 +2313,7 @@ app.put('/api/errors/:id', authenticate, async (req, res) => {
         }
 
         if (isHospitalAdmin) {
+            // Hospital Admin can update all errors in their hospital
         } else if (isEngineer) {
             if (errorData.assigned_to !== req.user.id && errorData.reported_by !== req.user.id) {
                 return res.status(403).json({ 

@@ -3,7 +3,7 @@
   "workspaceId": "271b161f8b07d86d",
   "workspaceName": "hospital-equipment-management",
   "enabled": true,
-  "updatedAt": "2026-08-09T14:13:30.368Z",
+  "updatedAt": "2026-08-09T20:42:44.592Z",
   "detectedStack": {
     "languages": [
       "JavaScript/TypeScript"
@@ -17,13 +17,16 @@
     "paymentLibraries": [],
     "testTools": [],
     "scripts": {
-      "build": "cd frontend && npm install && npm run build && node ../copy-dist.js",
-      "vercel-build": "cd frontend && npm install && npm run build && node ../copy-dist.js"
+      "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+      "dev:backend": "cd backend && npm run dev",
+      "dev:frontend": "cd frontend && npm run dev",
+      "build": "cd frontend && npm run build",
+      "start": "cd backend && npm start",
+      "vercel-build": "cd frontend && npm install && npm run build"
     },
     "importantDirs": [],
     "sensitiveFiles": [
       ".env.local",
-      "backend/.env",
       "backend/.env.local",
       "backend/api/auth/index.js",
       "backend/api/dashboard.js",
@@ -85,7 +88,19 @@
         "evidence": {
           "file": "package.json"
         },
-        "lastVerifiedAt": "2026-08-09T14:13:30.367Z"
+        "lastVerifiedAt": "2026-08-09T20:24:34.223Z"
+      },
+      {
+        "id": "ce783a2c72664eaf",
+        "text": "Project name: paec-ems",
+        "kind": "fact",
+        "source": "repo_detected",
+        "confidence": "confirmed",
+        "scope": "workspace",
+        "evidence": {
+          "file": "package.json"
+        },
+        "lastVerifiedAt": "2026-08-09T20:42:44.590Z"
       }
     ],
     "packageManager": [],
@@ -102,7 +117,7 @@
         "evidence": {
           "file": "backend/.env"
         },
-        "lastVerifiedAt": "2026-08-09T14:13:30.368Z"
+        "lastVerifiedAt": "2026-08-09T20:02:10.110Z"
       },
       {
         "id": "0a5f7f28e818bc4d",
@@ -114,7 +129,7 @@
         "evidence": {
           "file": "database/schema.sql"
         },
-        "lastVerifiedAt": "2026-08-09T14:13:30.368Z"
+        "lastVerifiedAt": "2026-08-09T20:42:44.591Z"
       },
       {
         "id": "2725c4ff8848d479",
@@ -126,7 +141,7 @@
         "evidence": {
           "file": "backend/api/auth/index.js"
         },
-        "lastVerifiedAt": "2026-08-09T14:13:30.368Z"
+        "lastVerifiedAt": "2026-08-09T20:42:44.591Z"
       },
       {
         "id": "2b39acd5c7f07e73",
@@ -138,7 +153,7 @@
         "evidence": {
           "file": "backend/middleware/auth.js"
         },
-        "lastVerifiedAt": "2026-08-09T14:13:30.368Z"
+        "lastVerifiedAt": "2026-08-09T20:42:44.591Z"
       },
       {
         "id": "0052aa723a258a97",
@@ -150,7 +165,7 @@
         "evidence": {
           "file": "frontend/src/components/Auth/ProtectedRoute.jsx"
         },
-        "lastVerifiedAt": "2026-08-09T14:13:30.368Z"
+        "lastVerifiedAt": "2026-08-09T20:42:44.592Z"
       },
       {
         "id": "25ebd5098feec796",
@@ -162,7 +177,7 @@
         "evidence": {
           "file": "frontend/src/pages/Dashboard.jsx"
         },
-        "lastVerifiedAt": "2026-08-09T14:13:30.368Z"
+        "lastVerifiedAt": "2026-08-09T20:42:44.592Z"
       },
       {
         "id": "4a123d1ff2c02781",
@@ -174,7 +189,7 @@
         "evidence": {
           "file": "frontend/src/pages/Login.jsx"
         },
-        "lastVerifiedAt": "2026-08-09T14:13:30.368Z"
+        "lastVerifiedAt": "2026-08-09T20:42:44.592Z"
       },
       {
         "id": "3173b98a5e55b647",
@@ -186,7 +201,7 @@
         "evidence": {
           "file": "backend/api/dashboard.js"
         },
-        "lastVerifiedAt": "2026-08-09T14:13:30.368Z"
+        "lastVerifiedAt": "2026-08-09T20:42:44.591Z"
       },
       {
         "id": "14526d9b3c84ad6b",
@@ -198,7 +213,7 @@
         "evidence": {
           "file": ".env.local"
         },
-        "lastVerifiedAt": "2026-08-09T14:13:30.368Z"
+        "lastVerifiedAt": "2026-08-09T20:42:44.591Z"
       },
       {
         "id": "67066f80404035bc",
@@ -210,7 +225,7 @@
         "evidence": {
           "file": "frontend/src/components/Auth/AccessDenied.jsx"
         },
-        "lastVerifiedAt": "2026-08-09T14:13:30.368Z"
+        "lastVerifiedAt": "2026-08-09T20:42:44.592Z"
       },
       {
         "id": "e01ce12f5df3d5d5",
@@ -234,7 +249,7 @@
         "evidence": {
           "file": "backend/.env.local"
         },
-        "lastVerifiedAt": "2026-08-09T14:13:30.368Z"
+        "lastVerifiedAt": "2026-08-09T20:42:44.591Z"
       },
       {
         "id": "ccadf6ff989b258b",
@@ -246,7 +261,7 @@
         "evidence": {
           "file": "frontend/.env"
         },
-        "lastVerifiedAt": "2026-08-09T14:13:30.368Z"
+        "lastVerifiedAt": "2026-08-09T20:42:44.592Z"
       },
       {
         "id": "04076cd0a492722e",
@@ -258,7 +273,7 @@
         "evidence": {
           "file": "frontend/.env.production"
         },
-        "lastVerifiedAt": "2026-08-09T14:13:30.368Z"
+        "lastVerifiedAt": "2026-08-09T20:42:44.592Z"
       }
     ],
     "forbiddenActions": [
@@ -269,7 +284,7 @@
         "source": "repo_detected",
         "confidence": "confirmed",
         "scope": "workspace",
-        "lastVerifiedAt": "2026-08-09T14:13:30.368Z"
+        "lastVerifiedAt": "2026-08-09T20:42:44.592Z"
       },
       {
         "id": "fbb699a0194f1b53",
@@ -334,7 +349,7 @@
         "appliesTo": [
           "frontend"
         ],
-        "lastVerifiedAt": "2026-08-02T13:52:03.909Z"
+        "lastVerifiedAt": "2026-08-09T20:42:44.592Z"
       },
       {
         "id": "bd2916f51b4c88ba",
@@ -349,7 +364,7 @@
         "appliesTo": [
           "frontend"
         ],
-        "lastVerifiedAt": "2026-08-09T14:13:30.368Z"
+        "lastVerifiedAt": "2026-08-09T20:42:44.592Z"
       },
       {
         "id": "6c1edbac0eae1df1",
@@ -379,7 +394,7 @@
         "appliesTo": [
           "frontend"
         ],
-        "lastVerifiedAt": "2026-08-09T14:13:30.368Z"
+        "lastVerifiedAt": "2026-08-09T20:42:44.592Z"
       },
       {
         "id": "866b98a23d9ff55a",
@@ -394,7 +409,7 @@
         "appliesTo": [
           "backend"
         ],
-        "lastVerifiedAt": "2026-08-09T14:13:30.368Z"
+        "lastVerifiedAt": "2026-08-09T20:42:44.592Z"
       },
       {
         "id": "d888bdbe6cd27fd0",
@@ -409,7 +424,7 @@
         "appliesTo": [
           "backend"
         ],
-        "lastVerifiedAt": "2026-08-09T14:13:30.368Z"
+        "lastVerifiedAt": "2026-08-09T20:42:44.592Z"
       },
       {
         "id": "931250c7ad93c61f",
@@ -445,7 +460,7 @@
         "evidence": {
           "file": "package.json"
         },
-        "lastVerifiedAt": "2026-08-09T12:41:41.707Z"
+        "lastVerifiedAt": "2026-08-09T20:42:44.591Z"
       },
       {
         "id": "a2661e2264ab9b00",
@@ -544,7 +559,7 @@
         "evidence": {
           "file": "package.json"
         },
-        "lastVerifiedAt": "2026-08-09T14:13:30.367Z"
+        "lastVerifiedAt": "2026-08-09T20:24:34.223Z"
       },
       {
         "id": "94db05054a6670bd",
@@ -556,7 +571,67 @@
         "evidence": {
           "file": "package.json"
         },
-        "lastVerifiedAt": "2026-08-09T14:13:30.368Z"
+        "lastVerifiedAt": "2026-08-09T20:24:34.223Z"
+      },
+      {
+        "id": "f22a1d4bf41fd2e9",
+        "text": "npm run dev -> concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+        "kind": "command",
+        "source": "repo_detected",
+        "confidence": "confirmed",
+        "scope": "workspace",
+        "evidence": {
+          "file": "package.json"
+        },
+        "lastVerifiedAt": "2026-08-09T20:42:44.590Z"
+      },
+      {
+        "id": "64ce1225af1c00f2",
+        "text": "npm run dev:backend -> cd backend && npm run dev",
+        "kind": "command",
+        "source": "repo_detected",
+        "confidence": "confirmed",
+        "scope": "workspace",
+        "evidence": {
+          "file": "package.json"
+        },
+        "lastVerifiedAt": "2026-08-09T20:42:44.591Z"
+      },
+      {
+        "id": "528cfc3adb007243",
+        "text": "npm run dev:frontend -> cd frontend && npm run dev",
+        "kind": "command",
+        "source": "repo_detected",
+        "confidence": "confirmed",
+        "scope": "workspace",
+        "evidence": {
+          "file": "package.json"
+        },
+        "lastVerifiedAt": "2026-08-09T20:42:44.591Z"
+      },
+      {
+        "id": "a2312d4a96b8ccb5",
+        "text": "npm run build -> cd frontend && npm run build",
+        "kind": "command",
+        "source": "repo_detected",
+        "confidence": "confirmed",
+        "scope": "workspace",
+        "evidence": {
+          "file": "package.json"
+        },
+        "lastVerifiedAt": "2026-08-09T20:42:44.591Z"
+      },
+      {
+        "id": "645fa587d8a84b03",
+        "text": "npm run start -> cd backend && npm start",
+        "kind": "command",
+        "source": "repo_detected",
+        "confidence": "confirmed",
+        "scope": "workspace",
+        "evidence": {
+          "file": "package.json"
+        },
+        "lastVerifiedAt": "2026-08-09T20:42:44.591Z"
       }
     ],
     "businessRules": [],
@@ -571,7 +646,7 @@
         "evidence": {
           "file": "vercel.json"
         },
-        "lastVerifiedAt": "2026-08-09T14:13:30.368Z"
+        "lastVerifiedAt": "2026-08-09T20:42:44.591Z"
       }
     ],
     "testingExpectations": [],
@@ -581,7 +656,7 @@
   "packages": [
     {
       "path": "backend",
-      "name": "hospital-equipment-backend",
+      "name": "paec-ems-backend",
       "detectedStack": {
         "languages": [
           "JavaScript/TypeScript"
@@ -598,15 +673,16 @@
         "testTools": [],
         "scripts": {
           "start": "node server.js",
-          "dev": "nodemon server.js"
+          "dev": "nodemon server.js",
+          "vercel-build": "npm install"
         },
         "importantDirs": [],
         "sensitiveFiles": []
       },
       "items": [
         {
-          "id": "backend:fact:Project name: hospital-equipment-backend",
-          "text": "Project name: hospital-equipment-backend",
+          "id": "backend:fact:Project name: paec-ems-backend",
+          "text": "Project name: paec-ems-backend",
           "kind": "fact",
           "source": "repo_detected",
           "confidence": "confirmed",
@@ -617,7 +693,7 @@
           "appliesTo": [
             "backend"
           ],
-          "lastVerifiedAt": "2026-08-09T14:13:30.367Z"
+          "lastVerifiedAt": "2026-08-09T20:42:44.590Z"
         },
         {
           "id": "backend:fact:Framework detected: Express.",
@@ -632,7 +708,7 @@
           "appliesTo": [
             "backend"
           ],
-          "lastVerifiedAt": "2026-08-09T14:13:30.367Z"
+          "lastVerifiedAt": "2026-08-09T20:42:44.590Z"
         },
         {
           "id": "backend:command:npm run start -> node server.js",
@@ -647,7 +723,7 @@
           "appliesTo": [
             "backend"
           ],
-          "lastVerifiedAt": "2026-08-09T14:13:30.367Z"
+          "lastVerifiedAt": "2026-08-09T20:42:44.590Z"
         },
         {
           "id": "backend:command:npm run dev -> nodemon server.js",
@@ -662,7 +738,22 @@
           "appliesTo": [
             "backend"
           ],
-          "lastVerifiedAt": "2026-08-09T14:13:30.367Z"
+          "lastVerifiedAt": "2026-08-09T20:42:44.590Z"
+        },
+        {
+          "id": "backend:command:npm run vercel-build -> npm install",
+          "text": "npm run vercel-build -> npm install",
+          "kind": "command",
+          "source": "repo_detected",
+          "confidence": "confirmed",
+          "scope": "package",
+          "evidence": {
+            "file": "backend/package.json"
+          },
+          "appliesTo": [
+            "backend"
+          ],
+          "lastVerifiedAt": "2026-08-09T20:42:44.590Z"
         },
         {
           "id": "backend:constraint:Vercel deployment config detected. Treat",
@@ -677,7 +768,7 @@
           "appliesTo": [
             "backend"
           ],
-          "lastVerifiedAt": "2026-08-09T14:13:30.367Z"
+          "lastVerifiedAt": "2026-08-09T20:42:44.590Z"
         }
       ]
     },
@@ -702,10 +793,10 @@
         "paymentLibraries": [],
         "testTools": [],
         "scripts": {
+          "dev": "vite",
           "start": "vite",
           "build": "vite build",
-          "preview": "vite preview",
-          "vercel-build": "vite build"
+          "preview": "vite preview"
         },
         "importantDirs": [
           "src"
@@ -726,7 +817,7 @@
           "appliesTo": [
             "frontend"
           ],
-          "lastVerifiedAt": "2026-08-09T14:13:30.367Z"
+          "lastVerifiedAt": "2026-08-09T20:42:44.590Z"
         },
         {
           "id": "frontend:fact:Framework detected: React.",
@@ -741,7 +832,7 @@
           "appliesTo": [
             "frontend"
           ],
-          "lastVerifiedAt": "2026-08-09T14:13:30.367Z"
+          "lastVerifiedAt": "2026-08-09T20:42:44.590Z"
         },
         {
           "id": "frontend:fact:Framework detected: Vite.",
@@ -756,7 +847,22 @@
           "appliesTo": [
             "frontend"
           ],
-          "lastVerifiedAt": "2026-08-09T14:13:30.367Z"
+          "lastVerifiedAt": "2026-08-09T20:42:44.590Z"
+        },
+        {
+          "id": "frontend:command:npm run dev -> vite",
+          "text": "npm run dev -> vite",
+          "kind": "command",
+          "source": "repo_detected",
+          "confidence": "confirmed",
+          "scope": "package",
+          "evidence": {
+            "file": "frontend/package.json"
+          },
+          "appliesTo": [
+            "frontend"
+          ],
+          "lastVerifiedAt": "2026-08-09T20:42:44.590Z"
         },
         {
           "id": "frontend:command:npm run start -> vite",
@@ -771,7 +877,7 @@
           "appliesTo": [
             "frontend"
           ],
-          "lastVerifiedAt": "2026-08-09T14:13:30.367Z"
+          "lastVerifiedAt": "2026-08-09T20:42:44.590Z"
         },
         {
           "id": "frontend:command:npm run build -> vite build",
@@ -786,22 +892,7 @@
           "appliesTo": [
             "frontend"
           ],
-          "lastVerifiedAt": "2026-08-09T14:13:30.367Z"
-        },
-        {
-          "id": "frontend:command:npm run vercel-build -> vite build",
-          "text": "npm run vercel-build -> vite build",
-          "kind": "command",
-          "source": "repo_detected",
-          "confidence": "confirmed",
-          "scope": "package",
-          "evidence": {
-            "file": "frontend/package.json"
-          },
-          "appliesTo": [
-            "frontend"
-          ],
-          "lastVerifiedAt": "2026-08-09T14:13:30.367Z"
+          "lastVerifiedAt": "2026-08-09T20:42:44.590Z"
         }
       ]
     }
