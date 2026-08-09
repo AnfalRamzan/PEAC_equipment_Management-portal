@@ -2,26 +2,25 @@
   "version": 2,
   "builds": [
     {
-      "src": "paec-backend/server.js",
+      "src": "backend/server.js",
       "use": "@vercel/node"
     },
     {
-      "src": "dist/**",
-      "use": "@vercel/static"
+      "src": "frontend/package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "frontend/dist"
+      }
     }
   ],
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "paec-backend/server.js"
-    },
-    {
-      "src": "/(.*)\\.(js|css|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot|json|map)$",
-      "dest": "dist/$1.$2"
+      "dest": "backend/server.js"
     },
     {
       "src": "/(.*)",
-      "dest": "dist/index.html"
+      "dest": "frontend/dist/index.html"
     }
   ],
   "env": {
