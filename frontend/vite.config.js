@@ -6,12 +6,7 @@ export default defineConfig({
   base: '/',  // Important: root path
   build: {
     outDir: 'dist',
-    assetsDir: 'assets',
-    rollupOptions: {
-      output: {
-        manualChunks: undefined
-      }
-    }
+    assetsDir: 'assets'
   },
   server: {
     proxy: {
