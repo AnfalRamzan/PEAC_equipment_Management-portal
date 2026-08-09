@@ -1,4 +1,7 @@
-// src/pages/ServiceDocumentation.jsx - REMOVED ROLE LABELS
+// src/pages/ServiceDocumentation.jsx
+// ✅ ENGINEER: Upload, Create, View, Edit (NO Delete)
+// ✅ SUPER_ADMIN: Upload, Create, View, Edit, Delete (Full Access)
+// ❌ HOSPITAL_ADMIN: Access Denied
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -51,7 +54,9 @@ import {
   MedicalServices,
   Build,
   CalendarToday,
-  Person
+  Person,
+  Engineering as EngineeringIcon,
+  AdminPanelSettings
 } from '@mui/icons-material'
 import { toast } from 'react-toastify'
 import { useSelector } from 'react-redux'
@@ -70,13 +75,20 @@ const ServiceDocumentation = () => {
     return null
   }
   
-  if (user?.role === 'ENGINEER') {
-    return <AccessDenied message="Biomedical Engineers cannot access Service Documentation." />
+  // ✅ HOSPITAL_ADMIN - Access Denied
+  if (user?.role === 'HOSPITAL_ADMIN') {
+    return <AccessDenied message="Hospital Administrators cannot access Service Documentation." />
   }
   
-  const canUpload = user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN'
-  const canDelete = user?.role === 'SUPER_ADMIN'
-  const canEdit = user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN'
+  const isEngineer = user?.role === 'ENGINEER'
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN'
+  
+  // ✅ PERMISSIONS
+  // ✅ ENGINEER: Upload, Edit, View (NO Delete)
+  // ✅ SUPER_ADMIN: Full Access (Upload, Edit, View, Delete)
+  const canUpload = isEngineer || isSuperAdmin
+  const canEdit = isEngineer || isSuperAdmin
+  const canDelete = isSuperAdmin // ✅ ONLY Super Admin can delete
 
   const [documents, setDocuments] = useState([])
   const [equipmentList, setEquipmentList] = useState([])
@@ -413,11 +425,29 @@ const ServiceDocumentation = () => {
 
   return (
     <Box>
-      {/* ✅ Header - REMOVED Super Admin and Hospital Admin labels */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700, color: '#2C3E50' }}>
-          Service Documentation
-        </Typography>
+      {/* ✅ Header - Role Chips */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Typography variant="h5" sx={{ fontWeight: 700, color: '#2C3E50' }}>
+            Service Documentation
+          </Typography>
+          {isEngineer && (
+            <Chip 
+              icon={<EngineeringIcon sx={{ fontSize: 16 }} />}
+              label="Engineer Mode" 
+              size="small" 
+              color="info" 
+            />
+          )}
+          {isSuperAdmin && (
+            <Chip 
+              icon={<AdminPanelSettings sx={{ fontSize: 16 }} />}
+              label="Super Admin" 
+              size="small" 
+              color="warning" 
+            />
+          )}
+        </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button
             variant="outlined"
@@ -603,6 +633,7 @@ const ServiceDocumentation = () => {
                   </Button>
                 </Tooltip>
                 
+                {/* ✅ Both Engineer and Super Admin can Edit */}
                 {canEdit && (
                   <Tooltip title="Edit">
                     <IconButton 
@@ -615,6 +646,7 @@ const ServiceDocumentation = () => {
                   </Tooltip>
                 )}
                 
+                {/* ✅ ONLY Super Admin can Delete */}
                 {canDelete && (
                   <Tooltip title="Delete">
                     <IconButton 

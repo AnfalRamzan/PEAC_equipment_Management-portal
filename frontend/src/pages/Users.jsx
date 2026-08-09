@@ -127,31 +127,30 @@ const Users = () => {
     }
   })
 
+  // ✅ UPDATED: HOSPITAL_ADMIN REMOVED
   const ROLE_NAMES = {
     1: 'SUPER_ADMIN',
-    2: 'HOSPITAL_ADMIN',
+    // 2: 'HOSPITAL_ADMIN', // ❌ REMOVED
     3: 'ENGINEER'
   }
 
+  // ✅ UPDATED: HOSPITAL_ADMIN REMOVED
   const ROLE_DISPLAY = {
     'SUPER_ADMIN': 'Super Admin',
-    'HOSPITAL_ADMIN': 'Hospital Admin',
+    // 'HOSPITAL_ADMIN': 'Hospital Admin', // ❌ REMOVED
     'ENGINEER': 'Engineer'
   }
 
+  // ✅ UPDATED: HOSPITAL_ADMIN REMOVED FROM AVAILABLE ROLES
   const getAvailableRoles = () => {
     if (user?.role === 'SUPER_ADMIN') {
       return [
         { id: 1, name: 'SUPER_ADMIN', display: 'Super Admin' },
-        { id: 2, name: 'HOSPITAL_ADMIN', display: 'Hospital Admin' },
+        // { id: 2, name: 'HOSPITAL_ADMIN', display: 'Hospital Admin' }, // ❌ REMOVED
         { id: 3, name: 'ENGINEER', display: 'Engineer' }
       ]
     }
-    if (user?.role === 'HOSPITAL_ADMIN') {
-      return [
-        { id: 3, name: 'ENGINEER', display: 'Engineer' }
-      ]
-    }
+    // Hospital Admin can no longer exist
     return []
   }
 
@@ -349,7 +348,8 @@ const Users = () => {
       })
     } else {
       setEditingUser(null)
-      const defaultRoleId = user?.role === 'HOSPITAL_ADMIN' ? 3 : ''
+      // ✅ Default role is now empty since HOSPITAL_ADMIN is removed
+      const defaultRoleId = ''
       setFormData({
         username: '',
         email: '',
@@ -545,9 +545,10 @@ const Users = () => {
     }
   }
 
+  // ✅ UPDATED: HOSPITAL_ADMIN REMOVED FROM FILTER OPTIONS
   const roleFilterOptions = [
     { id: 'SUPER_ADMIN', name: 'Super Admin' },
-    { id: 'HOSPITAL_ADMIN', name: 'Hospital Admin' },
+    // { id: 'HOSPITAL_ADMIN', name: 'Hospital Admin' }, // ❌ REMOVED
     { id: 'ENGINEER', name: 'Engineer' }
   ]
 
@@ -1094,7 +1095,7 @@ const Users = () => {
               {formData.password && <PasswordStrengthIndicator />}
             </Grid>
 
-            {/* Role - REQUIRED */}
+            {/* Role - REQUIRED - HOSPITAL_ADMIN REMOVED */}
             <Grid item xs={12} md={6}>
               <FormControl fullWidth required error={!!errors.role_id}>
                 <InputLabel>Role *</InputLabel>

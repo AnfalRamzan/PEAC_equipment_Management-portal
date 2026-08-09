@@ -1,4 +1,4 @@
-// src/pages/AMC.jsx - REMOVED ROLE LABELS
+// src/pages/AMC.jsx - HOSPITAL_ADMIN REMOVED
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -73,15 +73,18 @@ const getFullUrl = (url) => {
 const AMC = () => {
   const { user } = useSelector((state) => state.auth)
   
+  // ✅ ENGINEER cannot access AMC
   if (user?.role === 'ENGINEER') {
     return <AccessDenied message="Biomedical Engineers cannot access AMC Contracts." />
   }
   
-  const canCreate = user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN'
-  const canEdit = user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN'
+  // ✅ Only SUPER_ADMIN can create, edit, renew, and view
+  // ❌ HOSPITAL_ADMIN removed from all permissions
+  const canCreate = user?.role === 'SUPER_ADMIN'
+  const canEdit = user?.role === 'SUPER_ADMIN'
   const canDelete = user?.role === 'SUPER_ADMIN'
-  const canRenew = user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN'
-  const canView = user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN'
+  const canRenew = user?.role === 'SUPER_ADMIN'
+  const canView = user?.role === 'SUPER_ADMIN'
 
   const [contracts, setContracts] = useState([])
   const [equipment, setEquipment] = useState([])

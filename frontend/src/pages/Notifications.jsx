@@ -1,3 +1,7 @@
+// src/pages/Notifications.jsx
+// ✅ SUPER_ADMIN and ENGINEER can access
+// ❌ HOSPITAL_ADMIN - Access Denied
+
 import React, { useEffect, useState, useRef } from 'react';
 import {
   Box,
@@ -53,6 +57,7 @@ import {
   fetchUnreadCount 
 } from '../redux/slices/notificationSlice';
 import { toast } from 'react-toastify';
+import AccessDenied from '../components/Auth/AccessDenied';
 
 // ============================================================
 // ✅ SOUND EFFECT FUNCTION
@@ -164,6 +169,13 @@ const formatTime = (dateString) => {
 // ✅ MAIN COMPONENT
 // ============================================================
 const Notifications = () => {
+  const { user } = useSelector((state) => state.auth);
+  
+  // ✅ HOSPITAL_ADMIN - Access Denied
+  if (user?.role === 'HOSPITAL_ADMIN') {
+    return <AccessDenied message="Hospital Administrators cannot access Notifications." />;
+  }
+  
   const dispatch = useDispatch();
   const { notifications, unreadCount, isLoading, error } = useSelector(
     (state) => state.notifications

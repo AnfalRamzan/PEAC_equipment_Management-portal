@@ -1,26 +1,41 @@
 const jwt = require('jsonwebtoken');
 const { query } = require('../config/database');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key';
+const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-key-2024';
 
 const authenticate = async (req, res, next) => {
     try {
-        const token = req.headers.authorization?.split(' ')[1];
-        
-        if (!token) {
+        const authHeader = req.headers.authorization;
+        if (!authHeader) {
             return res.status(401).json({
                 success: false,
-                message: 'Authentication required'
+                message: 'No authorization header'
             });
         }
 
-        const decoded = jwt.verify(token, JWT_SECRET);
-        
+        const token = authHeader.split(' ')[1];
+        if (!token) {
+            return res.status(401).json({
+                success: false,
+                message: 'No token provided'
+            });
+        }
+
+        let decoded;
+        try {
+            decoded = jwt.verify(token, JWT_SECRET);
+        } catch (jwtError) {
+            return res.status(401).json({
+                success: false,
+                message: 'Invalid or expired token'
+            });
+        }
+
         const users = await query(
             `SELECT u.*, r.name as role_name 
              FROM users u 
-             JOIN roles r ON u.role_id = r.id 
-             WHERE u.id = ? AND u.is_active = TRUE`,
+             LEFT JOIN roles r ON u.role_id = r.id 
+             WHERE u.id = ? AND u.is_active = 1`,
             [decoded.id]
         );
 
@@ -34,42 +49,32 @@ const authenticate = async (req, res, next) => {
         req.user = users[0];
         next();
     } catch (error) {
-        console.error('Auth error:', error);
-        if (error.name === 'JsonWebTokenError') {
-            return res.status(401).json({
-                success: false,
-                message: 'Invalid token'
-            });
-        }
-        if (error.name === 'TokenExpiredError') {
-            return res.status(401).json({
-                success: false,
-                message: 'Token expired'
-            });
-        }
-        return res.status(500).json({
+        console.error('❌ Auth error:', error);
+        return res.status(401).json({
             success: false,
-            message: 'Authentication error'
+            message: 'Authentication failed'
         });
     }
 };
 
-const authorize = (...roles) => {
+const authorize = (...allowedRoles) => {
     return (req, res, next) => {
         if (!req.user) {
             return res.status(401).json({
                 success: false,
-                message: 'Authentication required'
+                message: 'Unauthorized - No user found'
             });
         }
-
-        if (!roles.includes(req.user.role_name)) {
+        // ✅ Allow only SUPER_ADMIN and ENGINEER
+        const validRoles = ['SUPER_ADMIN', 'ENGINEER'];
+        const allowed = allowedRoles.filter(role => validRoles.includes(role));
+        
+        if (!allowed.includes(req.user.role_name)) {
             return res.status(403).json({
                 success: false,
                 message: 'Insufficient permissions'
             });
         }
-
         next();
     };
 };

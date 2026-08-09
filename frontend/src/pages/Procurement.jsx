@@ -1,4 +1,7 @@
-// src/pages/Procurement.jsx - REMOVED ROLE LABELS
+// src/pages/Procurement.jsx
+// ✅ SUPER_ADMIN: Full access (Create, Edit, Delete, Approve, Reject, Review, Mark Procured)
+// ✅ ENGINEER: Create, Edit, Delete, Review, Mark Procured (EXCEPT Approve/Reject)
+// ❌ HOSPITAL_ADMIN: Access Denied
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -57,7 +60,9 @@ import {
   AttachFile,
   Print,
   Image,
-  PictureAsPdf
+  PictureAsPdf,
+  Engineering as EngineeringIcon,
+  AdminPanelSettings
 } from '@mui/icons-material'
 import { procurementService, equipmentService, hospitalService } from '../api/services'
 import { toast } from 'react-toastify'
@@ -83,16 +88,23 @@ const Procurement = () => {
   // ============================================================
   const { user } = useSelector((state) => state.auth)
 
-  if (user?.role === 'ENGINEER') {
-    return <AccessDenied message="Biomedical Engineers cannot access Equipment Procurement." />
+  // ✅ HOSPITAL_ADMIN - Access Denied
+  if (user?.role === 'HOSPITAL_ADMIN') {
+    return <AccessDenied message="Hospital Administrators cannot access Equipment Procurement." />
   }
 
-  const canCreate = user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN'
-  const canEdit = user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN'
-  const canDelete = user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN'
-  const canApprove = user?.role === 'SUPER_ADMIN'
-  const canReview = user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN'
-  const canMarkProcured = user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN'
+  const isEngineer = user?.role === 'ENGINEER'
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN'
+
+  // ✅ PERMISSIONS
+  // ✅ ENGINEER & SUPER_ADMIN: Create, Edit, Delete, Review, Mark Procured
+  // ✅ SUPER_ADMIN ONLY: Approve, Reject
+  const canCreate = isEngineer || isSuperAdmin
+  const canEdit = isEngineer || isSuperAdmin
+  const canDelete = isEngineer || isSuperAdmin
+  const canReview = isEngineer || isSuperAdmin
+  const canMarkProcured = isEngineer || isSuperAdmin
+  const canApprove = isSuperAdmin // ✅ ONLY Super Admin can approve/reject
 
   const [requests, setRequests] = useState([])
   const [equipment, setEquipment] = useState([])
@@ -365,7 +377,7 @@ const Procurement = () => {
 
   const handleReview = async (id) => {
     if (!canReview) {
-      toast.error('Only Super Admin or Hospital Admin can review requests')
+      toast.error('You do not have permission to review requests')
       return
     }
     
@@ -383,7 +395,7 @@ const Procurement = () => {
 
   const handleMarkProcured = async (id) => {
     if (!canMarkProcured) {
-      toast.error('Only Super Admin or Hospital Admin can mark as procured')
+      toast.error('You do not have permission to mark as procured')
       return
     }
     
@@ -506,11 +518,29 @@ const Procurement = () => {
 
   return (
     <Box>
-      {/* ✅ Header - REMOVED Super Admin and Hospital Admin labels */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700, color: '#2C3E50' }}>
-          Equipment Procurement
-        </Typography>
+      {/* ✅ Header - Role Chips */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Typography variant="h5" sx={{ fontWeight: 700, color: '#2C3E50' }}>
+            Equipment Procurement
+          </Typography>
+          {isEngineer && (
+            <Chip 
+              icon={<EngineeringIcon sx={{ fontSize: 16 }} />}
+              label="Engineer Mode" 
+              size="small" 
+              color="info" 
+            />
+          )}
+          {isSuperAdmin && (
+            <Chip 
+              icon={<AdminPanelSettings sx={{ fontSize: 16 }} />}
+              label="Super Admin" 
+              size="small" 
+              color="warning" 
+            />
+          )}
+        </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button
             variant="outlined"
@@ -749,70 +779,72 @@ const Procurement = () => {
                     />
                   </TableCell>
                   <TableCell align="center">
-                    <Tooltip title="View Details">
-                      <IconButton size="small" color="primary" onClick={() => handleView(request)}>
-                        <Visibility />
-                      </IconButton>
-                    </Tooltip>
-                    
-                    {(request.status === 'Requested' || request.status === 'Under Review') && canEdit && (
-                      <Tooltip title="Edit">
-                        <IconButton size="small" color="info" onClick={() => handleOpenDialog(request)}>
-                          <Edit />
+                    <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+                      <Tooltip title="View Details">
+                        <IconButton size="small" color="primary" onClick={() => handleView(request)}>
+                          <Visibility />
                         </IconButton>
                       </Tooltip>
-                    )}
-                    
-                    {canDelete && (
-                      <Tooltip title="Delete Request">
-                        <IconButton 
-                          size="small" 
-                          color="error" 
-                          onClick={() => handleDeleteClick(request)}
-                        >
-                          <Delete />
-                        </IconButton>
-                      </Tooltip>
-                    )}
-                    
-                    {request.status === 'Requested' && canReview && (
-                      <Tooltip title="Start Review">
-                        <IconButton 
-                          size="small" 
-                          color="info" 
-                          onClick={() => handleReview(request.id)}
-                        >
-                          <Info />
-                        </IconButton>
-                      </Tooltip>
-                    )}
-                    
-                    {request.status === 'Under Review' && canApprove && (
-                      <>
-                        <Tooltip title="Approve Request">
-                          <IconButton size="small" color="success" onClick={() => handleApprove(request.id)}>
+                      
+                      {(request.status === 'Requested' || request.status === 'Under Review') && canEdit && (
+                        <Tooltip title="Edit">
+                          <IconButton size="small" color="info" onClick={() => handleOpenDialog(request)}>
+                            <Edit />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      
+                      {canDelete && (
+                        <Tooltip title="Delete Request">
+                          <IconButton 
+                            size="small" 
+                            color="error" 
+                            onClick={() => handleDeleteClick(request)}
+                          >
+                            <Delete />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      
+                      {request.status === 'Requested' && canReview && (
+                        <Tooltip title="Start Review">
+                          <IconButton 
+                            size="small" 
+                            color="info" 
+                            onClick={() => handleReview(request.id)}
+                          >
+                            <Info />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      
+                      {request.status === 'Under Review' && canApprove && (
+                        <>
+                          <Tooltip title="Approve Request">
+                            <IconButton size="small" color="success" onClick={() => handleApprove(request.id)}>
+                              <CheckCircle />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Reject Request">
+                            <IconButton size="small" color="error" onClick={() => handleReject(request.id)}>
+                              <Cancel />
+                            </IconButton>
+                          </Tooltip>
+                        </>
+                      )}
+                      
+                      {request.status === 'Approved' && canMarkProcured && (
+                        <Tooltip title="Mark as Procured">
+                          <IconButton 
+                            size="small" 
+                            color="success" 
+                            onClick={() => handleMarkProcured(request.id)}
+                          >
                             <CheckCircle />
                           </IconButton>
                         </Tooltip>
-                        <Tooltip title="Reject Request">
-                          <IconButton size="small" color="error" onClick={() => handleReject(request.id)}>
-                            <Cancel />
-                          </IconButton>
-                        </Tooltip>
-                      </>
-                    )}
-                    
-                    {request.status === 'Approved' && canMarkProcured && (
-                      <Tooltip title="Mark as Procured">
-                        <IconButton 
-                          size="small" 
-                          color="success" 
-                          onClick={() => handleMarkProcured(request.id)}
-                        >
-                          <CheckCircle />
-                        </IconButton>
-                      </Tooltip>
-                    )}
+                      )}
+                    </Box>
                   </TableCell>
                 </TableRow>
               ))
@@ -848,7 +880,6 @@ const Procurement = () => {
                     onChange={handleFormChange}
                     label="Hospital"
                     required
-                    disabled={user?.role === 'HOSPITAL_ADMIN'}
                   >
                     <MenuItem value="">Select Hospital</MenuItem>
                     {hospitals.map(h => (
@@ -1366,6 +1397,13 @@ const Procurement = () => {
                         </Button>
                       </>
                     )}
+                    {viewingRequest.status === 'Under Review' && !canApprove && (
+                      <Alert severity="info" sx={{ mt: 1, width: '100%' }}>
+                        <Typography variant="body2">
+                          <strong>Waiting for Super Admin approval.</strong> Only Super Admin can approve or reject requests.
+                        </Typography>
+                      </Alert>
+                    )}
                     {viewingRequest.status === 'Approved' && canMarkProcured && (
                       <Button
                         size="small"
@@ -1377,7 +1415,36 @@ const Procurement = () => {
                         Mark as Procured
                       </Button>
                     )}
+                    {viewingRequest.status === 'Approved' && !canMarkProcured && (
+                      <Alert severity="info" sx={{ mt: 1, width: '100%' }}>
+                        <Typography variant="body2">
+                          <strong>Request Approved!</strong> Mark as Procured when equipment is received.
+                        </Typography>
+                      </Alert>
+                    )}
                   </Box>
+                </Grid>
+              )}
+
+              {/* View Only Message for Rejected */}
+              {viewingRequest.status === 'Rejected' && (
+                <Grid item xs={12}>
+                  <Alert severity="error" sx={{ mt: 2 }}>
+                    <Typography variant="body2">
+                      <strong>This request has been rejected.</strong> No further actions can be taken.
+                    </Typography>
+                  </Alert>
+                </Grid>
+              )}
+
+              {/* View Only Message for Procured */}
+              {viewingRequest.status === 'Procured' && (
+                <Grid item xs={12}>
+                  <Alert severity="success" sx={{ mt: 2 }}>
+                    <Typography variant="body2">
+                      <strong>Equipment has been procured!</strong> This request is complete.
+                    </Typography>
+                  </Alert>
                 </Grid>
               )}
             </Grid>
@@ -1386,7 +1453,12 @@ const Procurement = () => {
         <DialogActions sx={{ p: 3 }}>
           <Button onClick={handleCloseView}>Close</Button>
           {viewingRequest && viewingRequest.status !== 'Rejected' && viewingRequest.status !== 'Procured' && canEdit && (
-            <Button variant="contained" startIcon={<Print />} sx={{ bgcolor: '#0B5FA5' }}>
+            <Button 
+              variant="contained" 
+              startIcon={<Print />} 
+              sx={{ bgcolor: '#0B5FA5' }}
+              onClick={() => window.print()}
+            >
               Print Request
             </Button>
           )}

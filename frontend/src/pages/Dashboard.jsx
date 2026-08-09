@@ -1,4 +1,5 @@
 // src/pages/Dashboard.jsx - FIXED WITH REAL API DATA FETCH
+// HOSPITAL_ADMIN REMOVED - Only SUPER_ADMIN and ENGINEER remain
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -15,7 +16,8 @@ import {
   Grow,
   Skeleton,
   Alert,
-  Snackbar
+  Snackbar,
+  Button
 } from '@mui/material'
 import {
   MedicalServices,
@@ -55,16 +57,16 @@ const Dashboard = () => {
   const isDesktop = useMediaQuery(theme.breakpoints.up('lg'))
 
   const [stats, setStats] = useState({
-    // Super Admin & Hospital Admin Stats
+    // Super Admin Stats
     totalEquipment: 0,
     totalHospitals: 0,
     totalEngineers: 0,
-    totalHospitalAdmins: 0,
+    // totalHospitalAdmins: 0, // ❌ REMOVED
     criticalErrors: 0,
     openErrors: 0,
     resolvedErrors: 0,
     
-    // Hospital Admin Specific
+    // Common Stats
     pendingRepairs: 0,
     inProgressRepairs: 0,
     maintenanceDue: 0,
@@ -108,7 +110,7 @@ const Dashboard = () => {
           totalEquipment: response.data.totalEquipment || 0,
           totalHospitals: response.data.totalHospitals || 0,
           totalEngineers: response.data.totalEngineers || 0,
-          totalHospitalAdmins: response.data.totalHospitalAdmins || 0,
+          // totalHospitalAdmins: response.data.totalHospitalAdmins || 0, // ❌ REMOVED
           criticalErrors: response.data.criticalErrors || 0,
           openErrors: response.data.openErrors || 0,
           resolvedErrors: response.data.resolvedErrors || 0,
@@ -163,11 +165,12 @@ const Dashboard = () => {
   }
 
   // ============================================================
-  // ✅ GET CARDS BASED ON ROLE
+  // ✅ GET CARDS BASED ON ROLE - HOSPITAL_ADMIN REMOVED
   // ============================================================
   const getCards = () => {
     const role = user?.role
     
+    // ✅ SUPER_ADMIN Cards - Hospital Admin stats removed
     if (role === 'SUPER_ADMIN') {
       return [
         { 
@@ -177,13 +180,7 @@ const Dashboard = () => {
           color: '#0B5FA5',
           path: '/hospitals'
         },
-        { 
-          title: 'Hospital Admins',
-          value: stats.totalHospitalAdmins || 0, 
-          icon: <SupervisorAccount />, 
-          color: '#0B5FA5',
-          path: '/users?role=HOSPITAL_ADMIN'
-        },
+        // ❌ 'Hospital Admins' card REMOVED
         { 
           title: 'Total Engineers', 
           value: stats.totalEngineers, 
@@ -257,88 +254,9 @@ const Dashboard = () => {
       ]
     }
     
-    if (role === 'HOSPITAL_ADMIN') {
-      return [
-        { 
-          title: 'Total Equipment', 
-          value: stats.totalEquipment, 
-          icon: <MedicalServices />, 
-          color: '#0B5FA5',
-          path: '/equipment'
-        },
-        { 
-          title: 'Total Engineers', 
-          value: stats.totalEngineers, 
-          icon: <Engineering />, 
-          color: '#0B5FA5',
-          path: '/users?role=ENGINEER'
-        },
-        { 
-          title: 'Open Errors', 
-          value: stats.openErrors, 
-          icon: <ErrorOutline />, 
-          color: '#0B5FA5',
-          path: '/errors?status=Pending,In Progress'
-        },
-        { 
-          title: 'Critical Errors',
-          value: stats.criticalErrors || 0, 
-          icon: <Warning />, 
-          color: '#0B5FA5',
-          path: '/errors?severity=Critical'
-        },
-        { 
-          title: 'Resolved Errors', 
-          value: stats.resolvedErrors, 
-          icon: <CheckCircle />, 
-          color: '#0B5FA5',
-          path: '/errors?status=Resolved,Closed'
-        },
-        { 
-          title: 'Pending Repairs', 
-          value: stats.pendingRepairs, 
-          icon: <Pending />, 
-          color: '#0B5FA5',
-          path: '/repairs?status=Pending'
-        },
-        { 
-          title: 'In Progress Repairs', 
-          value: stats.inProgressRepairs, 
-          icon: <Build />, 
-          color: '#0B5FA5',
-          path: '/repairs?status=In Progress'
-        },
-        { 
-          title: 'Maintenance Due', 
-          value: stats.maintenanceDue, 
-          icon: <CalendarToday />, 
-          color: '#0B5FA5',
-          path: '/maintenance?status=Overdue'
-        },
-        { 
-          title: 'Critical Equipment', 
-          value: stats.criticalEquipment, 
-          icon: <Warning />, 
-          color: '#0B5FA5',
-          path: '/equipment?status=Critical'
-        },
-        { 
-          title: 'Pending Purchase Orders', 
-          value: stats.pendingPurchaseOrders, 
-          icon: <ShoppingCart />, 
-          color: '#0B5FA5',
-          path: '/purchase-orders?status=Pending'
-        },
-        { 
-          title: 'Spare Parts Low Stock', 
-          value: stats.sparePartsLow, 
-          icon: <Inventory />, 
-          color: '#0B5FA5',
-          path: '/spare-parts?stock=low'
-        }
-      ]
-    }
+    // ❌ HOSPITAL_ADMIN section COMPLETELY REMOVED
     
+    // ✅ ENGINEER Cards
     if (role === 'ENGINEER') {
       return [
         { 
@@ -386,7 +304,7 @@ const Dashboard = () => {
       ]
     }
     
-    // Default
+    // Default fallback
     return [
       { 
         title: 'Welcome', 

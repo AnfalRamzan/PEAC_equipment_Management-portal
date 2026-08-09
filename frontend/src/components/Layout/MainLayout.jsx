@@ -1,4 +1,5 @@
-// src/components/Layout/MainLayout.jsx - REMOVED SETTINGS
+// src/components/Layout/MainLayout.jsx
+// HOSPITAL_ADMIN REMOVED - SETTINGS REMOVED
 
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -145,7 +146,7 @@ const sendBrowserNotification = (title, message, options = {}) => {
 };
 
 // ============================================================
-// ✅ MENU ITEMS WITH ROLE-BASED PERMISSIONS
+// ✅ MENU ITEMS - HOSPITAL_ADMIN REMOVED
 // ============================================================
 const menuItems = [
   // ✅ Common for all roles
@@ -153,98 +154,92 @@ const menuItems = [
     text: 'Dashboard', 
     icon: <Dashboard sx={{ fontSize: 22, color: 'white' }} />, 
     path: '/dashboard', 
-    roles: ['SUPER_ADMIN', 'HOSPITAL_ADMIN', 'ENGINEER'] 
+    roles: ['SUPER_ADMIN', 'ENGINEER']  // ❌ HOSPITAL_ADMIN removed
   },
   { 
     text: 'Equipment', 
     icon: <MedicalServices sx={{ fontSize: 22, color: 'white' }} />, 
     path: '/equipment', 
-    roles: ['SUPER_ADMIN', 'HOSPITAL_ADMIN'] 
+    roles: ['SUPER_ADMIN', 'ENGINEER']  // ❌ HOSPITAL_ADMIN removed
   },
   { 
     text: 'Error Logs', 
     icon: <ErrorOutline sx={{ fontSize: 22, color: 'white' }} />, 
     path: '/errors', 
-    roles: ['SUPER_ADMIN', 'HOSPITAL_ADMIN', 'ENGINEER'] 
+    roles: ['SUPER_ADMIN', 'ENGINEER']  // ❌ HOSPITAL_ADMIN removed
   },
   { 
     text: 'Repairs', 
     icon: <Build sx={{ fontSize: 22, color: 'white' }} />, 
     path: '/repairs', 
-    roles: ['SUPER_ADMIN', 'HOSPITAL_ADMIN', 'ENGINEER'] 
+    roles: ['SUPER_ADMIN', 'ENGINEER']  // ❌ HOSPITAL_ADMIN removed
   },
   { 
     text: 'Knowledge Base', 
     icon: <EmojiObjects sx={{ fontSize: 22, color: 'white' }} />, 
     path: '/knowledge-base', 
-    roles: ['SUPER_ADMIN', 'HOSPITAL_ADMIN', 'ENGINEER'] 
+    roles: ['SUPER_ADMIN', 'ENGINEER']  // ❌ HOSPITAL_ADMIN removed
+  },
+  { 
+    text: 'Reports', 
+    icon: <Assessment sx={{ fontSize: 22, color: 'white' }} />, 
+    path: '/reports', 
+    roles: ['SUPER_ADMIN', 'ENGINEER']  // ❌ HOSPITAL_ADMIN removed
   },
   
-  // ✅ Admin only (Super Admin + Hospital Admin)
+  // ✅ Super Admin Only
+  { 
+    text: 'Users', 
+    icon: <People sx={{ fontSize: 22, color: 'white' }} />, 
+    path: '/users', 
+    roles: ['SUPER_ADMIN'] 
+  },
   { 
     text: 'Hospitals', 
     icon: <LocalHospital sx={{ fontSize: 22, color: 'white' }} />, 
     path: '/hospitals', 
-    roles: ['SUPER_ADMIN', 'HOSPITAL_ADMIN'] 
+    roles: ['SUPER_ADMIN'] 
   },
   { 
-    text: 'Maintenance', 
-    icon: <Handyman sx={{ fontSize: 22, color: 'white' }} />, 
-    path: '/maintenance', 
-    roles: ['SUPER_ADMIN', 'HOSPITAL_ADMIN'] 
-  },
-  { 
-    text: 'Spare Parts', 
-    icon: <Inventory sx={{ fontSize: 22, color: 'white' }} />, 
-    path: '/spare-parts', 
-    roles: ['SUPER_ADMIN', 'HOSPITAL_ADMIN'] 
-  },
-  { 
-    text: 'Service Documentation', 
-    icon: <Description sx={{ fontSize: 22, color: 'white' }} />, 
-    path: '/service-documentation', 
-    roles: ['SUPER_ADMIN', 'HOSPITAL_ADMIN'] 
+    text: 'Equipment Categories', 
+    icon: <Category sx={{ fontSize: 22, color: 'white' }} />, 
+    path: '/equipment-categories', 
+    roles: ['SUPER_ADMIN'] 
   },
   { 
     text: 'AMC Contracts', 
     icon: <Gavel sx={{ fontSize: 22, color: 'white' }} />, 
     path: '/amc', 
-    roles: ['SUPER_ADMIN', 'HOSPITAL_ADMIN'] 
+    roles: ['SUPER_ADMIN'] 
   },
   { 
     text: 'Purchase Orders', 
     icon: <ShoppingCart sx={{ fontSize: 22, color: 'white' }} />, 
     path: '/purchase-orders', 
-    roles: ['SUPER_ADMIN', 'HOSPITAL_ADMIN'] 
+    roles: ['SUPER_ADMIN'] 
   },
   { 
     text: 'Equipment Procurement', 
     icon: <LocalShipping sx={{ fontSize: 22, color: 'white' }} />, 
     path: '/procurement', 
-    roles: ['SUPER_ADMIN', 'HOSPITAL_ADMIN'] 
+    roles: ['SUPER_ADMIN'] 
   },
-  
-  // ✅ REPORTS - All roles can access
   { 
-    text: 'Reports', 
-    icon: <Assessment sx={{ fontSize: 22, color: 'white' }} />, 
-    path: '/reports', 
-    roles: ['SUPER_ADMIN', 'HOSPITAL_ADMIN', 'ENGINEER'] 
+    text: 'Maintenance', 
+    icon: <Handyman sx={{ fontSize: 22, color: 'white' }} />, 
+    path: '/maintenance', 
+    roles: ['SUPER_ADMIN'] 
   },
-  
-  // ✅ Users - Admin only
   { 
-    text: 'Users', 
-    icon: <People sx={{ fontSize: 22, color: 'white' }} />, 
-    path: '/users', 
-    roles: ['SUPER_ADMIN', 'HOSPITAL_ADMIN'] 
+    text: 'Spare Parts', 
+    icon: <Inventory sx={{ fontSize: 22, color: 'white' }} />, 
+    path: '/spare-parts', 
+    roles: ['SUPER_ADMIN'] 
   },
-  
-  // ✅ Super Admin Only - SETTINGS REMOVED
   { 
-    text: 'Equipment Categories', 
-    icon: <Category sx={{ fontSize: 22, color: 'white' }} />, 
-    path: '/equipment-categories', 
+    text: 'Service Documentation', 
+    icon: <Description sx={{ fontSize: 22, color: 'white' }} />, 
+    path: '/service-documentation', 
     roles: ['SUPER_ADMIN'] 
   },
   // ❌ SETTINGS REMOVED - No longer in menu
@@ -623,7 +618,7 @@ const MainLayout = () => {
     return drawerWidth;
   };
 
-  const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN';
+  const isAdmin = user?.role === 'SUPER_ADMIN';  // ❌ HOSPITAL_ADMIN removed
 
   // ============================================================
   // ✅ RENDER

@@ -1,4 +1,6 @@
-// src/pages/KnowledgeBase.jsx - REMOVED VIEW ONLY ALERT
+// src/pages/KnowledgeBase.jsx
+// ✅ SUPER_ADMIN and ENGINEER only
+// ✅ HOSPITAL_ADMIN - Access Denied
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -73,6 +75,7 @@ import { toast } from 'react-toastify'
 import { useSelector } from 'react-redux'
 import api from '../api/axios'
 import FileUpload from '../components/FileUpload'
+import AccessDenied from '../components/Auth/AccessDenied'
 
 // ==================== HELPER FUNCTIONS ====================
 const getFullUrl = (url) => {
@@ -89,15 +92,20 @@ const getFullUrl = (url) => {
 const KnowledgeBase = () => {
   const { user } = useSelector((state) => state.auth)
   
+  // ✅ HOSPITAL_ADMIN - Access Denied
+  if (user?.role === 'HOSPITAL_ADMIN') {
+    return <AccessDenied message="Hospital Administrators cannot access Knowledge Base." />
+  }
+  
   const isEngineer = user?.role === 'ENGINEER'
   const isSuperAdmin = user?.role === 'SUPER_ADMIN'
-  const isHospitalAdmin = user?.role === 'HOSPITAL_ADMIN'
   
-  // ✅ PERMISSIONS - ONLY Super Admin can Add/Edit/Delete
-  const canAdd = isSuperAdmin
-  const canEdit = isSuperAdmin
-  const canDelete = isSuperAdmin
-  const isViewOnly = !isSuperAdmin
+  // ✅ PERMISSIONS
+  // ✅ All users (Super Admin & Engineer) can Add and Edit
+  const canAdd = true // Both can add
+  const canEdit = true // Both can edit
+  const canDelete = isSuperAdmin // ✅ ONLY Super Admin can delete
+  const isViewOnly = false
 
   const [loading, setLoading] = useState(true)
   const [equipmentList, setEquipmentList] = useState([])
@@ -218,11 +226,6 @@ const KnowledgeBase = () => {
   }
 
   const handleAddSolution = () => {
-    if (!isSuperAdmin) {
-      toast.error('Only Super Admin can add solutions')
-      return
-    }
-    
     setEditingSolution(null)
     setSparePartsList([])
     setHasSpareParts(false)
@@ -252,11 +255,6 @@ const KnowledgeBase = () => {
   }
 
   const handleEditSolution = (solution) => {
-    if (!isSuperAdmin) {
-      toast.error('Only Super Admin can edit solutions')
-      return
-    }
-    
     setEditingSolution(solution)
     
     if (solution.spare_parts_used && solution.spare_parts_used.trim() !== '') {
@@ -430,11 +428,6 @@ const KnowledgeBase = () => {
 
   // ✅ SUBMIT SOLUTION with spare parts
   const handleSubmitSolution = async () => {
-    if (!isSuperAdmin) {
-      toast.error('Only Super Admin can add or update solutions')
-      return
-    }
-
     try {
       if (!addFormData.equipment_id) {
         toast.error('Equipment is required')
@@ -573,8 +566,6 @@ const KnowledgeBase = () => {
         </Grid>
       </Grid>
 
-      {/* ✅ VIEW ONLY ALERT - REMOVED */}
-
       {/* Search & Filter */}
       <Paper sx={{ p: 2, mb: 3, borderRadius: 2 }}>
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
@@ -677,7 +668,7 @@ const KnowledgeBase = () => {
               {selectedEquipment?.name} - Solutions
             </Typography>
             <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-              {isSuperAdmin && (
+              {canAdd && (
                 <Button
                   variant="contained"
                   startIcon={<Add />}
@@ -701,7 +692,7 @@ const KnowledgeBase = () => {
                 No solutions found
               </Typography>
               <Typography variant="body2" color="textSecondary">
-                {isSuperAdmin ? 'Click "Add Solution" to add a new solution' : 'Contact Super Admin to add solutions'}
+                Click "Add Solution" to add a new solution
               </Typography>
             </Box>
           ) : (
@@ -742,14 +733,14 @@ const KnowledgeBase = () => {
                           <Visibility fontSize="small" />
                         </IconButton>
                       </Tooltip>
-                      {isSuperAdmin && (
+                      {canEdit && (
                         <Tooltip title="Edit">
                           <IconButton size="small" color="info" onClick={() => handleEditSolution(sol)}>
                             <Edit fontSize="small" />
                           </IconButton>
                         </Tooltip>
                       )}
-                      {isSuperAdmin && (
+                      {canDelete && (
                         <Tooltip title="Delete">
                           <IconButton 
                             size="small" 
@@ -779,14 +770,9 @@ const KnowledgeBase = () => {
             <Typography variant="h6" fontWeight={600}>
               Solution Details
             </Typography>
-            <Box>
-              {!isSuperAdmin && (
-                <Chip label="Read Only" size="small" color="info" sx={{ mr: 1 }} />
-              )}
-              <IconButton onClick={() => setOpenViewDialog(false)} sx={{ color: 'white' }}>
-                <Close />
-              </IconButton>
-            </Box>
+            <IconButton onClick={() => setOpenViewDialog(false)} sx={{ color: 'white' }}>
+              <Close />
+            </IconButton>
           </Box>
         </DialogTitle>
         <DialogContent dividers>
@@ -1007,14 +993,12 @@ const KnowledgeBase = () => {
                   </Paper>
                 </>
               )}
-
-              {/* ✅ View Only Footer - REMOVED */}
             </Box>
           )}
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
           <Button onClick={() => setOpenViewDialog(false)}>Close</Button>
-          {isSuperAdmin && selectedSolution && (
+          {canEdit && selectedSolution && (
             <Button
               variant="outlined"
               color="info"
@@ -1026,7 +1010,7 @@ const KnowledgeBase = () => {
               Edit
             </Button>
           )}
-          {isSuperAdmin && selectedSolution && (
+          {canDelete && selectedSolution && (
             <Button
               variant="contained"
               color="error"
@@ -1097,7 +1081,6 @@ const KnowledgeBase = () => {
             <Typography variant="h6" fontWeight={600}>
               {editingSolution ? 'Edit Solution' : 'Add New Solution'}
             </Typography>
-            <Chip label="Super Admin Only" size="small" color="warning" sx={{ bgcolor: '#ff9800' }} />
             <IconButton onClick={() => setOpenAddDialog(false)} sx={{ color: 'white' }}>
               <Close />
             </IconButton>

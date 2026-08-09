@@ -1,3 +1,8 @@
+// src/pages/Maintenance.jsx
+// ✅ ENGINEER: Create, Edit, View
+// ✅ SUPER_ADMIN: Create, Edit, View, Delete, Approve/Status Change
+// ❌ HOSPITAL_ADMIN: Access Denied
+
 import React, { useState, useEffect } from 'react'
 import {
   Box,
@@ -43,27 +48,35 @@ import {
   CalendarToday,
   Build,
   Schedule,
-  Person
+  Person,
+  Engineering as EngineeringIcon,
+  AdminPanelSettings,
+  Verified
 } from '@mui/icons-material'
 import { maintenanceService, equipmentService, userService } from '../api/services'
 import { toast } from 'react-toastify'
 import { useSelector } from 'react-redux'
 import AccessDenied from '../components/Auth/AccessDenied'
 
-// REMOVED: getStatusColor function - No longer needed
-
 const Maintenance = () => {
   const { user } = useSelector((state) => state.auth)
   
-  if (user?.role === 'ENGINEER') {
-    return <AccessDenied message="Biomedical Engineers cannot access Preventive Maintenance." />
+  // ✅ HOSPITAL_ADMIN - Access Denied
+  if (user?.role === 'HOSPITAL_ADMIN') {
+    return <AccessDenied message="Hospital Administrators cannot access Maintenance." />
   }
   
-  const canCreate = user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN'
-  const canEdit = user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN'
-  const canDelete = user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN'
-  const canChangeStatus = user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN'
-  const canView = user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN'
+  const isEngineer = user?.role === 'ENGINEER'
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN'
+  
+  // ✅ PERMISSIONS
+  // ✅ ENGINEER: Create, Edit, View
+  // ✅ SUPER_ADMIN: Create, Edit, View, Delete, Status Change (Approve)
+  const canCreate = isEngineer || isSuperAdmin
+  const canEdit = isEngineer || isSuperAdmin
+  const canView = isEngineer || isSuperAdmin
+  const canDelete = isSuperAdmin // ✅ Only Super Admin can delete
+  const canChangeStatus = isSuperAdmin // ✅ Only Super Admin can approve/change status
 
   const [schedules, setSchedules] = useState([])
   const [equipment, setEquipment] = useState([])
@@ -266,7 +279,7 @@ const Maintenance = () => {
 
   const handleDelete = async (id) => {
     if (!canDelete) {
-      toast.error('You do not have permission to delete maintenance schedules')
+      toast.error('Only Super Admin can delete maintenance schedules')
       return
     }
     
@@ -284,21 +297,26 @@ const Maintenance = () => {
 
   const handleStatusChange = async (id, status) => {
     if (!canChangeStatus) {
-      toast.error('You do not have permission to change status')
+      toast.error('Only Super Admin can approve/change status')
       return
     }
     
     try {
       await maintenanceService.update(id, { status })
-      toast.success(`Status updated to ${status}`)
+      const statusMessages = {
+        'Scheduled': '📋 Schedule approved and marked as Scheduled',
+        'In Progress': '🔄 Maintenance marked as In Progress',
+        'Completed': '✅ Maintenance completed and approved',
+        'Overdue': '⚠️ Marked as Overdue',
+        'Cancelled': '❌ Schedule cancelled'
+      }
+      toast.success(statusMessages[status] || `Status updated to ${status}`)
       fetchSchedules()
     } catch (error) {
       console.error('Status update error:', error)
       toast.error('Failed to update status')
     }
   }
-
-  // REMOVED: getStatusColor function
 
   const isOverdue = (date) => {
     if (!date) return false
@@ -328,9 +346,27 @@ const Maintenance = () => {
     <Box>
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700, color: '#2C3E50' }}>
-          Preventive Maintenance
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Typography variant="h5" sx={{ fontWeight: 700, color: '#2C3E50' }}>
+            Preventive Maintenance
+          </Typography>
+          {isEngineer && (
+            <Chip 
+              icon={<EngineeringIcon sx={{ fontSize: 16 }} />}
+              label="Engineer Mode" 
+              size="small" 
+              color="info" 
+            />
+          )}
+          {isSuperAdmin && (
+            <Chip 
+              icon={<AdminPanelSettings sx={{ fontSize: 16 }} />}
+              label="Super Admin" 
+              size="small" 
+              color="warning" 
+            />
+          )}
+        </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button
             variant="outlined"
@@ -366,7 +402,7 @@ const Maintenance = () => {
           </Card>
         </Grid>
         <Grid item xs={6} sm={3}>
-          <Card sx={{ borderRadius: 2 }}>
+          <Card sx={{ borderRadius: 2, bgcolor: '#fff3e0' }}>
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
               <Typography variant="h4" color="#ff9800" fontWeight={700}>
                 {upcomingSchedules}
@@ -376,7 +412,7 @@ const Maintenance = () => {
           </Card>
         </Grid>
         <Grid item xs={6} sm={3}>
-          <Card sx={{ borderRadius: 2 }}>
+          <Card sx={{ borderRadius: 2, bgcolor: '#e8f5e9' }}>
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
               <Typography variant="h4" color="#28a745" fontWeight={700}>
                 {completedSchedules}
@@ -386,7 +422,7 @@ const Maintenance = () => {
           </Card>
         </Grid>
         <Grid item xs={6} sm={3}>
-          <Card sx={{ borderRadius: 2 }}>
+          <Card sx={{ borderRadius: 2, bgcolor: '#ffebee' }}>
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
               <Typography variant="h4" color="#dc3545" fontWeight={700}>
                 {overdueSchedules}
@@ -397,9 +433,21 @@ const Maintenance = () => {
         </Grid>
       </Grid>
 
-      {/* Overdue Alert - Keeping as it's useful */}
+      {/* Overdue Alert */}
       {overdueSchedules > 0 && (
-        <Alert severity="error" sx={{ mb: 2 }}>
+        <Alert 
+          severity="error" 
+          sx={{ mb: 2 }}
+          action={
+            <Button 
+              color="error" 
+              size="small"
+              onClick={() => setFilters({ ...filters, status: 'Overdue' })}
+            >
+              View
+            </Button>
+          }
+        >
           <Typography variant="body2">
             <strong>{overdueSchedules}</strong> maintenance schedule{overdueSchedules > 1 ? 's are' : ' is'} overdue!
           </Typography>
@@ -456,7 +504,7 @@ const Maintenance = () => {
         </Box>
       </Paper>
 
-      {/* Table - REMOVED Status Color and Chips */}
+      {/* Table */}
       <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
         <Table>
           <TableHead sx={{ bgcolor: '#0B5FA5' }}>
@@ -515,49 +563,76 @@ const Maintenance = () => {
                       <Typography variant="body2">
                         {schedule.next_due_date ? new Date(schedule.next_due_date).toLocaleDateString() : '-'}
                       </Typography>
-                      {/* REMOVED: Warning Icon - showing plain text if overdue */}
                       {isOverdue(schedule.next_due_date) && schedule.status !== 'Completed' && (
-                        <Typography variant="caption" color="error">(Overdue)</Typography>
+                        <Chip 
+                          label="Overdue" 
+                          size="small" 
+                          color="error" 
+                          sx={{ height: 20, fontSize: '10px' }}
+                        />
                       )}
                     </Box>
                   </TableCell>
                   <TableCell>
-                    {/* REMOVED: Colored Status - showing plain text */}
-                    <Typography variant="body2">
-                      {schedule.status || 'Scheduled'}
-                    </Typography>
+                    <Chip 
+                      label={schedule.status || 'Scheduled'} 
+                      size="small"
+                      color={
+                        schedule.status === 'Completed' ? 'success' :
+                        schedule.status === 'Scheduled' ? 'primary' :
+                        schedule.status === 'In Progress' ? 'warning' :
+                        schedule.status === 'Overdue' ? 'error' :
+                        schedule.status === 'Cancelled' ? 'default' : 'default'
+                      }
+                      sx={{ height: 24, fontSize: '11px' }}
+                    />
                   </TableCell>
                   <TableCell align="center">
-                    <Tooltip title="View Details">
-                      <IconButton size="small" color="primary" onClick={() => handleView(schedule)}>
-                        <Visibility fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    {canEdit && (
-                      <Tooltip title="Edit">
-                        <IconButton size="small" color="info" onClick={() => handleOpenDialog(schedule)}>
-                          <Edit fontSize="small" />
+                    <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+                      <Tooltip title="View Details">
+                        <IconButton size="small" color="primary" onClick={() => handleView(schedule)}>
+                          <Visibility fontSize="small" />
                         </IconButton>
                       </Tooltip>
-                    )}
-                    {canChangeStatus && schedule.status !== 'Completed' && schedule.status !== 'Cancelled' && (
-                      <Tooltip title="Mark as Completed">
-                        <IconButton 
-                          size="small" 
-                          color="success" 
-                          onClick={() => handleStatusChange(schedule.id, 'Completed')}
-                        >
-                          <CheckCircle fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    )}
-                    {canDelete && (
-                      <Tooltip title="Delete">
-                        <IconButton size="small" color="error" onClick={() => handleDelete(schedule.id)}>
-                          <Delete fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    )}
+                      {canEdit && (
+                        <Tooltip title="Edit">
+                          <IconButton size="small" color="info" onClick={() => handleOpenDialog(schedule)}>
+                            <Edit fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      {/* ✅ Only Super Admin can change status (Approve) */}
+                      {canChangeStatus && schedule.status !== 'Completed' && schedule.status !== 'Cancelled' && (
+                        <Tooltip title="Approve & Complete">
+                          <IconButton 
+                            size="small" 
+                            color="success" 
+                            onClick={() => handleStatusChange(schedule.id, 'Completed')}
+                          >
+                            <Verified fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      {canChangeStatus && schedule.status === 'Scheduled' && (
+                        <Tooltip title="Mark In Progress">
+                          <IconButton 
+                            size="small" 
+                            color="warning" 
+                            onClick={() => handleStatusChange(schedule.id, 'In Progress')}
+                          >
+                            <Schedule fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      {/* ✅ Only Super Admin can delete */}
+                      {canDelete && (
+                        <Tooltip title="Delete">
+                          <IconButton size="small" color="error" onClick={() => handleDelete(schedule.id)}>
+                            <Delete fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                    </Box>
                   </TableCell>
                 </TableRow>
               ))
@@ -807,6 +882,7 @@ const Maintenance = () => {
                   value={formData.status}
                   onChange={handleFormChange}
                   label="Status"
+                  disabled={!isSuperAdmin} // ✅ Only Super Admin can set initial status
                 >
                   <MenuItem value="Scheduled">Scheduled</MenuItem>
                   <MenuItem value="In Progress">In Progress</MenuItem>
@@ -814,12 +890,19 @@ const Maintenance = () => {
                   <MenuItem value="Overdue">Overdue</MenuItem>
                   <MenuItem value="Cancelled">Cancelled</MenuItem>
                 </Select>
+                {!isSuperAdmin && (
+                  <FormHelperText>Only Super Admin can change status</FormHelperText>
+                )}
               </FormControl>
             </Grid>
 
             <Grid item xs={12}>
               <Alert severity="info" icon={<Schedule sx={{ color: '#0B5FA5' }} />}>
-                Next due date is required. Schedule will be created for the selected equipment.
+                {isEngineer ? (
+                  'Engineers can create and edit maintenance schedules. Super Admin will approve and mark as completed.'
+                ) : (
+                  'Super Admin: You can create, edit, approve, and delete maintenance schedules.'
+                )}
               </Alert>
             </Grid>
           </Grid>
@@ -836,7 +919,7 @@ const Maintenance = () => {
         </DialogActions>
       </Dialog>
 
-      {/* View Dialog - REMOVED Status Color */}
+      {/* View Dialog */}
       <Dialog open={openViewDialog} onClose={handleCloseView} maxWidth="md" fullWidth>
         <DialogTitle sx={{ bgcolor: '#0B5FA5', color: 'white' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -857,10 +940,18 @@ const Maintenance = () => {
               </Grid>
               <Grid item xs={12} md={6}>
                 <Typography variant="body2" color="textSecondary">Status</Typography>
-                {/* REMOVED: Colored Status - showing plain text */}
-                <Typography variant="body1" fontWeight={600}>
-                  {viewingSchedule.status || 'Scheduled'}
-                </Typography>
+                <Chip 
+                  label={viewingSchedule.status || 'Scheduled'} 
+                  size="small"
+                  color={
+                    viewingSchedule.status === 'Completed' ? 'success' :
+                    viewingSchedule.status === 'Scheduled' ? 'primary' :
+                    viewingSchedule.status === 'In Progress' ? 'warning' :
+                    viewingSchedule.status === 'Overdue' ? 'error' :
+                    viewingSchedule.status === 'Cancelled' ? 'default' : 'default'
+                  }
+                  sx={{ height: 28, fontSize: '12px', fontWeight: 500 }}
+                />
               </Grid>
               <Grid item xs={12} md={6}>
                 <Typography variant="body2" color="textSecondary">Maintenance Type</Typography>
@@ -933,16 +1024,31 @@ const Maintenance = () => {
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
           <Button onClick={handleCloseView}>Close</Button>
-          {viewingSchedule?.status !== 'Completed' && viewingSchedule?.status !== 'Cancelled' && canChangeStatus && (
+          {/* ✅ Only Super Admin can approve */}
+          {canChangeStatus && viewingSchedule?.status !== 'Completed' && viewingSchedule?.status !== 'Cancelled' && (
             <Button
               variant="contained"
               color="success"
+              startIcon={<Verified />}
               onClick={() => {
                 handleStatusChange(viewingSchedule.id, 'Completed')
                 handleCloseView()
               }}
             >
-              Mark as Completed
+              Approve & Complete
+            </Button>
+          )}
+          {canChangeStatus && viewingSchedule?.status === 'Scheduled' && (
+            <Button
+              variant="contained"
+              color="warning"
+              startIcon={<Schedule />}
+              onClick={() => {
+                handleStatusChange(viewingSchedule.id, 'In Progress')
+                handleCloseView()
+              }}
+            >
+              Mark In Progress
             </Button>
           )}
         </DialogActions>

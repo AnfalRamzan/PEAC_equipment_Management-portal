@@ -1,4 +1,8 @@
 // src/pages/Repairs.jsx
+// ✅ ENGINEER: Create, Edit, View
+// ✅ SUPER_ADMIN: View, Delete (ONLY)
+// ❌ HOSPITAL_ADMIN: Access Denied
+
 import React, { useState, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import {
@@ -55,26 +59,35 @@ import {
   Inventory,
   Add as AddIcon,
   Remove as RemoveIcon,
-  Save
+  Save,
+  Engineering as EngineeringIcon,
+  AdminPanelSettings
 } from '@mui/icons-material'
 import { repairService, errorService, equipmentService } from '../api/services'
 import { toast } from 'react-toastify'
 import { useSelector } from 'react-redux'
+import AccessDenied from '../components/Auth/AccessDenied'
 
 const Repairs = () => {
   const { user } = useSelector((state) => state.auth)
   const location = useLocation()
   
+  // ✅ HOSPITAL_ADMIN - Access Denied
+  if (user?.role === 'HOSPITAL_ADMIN') {
+    return <AccessDenied message="Hospital Administrators cannot access Repairs." />
+  }
+  
   const isSuperAdmin = user?.role === 'SUPER_ADMIN'
-  const isHospitalAdmin = user?.role === 'HOSPITAL_ADMIN'
   const isEngineer = user?.role === 'ENGINEER'
   
   // ✅ PERMISSIONS
-  const canCreate = isSuperAdmin // ✅ ONLY Super Admin can create
-  const canEdit = isSuperAdmin // ✅ ONLY Super Admin can edit
+  // ✅ ENGINEER: Create, Edit, View
+  // ✅ SUPER_ADMIN: View, Delete (ONLY)
+  const canCreate = isEngineer // ✅ ONLY Engineer can create
+  const canEdit = isEngineer // ✅ ONLY Engineer can edit
   const canDelete = isSuperAdmin // ✅ ONLY Super Admin can delete
-  const canView = true // ✅ Everyone can view
-  const canUpdateStatus = isSuperAdmin // ✅ ONLY Super Admin can update status
+  const canView = isEngineer || isSuperAdmin // ✅ Both can view
+  const canUpdateStatus = isEngineer // ✅ Engineer can update status
 
   const [repairs, setRepairs] = useState([])
   const [errors, setErrors] = useState([])
@@ -212,9 +225,9 @@ const Repairs = () => {
 
   // ==================== CRUD HANDLERS ====================
   const handleOpenDialog = (repair = null) => {
-    // ✅ ONLY Super Admin can create/edit repairs
-    if (!isSuperAdmin) {
-      toast.error('Only Super Admin can create or edit repairs')
+    // ✅ ONLY Engineer can create/edit repairs
+    if (!isEngineer) {
+      toast.error('Only Biomedical Engineers can create or edit repairs')
       return
     }
     
@@ -243,7 +256,7 @@ const Repairs = () => {
         error_log_id: '',
         equipment_id: '',
         engineer_id: '',
-        engineer_name: '',
+        engineer_name: user?.full_name || '',
         root_cause: '',
         problem_analysis: '',
         corrective_action: '',
@@ -344,9 +357,9 @@ const Repairs = () => {
 
   // ==================== SUBMIT ====================
   const handleSubmit = async () => {
-    // ✅ ONLY Super Admin can submit
-    if (!isSuperAdmin) {
-      toast.error('Only Super Admin can create or update repairs')
+    // ✅ ONLY Engineer can submit
+    if (!isEngineer) {
+      toast.error('Only Biomedical Engineers can create or update repairs')
       return
     }
     
@@ -360,7 +373,7 @@ const Repairs = () => {
         error_log_id: parseInt(formData.error_log_id),
         equipment_id: formData.equipment_id ? parseInt(formData.equipment_id) : null,
         engineer_id: formData.engineer_id || null,
-        engineer_name: formData.engineer_name || '',
+        engineer_name: formData.engineer_name || user?.full_name || '',
         root_cause: formData.root_cause || '',
         problem_analysis: formData.problem_analysis || '',
         corrective_action: formData.corrective_action || '',
@@ -440,11 +453,29 @@ const Repairs = () => {
 
   return (
     <Box>
-      {/* Header - NO ICON */}
+      {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700, color: '#2C3E50' }}>
-          Repairs
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Typography variant="h5" sx={{ fontWeight: 700, color: '#2C3E50' }}>
+            Repairs
+          </Typography>
+          {isEngineer && (
+            <Chip 
+              icon={<EngineeringIcon sx={{ fontSize: 16 }} />}
+              label="Engineer Mode" 
+              size="small" 
+              color="info" 
+            />
+          )}
+          {isSuperAdmin && (
+            <Chip 
+              icon={<AdminPanelSettings sx={{ fontSize: 16 }} />}
+              label="Super Admin (View Only)" 
+              size="small" 
+              color="warning" 
+            />
+          )}
+        </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button
             variant="outlined"
@@ -453,8 +484,8 @@ const Repairs = () => {
           >
             Refresh
           </Button>
-          {/* ✅ ONLY Super Admin can create repairs */}
-          {isSuperAdmin && (
+          {/* ✅ ONLY Engineer can create repairs */}
+          {isEngineer && (
             <Button
               variant="contained"
               onClick={() => handleOpenDialog()}
@@ -466,7 +497,7 @@ const Repairs = () => {
         </Box>
       </Box>
 
-      {/* Stats Cards - NO ICONS */}
+      {/* Stats Cards */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={6} sm={3}>
           <Card sx={{ borderRadius: 2 }}>
@@ -510,7 +541,7 @@ const Repairs = () => {
         </Grid>
       </Grid>
 
-      {/* Search & Filters - NO ICON */}
+      {/* Search & Filters */}
       <Paper sx={{ p: 2, mb: 3, borderRadius: 2 }}>
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
           <TextField
@@ -543,7 +574,7 @@ const Repairs = () => {
         </Box>
       </Paper>
 
-      {/* Table - REMOVED Status Color and Chips */}
+      {/* Table */}
       <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
         <Table>
           <TableHead sx={{ bgcolor: '#0B5FA5' }}>
@@ -597,7 +628,7 @@ const Repairs = () => {
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2">
-                        {repair.engineer_name || 'Super Admin'}
+                        {repair.engineer_name || 'N/A'}
                       </Typography>
                     </TableCell>
                     <TableCell>
@@ -606,9 +637,20 @@ const Repairs = () => {
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2">
-                        {repair.status}
-                      </Typography>
+                      <Chip 
+                        label={repair.status} 
+                        size="small"
+                        color={
+                          repair.status === 'Completed' || repair.status === 'Verified' || repair.status === 'Resolved' ? 'success' :
+                          repair.status === 'Pending' ? 'default' :
+                          repair.status === 'In Progress' ? 'info' :
+                          repair.status === 'Assigned' || repair.status === 'Accepted' ? 'primary' :
+                          repair.status === 'Waiting for Spare Parts' ? 'warning' :
+                          repair.status === 'Testing' ? 'secondary' :
+                          repair.status === 'Closed' ? 'default' : 'default'
+                        }
+                        sx={{ height: 22, fontSize: '11px' }}
+                      />
                     </TableCell>
                     <TableCell>
                       {repair.time_taken ? `${repair.time_taken}m` : '-'}
@@ -632,8 +674,8 @@ const Repairs = () => {
                           </IconButton>
                         </Tooltip>
                         
-                        {/* ✅ ONLY Super Admin can edit */}
-                        {isSuperAdmin && (
+                        {/* ✅ ONLY Engineer can edit */}
+                        {isEngineer && (
                           <Tooltip title="Edit Repair">
                             <IconButton size="small" color="info" onClick={() => handleOpenDialog(repair)}>
                               <Edit fontSize="small" />
@@ -659,7 +701,7 @@ const Repairs = () => {
         </Table>
       </TableContainer>
 
-      {/* Add/Edit Dialog - ONLY Super Admin */}
+      {/* Add/Edit Dialog - ONLY Engineer */}
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
         <DialogTitle sx={{ bgcolor: '#0B5FA5', color: 'white' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -667,7 +709,7 @@ const Repairs = () => {
               <Typography variant="h6" fontWeight={600}>
                 {editingRepair ? 'Edit Repair' : 'Record Repair'}
               </Typography>
-              <Chip label="Super Admin Only" size="small" color="warning" sx={{ bgcolor: '#ff9800' }} />
+              <Chip label="Engineer Only" size="small" color="info" sx={{ bgcolor: '#2196f3' }} />
             </Box>
             <IconButton onClick={handleCloseDialog} sx={{ color: 'white' }}>
               <Close />
@@ -732,9 +774,10 @@ const Repairs = () => {
                 fullWidth
                 label="Engineer Name"
                 name="engineer_name"
-                value={formData.engineer_name}
+                value={formData.engineer_name || user?.full_name || ''}
                 onChange={handleFormChange}
                 placeholder="Name of engineer who fixed"
+                disabled={!isEngineer}
               />
             </Grid>
 
@@ -1043,17 +1086,17 @@ const Repairs = () => {
         </DialogActions>
       </Dialog>
 
-      {/* View Dialog - Everyone can view */}
+      {/* View Dialog - Both can view */}
       <Dialog open={openViewDialog} onClose={handleCloseView} maxWidth="md" fullWidth>
         <DialogTitle sx={{ bgcolor: '#0B5FA5', color: 'white' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6" fontWeight={600}>Repair Details</Typography>
             <Box>
-              {!isSuperAdmin && (
-                <Chip label="Read Only" size="small" color="info" sx={{ mr: 1 }} />
-              )}
               {isSuperAdmin && (
                 <Chip label="Super Admin" size="small" color="warning" sx={{ mr: 1 }} />
+              )}
+              {isEngineer && (
+                <Chip label="Engineer" size="small" color="info" sx={{ mr: 1 }} />
               )}
               <IconButton onClick={handleCloseView} sx={{ color: 'white' }}>
                 <Close />
@@ -1068,9 +1111,14 @@ const Repairs = () => {
                 <Grid item xs={12}>
                   <Alert severity="info">
                     Repair record for <strong>{viewingRepair.equipment_name}</strong>
-                    {!isSuperAdmin && (
+                    {isSuperAdmin && (
                       <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mt: 1 }}>
-                        👀 View Only Mode - You can only view repair details
+                        👀 Super Admin View Only - You can only view repair details and delete if needed
+                      </Typography>
+                    )}
+                    {isEngineer && (
+                      <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mt: 1 }}>
+                        🔧 Engineer - You can view repair details
                       </Typography>
                     )}
                   </Alert>
@@ -1081,13 +1129,23 @@ const Repairs = () => {
                 </Grid>
                 <Grid item xs={12} md={6}>
                   <Typography variant="body2" color="textSecondary">Status</Typography>
-                  <Typography variant="body1" fontWeight={500}>
-                    {viewingRepair.status}
-                  </Typography>
+                  <Chip 
+                    label={viewingRepair.status} 
+                    size="small"
+                    color={
+                      viewingRepair.status === 'Completed' || viewingRepair.status === 'Verified' || viewingRepair.status === 'Resolved' ? 'success' :
+                      viewingRepair.status === 'Pending' ? 'default' :
+                      viewingRepair.status === 'In Progress' ? 'info' :
+                      viewingRepair.status === 'Assigned' || viewingRepair.status === 'Accepted' ? 'primary' :
+                      viewingRepair.status === 'Waiting for Spare Parts' ? 'warning' :
+                      viewingRepair.status === 'Testing' ? 'secondary' :
+                      viewingRepair.status === 'Closed' ? 'default' : 'default'
+                    }
+                  />
                 </Grid>
                 <Grid item xs={12} md={6}>
                   <Typography variant="body2" color="textSecondary">Engineer</Typography>
-                  <Typography variant="body1">{viewingRepair.engineer_name || 'Super Admin'}</Typography>
+                  <Typography variant="body1">{viewingRepair.engineer_name || 'N/A'}</Typography>
                 </Grid>
                 <Grid item xs={12} md={6}>
                   <Typography variant="body2" color="textSecondary">Time Taken</Typography>

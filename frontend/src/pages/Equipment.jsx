@@ -85,8 +85,6 @@ const apiEndpoints = {
 }
 
 // ==================== HELPER FUNCTIONS ====================
-// REMOVED: getStatusColor - No longer needed
-
 // ✅ Get full URL for images
 const getFullImageUrl = (url) => {
   if (!url) return ''
@@ -102,15 +100,16 @@ const getFullImageUrl = (url) => {
 const Equipment = () => {
   const { user } = useSelector((state) => state.auth)
   
-  if (user?.role === 'ENGINEER') {
-    return <AccessDenied message="Biomedical Engineers cannot access Equipment Management. You can only view equipment while reporting errors." />
+  // ✅ HOSPITAL_ADMIN = Access Denied
+  if (user?.role === 'HOSPITAL_ADMIN') {
+    return <AccessDenied message="Hospital Administrators cannot access Equipment Management." />
   }
   
-  const canCreate = user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN'
-  const canEdit = user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN'
-  const canDelete = user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN'
-  const isViewOnly = user?.role === 'ENGINEER'
-  const canViewHistory = user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN'
+  // ✅ ENGINEER and SUPER_ADMIN permissions
+  const canCreate = user?.role === 'SUPER_ADMIN' || user?.role === 'ENGINEER'
+  const canEdit = user?.role === 'SUPER_ADMIN' || user?.role === 'ENGINEER'
+  const canDelete = user?.role === 'SUPER_ADMIN'  // Only SUPER_ADMIN can delete
+  const canViewHistory = user?.role === 'SUPER_ADMIN' || user?.role === 'ENGINEER'
 
   const [equipment, setEquipment] = useState([])
   const [categories, setCategories] = useState([])
@@ -271,16 +270,12 @@ const Equipment = () => {
   useEffect(() => {
     if (!openDialog || editingEquipment) return
 
-    if (user?.role === 'HOSPITAL_ADMIN') {
+    if (user?.role === 'ENGINEER' && user?.hospital_id) {
       if (!formData.hospital_id) {
-        if (user?.hospital_id) {
-          setFormData(prev => ({ ...prev, hospital_id: Number(user.hospital_id) }))
-        } else if (hospitals.length === 1) {
-          setFormData(prev => ({ ...prev, hospital_id: Number(hospitals[0].id) }))
-        }
+        setFormData(prev => ({ ...prev, hospital_id: Number(user.hospital_id) }))
       }
     }
-  }, [openDialog, editingEquipment, formData.hospital_id, user, hospitals])
+  }, [openDialog, editingEquipment, formData.hospital_id, user])
 
   const handleImageUploadComplete = (files) => {
     console.log('📸 Images uploaded:', files)
@@ -573,13 +568,11 @@ const Equipment = () => {
       return
     }
 
-    const defaultHospitalId = user?.role === 'SUPER_ADMIN' 
-      ? ''  
-      : user?.hospital_id 
-        ? Number(user.hospital_id)
-        : hospitals.length === 1 
-          ? Number(hospitals[0].id)
-          : ''
+    // For ENGINEER: Auto-fill hospital_id
+    let defaultHospitalId = ''
+    if (user?.role === 'ENGINEER' && user?.hospital_id) {
+      defaultHospitalId = Number(user.hospital_id)
+    }
     
     if (equip) {
       setEditingEquipment(equip)
@@ -590,7 +583,7 @@ const Equipment = () => {
         model: equip.model || '',
         serial_number: equip.serial_number || '',
         installation_year: equip.installation_year || '',
-        hospital_id: user?.role === 'SUPER_ADMIN' ? '' : (equip.hospital_id || defaultHospitalId),
+        hospital_id: equip.hospital_id || defaultHospitalId,
         department_id: equip.department_id || '',
         location: equip.location || '',
         status: equip.status || 'Active',
@@ -638,10 +631,6 @@ const Equipment = () => {
     const { name, value } = e.target
     console.log(`📝 Form change: ${name} = ${value}`)
     
-    if (name === 'hospital_id' && user?.role === 'SUPER_ADMIN') {
-      return
-    }
-    
     setFormData(prev => ({
       ...prev,
       [name]: value
@@ -664,29 +653,22 @@ const Equipment = () => {
         return
       }
 
+      // ENGINEER: Must have hospital_id
       let hospitalId = formData.hospital_id
-
-      if (user?.role === 'SUPER_ADMIN') {
-        hospitalId = null
-        console.log('🔄 Super Admin: No hospital restriction')
-      } else {
+      if (user?.role === 'ENGINEER') {
         if (!hospitalId || hospitalId === '') {
           if (user?.hospital_id) {
             hospitalId = Number(user.hospital_id)
-            setFormData(prev => ({ ...prev, hospital_id: hospitalId }))
-            console.log('🔄 Using user\'s hospital_id:', hospitalId)
-          } else if (hospitals.length === 1) {
-            hospitalId = Number(hospitals[0].id)
-            setFormData(prev => ({ ...prev, hospital_id: hospitalId }))
-            console.log('🔄 Using single-hospital fallback:', hospitalId)
+          } else {
+            toast.error('Hospital is required for Engineers')
+            setTouched(prev => ({ ...prev, hospital_id: true }))
+            return
           }
         }
-
-        if (!hospitalId || hospitalId === '') {
-          toast.error('Please select a hospital')
-          setTouched(prev => ({ ...prev, hospital_id: true }))
-          return
-        }
+        hospitalId = Number(hospitalId)
+      } else {
+        // SUPER_ADMIN: No hospital restriction
+        hospitalId = null
       }
 
       const submitData = {
@@ -696,7 +678,7 @@ const Equipment = () => {
         model: formData.model || '',
         serial_number: formData.serial_number || '',
         installation_year: formData.installation_year ? parseInt(formData.installation_year) : null,
-        hospital_id: user?.role === 'SUPER_ADMIN' ? null : parseInt(hospitalId),
+        hospital_id: hospitalId,
         department_id: formData.department_id ? parseInt(formData.department_id) : null,
         location: formData.location || '',
         status: formData.status || 'Active',
@@ -736,7 +718,7 @@ const Equipment = () => {
 
   const handleDelete = async (id) => {
     if (!canDelete) {
-      toast.error('You do not have permission to delete equipment')
+      toast.error('Only Super Admin can delete equipment')
       return
     }
     
@@ -751,8 +733,10 @@ const Equipment = () => {
     }
   }
 
+  // ✅ ENGINEER: Filter by their hospital only
   const filteredEquipment = equipment.filter(item => {
-    if (user?.role === 'HOSPITAL_ADMIN' && item.hospital_id !== user.hospital_id) {
+    // ENGINEER can only see their hospital's equipment
+    if (user?.role === 'ENGINEER' && item.hospital_id !== user.hospital_id) {
       return false
     }
     
@@ -935,7 +919,7 @@ const Equipment = () => {
         </MenuItem>
       </Menu>
 
-      {/* Equipment Table - REMOVED Status Chip and Avatar Icon */}
+      {/* Equipment Table */}
       <TableContainer component={Paper} sx={{ borderRadius: 2, overflowX: 'auto' }}>
         <Table>
           <TableHead sx={{ bgcolor: '#0B5FA5' }}>
@@ -946,9 +930,7 @@ const Equipment = () => {
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Model</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Serial No.</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Status</TableCell>
-              {(canEdit || canDelete) && (
-                <TableCell sx={{ color: 'white', fontWeight: 600 }} align="center">Actions</TableCell>
-              )}
+              <TableCell sx={{ color: 'white', fontWeight: 600 }} align="center">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -965,7 +947,6 @@ const Equipment = () => {
                 <TableRow key={item.id} hover>
                   <TableCell>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      {/* REMOVED: Avatar with icon */}
                       <Typography variant="body2" fontWeight={500}>
                         {item.name}
                       </Typography>
@@ -976,34 +957,31 @@ const Equipment = () => {
                   <TableCell>{item.model || '-'}</TableCell>
                   <TableCell>{item.serial_number || '-'}</TableCell>
                   <TableCell>
-                    {/* REMOVED: Status Chip - showing plain text */}
                     <Typography variant="body2">
                       {item.status || 'Active'}
                     </Typography>
                   </TableCell>
-                  {(canEdit || canDelete) && (
-                    <TableCell align="center">
-                      <Tooltip title="View Details">
-                        <IconButton size="small" color="primary" onClick={() => handleViewDetails(item)}>
-                          <Visibility />
+                  <TableCell align="center">
+                    <Tooltip title="View Details">
+                      <IconButton size="small" color="primary" onClick={() => handleViewDetails(item)}>
+                        <Visibility />
+                      </IconButton>
+                    </Tooltip>
+                    {canEdit && (
+                      <Tooltip title="Edit Equipment">
+                        <IconButton size="small" color="info" onClick={() => handleOpenDialog(item)}>
+                          <Edit />
                         </IconButton>
                       </Tooltip>
-                      {canEdit && (
-                        <Tooltip title="Edit Equipment">
-                          <IconButton size="small" color="info" onClick={() => handleOpenDialog(item)}>
-                            <Edit />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      {canDelete && (
-                        <Tooltip title="Delete Equipment">
-                          <IconButton size="small" color="error" onClick={() => handleDelete(item.id)}>
-                            <Delete />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                    </TableCell>
-                  )}
+                    )}
+                    {canDelete && (
+                      <Tooltip title="Delete Equipment">
+                        <IconButton size="small" color="error" onClick={() => handleDelete(item.id)}>
+                          <Delete />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                  </TableCell>
                 </TableRow>
               ))
             )}
@@ -1011,15 +989,12 @@ const Equipment = () => {
         </Table>
       </TableContainer>
 
-      {/* View Details Dialog with Tabs - REMOVED ICONS FROM TABS */}
+      {/* View Details Dialog with Tabs */}
       <Dialog open={openViewDialog} onClose={handleCloseView} maxWidth="md" fullWidth>
         <DialogTitle sx={{ bgcolor: '#0B5FA5', color: 'white' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6" fontWeight={600}>
               Equipment Details
-              {!canViewHistory && (
-                <Chip label="View Only" size="small" color="info" sx={{ ml: 2 }} />
-              )}
             </Typography>
             <IconButton onClick={handleCloseView} sx={{ color: 'white' }}>
               <Close />
@@ -1029,38 +1004,28 @@ const Equipment = () => {
         <DialogContent dividers sx={{ mt: 2 }}>
           {selectedEquipment && (
             <Box>
-              {canViewHistory ? (
-                <Tabs 
-                  value={viewTab} 
-                  onChange={(e, v) => setViewTab(v)} 
-                  sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}
-                  variant="scrollable"
-                  scrollButtons="auto"
-                >
-                  <Tab label="General" />
-                  <Tab label="Error History" />
-                  <Tab label="Repair History" />
-                  <Tab label="Maintenance History" />
-                  <Tab label="Spare Parts" />
-                </Tabs>
-              ) : (
-                <Alert severity="info" sx={{ mb: 2 }} icon={<WarningIcon />}>
-                  <Typography variant="body2">
-                    <strong>View Only Mode:</strong> You can view equipment details but cannot edit or access history.
-                  </Typography>
-                </Alert>
-              )}
+              <Tabs 
+                value={viewTab} 
+                onChange={(e, v) => setViewTab(v)} 
+                sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}
+                variant="scrollable"
+                scrollButtons="auto"
+              >
+                <Tab label="General" />
+                <Tab label="Error History" />
+                <Tab label="Repair History" />
+                <Tab label="Maintenance History" />
+                <Tab label="Spare Parts" />
+              </Tabs>
 
-              {(viewTab === 0 || !canViewHistory) && (
+              {viewTab === 0 && (
                 <Grid container spacing={3}>
                   <Grid item xs={12}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                      {/* REMOVED: Inventory Icon */}
                       <Box>
                         <Typography variant="h5" fontWeight={600}>
                           {selectedEquipment.name}
                         </Typography>
-                        {/* REMOVED: Status Chip - showing plain text */}
                         <Typography variant="body2">
                           {selectedEquipment.status || 'Active'}
                         </Typography>
@@ -1167,7 +1132,7 @@ const Equipment = () => {
                 </Grid>
               )}
 
-              {canViewHistory && viewTab === 1 && (
+              {viewTab === 1 && (
                 <Box>
                   <Typography variant="subtitle1" fontWeight={600} color="primary" gutterBottom>
                     Error History
@@ -1188,7 +1153,6 @@ const Equipment = () => {
                               <TableCell>{err.error_title}</TableCell>
                               <TableCell>{new Date(err.created_at).toLocaleDateString()}</TableCell>
                               <TableCell>
-                                {/* REMOVED: Status Chip - showing plain text */}
                                 <Typography variant="body2">{err.status}</Typography>
                               </TableCell>
                             </TableRow>
@@ -1204,7 +1168,7 @@ const Equipment = () => {
                 </Box>
               )}
 
-              {canViewHistory && viewTab === 2 && (
+              {viewTab === 2 && (
                 <Box>
                   <Typography variant="subtitle1" fontWeight={600} color="primary" gutterBottom>
                     Repair History
@@ -1227,7 +1191,6 @@ const Equipment = () => {
                               <TableCell>{repair.engineer_name || 'N/A'}</TableCell>
                               <TableCell>{new Date(repair.repair_date).toLocaleDateString()}</TableCell>
                               <TableCell>
-                                {/* REMOVED: Status Chip - showing plain text */}
                                 <Typography variant="body2">{repair.status}</Typography>
                               </TableCell>
                             </TableRow>
@@ -1243,7 +1206,7 @@ const Equipment = () => {
                 </Box>
               )}
 
-              {canViewHistory && viewTab === 3 && (
+              {viewTab === 3 && (
                 <Box>
                   <Typography variant="subtitle1" fontWeight={600} color="primary" gutterBottom>
                     Maintenance History
@@ -1264,7 +1227,6 @@ const Equipment = () => {
                               <TableCell>{maint.maintenance_type}</TableCell>
                               <TableCell>{new Date(maint.completed_date).toLocaleDateString()}</TableCell>
                               <TableCell>
-                                {/* REMOVED: Status Chip - showing plain text */}
                                 <Typography variant="body2">{maint.status}</Typography>
                               </TableCell>
                             </TableRow>
@@ -1280,7 +1242,7 @@ const Equipment = () => {
                 </Box>
               )}
 
-              {canViewHistory && viewTab === 4 && (
+              {viewTab === 4 && (
                 <Box>
                   <Typography variant="subtitle1" fontWeight={600} color="primary" gutterBottom>
                     Spare Parts Used
@@ -1300,7 +1262,6 @@ const Equipment = () => {
                             <TableRow key={idx} hover>
                               <TableCell>{part.part_name}</TableCell>
                               <TableCell align="center">
-                                {/* REMOVED: Quantity Chip - showing plain text */}
                                 <Typography variant="body2">{part.quantity}</Typography>
                               </TableCell>
                               <TableCell align="right" sx={{ fontWeight: 500 }}>
@@ -1340,8 +1301,8 @@ const Equipment = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Add/Edit Dialog - REMOVED ICONS */}
-      {(canCreate || canEdit) && !isViewOnly && (
+      {/* Add/Edit Dialog */}
+      {(canCreate || canEdit) && (
         <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
           <DialogTitle sx={{ bgcolor: '#0B5FA5', color: 'white' }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1435,39 +1396,30 @@ const Equipment = () => {
                 />
               </Grid>
 
-              {user?.role === 'HOSPITAL_ADMIN' ? (
-                <Grid item xs={12} md={6}>
-                  <FormControl fullWidth>
-                    <InputLabel>Hospital *</InputLabel>
-                    <Select
-                      name="hospital_id"
-                      value={formData.hospital_id}
-                      onChange={handleFormChange}
-                      label="Hospital *"
-                      disabled
-                    >
-                      <MenuItem value="">Select Hospital</MenuItem>
-                      {hospitals.map(h => (
-                        <MenuItem key={h.id} value={h.id}>{h.name}</MenuItem>
-                      ))}
-                    </Select>
-                    {touched.hospital_id && !formData.hospital_id && (
-                      <Typography variant="caption" color="error">
-                        Hospital is required
-                      </Typography>
-                    )}
-                  </FormControl>
-                </Grid>
-              ) : user?.role === 'SUPER_ADMIN' ? (
-                <Grid item xs={12} md={6}>
-                  <TextField
-                    fullWidth
+              {/* Hospital - Auto-set for Engineer, Disabled for Super Admin */}
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Hospital</InputLabel>
+                  <Select
+                    name="hospital_id"
+                    value={formData.hospital_id}
+                    onChange={handleFormChange}
                     label="Hospital"
-                    value="All Hospitals (Super Admin)"
-                    disabled
-                  />
-                </Grid>
-              ) : null}
+                    disabled={user?.role === 'ENGINEER'}
+                  >
+                    <MenuItem value="">Select Hospital</MenuItem>
+                    {hospitals.map(h => (
+                      <MenuItem key={h.id} value={h.id}>{h.name}</MenuItem>
+                    ))}
+                  </Select>
+                  {user?.role === 'ENGINEER' && (
+                    <FormHelperText>Auto-assigned to your hospital</FormHelperText>
+                  )}
+                  {user?.role === 'SUPER_ADMIN' && (
+                    <FormHelperText>Super Admin: Leave blank for all hospitals</FormHelperText>
+                  )}
+                </FormControl>
+              </Grid>
 
               <Grid item xs={12} md={6}>
                 <FormControl fullWidth>

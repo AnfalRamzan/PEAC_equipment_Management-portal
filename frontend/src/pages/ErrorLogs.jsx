@@ -1,4 +1,7 @@
 // src/pages/ErrorLogs.jsx
+// ✅ ENGINEER can Create, Edit, Delete
+// ✅ SUPER_ADMIN and HOSPITAL_ADMIN can only View
+
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -86,23 +89,14 @@ const ErrorLogs = () => {
   const isEngineer = user?.role === 'ENGINEER'
   
   // ✅ PERMISSIONS
-  const canReport = isSuperAdmin || isHospitalAdmin || isEngineer
-  const canDelete = isSuperAdmin // ✅ ONLY Super Admin can delete
+  // ✅ Only ENGINEER can create, edit, delete
+  const canCreate = isEngineer
+  const canEdit = isEngineer
+  const canDelete = isEngineer
+  const canView = isSuperAdmin || isHospitalAdmin || isEngineer
   
-  // ✅ Hospital Admin can ONLY VIEW - NO EDIT/DELETE/STATUS CHANGE
-  const canEditError = (error) => {
-    if (isSuperAdmin) return true // Super Admin can edit
-    if (isHospitalAdmin) return false // ❌ Hospital Admin CANNOT edit
-    if (isEngineer) {
-      return error.assigned_to === user?.id // Engineer can edit only assigned to them
-    }
-    return false
-  }
-
-  // ✅ Hospital Admin can ONLY VIEW - NO STATUS CHANGE
-  const canChangeStatus = () => {
-    return isSuperAdmin // ✅ ONLY Super Admin can change status
-  }
+  // ❌ SUPER_ADMIN and HOSPITAL_ADMIN cannot edit/delete
+  const canChangeStatus = isEngineer // Only Engineer can change status
 
   const [errors, setErrors] = useState([])
   const [equipment, setEquipment] = useState([])
@@ -270,19 +264,9 @@ const ErrorLogs = () => {
   }
 
   const handleOpenDialog = (error = null) => {
-    // ✅ Hospital Admin cannot edit
-    if (isHospitalAdmin) {
-      toast.error('Hospital Admin can only view errors. Super Admin can edit.')
-      return
-    }
-    
-    if (isSuperAdmin) {
-      toast.error('Super Admin cannot edit errors. Use the Status Update in View Details.')
-      return
-    }
-    
-    if (error && !canEditError(error)) {
-      toast.error('You do not have permission to edit this error')
+    // ✅ Only ENGINEER can create/edit
+    if (!isEngineer) {
+      toast.error('Only Biomedical Engineers can report and edit errors')
       return
     }
     
@@ -376,9 +360,9 @@ const ErrorLogs = () => {
   }
 
   const handleSubmit = async () => {
-    // ✅ Hospital Admin cannot submit/edit
-    if (isHospitalAdmin) {
-      toast.error('Hospital Admin can only view errors')
+    // ✅ Only ENGINEER can submit
+    if (!isEngineer) {
+      toast.error('Only Biomedical Engineers can report errors')
       return
     }
 
@@ -417,10 +401,10 @@ const ErrorLogs = () => {
     }
   }
 
-  // ✅ ONLY Super Admin can save status
+  // ✅ Only ENGINEER can save status
   const handleSaveStatus = async () => {
-    if (!isSuperAdmin) {
-      toast.error('Only Super Admin can change error status')
+    if (!isEngineer) {
+      toast.error('Only Biomedical Engineers can change error status')
       return
     }
 
@@ -461,8 +445,9 @@ const ErrorLogs = () => {
   }
 
   const handleErrorDelete = async (id) => {
-    if (!canDelete) {
-      toast.error('Only Super Admin can delete errors')
+    // ✅ Only ENGINEER can delete
+    if (!isEngineer) {
+      toast.error('Only Biomedical Engineers can delete errors')
       return
     }
     
@@ -515,7 +500,7 @@ const ErrorLogs = () => {
           >
             Refresh
           </Button>
-          {canReport && !isHospitalAdmin && (
+          {canCreate && (
             <Button
               variant="contained"
               startIcon={<Add />}
@@ -700,8 +685,8 @@ const ErrorLogs = () => {
                         </IconButton>
                       </Tooltip>
                       
-                      {/* ✅ ONLY Engineer can edit (if assigned to them) */}
-                      {canEditError(error) && !isSuperAdmin && !isHospitalAdmin && (
+                      {/* ✅ Only ENGINEER can edit */}
+                      {canEdit && (
                         <Tooltip title="Edit Error">
                           <IconButton size="small" color="info" onClick={() => handleOpenDialog(error)}>
                             <Edit fontSize="small" />
@@ -709,7 +694,7 @@ const ErrorLogs = () => {
                         </Tooltip>
                       )}
                       
-                      {/* ✅ ONLY Super Admin can delete */}
+                      {/* ✅ Only ENGINEER can delete */}
                       {canDelete && (
                         <Tooltip title="Delete Error">
                           <IconButton size="small" color="error" onClick={() => handleErrorDelete(error.id)}>
@@ -726,7 +711,7 @@ const ErrorLogs = () => {
         </Table>
       </TableContainer>
 
-      {/* ADD/EDIT ERROR DIALOG - Only for Engineers and Super Admin */}
+      {/* ADD/EDIT ERROR DIALOG - Only for ENGINEER */}
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
         <DialogTitle sx={{ bgcolor: '#0B5FA5', color: 'white' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -749,7 +734,7 @@ const ErrorLogs = () => {
                   value={errorFormData.hospital_id}
                   onChange={handleFormChange}
                   label="Hospital"
-                  disabled={isHospitalAdmin || isSuperAdmin}
+                  disabled={!isEngineer}
                 >
                   <MenuItem value="">Select Hospital (Optional)</MenuItem>
                   {hospitals.map(h => (
@@ -857,33 +842,25 @@ const ErrorLogs = () => {
               </FormControl>
             </Grid>
 
-            {/* Status - Optional */}
+            {/* Status - ENGINEER can change */}
             <Grid item xs={12} md={6}>
-              {isSuperAdmin ? (
-                <FormControl fullWidth>
-                  <InputLabel>Status</InputLabel>
-                  <Select
-                    name="status"
-                    value={errorFormData.status}
-                    onChange={handleFormChange}
-                    label="Status"
-                  >
-                    <MenuItem value="Pending">Pending</MenuItem>
-                    <MenuItem value="In Progress">In Progress</MenuItem>
-                    <MenuItem value="Completed">Completed</MenuItem>
-                    <MenuItem value="Resolved">Resolved</MenuItem>
-                    <MenuItem value="Closed">Closed</MenuItem>
-                    <MenuItem value="Rejected">Rejected</MenuItem>
-                  </Select>
-                </FormControl>
-              ) : (
-                <TextField
-                  fullWidth
+              <FormControl fullWidth>
+                <InputLabel>Status</InputLabel>
+                <Select
+                  name="status"
+                  value={errorFormData.status}
+                  onChange={handleFormChange}
                   label="Status"
-                  value={errorFormData.status || 'Pending'}
-                  disabled
-                />
-              )}
+                  disabled={!isEngineer}
+                >
+                  <MenuItem value="Pending">Pending</MenuItem>
+                  <MenuItem value="In Progress">In Progress</MenuItem>
+                  <MenuItem value="Completed">Completed</MenuItem>
+                  <MenuItem value="Resolved">Resolved</MenuItem>
+                  <MenuItem value="Closed">Closed</MenuItem>
+                  <MenuItem value="Rejected">Rejected</MenuItem>
+                </Select>
+              </FormControl>
             </Grid>
 
             {/* Error Title - REQUIRED */}
@@ -988,7 +965,7 @@ const ErrorLogs = () => {
         </DialogActions>
       </Dialog>
 
-      {/* VIEW ERROR DIALOG */}
+      {/* VIEW ERROR DIALOG - All users can view */}
       <Dialog 
         open={openViewDialog} 
         onClose={handleCloseView} 
@@ -1197,8 +1174,8 @@ const ErrorLogs = () => {
                 </Box>
               )}
 
-              {/* ✅ STATUS UPDATE - ONLY for Super Admin */}
-              {isSuperAdmin && (
+              {/* ✅ STATUS UPDATE - Only for ENGINEER */}
+              {isEngineer && (
                 <Box sx={{ mt: 3 }}>
                   <Divider sx={{ mb: 2 }} />
                   <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2, color: '#0B5FA5' }}>
@@ -1252,12 +1229,12 @@ const ErrorLogs = () => {
                 </Box>
               )}
 
-              {/* ✅ HOSPITAL ADMIN - View Only Message */}
-              {isHospitalAdmin && (
+              {/* ✅ SUPER_ADMIN / HOSPITAL_ADMIN - View Only Message */}
+              {(isSuperAdmin || isHospitalAdmin) && (
                 <Alert severity="info" sx={{ mt: 3 }}>
                   <Typography variant="body2">
                     <strong>👀 View Only Mode:</strong> You can view all error details. 
-                    Status updates are managed by Super Admin only.
+                    Only Biomedical Engineers can report, edit, or update error status.
                   </Typography>
                 </Alert>
               )}
@@ -1267,7 +1244,8 @@ const ErrorLogs = () => {
         
         <DialogActions sx={{ p: 3, justifyContent: 'space-between' }}>
           <Button onClick={handleCloseView}>Close</Button>
-          {isSuperAdmin && viewingError && (
+          {/* ✅ Only ENGINEER can delete from view dialog */}
+          {isEngineer && viewingError && (
             <Button
               variant="contained"
               color="error"

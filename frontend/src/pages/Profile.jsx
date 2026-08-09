@@ -1,4 +1,6 @@
 // src/pages/Profile.jsx
+// HOSPITAL_ADMIN REMOVED from role display
+
 import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
@@ -379,13 +381,13 @@ const Profile = () => {
       .slice(0, 2);
   };
 
-  // Get role color
+  // ✅ UPDATED: Get role color - HOSPITAL_ADMIN REMOVED
   const getRoleColor = (role) => {
     switch (role?.toLowerCase()) {
       case 'super_admin':
         return '#C9A227';
-      case 'hospital_admin':
-        return '#0B5FA5';
+      // case 'hospital_admin': // ❌ REMOVED
+      //   return '#0B5FA5';
       case 'engineer':
         return '#2E7D32';
       default:
@@ -393,13 +395,13 @@ const Profile = () => {
     }
   };
 
-  // Get role label
+  // ✅ UPDATED: Get role label - HOSPITAL_ADMIN REMOVED
   const getRoleLabel = (role) => {
     switch (role?.toLowerCase()) {
       case 'super_admin':
         return 'Super Admin';
-      case 'hospital_admin':
-        return 'Hospital Admin';
+      // case 'hospital_admin': // ❌ REMOVED
+      //   return 'Hospital Admin';
       case 'engineer':
         return 'Engineer';
       default:
