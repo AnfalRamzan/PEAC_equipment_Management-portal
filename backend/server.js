@@ -27,7 +27,7 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // ============================================================
-// ✅ CREATE UPLOAD DIRECTORIES
+// ✅ CREATE UPLOAD DIRECTORIES (Vercel Compatible)
 // ============================================================
 const uploadDirs = [
     'uploads',
@@ -48,19 +48,32 @@ const uploadDirs = [
     'uploads/service-documentation'
 ];
 
+// ✅ Safe directory creation for Vercel (read-only filesystem)
 uploadDirs.forEach(dir => {
-    const fullPath = path.join(__dirname, dir);
-    if (!fs.existsSync(fullPath)) {
-        fs.mkdirSync(fullPath, { recursive: true });
-        console.log(`📁 Created directory: ${dir}`);
+    try {
+        const fullPath = path.join(__dirname, dir);
+        if (!fs.existsSync(fullPath)) {
+            try {
+                fs.mkdirSync(fullPath, { recursive: true });
+                console.log(`📁 Created directory: ${dir}`);
+            } catch (mkdirError) {
+                console.log(`⚠️ Cannot create directory ${dir} (Vercel read-only): ${mkdirError.message}`);
+            }
+        }
+    } catch (error) {
+        console.log(`⚠️ Directory ${dir} not available on Vercel`);
     }
 });
 
 // ============================================================
-// ✅ STATIC FILE SERVE
+// ✅ STATIC FILE SERVE (Vercel Compatible)
 // ============================================================
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-console.log(`📁 Serving uploads from: ${path.join(__dirname, 'uploads')}`);
+try {
+    app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+    console.log(`📁 Serving uploads from: ${path.join(__dirname, 'uploads')}`);
+} catch (error) {
+    console.log('⚠️ Static file serving not available on Vercel');
+}
 
 // ============================================================
 // ✅ CONSTANTS
@@ -297,15 +310,23 @@ const authorize = (...allowedRoles) => {
 };
 
 // ============================================================
-// ✅ PROFILE PICTURE UPLOAD
+// ✅ PROFILE PICTURE UPLOAD (Vercel Compatible)
 // ============================================================
 const profileStorage = multer.diskStorage({
     destination: (req, file, cb) => {
-        const uploadPath = path.join(__dirname, 'uploads', 'profile');
-        if (!fs.existsSync(uploadPath)) {
-            fs.mkdirSync(uploadPath, { recursive: true });
+        try {
+            const uploadPath = path.join(__dirname, 'uploads', 'profile');
+            if (!fs.existsSync(uploadPath)) {
+                try {
+                    fs.mkdirSync(uploadPath, { recursive: true });
+                } catch (mkdirError) {
+                    console.log('⚠️ Cannot create profile directory on Vercel');
+                }
+            }
+            cb(null, uploadPath);
+        } catch (error) {
+            cb(null, '/tmp');
         }
-        cb(null, uploadPath);
     },
     filename: (req, file, cb) => {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -329,25 +350,33 @@ const profileUpload = multer({
 });
 
 // ============================================================
-// ✅ GENERAL FILE UPLOAD
+// ✅ GENERAL FILE UPLOAD (Vercel Compatible)
 // ============================================================
 const generalStorage = multer.diskStorage({
     destination: (req, file, cb) => {
-        let uploadPath = path.join(__dirname, 'uploads');
-        
-        if (file.mimetype.startsWith('image/')) {
-            uploadPath = path.join(uploadPath, 'images');
-        } else if (file.mimetype.startsWith('video/')) {
-            uploadPath = path.join(uploadPath, 'videos');
-        } else {
-            uploadPath = path.join(uploadPath, 'documents');
+        try {
+            let uploadPath = path.join(__dirname, 'uploads');
+            
+            if (file.mimetype.startsWith('image/')) {
+                uploadPath = path.join(uploadPath, 'images');
+            } else if (file.mimetype.startsWith('video/')) {
+                uploadPath = path.join(uploadPath, 'videos');
+            } else {
+                uploadPath = path.join(uploadPath, 'documents');
+            }
+            
+            if (!fs.existsSync(uploadPath)) {
+                try {
+                    fs.mkdirSync(uploadPath, { recursive: true });
+                } catch (mkdirError) {
+                    console.log('⚠️ Cannot create upload directory on Vercel');
+                }
+            }
+            
+            cb(null, uploadPath);
+        } catch (error) {
+            cb(null, '/tmp');
         }
-        
-        if (!fs.existsSync(uploadPath)) {
-            fs.mkdirSync(uploadPath, { recursive: true });
-        }
-        
-        cb(null, uploadPath);
     },
     filename: (req, file, cb) => {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -509,11 +538,19 @@ app.post('/api/upload-dir', authenticate, (req, res) => {
     
     const dirStorage = multer.diskStorage({
         destination: (req, file, cb) => {
-            const uploadPath = path.join(__dirname, 'uploads', directory);
-            if (!fs.existsSync(uploadPath)) {
-                fs.mkdirSync(uploadPath, { recursive: true });
+            try {
+                const uploadPath = path.join(__dirname, 'uploads', directory);
+                if (!fs.existsSync(uploadPath)) {
+                    try {
+                        fs.mkdirSync(uploadPath, { recursive: true });
+                    } catch (mkdirError) {
+                        console.log('⚠️ Cannot create directory on Vercel');
+                    }
+                }
+                cb(null, uploadPath);
+            } catch (error) {
+                cb(null, '/tmp');
             }
-            cb(null, uploadPath);
         },
         filename: (req, file, cb) => {
             const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -606,12 +643,16 @@ app.delete('/api/upload', authenticate, async (req, res) => {
         let fileDeleted = false;
 
         for (const dir of searchDirs) {
-            const filePath = path.join(__dirname, dir, filename);
-            if (fs.existsSync(filePath)) {
-                fs.unlinkSync(filePath);
-                fileDeleted = true;
-                console.log(`🗑️ File deleted: ${filePath}`);
-                break;
+            try {
+                const filePath = path.join(__dirname, dir, filename);
+                if (fs.existsSync(filePath)) {
+                    fs.unlinkSync(filePath);
+                    fileDeleted = true;
+                    console.log(`🗑️ File deleted: ${filePath}`);
+                    break;
+                }
+            } catch (error) {
+                console.log('⚠️ File delete error (Vercel):', error.message);
             }
         }
 
@@ -711,10 +752,14 @@ app.post('/api/users/profile-picture', authenticate, profileUpload.single('profi
 
         const users = await query('SELECT profile_image FROM users WHERE id = ?', [req.user.id]);
         if (users.length > 0 && users[0].profile_image) {
-            const oldImagePath = path.join(__dirname, users[0].profile_image);
-            if (fs.existsSync(oldImagePath)) {
-                fs.unlinkSync(oldImagePath);
-                console.log('🗑️ Old profile picture deleted');
+            try {
+                const oldImagePath = path.join(__dirname, users[0].profile_image);
+                if (fs.existsSync(oldImagePath)) {
+                    fs.unlinkSync(oldImagePath);
+                    console.log('🗑️ Old profile picture deleted');
+                }
+            } catch (error) {
+                console.log('⚠️ Could not delete old profile picture on Vercel');
             }
         }
 
@@ -744,10 +789,14 @@ app.delete('/api/users/profile-picture', authenticate, async (req, res) => {
         const users = await query('SELECT profile_image FROM users WHERE id = ?', [req.user.id]);
         
         if (users.length > 0 && users[0].profile_image) {
-            const imagePath = path.join(__dirname, users[0].profile_image);
-            if (fs.existsSync(imagePath)) {
-                fs.unlinkSync(imagePath);
-                console.log('🗑️ Profile picture deleted');
+            try {
+                const imagePath = path.join(__dirname, users[0].profile_image);
+                if (fs.existsSync(imagePath)) {
+                    fs.unlinkSync(imagePath);
+                    console.log('🗑️ Profile picture deleted');
+                }
+            } catch (error) {
+                console.log('⚠️ Could not delete profile picture on Vercel');
             }
             
             await query(
@@ -2369,18 +2418,26 @@ app.delete('/api/errors/:id', authenticate, authorize('SUPER_ADMIN'), async (req
 // ============================================================
 const errorStorage = multer.diskStorage({
     destination: (req, file, cb) => {
-        let uploadPath = path.join(__dirname, 'uploads', 'errors');
-        if (file.mimetype.startsWith('image/')) {
-            uploadPath = path.join(uploadPath, 'images');
-        } else if (file.mimetype.startsWith('video/')) {
-            uploadPath = path.join(uploadPath, 'videos');
-        } else {
-            uploadPath = path.join(uploadPath, 'documents');
+        try {
+            let uploadPath = path.join(__dirname, 'uploads', 'errors');
+            if (file.mimetype.startsWith('image/')) {
+                uploadPath = path.join(uploadPath, 'images');
+            } else if (file.mimetype.startsWith('video/')) {
+                uploadPath = path.join(uploadPath, 'videos');
+            } else {
+                uploadPath = path.join(uploadPath, 'documents');
+            }
+            if (!fs.existsSync(uploadPath)) {
+                try {
+                    fs.mkdirSync(uploadPath, { recursive: true });
+                } catch (mkdirError) {
+                    console.log('⚠️ Cannot create error directory on Vercel');
+                }
+            }
+            cb(null, uploadPath);
+        } catch (error) {
+            cb(null, '/tmp');
         }
-        if (!fs.existsSync(uploadPath)) {
-            fs.mkdirSync(uploadPath, { recursive: true });
-        }
-        cb(null, uploadPath);
     },
     filename: (req, file, cb) => {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
