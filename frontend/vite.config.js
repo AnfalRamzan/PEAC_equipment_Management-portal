@@ -8,11 +8,13 @@ export default defineConfig({
         proxy: {
             '/api': {
                 target: 'http://localhost:5000',
-                changeOrigin: true
+                changeOrigin: true,
+                secure: false
             },
             '/uploads': {
                 target: 'http://localhost:5000',
-                changeOrigin: true
+                changeOrigin: true,
+                secure: false
             },
             '/ws': {
                 target: 'ws://localhost:5000',
@@ -22,6 +24,17 @@ export default defineConfig({
     },
     build: {
         outDir: 'dist',
-        sourcemap: true
+        sourcemap: true,
+        rollupOptions: {
+            output: {
+                manualChunks: {
+                    vendor: ['react', 'react-dom', 'react-router-dom'],
+                    mui: ['@mui/material', '@mui/icons-material', '@emotion/react', '@emotion/styled']
+                }
+            }
+        }
+    },
+    preview: {
+        port: 4173
     }
 });
