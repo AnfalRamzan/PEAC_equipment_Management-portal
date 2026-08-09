@@ -3,7 +3,7 @@
   "workspaceId": "271b161f8b07d86d",
   "workspaceName": "hospital-equipment-management",
   "enabled": true,
-  "updatedAt": "2026-08-09T10:59:58.230Z",
+  "updatedAt": "2026-08-09T11:04:48.484Z",
   "detectedStack": {
     "languages": [
       "JavaScript/TypeScript"
@@ -60,7 +60,7 @@
         "evidence": {
           "file": "package.json"
         },
-        "lastVerifiedAt": "2026-08-09T10:59:58.229Z"
+        "lastVerifiedAt": "2026-08-09T11:04:48.483Z"
       },
       {
         "id": "de6503954d0e3482",
@@ -72,7 +72,7 @@
         "evidence": {
           "file": "package.json"
         },
-        "lastVerifiedAt": "2026-08-09T10:59:58.229Z"
+        "lastVerifiedAt": "2026-08-09T11:04:48.483Z"
       }
     ],
     "packageManager": [],
@@ -89,7 +89,7 @@
         "evidence": {
           "file": "backend/.env"
         },
-        "lastVerifiedAt": "2026-08-09T10:59:58.230Z"
+        "lastVerifiedAt": "2026-08-09T11:04:48.484Z"
       },
       {
         "id": "0a5f7f28e818bc4d",
@@ -101,7 +101,7 @@
         "evidence": {
           "file": "database/schema.sql"
         },
-        "lastVerifiedAt": "2026-08-09T10:59:58.230Z"
+        "lastVerifiedAt": "2026-08-09T11:04:48.484Z"
       },
       {
         "id": "2725c4ff8848d479",
@@ -113,7 +113,7 @@
         "evidence": {
           "file": "backend/api/auth/index.js"
         },
-        "lastVerifiedAt": "2026-08-09T10:59:58.230Z"
+        "lastVerifiedAt": "2026-08-09T11:04:48.484Z"
       },
       {
         "id": "2b39acd5c7f07e73",
@@ -125,7 +125,7 @@
         "evidence": {
           "file": "backend/middleware/auth.js"
         },
-        "lastVerifiedAt": "2026-08-09T10:59:58.230Z"
+        "lastVerifiedAt": "2026-08-09T11:04:48.484Z"
       },
       {
         "id": "0052aa723a258a97",
@@ -137,7 +137,7 @@
         "evidence": {
           "file": "frontend/src/components/Auth/ProtectedRoute.jsx"
         },
-        "lastVerifiedAt": "2026-08-09T10:59:58.230Z"
+        "lastVerifiedAt": "2026-08-09T11:04:48.484Z"
       },
       {
         "id": "25ebd5098feec796",
@@ -149,7 +149,7 @@
         "evidence": {
           "file": "frontend/src/pages/Dashboard.jsx"
         },
-        "lastVerifiedAt": "2026-08-09T10:59:58.230Z"
+        "lastVerifiedAt": "2026-08-09T11:04:48.484Z"
       },
       {
         "id": "4a123d1ff2c02781",
@@ -161,7 +161,7 @@
         "evidence": {
           "file": "frontend/src/pages/Login.jsx"
         },
-        "lastVerifiedAt": "2026-08-09T10:59:58.230Z"
+        "lastVerifiedAt": "2026-08-09T11:04:48.484Z"
       },
       {
         "id": "3173b98a5e55b647",
@@ -173,7 +173,7 @@
         "evidence": {
           "file": "backend/api/dashboard.js"
         },
-        "lastVerifiedAt": "2026-08-09T10:59:58.230Z"
+        "lastVerifiedAt": "2026-08-09T11:04:48.484Z"
       },
       {
         "id": "14526d9b3c84ad6b",
@@ -185,7 +185,7 @@
         "evidence": {
           "file": ".env.local"
         },
-        "lastVerifiedAt": "2026-08-09T10:59:58.229Z"
+        "lastVerifiedAt": "2026-08-09T11:04:48.484Z"
       },
       {
         "id": "67066f80404035bc",
@@ -197,7 +197,7 @@
         "evidence": {
           "file": "frontend/src/components/Auth/AccessDenied.jsx"
         },
-        "lastVerifiedAt": "2026-08-09T10:59:58.230Z"
+        "lastVerifiedAt": "2026-08-09T11:04:48.484Z"
       },
       {
         "id": "e01ce12f5df3d5d5",
@@ -209,7 +209,7 @@
         "evidence": {
           "file": ".env.production"
         },
-        "lastVerifiedAt": "2026-08-09T10:59:58.230Z"
+        "lastVerifiedAt": "2026-08-09T11:04:48.484Z"
       }
     ],
     "forbiddenActions": [
@@ -220,7 +220,7 @@
         "source": "repo_detected",
         "confidence": "confirmed",
         "scope": "workspace",
-        "lastVerifiedAt": "2026-08-09T10:59:58.230Z"
+        "lastVerifiedAt": "2026-08-09T11:04:48.484Z"
       },
       {
         "id": "fbb699a0194f1b53",
@@ -300,7 +300,7 @@
         "appliesTo": [
           "frontend"
         ],
-        "lastVerifiedAt": "2026-08-09T10:59:58.230Z"
+        "lastVerifiedAt": "2026-08-09T11:04:48.484Z"
       },
       {
         "id": "6c1edbac0eae1df1",
@@ -330,7 +330,7 @@
         "appliesTo": [
           "frontend"
         ],
-        "lastVerifiedAt": "2026-08-09T10:59:58.230Z"
+        "lastVerifiedAt": "2026-08-09T11:04:48.484Z"
       },
       {
         "id": "866b98a23d9ff55a",
@@ -345,7 +345,7 @@
         "appliesTo": [
           "backend"
         ],
-        "lastVerifiedAt": "2026-08-09T10:59:58.230Z"
+        "lastVerifiedAt": "2026-08-09T11:04:48.484Z"
       },
       {
         "id": "d888bdbe6cd27fd0",
@@ -360,7 +360,7 @@
         "appliesTo": [
           "backend"
         ],
-        "lastVerifiedAt": "2026-08-09T10:59:58.230Z"
+        "lastVerifiedAt": "2026-08-09T11:04:48.484Z"
       },
       {
         "id": "931250c7ad93c61f",
@@ -444,7 +444,7 @@
         "evidence": {
           "file": "package.json"
         },
-        "lastVerifiedAt": "2026-08-09T10:59:58.229Z"
+        "lastVerifiedAt": "2026-08-09T11:04:48.483Z"
       },
       {
         "id": "dd19c3301a72bbdf",
@@ -474,7 +474,7 @@
         "evidence": {
           "file": "vercel.json"
         },
-        "lastVerifiedAt": "2026-08-09T10:59:58.229Z"
+        "lastVerifiedAt": "2026-08-09T11:04:48.483Z"
       }
     ],
     "testingExpectations": [],
@@ -520,7 +520,7 @@
           "appliesTo": [
             "backend"
           ],
-          "lastVerifiedAt": "2026-08-09T10:59:58.229Z"
+          "lastVerifiedAt": "2026-08-09T11:04:48.483Z"
         },
         {
           "id": "backend:fact:Framework detected: Express.",
@@ -535,7 +535,7 @@
           "appliesTo": [
             "backend"
           ],
-          "lastVerifiedAt": "2026-08-09T10:59:58.229Z"
+          "lastVerifiedAt": "2026-08-09T11:04:48.483Z"
         },
         {
           "id": "backend:command:npm run start -> node server.js",
@@ -550,7 +550,7 @@
           "appliesTo": [
             "backend"
           ],
-          "lastVerifiedAt": "2026-08-09T10:59:58.229Z"
+          "lastVerifiedAt": "2026-08-09T11:04:48.483Z"
         },
         {
           "id": "backend:command:npm run dev -> nodemon server.js",
@@ -565,7 +565,7 @@
           "appliesTo": [
             "backend"
           ],
-          "lastVerifiedAt": "2026-08-09T10:59:58.229Z"
+          "lastVerifiedAt": "2026-08-09T11:04:48.483Z"
         },
         {
           "id": "backend:constraint:Vercel deployment config detected. Treat",
@@ -580,7 +580,7 @@
           "appliesTo": [
             "backend"
           ],
-          "lastVerifiedAt": "2026-08-09T10:59:58.229Z"
+          "lastVerifiedAt": "2026-08-09T11:04:48.483Z"
         }
       ]
     },
@@ -629,7 +629,7 @@
           "appliesTo": [
             "frontend"
           ],
-          "lastVerifiedAt": "2026-08-09T10:59:58.229Z"
+          "lastVerifiedAt": "2026-08-09T11:04:48.483Z"
         },
         {
           "id": "frontend:fact:Framework detected: React.",
@@ -644,7 +644,7 @@
           "appliesTo": [
             "frontend"
           ],
-          "lastVerifiedAt": "2026-08-09T10:59:58.229Z"
+          "lastVerifiedAt": "2026-08-09T11:04:48.483Z"
         },
         {
           "id": "frontend:fact:Framework detected: Vite.",
@@ -659,7 +659,7 @@
           "appliesTo": [
             "frontend"
           ],
-          "lastVerifiedAt": "2026-08-09T10:59:58.229Z"
+          "lastVerifiedAt": "2026-08-09T11:04:48.483Z"
         },
         {
           "id": "frontend:command:npm run start -> vite",
@@ -674,7 +674,7 @@
           "appliesTo": [
             "frontend"
           ],
-          "lastVerifiedAt": "2026-08-09T10:59:58.229Z"
+          "lastVerifiedAt": "2026-08-09T11:04:48.483Z"
         },
         {
           "id": "frontend:command:npm run build -> vite build",
@@ -689,7 +689,7 @@
           "appliesTo": [
             "frontend"
           ],
-          "lastVerifiedAt": "2026-08-09T10:59:58.229Z"
+          "lastVerifiedAt": "2026-08-09T11:04:48.483Z"
         },
         {
           "id": "frontend:command:npm run vercel-build -> vite build",
@@ -704,7 +704,7 @@
           "appliesTo": [
             "frontend"
           ],
-          "lastVerifiedAt": "2026-08-09T10:59:58.229Z"
+          "lastVerifiedAt": "2026-08-09T11:04:48.483Z"
         }
       ]
     }
