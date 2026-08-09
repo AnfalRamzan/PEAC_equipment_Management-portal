@@ -1,62 +1,50 @@
-import axios from 'axios'
-import { store } from '../redux/store'        // ✅ ADDED: Redux store import
-import { logout } from '../redux/slices/authSlice'  // ✅ ADDED: logout action import
+import axios from 'axios';
+import { store } from '../redux/store';
+import { logout } from '../redux/slices/authSlice';
 
-const API_URL = import.meta.env.VITE_API_URL || '/api';
+// ✅ Get API URL based on environment
+const getApiUrl = () => {
+    // For production (Vercel)
+    if (import.meta.env.PROD) {
+        return '/api';
+    }
+    // For local development
+    return import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+};
 
 const api = axios.create({
-  baseURL: API_URL,
-  timeout: 30000
-})
+    baseURL: getApiUrl(),
+    timeout: 30000,
+    headers: {
+        'Content-Type': 'application/json'
+    }
+});
 
-// ✅ Request Interceptor - Add token to headers
+// Request Interceptor
 api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token')
-    console.log('========================================')
-    console.log('📤 REQUEST:', config.method.toUpperCase(), config.url)
-    console.log('🔑 TOKEN from localStorage:', token ? token.substring(0, 30) + '...' : 'NO TOKEN')
-    
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
-      console.log('✅ Authorization header added:', config.headers.Authorization.substring(0, 40) + '...')
-    } else {
-      console.log('❌ No token found in localStorage')
-    }
-    console.log('========================================')
-    return config
-  },
-  (error) => {
-    console.error('Request error:', error)
-    return Promise.reject(error)
-  }
-)
+    (config) => {
+        const token = localStorage.getItem('token');
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
+        }
+        console.log(`📤 ${config.method.toUpperCase()} ${config.url}`);
+        return config;
+    },
+    (error) => Promise.reject(error)
+);
 
-// ✅ Response Interceptor - Handle 401 Unauthorized
+// Response Interceptor
 api.interceptors.response.use(
-  (response) => {
-    console.log('📥 RESPONSE:', response.status, response.config.url)
-    return response
-  },
-  (error) => {
-    console.error('❌ API Error:', error.response?.status, error.response?.data)
-    
-    // ✅ Handle 401 Unauthorized - Token expired or invalid
-    if (error.response?.status === 401) {
-      console.log('🔴 401 Unauthorized - Logging out user')
-      
-      // ✅ Clear token from localStorage
-      localStorage.removeItem('token')
-      
-      // ✅ Dispatch logout action to clear Redux state
-      store.dispatch(logout())
-      
-      // ✅ Redirect to login page
-      window.location.href = '/login'
+    (response) => response,
+    (error) => {
+        console.error('❌ API Error:', error.response?.status, error.response?.data);
+        if (error.response?.status === 401) {
+            localStorage.removeItem('token');
+            store.dispatch(logout());
+            window.location.href = '/login';
+        }
+        return Promise.reject(error);
     }
-    
-    return Promise.reject(error)
-  }
-)
+);
 
-export default api
+export default api;
