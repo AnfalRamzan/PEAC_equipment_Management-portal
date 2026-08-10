@@ -6,7 +6,7 @@ const path = require('path');
 const { put, del } = require('@vercel/blob');
 require('dotenv').config();
 
-// ✅ Use memoryStorage for Vercel
+// ✅ Use memoryStorage for Vercel (no file system)
 const storage = multer.memoryStorage();
 
 const upload = multer({
@@ -15,18 +15,22 @@ const upload = multer({
     fileFilter: (req, file, cb) => {
         const allowedTypes = [
             'image/jpeg', 'image/png', 'image/gif', 'image/webp', 
-            'application/pdf', 'application/msword',
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            'image/svg+xml',
+            'application/pdf', 
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/vnd.ms-excel',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         ];
         if (allowedTypes.includes(file.mimetype)) {
             cb(null, true);
         } else {
-            cb(new Error('File type not allowed'), false);
+            cb(new Error(`File type ${file.mimetype} is not allowed`), false);
         }
     }
 });
 
-// ✅ Upload endpoint
+// ✅ UPLOAD ENDPOINT - Uses Vercel Blob
 router.post('/upload', async (req, res) => {
     upload.single('file')(req, res, async function(err) {
         if (err) {
@@ -45,12 +49,21 @@ router.post('/upload', async (req, res) => {
                 });
             }
 
-            const filename = `doc-${Date.now()}-${Math.round(Math.random() * 1E9)}${path.extname(req.file.originalname)}`;
+            console.log('📤 Uploading file:', req.file.originalname);
+            console.log('📤 File size:', req.file.size);
+            console.log('📤 File type:', req.file.mimetype);
+
+            // ✅ Generate unique filename
+            const ext = path.extname(req.file.originalname);
+            const filename = `doc-${Date.now()}-${Math.round(Math.random() * 1E9)}${ext}`;
             
+            // ✅ Upload to Vercel Blob
             const blob = await put(`service-documentation/${filename}`, req.file.buffer, {
                 access: 'public',
                 token: process.env.BLOB_READ_WRITE_TOKEN,
             });
+
+            console.log('✅ Uploaded to Vercel Blob:', blob.url);
 
             res.json({
                 success: true,
@@ -74,7 +87,7 @@ router.post('/upload', async (req, res) => {
     });
 });
 
-// ✅ Delete endpoint
+// ✅ DELETE ENDPOINT - Uses Vercel Blob
 router.delete('/upload', async (req, res) => {
     try {
         const { fileUrl } = req.body;
@@ -86,9 +99,14 @@ router.delete('/upload', async (req, res) => {
             });
         }
 
+        console.log('🗑️ Deleting file:', fileUrl);
+
+        // ✅ Delete from Vercel Blob
         await del(fileUrl, {
             token: process.env.BLOB_READ_WRITE_TOKEN,
         });
+
+        console.log('✅ File deleted successfully');
 
         res.json({
             success: true,

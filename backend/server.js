@@ -78,49 +78,17 @@ app.get('/', (req, res) => {
 });
 
 // ============================================================
-// ✅ CREATE UPLOAD DIRECTORIES (for local development)
-// ============================================================
-const uploadDirs = [
-    'uploads',
-    'uploads/images',
-    'uploads/videos',
-    'uploads/documents',
-    'uploads/equipment',
-    'uploads/repairs',
-    'uploads/errors',
-    'uploads/errors/images',
-    'uploads/errors/videos',
-    'uploads/errors/documents',
-    'uploads/profile',
-    'uploads/temp',
-    'uploads/contracts',
-    'uploads/reports',
-    'uploads/knowledge-base',
-    'uploads/service-documentation'
-];
-
-uploadDirs.forEach(dir => {
-    try {
-        const fullPath = path.join(__dirname, dir);
-        if (!fs.existsSync(fullPath)) {
-            try {
-                fs.mkdirSync(fullPath, { recursive: true });
-                console.log(`📁 Created directory: ${dir}`);
-            } catch (mkdirError) {
-                console.log(`⚠️ Cannot create directory ${dir} (Vercel read-only): ${mkdirError.message}`);
-            }
-        }
-    } catch (error) {
-        console.log(`⚠️ Directory ${dir} not available on Vercel`);
-    }
-});
-
-// ============================================================
-// ✅ STATIC FILE SERVE (for local development)
+// ✅ STATIC FILE SERVE (for local development - optional)
 // ============================================================
 try {
-    app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-    console.log(`📁 Serving uploads from: ${path.join(__dirname, 'uploads')}`);
+    // Only serve static files if uploads directory exists (local development)
+    const uploadsPath = path.join(__dirname, 'uploads');
+    if (fs.existsSync(uploadsPath)) {
+        app.use('/uploads', express.static(uploadsPath));
+        console.log(`📁 Serving uploads from: ${uploadsPath}`);
+    } else {
+        console.log('⚠️ Uploads directory not found - skipping static file serve');
+    }
 } catch (error) {
     console.log('⚠️ Static file serving not available on Vercel');
 }
