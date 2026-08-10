@@ -446,7 +446,7 @@ const profileUpload = multer({
 });
 
 // ============================================================
-// ✅ GENERAL FILE UPLOAD - VERCEL BLOB STORAGE
+// ✅ GENERAL FILE UPLOAD - VERCEL BLOB STORAGE (memoryStorage)
 // ============================================================
 const storage = multer.memoryStorage();
 
@@ -564,7 +564,7 @@ app.post('/api/upload/multiple', authenticate, async (req, res) => {
     });
 });
 
-app.post('/api/upload-dir', authenticate, (req, res) => {
+app.post('/api/upload-dir', authenticate, async (req, res) => {
     const { directory } = req.body;
     
     if (!directory) {

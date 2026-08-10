@@ -32,7 +32,7 @@ import { toast } from 'react-toastify'
 import api from '../api/axios'
 
 const FileUpload = ({
-  endpoint = '/upload',  // ✅ FIXED: Removed /api from here
+  endpoint = '/upload',
   accept = '*/*',
   multiple = false,
   label = 'Upload File',
@@ -56,13 +56,18 @@ const FileUpload = ({
   
   const fileInputRef = useRef(null)
 
-  // Helper: Get full image URL
+  // ✅ Helper: Get full URL (works with Vercel Blob and local)
   const getFullUrl = (url) => {
     if (!url) return ''
+    // ✅ If it's already a full URL (Vercel Blob), return as-is
     if (url.startsWith('http://') || url.startsWith('https://')) {
       return url
     }
-    return `http://localhost:5000${url}`
+    // ✅ For local development
+    if (url.startsWith('/uploads')) {
+      return `http://localhost:5000${url}`
+    }
+    return url
   }
 
   const handleFileSelect = (event) => {
@@ -145,12 +150,10 @@ const FileUpload = ({
 
       const token = localStorage.getItem('token')
       
-      let finalEndpoint = endpoint
-      if (!finalEndpoint.startsWith('/')) {
-        finalEndpoint = '/' + finalEndpoint
-      }
+      // ✅ Fix: Use endpoint as-is
+      const finalEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`
       
-      console.log('📤 Uploading files to:', finalEndpoint) // Should show: /upload
+      console.log('📤 Uploading files to:', finalEndpoint)
 
       const response = await api.post(finalEndpoint, formData, {
         headers: {
@@ -440,7 +443,6 @@ const FileUpload = ({
 
   return (
     <Box>
-      {/* Upload Area */}
       <Paper
         variant="outlined"
         sx={{
@@ -587,7 +589,6 @@ const FileUpload = ({
         </Button>
       )}
 
-      {/* Preview Dialog */}
       <Dialog 
         open={openPreviewDialog} 
         onClose={() => setOpenPreviewDialog(false)}
