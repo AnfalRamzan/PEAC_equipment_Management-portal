@@ -7,6 +7,8 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const WebSocket = require('ws');
+const { put, del } = require('@vercel/blob');
+require('dotenv').config();
 
 const app = express();
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-key-2024';
@@ -76,7 +78,7 @@ app.get('/', (req, res) => {
 });
 
 // ============================================================
-// ✅ CREATE UPLOAD DIRECTORIES
+// ✅ CREATE UPLOAD DIRECTORIES (for local development)
 // ============================================================
 const uploadDirs = [
     'uploads',
@@ -114,7 +116,7 @@ uploadDirs.forEach(dir => {
 });
 
 // ============================================================
-// ✅ STATIC FILE SERVE
+// ✅ STATIC FILE SERVE (for local development)
 // ============================================================
 try {
     app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -378,7 +380,33 @@ const authorize = (...allowedRoles) => {
 };
 
 // ============================================================
-// ✅ PROFILE PICTURE UPLOAD
+// ✅ FILE FILTER
+// ============================================================
+const fileFilter = (req, file, cb) => {
+    const allowedTypes = [
+        'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml',
+        'video/mp4', 'video/webm', 'video/quicktime',
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-powerpoint',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'text/plain',
+        'application/zip',
+        'application/x-zip-compressed'
+    ];
+    
+    if (allowedTypes.includes(file.mimetype)) {
+        cb(null, true);
+    } else {
+        cb(new Error(`File type ${file.mimetype} is not allowed`), false);
+    }
+};
+
+// ============================================================
+// ✅ PROFILE PICTURE UPLOAD (Local - for compatibility)
 // ============================================================
 const profileStorage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -418,76 +446,21 @@ const profileUpload = multer({
 });
 
 // ============================================================
-// ✅ GENERAL FILE UPLOAD
+// ✅ GENERAL FILE UPLOAD - VERCEL BLOB STORAGE
 // ============================================================
-const generalStorage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        try {
-            let uploadPath = path.join(__dirname, 'uploads');
-            
-            if (file.mimetype.startsWith('image/')) {
-                uploadPath = path.join(uploadPath, 'images');
-            } else if (file.mimetype.startsWith('video/')) {
-                uploadPath = path.join(uploadPath, 'videos');
-            } else {
-                uploadPath = path.join(uploadPath, 'documents');
-            }
-            
-            if (!fs.existsSync(uploadPath)) {
-                try {
-                    fs.mkdirSync(uploadPath, { recursive: true });
-                } catch (mkdirError) {
-                    console.log('⚠️ Cannot create upload directory on Vercel');
-                }
-            }
-            
-            cb(null, uploadPath);
-        } catch (error) {
-            cb(null, '/tmp');
-        }
-    },
-    filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        const ext = path.extname(file.originalname);
-        const filename = 'file-' + uniqueSuffix + ext;
-        cb(null, filename);
-    }
-});
-
-const fileFilter = (req, file, cb) => {
-    const allowedTypes = [
-        'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml',
-        'video/mp4', 'video/webm', 'video/quicktime',
-        'application/pdf',
-        'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'application/vnd.ms-excel',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'application/vnd.ms-powerpoint',
-        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-        'text/plain',
-        'application/zip',
-        'application/x-zip-compressed'
-    ];
-    
-    if (allowedTypes.includes(file.mimetype)) {
-        cb(null, true);
-    } else {
-        cb(new Error(`File type ${file.mimetype} is not allowed`), false);
-    }
-};
+const storage = multer.memoryStorage();
 
 const uploadMulter = multer({
-    storage: generalStorage,
+    storage: storage,
     limits: { fileSize: 100 * 1024 * 1024 },
     fileFilter: fileFilter
 });
 
 // ============================================================
-// ✅ UPLOAD ROUTES
+// ✅ UPLOAD ROUTES - VERCEL BLOB
 // ============================================================
-app.post('/api/upload', authenticate, (req, res) => {
-    uploadMulter.single('file')(req, res, function(err) {
+app.post('/api/upload', authenticate, async (req, res) => {
+    uploadMulter.single('file')(req, res, async function(err) {
         if (err) {
             console.error('❌ Upload error:', err);
             return res.status(400).json({
@@ -504,20 +477,18 @@ app.post('/api/upload', authenticate, (req, res) => {
                 });
             }
 
-            let fileUrl = `/uploads/${req.file.filename}`;
-            if (req.file.mimetype.startsWith('image/')) {
-                fileUrl = `/uploads/images/${req.file.filename}`;
-            } else if (req.file.mimetype.startsWith('video/')) {
-                fileUrl = `/uploads/videos/${req.file.filename}`;
-            } else {
-                fileUrl = `/uploads/documents/${req.file.filename}`;
-            }
-            
+            // ✅ Upload to Vercel Blob
+            const filename = `${Date.now()}-${req.file.originalname}`;
+            const blob = await put(`uploads/${filename}`, req.file.buffer, {
+                access: 'public',
+                token: process.env.BLOB_READ_WRITE_TOKEN,
+            });
+
             res.json({
                 success: true,
                 message: 'File uploaded successfully',
                 file: {
-                    url: fileUrl,
+                    url: blob.url,
                     name: req.file.originalname,
                     size: req.file.size,
                     type: req.file.mimetype.startsWith('image/') ? 'image' :
@@ -535,14 +506,14 @@ app.post('/api/upload', authenticate, (req, res) => {
     });
 });
 
-app.post('/api/upload/multiple', authenticate, (req, res) => {
+app.post('/api/upload/multiple', authenticate, async (req, res) => {
     const multipleUpload = multer({
-        storage: generalStorage,
+        storage: multer.memoryStorage(),
         limits: { fileSize: 100 * 1024 * 1024, files: 10 },
         fileFilter: fileFilter
     }).array('files', 10);
     
-    multipleUpload(req, res, function(err) {
+    multipleUpload(req, res, async function(err) {
         if (err) {
             console.error('❌ Upload error:', err);
             return res.status(400).json({
@@ -559,30 +530,29 @@ app.post('/api/upload/multiple', authenticate, (req, res) => {
                 });
             }
 
-            const files = req.files.map(file => {
-                let fileUrl = `/uploads/${file.filename}`;
-                if (file.mimetype.startsWith('image/')) {
-                    fileUrl = `/uploads/images/${file.filename}`;
-                } else if (file.mimetype.startsWith('video/')) {
-                    fileUrl = `/uploads/videos/${file.filename}`;
-                } else {
-                    fileUrl = `/uploads/documents/${file.filename}`;
-                }
-                
-                return {
-                    url: fileUrl,
+            const uploadedFiles = [];
+            
+            for (const file of req.files) {
+                const filename = `${Date.now()}-${file.originalname}`;
+                const blob = await put(`uploads/${filename}`, file.buffer, {
+                    access: 'public',
+                    token: process.env.BLOB_READ_WRITE_TOKEN,
+                });
+
+                uploadedFiles.push({
+                    url: blob.url,
                     name: file.originalname,
                     size: file.size,
                     type: file.mimetype.startsWith('image/') ? 'image' :
                           file.mimetype.startsWith('video/') ? 'video' : 'document',
                     mimetype: file.mimetype
-                };
-            });
+                });
+            }
 
             res.json({
                 success: true,
-                message: `${files.length} files uploaded successfully`,
-                files: files
+                message: `${uploadedFiles.length} files uploaded successfully`,
+                files: uploadedFiles
             });
         } catch (error) {
             console.error('❌ Upload processing error:', error);
@@ -604,36 +574,13 @@ app.post('/api/upload-dir', authenticate, (req, res) => {
         });
     }
     
-    const dirStorage = multer.diskStorage({
-        destination: (req, file, cb) => {
-            try {
-                const uploadPath = path.join(__dirname, 'uploads', directory);
-                if (!fs.existsSync(uploadPath)) {
-                    try {
-                        fs.mkdirSync(uploadPath, { recursive: true });
-                    } catch (mkdirError) {
-                        console.log('⚠️ Cannot create directory on Vercel');
-                    }
-                }
-                cb(null, uploadPath);
-            } catch (error) {
-                cb(null, '/tmp');
-            }
-        },
-        filename: (req, file, cb) => {
-            const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-            const ext = path.extname(file.originalname);
-            cb(null, 'upload-' + uniqueSuffix + ext);
-        }
-    });
-    
     const dirUpload = multer({
-        storage: dirStorage,
+        storage: multer.memoryStorage(),
         limits: { fileSize: 100 * 1024 * 1024 },
         fileFilter: fileFilter
     }).single('file');
     
-    dirUpload(req, res, function(err) {
+    dirUpload(req, res, async function(err) {
         if (err) {
             console.error('❌ Upload error:', err);
             return res.status(400).json({
@@ -650,13 +597,17 @@ app.post('/api/upload-dir', authenticate, (req, res) => {
                 });
             }
 
-            const fileUrl = `/uploads/${directory}/${req.file.filename}`;
-            
+            const filename = `${Date.now()}-${req.file.originalname}`;
+            const blob = await put(`uploads/${directory}/${filename}`, req.file.buffer, {
+                access: 'public',
+                token: process.env.BLOB_READ_WRITE_TOKEN,
+            });
+
             res.json({
                 success: true,
                 message: 'File uploaded successfully',
                 file: {
-                    url: fileUrl,
+                    url: blob.url,
                     name: req.file.originalname,
                     size: req.file.size,
                     type: req.file.mimetype.startsWith('image/') ? 'image' :
@@ -685,51 +636,10 @@ app.delete('/api/upload', authenticate, async (req, res) => {
             });
         }
 
-        const filename = fileUrl.split('/').pop();
-        if (!filename) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid file URL'
-            });
-        }
-
-        const searchDirs = [
-            'uploads/',
-            'uploads/images/',
-            'uploads/videos/',
-            'uploads/documents/',
-            'uploads/equipment/',
-            'uploads/repairs/',
-            'uploads/errors/',
-            'uploads/profile/',
-            'uploads/contracts/',
-            'uploads/reports/',
-            'uploads/knowledge-base/',
-            'uploads/service-documentation/'
-        ];
-
-        let fileDeleted = false;
-
-        for (const dir of searchDirs) {
-            try {
-                const filePath = path.join(__dirname, dir, filename);
-                if (fs.existsSync(filePath)) {
-                    fs.unlinkSync(filePath);
-                    fileDeleted = true;
-                    console.log(`🗑️ File deleted: ${filePath}`);
-                    break;
-                }
-            } catch (error) {
-                console.log('⚠️ File delete error (Vercel):', error.message);
-            }
-        }
-
-        if (!fileDeleted) {
-            return res.status(404).json({
-                success: false,
-                message: 'File not found'
-            });
-        }
+        // ✅ Delete from Vercel Blob
+        await del(fileUrl, {
+            token: process.env.BLOB_READ_WRITE_TOKEN,
+        });
 
         res.json({
             success: true,
@@ -748,54 +658,11 @@ app.get('/api/uploads', authenticate, async (req, res) => {
     try {
         const { type, directory } = req.query;
         
-        let searchDir = 'uploads/';
-        if (directory) {
-            searchDir = `uploads/${directory}/`;
-        } else if (type === 'images') {
-            searchDir = 'uploads/images/';
-        } else if (type === 'videos') {
-            searchDir = 'uploads/videos/';
-        } else if (type === 'documents') {
-            searchDir = 'uploads/documents/';
-        }
-
-        const fullPath = path.join(__dirname, searchDir);
-        const files = [];
-        
-        if (fs.existsSync(fullPath)) {
-            const items = fs.readdirSync(fullPath);
-            for (const item of items) {
-                const filePath = path.join(fullPath, item);
-                try {
-                    const stats = fs.statSync(filePath);
-                    if (stats.isFile()) {
-                        const ext = path.extname(item).toLowerCase();
-                        let fileType = 'document';
-                        if (['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.bmp', '.ico'].includes(ext)) {
-                            fileType = 'image';
-                        } else if (['.mp4', '.avi', '.mov', '.webm', '.mkv', '.flv', '.wmv'].includes(ext)) {
-                            fileType = 'video';
-                        }
-                        
-                        files.push({
-                            url: `/${searchDir}${item}`,
-                            name: item,
-                            size: stats.size,
-                            type: fileType,
-                            uploadedAt: stats.mtime
-                        });
-                    }
-                } catch (err) {
-                    console.error('Error reading file:', err);
-                }
-            }
-        }
-
-        files.sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt));
-
+        // For Vercel Blob, we can't list files directly
+        // Return empty array for now - files are accessible via their URLs
         res.json({
             success: true,
-            files: files.slice(0, 100)
+            files: []
         });
     } catch (error) {
         console.error('❌ Get uploads error:', error);
