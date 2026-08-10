@@ -2,7 +2,7 @@ import axios from 'axios';
 import { store } from '../redux/store';
 import { logout } from '../redux/slices/authSlice';
 
-// ✅ Get API URL based on environment
+// ✅ Dynamic API URL based on environment
 const getApiUrl = () => {
     // For production (Vercel)
     if (import.meta.env.PROD) {

@@ -1,7 +1,5 @@
 // src/pages/Repairs.jsx
-// ✅ ENGINEER: Create, Edit, View
-// ✅ SUPER_ADMIN: View, Delete (ONLY)
-// ❌ HOSPITAL_ADMIN: Access Denied
+// ✅ FIXED: Added FormHelperText import
 
 import React, { useState, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
@@ -35,7 +33,8 @@ import {
   Tooltip,
   Card,
   CardContent,
-  Fade
+  Fade,
+  FormHelperText, // ✅ ADDED
 } from '@mui/material'
 import {
   Add,
@@ -81,13 +80,21 @@ const Repairs = () => {
   const isEngineer = user?.role === 'ENGINEER'
   
   // ✅ PERMISSIONS
-  // ✅ ENGINEER: Create, Edit, View
-  // ✅ SUPER_ADMIN: View, Delete (ONLY)
-  const canCreate = isEngineer // ✅ ONLY Engineer can create
-  const canEdit = isEngineer // ✅ ONLY Engineer can edit
+  // ✅ ENGINEER: View ALL repairs, Create (Upload Solution) ONLY - NO Edit/Delete
+  // ✅ SUPER_ADMIN: View ALL, Edit ANY, Delete ANY
+  const canCreate = isEngineer || isSuperAdmin // ✅ Both can create
   const canDelete = isSuperAdmin // ✅ ONLY Super Admin can delete
   const canView = isEngineer || isSuperAdmin // ✅ Both can view
-  const canUpdateStatus = isEngineer // ✅ Engineer can update status
+  
+  // ✅ Only SUPER_ADMIN can edit ANY repair
+  const canEdit = (repair) => {
+    return isSuperAdmin // ✅ Only Super Admin can edit
+  }
+  
+  // ✅ Only SUPER_ADMIN can update status
+  const canUpdateStatus = (repair) => {
+    return isSuperAdmin // ✅ Only Super Admin can update status
+  }
 
   const [repairs, setRepairs] = useState([])
   const [errors, setErrors] = useState([])
@@ -225,9 +232,15 @@ const Repairs = () => {
 
   // ==================== CRUD HANDLERS ====================
   const handleOpenDialog = (repair = null) => {
-    // ✅ ONLY Engineer can create/edit repairs
-    if (!isEngineer) {
-      toast.error('Only Biomedical Engineers can create or edit repairs')
+    // ✅ Both Engineer and Super Admin can create
+    if (!isEngineer && !isSuperAdmin) {
+      toast.error('You do not have permission to create repairs')
+      return
+    }
+    
+    // ✅ If editing, check if user is Super Admin
+    if (repair && !isSuperAdmin) {
+      toast.error('Only Super Admin can edit repairs')
       return
     }
     
@@ -255,7 +268,7 @@ const Repairs = () => {
       setFormData({
         error_log_id: '',
         equipment_id: '',
-        engineer_id: '',
+        engineer_id: user?.id || '',
         engineer_name: user?.full_name || '',
         root_cause: '',
         problem_analysis: '',
@@ -357,9 +370,9 @@ const Repairs = () => {
 
   // ==================== SUBMIT ====================
   const handleSubmit = async () => {
-    // ✅ ONLY Engineer can submit
-    if (!isEngineer) {
-      toast.error('Only Biomedical Engineers can create or update repairs')
+    // ✅ Both Engineer and Super Admin can submit
+    if (!isEngineer && !isSuperAdmin) {
+      toast.error('You do not have permission to create repairs')
       return
     }
     
@@ -372,8 +385,8 @@ const Repairs = () => {
       const payload = {
         error_log_id: parseInt(formData.error_log_id),
         equipment_id: formData.equipment_id ? parseInt(formData.equipment_id) : null,
-        engineer_id: formData.engineer_id || null,
-        engineer_name: formData.engineer_name || user?.full_name || '',
+        engineer_id: user?.id || null,
+        engineer_name: user?.full_name || formData.engineer_name || '',
         root_cause: formData.root_cause || '',
         problem_analysis: formData.problem_analysis || '',
         corrective_action: formData.corrective_action || '',
@@ -439,6 +452,7 @@ const Repairs = () => {
     return highlightedRepair === repairId
   }
 
+  // ✅ Everyone can see ALL repairs
   const filteredRepairs = repairs.filter(repair => {
     const matchesSearch = repair.equipment_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           repair.engineer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -462,7 +476,7 @@ const Repairs = () => {
           {isEngineer && (
             <Chip 
               icon={<EngineeringIcon sx={{ fontSize: 16 }} />}
-              label="Engineer Mode" 
+              label="Engineer Mode - View & Upload Only" 
               size="small" 
               color="info" 
             />
@@ -470,7 +484,7 @@ const Repairs = () => {
           {isSuperAdmin && (
             <Chip 
               icon={<AdminPanelSettings sx={{ fontSize: 16 }} />}
-              label="Super Admin (View Only)" 
+              label="Super Admin (Full Control)" 
               size="small" 
               color="warning" 
             />
@@ -484,8 +498,8 @@ const Repairs = () => {
           >
             Refresh
           </Button>
-          {/* ✅ ONLY Engineer can create repairs */}
-          {isEngineer && (
+          {/* ✅ Both Engineer and Super Admin can create repairs */}
+          {(isEngineer || isSuperAdmin) && (
             <Button
               variant="contained"
               onClick={() => handleOpenDialog()}
@@ -540,6 +554,24 @@ const Repairs = () => {
           </Card>
         </Grid>
       </Grid>
+
+      {/* Info Alerts */}
+      {isEngineer && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          <Typography variant="body2">
+            <strong>🔧 Engineer Mode:</strong> You can view all repairs and <strong>upload new solutions</strong>. 
+            Only <strong>Super Admin</strong> can edit or delete repairs.
+          </Typography>
+        </Alert>
+      )}
+
+      {isSuperAdmin && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          <Typography variant="body2">
+            <strong>👑 Super Admin:</strong> You have full control. You can view, create, edit, delete, and update status of any repair.
+          </Typography>
+        </Alert>
+      )}
 
       {/* Search & Filters */}
       <Paper sx={{ p: 2, mb: 3, borderRadius: 2 }}>
@@ -601,6 +633,8 @@ const Repairs = () => {
             ) : (
               filteredRepairs.map((repair) => {
                 const highlighted = isHighlighted(repair.id)
+                const isOwnRepair = isEngineer && (repair.engineer_id === user?.id || repair.engineer_name === user?.full_name)
+                
                 return (
                   <TableRow 
                     key={repair.id} 
@@ -623,6 +657,14 @@ const Repairs = () => {
                           <Typography variant="caption" color="success.main" sx={{ fontWeight: 600 }}>
                             NEW
                           </Typography>
+                        )}
+                        {isOwnRepair && (
+                          <Chip 
+                            label="My Repair" 
+                            size="small" 
+                            color="primary" 
+                            sx={{ height: 18, fontSize: '9px' }}
+                          />
                         )}
                       </Box>
                     </TableCell>
@@ -674,8 +716,8 @@ const Repairs = () => {
                           </IconButton>
                         </Tooltip>
                         
-                        {/* ✅ ONLY Engineer can edit */}
-                        {isEngineer && (
+                        {/* ✅ ONLY Super Admin can edit ANY repair */}
+                        {isSuperAdmin && (
                           <Tooltip title="Edit Repair">
                             <IconButton size="small" color="info" onClick={() => handleOpenDialog(repair)}>
                               <Edit fontSize="small" />
@@ -701,7 +743,7 @@ const Repairs = () => {
         </Table>
       </TableContainer>
 
-      {/* Add/Edit Dialog - ONLY Engineer */}
+      {/* Add/Edit Dialog */}
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
         <DialogTitle sx={{ bgcolor: '#0B5FA5', color: 'white' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -709,7 +751,12 @@ const Repairs = () => {
               <Typography variant="h6" fontWeight={600}>
                 {editingRepair ? 'Edit Repair' : 'Record Repair'}
               </Typography>
-              <Chip label="Engineer Only" size="small" color="info" sx={{ bgcolor: '#2196f3' }} />
+              {isEngineer && !editingRepair && (
+                <Chip label="Engineer - Upload Solution" size="small" color="info" sx={{ bgcolor: '#2196f3' }} />
+              )}
+              {isSuperAdmin && (
+                <Chip label="Super Admin" size="small" color="warning" sx={{ bgcolor: '#ff9800' }} />
+              )}
             </Box>
             <IconButton onClick={handleCloseDialog} sx={{ color: 'white' }}>
               <Close />
@@ -722,6 +769,11 @@ const Repairs = () => {
               <Alert severity="info">
                 <Typography variant="body2">
                   <strong>Auto-fill Feature:</strong> Selecting an error will automatically fill the equipment and root cause fields.
+                  {isEngineer && !editingRepair && (
+                    <span style={{ display: 'block', marginTop: '4px' }}>
+                      🔧 You are uploading a new repair solution. Only Super Admin can edit existing repairs.
+                    </span>
+                  )}
                 </Typography>
               </Alert>
             </Grid>
@@ -777,7 +829,7 @@ const Repairs = () => {
                 value={formData.engineer_name || user?.full_name || ''}
                 onChange={handleFormChange}
                 placeholder="Name of engineer who fixed"
-                disabled={!isEngineer}
+                disabled={!isSuperAdmin}
               />
             </Grid>
 
@@ -895,6 +947,7 @@ const Repairs = () => {
                   value={formData.status}
                   onChange={handleFormChange}
                   label="Status"
+                  disabled={!isSuperAdmin}
                 >
                   <MenuItem value="Pending">Pending</MenuItem>
                   <MenuItem value="Assigned">Assigned</MenuItem>
@@ -908,6 +961,9 @@ const Repairs = () => {
                   <MenuItem value="Closed">Closed</MenuItem>
                 </Select>
               </FormControl>
+              {!isSuperAdmin && (
+                <FormHelperText>Only Super Admin can change status</FormHelperText>
+              )}
             </Grid>
 
             {/* CONDITIONAL SPARE PARTS FIELDS */}
@@ -1086,7 +1142,7 @@ const Repairs = () => {
         </DialogActions>
       </Dialog>
 
-      {/* View Dialog - Both can view */}
+      {/* View Dialog */}
       <Dialog open={openViewDialog} onClose={handleCloseView} maxWidth="md" fullWidth>
         <DialogTitle sx={{ bgcolor: '#0B5FA5', color: 'white' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -1113,12 +1169,15 @@ const Repairs = () => {
                     Repair record for <strong>{viewingRepair.equipment_name}</strong>
                     {isSuperAdmin && (
                       <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mt: 1 }}>
-                        👀 Super Admin View Only - You can only view repair details and delete if needed
+                        👑 Super Admin - You can edit or delete this repair
                       </Typography>
                     )}
                     {isEngineer && (
                       <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mt: 1 }}>
-                        🔧 Engineer - You can view repair details
+                        🔧 Engineer - You can view this repair. Only Super Admin can edit or delete.
+                        {viewingRepair.engineer_id === user?.id && (
+                          <span style={{ color: '#0B5FA5', fontWeight: 600 }}> (Your Repair)</span>
+                        )}
                       </Typography>
                     )}
                   </Alert>
@@ -1202,6 +1261,21 @@ const Repairs = () => {
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
           <Button onClick={handleCloseView}>Close</Button>
+          {/* ✅ ONLY Super Admin can edit */}
+          {isSuperAdmin && viewingRepair && (
+            <Button
+              variant="contained"
+              color="info"
+              onClick={() => {
+                handleCloseView()
+                handleOpenDialog(viewingRepair)
+              }}
+              startIcon={<Edit />}
+              sx={{ bgcolor: '#0B5FA5', '&:hover': { bgcolor: '#084a8a' }, mr: 1 }}
+            >
+              Edit
+            </Button>
+          )}
           {/* ✅ ONLY Super Admin can delete */}
           {isSuperAdmin && viewingRepair && (
             <Button
@@ -1211,6 +1285,7 @@ const Repairs = () => {
                 handleDelete(viewingRepair.id)
                 handleCloseView()
               }}
+              startIcon={<Delete />}
             >
               Delete
             </Button>

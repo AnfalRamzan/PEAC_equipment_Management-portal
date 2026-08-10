@@ -1,5 +1,6 @@
 // src/components/Layout/MainLayout.jsx
-// HOSPITAL_ADMIN REMOVED - SETTINGS REMOVED
+// ✅ REMOVED: "Engineer Mode" chip from footer
+// ✅ REMOVED: Equipment Categories from menu
 
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -23,6 +24,7 @@ import {
   useMediaQuery,
   Snackbar,
   Alert,
+  Chip,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -37,7 +39,6 @@ import {
   ErrorOutline,
   Build,
   Handyman,
-  Settings as SettingsIcon,
   Description,
   CalendarToday,
   ShoppingCart,
@@ -48,6 +49,7 @@ import {
   Gavel,
   EmojiObjects,
   Category,
+  Engineering as EngineeringIcon,
 } from '@mui/icons-material';
 import { useNavigate, Outlet } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -146,103 +148,97 @@ const sendBrowserNotification = (title, message, options = {}) => {
 };
 
 // ============================================================
-// ✅ MENU ITEMS - HOSPITAL_ADMIN REMOVED
+// ✅ MENU ITEMS - HOSPITAL_ADMIN REMOVED & EQUIPMENT CATEGORIES REMOVED
 // ============================================================
 const menuItems = [
-  // ✅ Common for all roles
+  // ✅ All roles (SUPER_ADMIN, ENGINEER)
   { 
     text: 'Dashboard', 
     icon: <Dashboard sx={{ fontSize: 22, color: 'white' }} />, 
     path: '/dashboard', 
-    roles: ['SUPER_ADMIN', 'ENGINEER']  // ❌ HOSPITAL_ADMIN removed
+    roles: ['SUPER_ADMIN', 'ENGINEER'] 
   },
   { 
     text: 'Equipment', 
     icon: <MedicalServices sx={{ fontSize: 22, color: 'white' }} />, 
     path: '/equipment', 
-    roles: ['SUPER_ADMIN', 'ENGINEER']  // ❌ HOSPITAL_ADMIN removed
+    roles: ['SUPER_ADMIN', 'ENGINEER'] 
   },
   { 
     text: 'Error Logs', 
     icon: <ErrorOutline sx={{ fontSize: 22, color: 'white' }} />, 
     path: '/errors', 
-    roles: ['SUPER_ADMIN', 'ENGINEER']  // ❌ HOSPITAL_ADMIN removed
+    roles: ['SUPER_ADMIN', 'ENGINEER'] 
   },
   { 
     text: 'Repairs', 
     icon: <Build sx={{ fontSize: 22, color: 'white' }} />, 
     path: '/repairs', 
-    roles: ['SUPER_ADMIN', 'ENGINEER']  // ❌ HOSPITAL_ADMIN removed
+    roles: ['SUPER_ADMIN', 'ENGINEER'] 
   },
   { 
     text: 'Knowledge Base', 
     icon: <EmojiObjects sx={{ fontSize: 22, color: 'white' }} />, 
     path: '/knowledge-base', 
-    roles: ['SUPER_ADMIN', 'ENGINEER']  // ❌ HOSPITAL_ADMIN removed
+    roles: ['SUPER_ADMIN', 'ENGINEER'] 
   },
   { 
     text: 'Reports', 
     icon: <Assessment sx={{ fontSize: 22, color: 'white' }} />, 
     path: '/reports', 
-    roles: ['SUPER_ADMIN', 'ENGINEER']  // ❌ HOSPITAL_ADMIN removed
+    roles: ['SUPER_ADMIN', 'ENGINEER'] 
   },
   
-  // ✅ Super Admin Only
-  { 
-    text: 'Users', 
-    icon: <People sx={{ fontSize: 22, color: 'white' }} />, 
-    path: '/users', 
-    roles: ['SUPER_ADMIN'] 
-  },
+  // ✅ SUPER_ADMIN Only (and ENGINEER now has access too)
   { 
     text: 'Hospitals', 
     icon: <LocalHospital sx={{ fontSize: 22, color: 'white' }} />, 
     path: '/hospitals', 
-    roles: ['SUPER_ADMIN'] 
+    roles: ['SUPER_ADMIN', 'ENGINEER'] 
   },
   { 
-    text: 'Equipment Categories', 
-    icon: <Category sx={{ fontSize: 22, color: 'white' }} />, 
-    path: '/equipment-categories', 
-    roles: ['SUPER_ADMIN'] 
-  },
-  { 
-    text: 'AMC Contracts', 
-    icon: <Gavel sx={{ fontSize: 22, color: 'white' }} />, 
-    path: '/amc', 
-    roles: ['SUPER_ADMIN'] 
-  },
-  { 
-    text: 'Purchase Orders', 
-    icon: <ShoppingCart sx={{ fontSize: 22, color: 'white' }} />, 
-    path: '/purchase-orders', 
-    roles: ['SUPER_ADMIN'] 
-  },
-  { 
-    text: 'Equipment Procurement', 
-    icon: <LocalShipping sx={{ fontSize: 22, color: 'white' }} />, 
-    path: '/procurement', 
-    roles: ['SUPER_ADMIN'] 
+    text: 'Users', 
+    icon: <People sx={{ fontSize: 22, color: 'white' }} />, 
+    path: '/users', 
+    roles: ['SUPER_ADMIN', 'ENGINEER'] 
   },
   { 
     text: 'Maintenance', 
     icon: <Handyman sx={{ fontSize: 22, color: 'white' }} />, 
     path: '/maintenance', 
-    roles: ['SUPER_ADMIN'] 
+    roles: ['SUPER_ADMIN', 'ENGINEER'] 
   },
   { 
     text: 'Spare Parts', 
     icon: <Inventory sx={{ fontSize: 22, color: 'white' }} />, 
     path: '/spare-parts', 
-    roles: ['SUPER_ADMIN'] 
+    roles: ['SUPER_ADMIN', 'ENGINEER'] 
   },
   { 
     text: 'Service Documentation', 
     icon: <Description sx={{ fontSize: 22, color: 'white' }} />, 
     path: '/service-documentation', 
-    roles: ['SUPER_ADMIN'] 
+    roles: ['SUPER_ADMIN', 'ENGINEER'] 
   },
-  // ❌ SETTINGS REMOVED - No longer in menu
+  { 
+    text: 'AMC Contracts', 
+    icon: <Gavel sx={{ fontSize: 22, color: 'white' }} />, 
+    path: '/amc', 
+    roles: ['SUPER_ADMIN', 'ENGINEER'] 
+  },
+  { 
+    text: 'Purchase Orders', 
+    icon: <ShoppingCart sx={{ fontSize: 22, color: 'white' }} />, 
+    path: '/purchase-orders', 
+    roles: ['SUPER_ADMIN', 'ENGINEER'] 
+  },
+  { 
+    text: 'Equipment Procurement', 
+    icon: <LocalShipping sx={{ fontSize: 22, color: 'white' }} />, 
+    path: '/procurement', 
+    roles: ['SUPER_ADMIN', 'ENGINEER'] 
+  },
+  // ❌ Equipment Categories REMOVED from menu
 ];
 
 // ============================================================
@@ -294,7 +290,12 @@ const MainLayout = () => {
   // ============================================================
   const getFilteredMenuItems = () => {
     const userRole = user?.role || 'ENGINEER';
-    return menuItems.filter(item => item.roles.includes(userRole));
+    // ✅ ENGINEER gets all menu items (same as SUPER_ADMIN)
+    if (userRole === 'ENGINEER' || userRole === 'SUPER_ADMIN') {
+      return menuItems;
+    }
+    // ❌ HOSPITAL_ADMIN - No menu items (Access Denied handled elsewhere)
+    return [];
   };
 
   const filteredMenuItems = getFilteredMenuItems();
@@ -457,8 +458,6 @@ const MainLayout = () => {
     handleMenuClose();
   };
 
-  // ❌ Settings handler removed
-
   const handleNotificationOpen = (event) => {
     setNotificationAnchor(event.currentTarget);
   };
@@ -606,6 +605,8 @@ const MainLayout = () => {
           ))}
         </List>
       </Box>
+      
+      {/* ✅ Footer - REMOVED Role Badge (Engineer Mode / Super Admin) */}
     </Box>
   );
 
@@ -618,7 +619,9 @@ const MainLayout = () => {
     return drawerWidth;
   };
 
-  const isAdmin = user?.role === 'SUPER_ADMIN';  // ❌ HOSPITAL_ADMIN removed
+  // ✅ Only Super Admin and Engineer can access
+  // ❌ Hospital Admin is blocked (Access Denied handled in route)
+  const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'ENGINEER';
 
   // ============================================================
   // ✅ RENDER
@@ -777,8 +780,6 @@ const MainLayout = () => {
                   Users
                 </MenuItem>
               )}
-
-              {/* ❌ Settings Menu Item REMOVED */}
 
               <Divider />
               <MenuItem onClick={handleLogout}>

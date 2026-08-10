@@ -1,6 +1,6 @@
 // src/pages/ServiceDocumentation.jsx
-// ✅ ENGINEER: Upload, Create, View, Edit (NO Delete)
-// ✅ SUPER_ADMIN: Upload, Create, View, Edit, Delete (Full Access)
+// ✅ ENGINEER: View ALL documents, Upload (Create), Edit ONLY own documents (NO Delete)
+// ✅ SUPER_ADMIN: View ALL, Edit ANY, Delete ANY (Full Access)
 // ❌ HOSPITAL_ADMIN: Access Denied
 
 import React, { useState, useEffect } from 'react'
@@ -84,11 +84,21 @@ const ServiceDocumentation = () => {
   const isSuperAdmin = user?.role === 'SUPER_ADMIN'
   
   // ✅ PERMISSIONS
-  // ✅ ENGINEER: Upload, Edit, View (NO Delete)
-  // ✅ SUPER_ADMIN: Full Access (Upload, Edit, View, Delete)
+  // ✅ ENGINEER: View ALL, Upload (Create), Edit ONLY own documents (NO Delete)
+  // ✅ SUPER_ADMIN: Full Access (View, Upload, Edit, Delete)
   const canUpload = isEngineer || isSuperAdmin
-  const canEdit = isEngineer || isSuperAdmin
   const canDelete = isSuperAdmin // ✅ ONLY Super Admin can delete
+  const canView = isEngineer || isSuperAdmin // ✅ Both can view
+  
+  // ✅ Engineer can ONLY edit their own documents
+  const canEdit = (doc) => {
+    if (isSuperAdmin) return true // ✅ Super Admin can edit any
+    if (isEngineer) {
+      // Check if this document belongs to this engineer
+      return doc.uploaded_by === user?.id || doc.uploaded_by_name === user?.full_name
+    }
+    return false
+  }
 
   const [documents, setDocuments] = useState([])
   const [equipmentList, setEquipmentList] = useState([])
@@ -265,7 +275,9 @@ const ServiceDocumentation = () => {
         file_name: fileName,
         file_size: fileSize,
         version: '1.0',
-        hospital_id: user?.hospital_id || null
+        hospital_id: user?.hospital_id || null,
+        uploaded_by: user?.id || null,
+        uploaded_by_name: user?.full_name || ''
       }
 
       console.log('📤 Creating document record:', payload)
@@ -310,8 +322,9 @@ const ServiceDocumentation = () => {
   }
 
   const handleEdit = (doc) => {
-    if (!canEdit) {
-      toast.error('You do not have permission to edit documents')
+    // ✅ Check if user can edit this document
+    if (!canEdit(doc)) {
+      toast.error('You can only edit your own documents')
       return
     }
     setSelectedDoc(doc)
@@ -393,6 +406,7 @@ const ServiceDocumentation = () => {
 
   const stats = getStats()
 
+  // ✅ Everyone can see ALL documents (no filtering by uploader)
   const filteredDocs = documents.filter(doc => {
     const matchesSearch = doc.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           doc.equipment?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -434,7 +448,7 @@ const ServiceDocumentation = () => {
           {isEngineer && (
             <Chip 
               icon={<EngineeringIcon sx={{ fontSize: 16 }} />}
-              label="Engineer Mode" 
+              label="Engineer Mode - View & Upload Only" 
               size="small" 
               color="info" 
             />
@@ -442,7 +456,7 @@ const ServiceDocumentation = () => {
           {isSuperAdmin && (
             <Chip 
               icon={<AdminPanelSettings sx={{ fontSize: 16 }} />}
-              label="Super Admin" 
+              label="Super Admin (Full Control)" 
               size="small" 
               color="warning" 
             />
@@ -485,6 +499,24 @@ const ServiceDocumentation = () => {
           )}
         </Box>
       </Box>
+
+      {/* Info Alert - Engineers can see all documents */}
+      {isEngineer && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          <Typography variant="body2">
+            <strong>📄 Collaborative View:</strong> You can see all documents from all engineers. 
+            You can only <strong>edit</strong> your own documents. Only <strong>Super Admin</strong> can delete documents.
+          </Typography>
+        </Alert>
+      )}
+
+      {isSuperAdmin && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          <Typography variant="body2">
+            <strong>👑 Super Admin:</strong> You have full control. You can view, upload, edit, and delete any document.
+          </Typography>
+        </Alert>
+      )}
 
       {/* Stats Cards */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
@@ -558,110 +590,122 @@ const ServiceDocumentation = () => {
 
       {/* Document Cards */}
       <Grid container spacing={3}>
-        {filteredDocs.map((doc) => (
-          <Grid item xs={12} sm={6} md={4} key={doc.id}>
-            <Card sx={{ 
-              borderRadius: 2, 
-              height: '100%', 
-              display: 'flex', 
-              flexDirection: 'column',
-              transition: 'transform 0.2s',
-              '&:hover': {
-                transform: 'translateY(-4px)',
-                boxShadow: 4
-              }
-            }}>
-              <CardContent sx={{ flexGrow: 1 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Typography variant="subtitle1" fontWeight={600} noWrap>
-                      {doc.title}
-                    </Typography>
-                    <Chip
-                      label={doc.document_type}
-                      size="small"
-                      color={
-                        doc.document_type === 'PDF' ? 'error' :
-                        doc.document_type === 'Video' ? 'info' :
-                        doc.document_type === 'Image' ? 'success' : 'default'
-                      }
-                      sx={{ mr: 0.5 }}
-                    />
-                    <Chip
-                      label={doc.category}
-                      size="small"
-                      variant="outlined"
-                    />
+        {filteredDocs.map((doc) => {
+          const isOwnDocument = isEngineer && (doc.uploaded_by === user?.id || doc.uploaded_by_name === user?.full_name)
+          
+          return (
+            <Grid item xs={12} sm={6} md={4} key={doc.id}>
+              <Card sx={{ 
+                borderRadius: 2, 
+                height: '100%', 
+                display: 'flex', 
+                flexDirection: 'column',
+                transition: 'transform 0.2s',
+                '&:hover': {
+                  transform: 'translateY(-4px)',
+                  boxShadow: 4
+                }
+              }}>
+                <CardContent sx={{ flexGrow: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography variant="subtitle1" fontWeight={600} noWrap>
+                        {doc.title}
+                      </Typography>
+                      <Chip
+                        label={doc.document_type}
+                        size="small"
+                        color={
+                          doc.document_type === 'PDF' ? 'error' :
+                          doc.document_type === 'Video' ? 'info' :
+                          doc.document_type === 'Image' ? 'success' : 'default'
+                        }
+                        sx={{ mr: 0.5 }}
+                      />
+                      <Chip
+                        label={doc.category}
+                        size="small"
+                        variant="outlined"
+                      />
+                      {isOwnDocument && (
+                        <Chip 
+                          label="My Document" 
+                          size="small" 
+                          color="primary" 
+                          sx={{ ml: 0.5, height: 18, fontSize: '9px' }}
+                        />
+                      )}
+                    </Box>
                   </Box>
-                </Box>
-                <Typography variant="body2" color="textSecondary">
-                  <MedicalServices sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
-                  Equipment: {doc.equipment || '-'}
-                </Typography>
-                <Typography variant="body2" color="textSecondary">
-                  <CalendarToday sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
-                  Uploaded: {formatDate(doc.created_at || doc.uploaded_at)}
-                </Typography>
-                <Typography variant="body2" color="textSecondary">
-                  <InsertDriveFile sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
-                  Size: {doc.file_size || '-'}
-                </Typography>
-                <Typography variant="caption" color="textSecondary">
-                  <Person sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
-                  By: {doc.uploaded_by_name || doc.uploaded_by || 'System'}
-                </Typography>
-              </CardContent>
-              <CardActions sx={{ p: 2, pt: 0 }}>
-                <Tooltip title="View Details">
-                  <Button 
-                    size="small" 
-                    startIcon={<Visibility />} 
-                    color="primary"
-                    onClick={() => handleView(doc)}
-                  >
-                    View
-                  </Button>
-                </Tooltip>
-                <Tooltip title="Download">
-                  <Button 
-                    size="small" 
-                    startIcon={<Download />} 
-                    color="info"
-                    onClick={() => handleDownload(doc)}
-                  >
-                    Download
-                  </Button>
-                </Tooltip>
-                
-                {/* ✅ Both Engineer and Super Admin can Edit */}
-                {canEdit && (
-                  <Tooltip title="Edit">
-                    <IconButton 
+                  <Typography variant="body2" color="textSecondary">
+                    <MedicalServices sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
+                    Equipment: {doc.equipment || '-'}
+                  </Typography>
+                  <Typography variant="body2" color="textSecondary">
+                    <CalendarToday sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
+                    Uploaded: {formatDate(doc.created_at || doc.uploaded_at)}
+                  </Typography>
+                  <Typography variant="body2" color="textSecondary">
+                    <InsertDriveFile sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
+                    Size: {doc.file_size || '-'}
+                  </Typography>
+                  <Typography variant="caption" color="textSecondary">
+                    <Person sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
+                    By: {doc.uploaded_by_name || doc.uploaded_by || 'System'}
+                  </Typography>
+                </CardContent>
+                <CardActions sx={{ p: 2, pt: 0 }}>
+                  <Tooltip title="View Details">
+                    <Button 
                       size="small" 
-                      color="info" 
-                      onClick={() => handleEdit(doc)}
+                      startIcon={<Visibility />} 
+                      color="primary"
+                      onClick={() => handleView(doc)}
                     >
-                      <Edit fontSize="small" />
-                    </IconButton>
+                      View
+                    </Button>
                   </Tooltip>
-                )}
-                
-                {/* ✅ ONLY Super Admin can Delete */}
-                {canDelete && (
-                  <Tooltip title="Delete">
-                    <IconButton 
+                  <Tooltip title="Download">
+                    <Button 
                       size="small" 
-                      color="error" 
-                      onClick={() => handleDelete(doc.id)}
+                      startIcon={<Download />} 
+                      color="info"
+                      onClick={() => handleDownload(doc)}
                     >
-                      <Delete fontSize="small" />
-                    </IconButton>
+                      Download
+                    </Button>
                   </Tooltip>
-                )}
-              </CardActions>
-            </Card>
-          </Grid>
-        ))}
+                  
+                  {/* ✅ Engineer can ONLY edit their own documents, Super Admin can edit any */}
+                  {canEdit(doc) && (
+                    <Tooltip title="Edit">
+                      <IconButton 
+                        size="small" 
+                        color="info" 
+                        onClick={() => handleEdit(doc)}
+                      >
+                        <Edit fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                  
+                  {/* ✅ ONLY Super Admin can Delete */}
+                  {canDelete && (
+                    <Tooltip title="Delete">
+                      <IconButton 
+                        size="small" 
+                        color="error" 
+                        onClick={() => handleDelete(doc.id)}
+                      >
+                        <Delete fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                </CardActions>
+              </Card>
+            </Grid>
+          )
+        })}
       </Grid>
 
       {/* Empty State */}
@@ -711,6 +755,13 @@ const ServiceDocumentation = () => {
               <Typography variant="h6" fontWeight={600}>
                 {editingDocument ? 'Edit Document' : 'Upload Document'}
               </Typography>
+              {editingDocument && (
+                <Chip 
+                  label={isEngineer ? 'Editing Your Document' : 'Super Admin Edit'} 
+                  size="small" 
+                  color={isEngineer ? 'info' : 'warning'} 
+                />
+              )}
               <IconButton onClick={() => {
                 setOpenDialog(false)
                 setEditingDocument(false)
@@ -901,9 +952,17 @@ const ServiceDocumentation = () => {
             <Typography variant="h6" fontWeight={600}>
               Document Details
             </Typography>
-            <IconButton onClick={() => setOpenViewDialog(false)} sx={{ color: 'white' }}>
-              <Close />
-            </IconButton>
+            <Box>
+              {isSuperAdmin && (
+                <Chip label="Super Admin" size="small" color="warning" sx={{ mr: 1 }} />
+              )}
+              {isEngineer && (
+                <Chip label="Engineer" size="small" color="info" sx={{ mr: 1 }} />
+              )}
+              <IconButton onClick={() => setOpenViewDialog(false)} sx={{ color: 'white' }}>
+                <Close />
+              </IconButton>
+            </Box>
           </Box>
         </DialogTitle>
         <DialogContent dividers>
@@ -930,6 +989,9 @@ const ServiceDocumentation = () => {
                         size="small"
                         variant="outlined"
                       />
+                      {isEngineer && selectedDoc.uploaded_by === user?.id && (
+                        <Chip label="Your Document" size="small" color="primary" />
+                      )}
                     </Box>
                   </Box>
                 </Grid>
@@ -1010,6 +1072,20 @@ const ServiceDocumentation = () => {
           >
             Close
           </Button>
+          {/* ✅ ONLY Super Admin can delete */}
+          {isSuperAdmin && selectedDoc && (
+            <Button
+              variant="contained"
+              color="error"
+              onClick={() => {
+                handleDelete(selectedDoc.id)
+                setOpenViewDialog(false)
+              }}
+              startIcon={<Delete />}
+            >
+              Delete
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
 

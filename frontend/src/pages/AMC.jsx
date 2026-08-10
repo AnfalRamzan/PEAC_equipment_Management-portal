@@ -1,4 +1,4 @@
-// src/pages/AMC.jsx - HOSPITAL_ADMIN REMOVED
+// src/pages/AMC.jsx - ENGINEER can VIEW, CREATE, EDIT (NO DELETE)
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -73,18 +73,19 @@ const getFullUrl = (url) => {
 const AMC = () => {
   const { user } = useSelector((state) => state.auth)
   
-  // ✅ ENGINEER cannot access AMC
-  if (user?.role === 'ENGINEER') {
-    return <AccessDenied message="Biomedical Engineers cannot access AMC Contracts." />
+  // ✅ HOSPITAL_ADMIN cannot access AMC
+  if (user?.role === 'HOSPITAL_ADMIN') {
+    return <AccessDenied message="Hospital Administrators cannot access AMC Contracts." />
   }
   
-  // ✅ Only SUPER_ADMIN can create, edit, renew, and view
-  // ❌ HOSPITAL_ADMIN removed from all permissions
-  const canCreate = user?.role === 'SUPER_ADMIN'
-  const canEdit = user?.role === 'SUPER_ADMIN'
-  const canDelete = user?.role === 'SUPER_ADMIN'
-  const canRenew = user?.role === 'SUPER_ADMIN'
-  const canView = user?.role === 'SUPER_ADMIN'
+  // ✅ PERMISSIONS
+  // ✅ ENGINEER: Can VIEW, CREATE, EDIT, RENEW (NO DELETE)
+  // ✅ SUPER_ADMIN: Can VIEW, CREATE, EDIT, DELETE, RENEW
+  const canCreate = user?.role === 'SUPER_ADMIN' || user?.role === 'ENGINEER'
+  const canEdit = user?.role === 'SUPER_ADMIN' || user?.role === 'ENGINEER'
+  const canDelete = user?.role === 'SUPER_ADMIN'  // ✅ ONLY SUPER ADMIN CAN DELETE
+  const canRenew = user?.role === 'SUPER_ADMIN' || user?.role === 'ENGINEER'
+  const canView = user?.role === 'SUPER_ADMIN' || user?.role === 'ENGINEER'
 
   const [contracts, setContracts] = useState([])
   const [equipment, setEquipment] = useState([])
@@ -149,6 +150,12 @@ const AMC = () => {
   }
 
   const handleOpenDialog = (contract = null) => {
+    // ✅ Both Engineer and Super Admin can open dialog
+    if (!canCreate && !canEdit) {
+      toast.error('You do not have permission to create or edit AMC contracts')
+      return
+    }
+    
     if (contract) {
       setEditingContract(contract)
       setFormData({
@@ -206,6 +213,12 @@ const AMC = () => {
   }
 
   const handleSubmit = async () => {
+    // ✅ Both Engineer and Super Admin can submit
+    if (!canCreate && !canEdit) {
+      toast.error('You do not have permission to create or edit AMC contracts')
+      return
+    }
+    
     try {
       const submitData = {
         ...formData,
@@ -227,6 +240,7 @@ const AMC = () => {
   }
 
   const handleDelete = async (id) => {
+    // ✅ ONLY Super Admin can delete
     if (!canDelete) {
       toast.error('Only Super Admin can delete AMC contracts')
       return
@@ -244,6 +258,11 @@ const AMC = () => {
   }
 
   const handleRenew = (contract) => {
+    // ✅ Both Engineer and Super Admin can renew
+    if (!canRenew) {
+      toast.error('You do not have permission to renew AMC contracts')
+      return
+    }
     setRenewData({
       id: contract.id,
       end_date: contract.end_date || '',
@@ -436,11 +455,28 @@ const AMC = () => {
 
   return (
     <Box>
-      {/* ✅ Header - REMOVED Super Admin and Hospital Admin labels */}
+      {/* ✅ Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700, color: '#2C3E50' }}>
-          Annual Maintenance Contracts (AMC)
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Typography variant="h5" sx={{ fontWeight: 700, color: '#2C3E50' }}>
+            Annual Maintenance Contracts (AMC)
+          </Typography>
+          {user?.role === 'ENGINEER' && (
+            <Chip 
+              label="🔧 Engineer - Can Edit (No Delete)" 
+              size="small" 
+              color="info" 
+              variant="outlined"
+            />
+          )}
+          {user?.role === 'SUPER_ADMIN' && (
+            <Chip 
+              label="👑 Super Admin - Full Control" 
+              size="small" 
+              color="warning" 
+            />
+          )}
+        </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button
             variant="outlined"
@@ -465,6 +501,16 @@ const AMC = () => {
           )}
         </Box>
       </Box>
+
+      {/* Info Alert for Engineers */}
+      {user?.role === 'ENGINEER' && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          <Typography variant="body2">
+            <strong>🔧 Engineer Mode:</strong> You can view, create, edit, and renew AMC contracts.
+            Only <strong>Super Admin</strong> can delete contracts.
+          </Typography>
+        </Alert>
+      )}
 
       {/* Stats Cards */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
@@ -641,12 +687,14 @@ const AMC = () => {
                       {contract.status}
                     </TableCell>
                     <TableCell align="center">
+                      {/* ✅ View - Available to both */}
                       <Tooltip title="View Details">
                         <IconButton size="small" color="primary" onClick={() => handleView(contract)}>
                           <Visibility fontSize="small" />
                         </IconButton>
                       </Tooltip>
                       
+                      {/* ✅ Edit - Available to both Engineer and Super Admin */}
                       {canEdit && (
                         <Tooltip title="Edit">
                           <IconButton size="small" color="info" onClick={() => handleOpenDialog(contract)}>
@@ -655,6 +703,7 @@ const AMC = () => {
                         </Tooltip>
                       )}
                       
+                      {/* ✅ Renew - Available to both Engineer and Super Admin */}
                       {canRenew && contract.status === 'Active' && (
                         <Tooltip title="Renew AMC">
                           <IconButton size="small" color="warning" onClick={() => handleRenew(contract)}>
@@ -663,6 +712,7 @@ const AMC = () => {
                         </Tooltip>
                       )}
                       
+                      {/* ✅ Delete - ONLY Super Admin */}
                       {canDelete && (
                         <Tooltip title="Delete">
                           <IconButton size="small" color="error" onClick={() => handleDelete(contract.id)}>
@@ -683,9 +733,17 @@ const AMC = () => {
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
         <DialogTitle sx={{ bgcolor: '#0B5FA5', color: 'white' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" fontWeight={600}>
-              {editingContract ? 'Edit AMC Contract' : 'Add New AMC Contract'}
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="h6" fontWeight={600}>
+                {editingContract ? 'Edit AMC Contract' : 'Add New AMC Contract'}
+              </Typography>
+              {user?.role === 'ENGINEER' && (
+                <Chip label="Engineer - Can Edit" size="small" color="info" />
+              )}
+              {user?.role === 'SUPER_ADMIN' && (
+                <Chip label="Super Admin" size="small" color="warning" />
+              )}
+            </Box>
             <IconButton onClick={handleCloseDialog} sx={{ color: 'white' }}>
               <Close />
             </IconButton>
@@ -890,6 +948,9 @@ const AMC = () => {
             <Typography variant="h6" fontWeight={600}>
               Renew AMC Contract
             </Typography>
+            {user?.role === 'ENGINEER' && (
+              <Chip label="Engineer" size="small" sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white' }} />
+            )}
           </Box>
           <IconButton 
             onClick={() => setOpenRenewDialog(false)} 
@@ -951,9 +1012,14 @@ const AMC = () => {
             <Typography variant="h6" fontWeight={600}>
               AMC Contract Details
             </Typography>
-            <IconButton onClick={handleCloseView} sx={{ color: 'white' }}>
-              <Close />
-            </IconButton>
+            <Box>
+              {user?.role === 'ENGINEER' && (
+                <Chip label="🔧 Engineer" size="small" color="info" sx={{ mr: 1 }} />
+              )}
+              <IconButton onClick={handleCloseView} sx={{ color: 'white' }}>
+                <Close />
+              </IconButton>
+            </Box>
           </Box>
         </DialogTitle>
         <DialogContent dividers>

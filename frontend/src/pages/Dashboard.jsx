@@ -1,5 +1,6 @@
 // src/pages/Dashboard.jsx - FIXED WITH REAL API DATA FETCH
-// HOSPITAL_ADMIN REMOVED - Only SUPER_ADMIN and ENGINEER remain
+// ✅ ENGINEER: Sees ALL CARDS but ONLY their hospital's data
+// ✅ SUPER_ADMIN: Sees ALL CARDS with ALL data
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -17,7 +18,8 @@ import {
   Skeleton,
   Alert,
   Snackbar,
-  Button
+  Button,
+  Chip
 } from '@mui/material'
 import {
   MedicalServices,
@@ -42,7 +44,9 @@ import {
   Description,
   School,
   Gavel,
-  SupervisorAccount
+  SupervisorAccount,
+  Engineering as EngineeringIcon,
+  AdminPanelSettings
 } from '@mui/icons-material'
 import { dashboardService } from '../api/services'
 import { useSelector } from 'react-redux'
@@ -61,7 +65,6 @@ const Dashboard = () => {
     totalEquipment: 0,
     totalHospitals: 0,
     totalEngineers: 0,
-    // totalHospitalAdmins: 0, // ❌ REMOVED
     criticalErrors: 0,
     openErrors: 0,
     resolvedErrors: 0,
@@ -110,7 +113,6 @@ const Dashboard = () => {
           totalEquipment: response.data.totalEquipment || 0,
           totalHospitals: response.data.totalHospitals || 0,
           totalEngineers: response.data.totalEngineers || 0,
-          // totalHospitalAdmins: response.data.totalHospitalAdmins || 0, // ❌ REMOVED
           criticalErrors: response.data.criticalErrors || 0,
           openErrors: response.data.openErrors || 0,
           resolvedErrors: response.data.resolvedErrors || 0,
@@ -131,7 +133,6 @@ const Dashboard = () => {
         })
       } else {
         console.warn('⚠️ API response not successful:', response.data)
-        // Keep existing stats (don't reset to zero)
       }
       
     } catch (err) {
@@ -165,12 +166,12 @@ const Dashboard = () => {
   }
 
   // ============================================================
-  // ✅ GET CARDS BASED ON ROLE - HOSPITAL_ADMIN REMOVED
+  // ✅ GET CARDS - SAME CARDS FOR BOTH SUPER_ADMIN AND ENGINEER
   // ============================================================
   const getCards = () => {
     const role = user?.role
     
-    // ✅ SUPER_ADMIN Cards - Hospital Admin stats removed
+    // ✅ SUPER_ADMIN - ALL DATA
     if (role === 'SUPER_ADMIN') {
       return [
         { 
@@ -180,7 +181,6 @@ const Dashboard = () => {
           color: '#0B5FA5',
           path: '/hospitals'
         },
-        // ❌ 'Hospital Admins' card REMOVED
         { 
           title: 'Total Engineers', 
           value: stats.totalEngineers, 
@@ -254,57 +254,90 @@ const Dashboard = () => {
       ]
     }
     
-    // ❌ HOSPITAL_ADMIN section COMPLETELY REMOVED
-    
-    // ✅ ENGINEER Cards
+    // ✅ ENGINEER - SAME CARDS but data will be filtered by hospital
     if (role === 'ENGINEER') {
       return [
         { 
-          title: 'Assigned Repairs', 
-          value: stats.myAssignedRepairs, 
-          icon: <Assignment />, 
+          title: 'Total Hospitals', 
+          value: stats.totalHospitals, 
+          icon: <LocalHospital />, 
           color: '#0B5FA5',
-          path: '/repairs?status=Assigned'
+          path: '/hospitals'
         },
         { 
-          title: 'Pending Repairs', 
-          value: stats.myPendingRepairs, 
-          icon: <Pending />, 
+          title: 'Total Engineers', 
+          value: stats.totalEngineers, 
+          icon: <Engineering />, 
           color: '#0B5FA5',
-          path: '/repairs?status=Pending'
+          path: '/users?role=ENGINEER'
         },
         { 
-          title: 'In Progress Repairs', 
-          value: stats.myInProgressRepairs, 
+          title: 'Total Equipment', 
+          value: stats.totalEquipment, 
+          icon: <MedicalServices />, 
+          color: '#0B5FA5',
+          path: '/equipment'
+        },
+        { 
+          title: 'Open Errors', 
+          value: stats.openErrors, 
+          icon: <ErrorOutline />, 
+          color: '#0B5FA5',
+          path: '/errors?status=Pending,In Progress'
+        },
+        { 
+          title: 'Critical Errors',
+          value: stats.criticalErrors || 0, 
+          icon: <Warning />, 
+          color: '#0B5FA5',
+          path: '/errors?severity=Critical'
+        },
+        { 
+          title: 'Resolved Errors', 
+          value: stats.resolvedErrors, 
+          icon: <CheckCircle />, 
+          color: '#0B5FA5',
+          path: '/errors?status=Resolved,Closed'
+        },
+        { 
+          title: 'Repairs In Progress',
+          value: stats.inProgressRepairs, 
           icon: <Build />, 
           color: '#0B5FA5',
           path: '/repairs?status=In Progress'
         },
         { 
-          title: 'Completed Repairs', 
-          value: stats.myCompletedRepairs, 
-          icon: <CheckCircle />, 
+          title: 'Pending Purchase Requests',
+          value: stats.pendingPurchaseOrders, 
+          icon: <ShoppingCart />, 
           color: '#0B5FA5',
-          path: '/repairs?status=Completed'
+          path: '/purchase-orders?status=Pending'
         },
         { 
-          title: 'Maintenance Tasks', 
-          value: stats.myMaintenanceTasks, 
-          icon: <Handyman />, 
+          title: 'Maintenance Due', 
+          value: stats.maintenanceDue, 
+          icon: <CalendarToday />, 
           color: '#0B5FA5',
-          path: '/maintenance'
+          path: '/maintenance?status=Overdue'
         },
         { 
-          title: 'Reported Errors', 
-          value: stats.myReportedErrors, 
-          icon: <ErrorOutline />, 
+          title: 'Spare Parts Low Stock', 
+          value: stats.sparePartsLow, 
+          icon: <Inventory />, 
           color: '#0B5FA5',
-          path: '/errors'
+          path: '/spare-parts?stock=low'
+        },
+        { 
+          title: 'Total Reports', 
+          value: stats.totalReports, 
+          icon: <Description />, 
+          color: '#0B5FA5',
+          path: '/reports'
         }
       ]
     }
     
-    // Default fallback
+    // Default fallback for any other role
     return [
       { 
         title: 'Welcome', 
@@ -407,7 +440,7 @@ const Dashboard = () => {
   // ============================================================
   const LoadingSkeleton = () => (
     <Grid container spacing={{ xs: 1.5, sm: 2, md: 3 }}>
-      {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((i) => (
         <Grid item xs={6} sm={4} md={3} key={i}>
           <Card sx={{ height: '100%', borderRadius: 2 }}>
             <CardContent sx={{ p: { xs: 1.5, sm: 2, md: 2.5 } }}>
@@ -465,10 +498,12 @@ const Dashboard = () => {
   }
 
   const cards = getCards()
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN'
+  const isEngineer = user?.role === 'ENGINEER'
 
   return (
     <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
-      {/* Header - Only Dashboard Title */}
+      {/* Header - Only Dashboard Title - REMOVED ROLE CHIPS */}
       <Typography 
         variant="h5" 
         sx={{ 
@@ -481,7 +516,7 @@ const Dashboard = () => {
         Dashboard
       </Typography>
 
-      {/* Stats Cards */}
+      {/* Stats Cards - SAME CARDS for both roles */}
       <Grid container spacing={{ xs: 1.5, sm: 2, md: 3 }}>
         {cards.map((card, index) => (
           <Grid 
@@ -504,6 +539,9 @@ const Dashboard = () => {
           </Typography>
         </Paper>
       )}
+
+      {/* ✅ REMOVED: Engineer Info Alert */}
+      {/* ✅ REMOVED: Super Admin Info Alert */}
 
       {/* Snackbar for errors */}
       <Snackbar

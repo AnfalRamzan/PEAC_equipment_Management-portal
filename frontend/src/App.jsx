@@ -1,9 +1,12 @@
-import React from 'react';
+// src/App.jsx
+// ✅ REMOVED: Equipment Categories route (since removed from sidebar)
+// ✅ REMOVED: Settings route
+
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
-import Profile from './pages/Profile'; // ✅ Make sure this is imported
+import Profile from './pages/Profile';
 import Users from './pages/Users';
 import Hospitals from './pages/Hospitals';
 import Equipment from './pages/Equipment';
@@ -17,50 +20,49 @@ import AMC from './pages/AMC';
 import PurchaseOrders from './pages/PurchaseOrders';
 import Procurement from './pages/Procurement';
 import Reports from './pages/Reports';
-import EquipmentCategories from './pages/EquipmentCategories';
-import Settings from './pages/Settings';
+// ❌ EquipmentCategories REMOVED
+// ❌ Settings REMOVED
 import Notifications from './pages/Notifications';
 import MainLayout from './components/Layout/MainLayout';
 
 const PrivateRoute = ({ children }) => {
-  const { isAuthenticated } = useSelector((state) => state.auth);
-  return isAuthenticated ? children : <Navigate to="/login" />;
+    const { isAuthenticated } = useSelector((state) => state.auth);
+    return isAuthenticated ? children : <Navigate to="/login" />;
 };
 
 const App = () => {
-  return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        
-        <Route path="/" element={
-          <PrivateRoute>
-            <MainLayout />
-          </PrivateRoute>
-        }>
-          <Route index element={<Navigate to="/dashboard" />} />
-          <Route path="dashboard" element={<Dashboard />} />
-          <Route path="profile" element={<Profile />} /> {/* ✅ Profile route */}
-          <Route path="users" element={<Users />} />
-          <Route path="hospitals" element={<Hospitals />} />
-          <Route path="equipment" element={<Equipment />} />
-          <Route path="equipment-categories" element={<EquipmentCategories />} />
-          <Route path="errors" element={<ErrorLogs />} />
-          <Route path="repairs" element={<Repairs />} />
-          <Route path="maintenance" element={<Maintenance />} />
-          <Route path="spare-parts" element={<SpareParts />} />
-          <Route path="service-documentation" element={<ServiceDocumentation />} />
-          <Route path="knowledge-base" element={<KnowledgeBase />} />
-          <Route path="amc" element={<AMC />} />
-          <Route path="purchase-orders" element={<PurchaseOrders />} />
-          <Route path="procurement" element={<Procurement />} />
-          <Route path="reports" element={<Reports />} />
-          <Route path="settings" element={<Settings />} />
-          <Route path="notifications" element={<Notifications />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
-  );
+    return (
+        <BrowserRouter>
+            <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route path="/" element={
+                    <PrivateRoute>
+                        <MainLayout />
+                    </PrivateRoute>
+                }>
+                    <Route index element={<Navigate to="/dashboard" />} />
+                    <Route path="dashboard" element={<Dashboard />} />
+                    <Route path="profile" element={<Profile />} />
+                    <Route path="users" element={<Users />} />
+                    <Route path="hospitals" element={<Hospitals />} />
+                    <Route path="equipment" element={<Equipment />} />
+                    {/* ❌ equipment-categories route REMOVED */}
+                    <Route path="errors" element={<ErrorLogs />} />
+                    <Route path="repairs" element={<Repairs />} />
+                    <Route path="maintenance" element={<Maintenance />} />
+                    <Route path="spare-parts" element={<SpareParts />} />
+                    <Route path="service-documentation" element={<ServiceDocumentation />} />
+                    <Route path="knowledge-base" element={<KnowledgeBase />} />
+                    <Route path="amc" element={<AMC />} />
+                    <Route path="purchase-orders" element={<PurchaseOrders />} />
+                    <Route path="procurement" element={<Procurement />} />
+                    <Route path="reports" element={<Reports />} />
+                    {/* ❌ settings route REMOVED */}
+                    <Route path="notifications" element={<Notifications />} />
+                </Route>
+            </Routes>
+        </BrowserRouter>
+    );
 };
 
 export default App;

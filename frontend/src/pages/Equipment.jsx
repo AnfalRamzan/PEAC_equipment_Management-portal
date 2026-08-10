@@ -1,3 +1,6 @@
+// src/pages/Equipment.jsx
+// ✅ FIXED: Added FormHelperText import
+
 import React, { useState, useEffect } from 'react'
 import {
   Box,
@@ -31,7 +34,8 @@ import {
   CircularProgress,
   Tabs,
   Tab,
-  Alert
+  Alert,
+  FormHelperText, // ✅ ADDED
 } from '@mui/material'
 import {
   Add,

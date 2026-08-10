@@ -1,6 +1,7 @@
 // src/pages/ErrorLogs.jsx
-// ✅ ENGINEER can Create, Edit, Delete
-// ✅ SUPER_ADMIN and HOSPITAL_ADMIN can only View
+// ✅ ENGINEER: Report, View, Edit (NO Delete)
+// ✅ SUPER_ADMIN: View, Delete (ONLY) - No Report/Edit
+// ❌ HOSPITAL_ADMIN: Access Denied
 
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -72,31 +73,37 @@ import {
   CalendarToday,
   Pending,
   Verified,
-  Save
+  Save,
+  Engineering as EngineeringIcon,
+  AdminPanelSettings
 } from '@mui/icons-material'
 import { errorService, equipmentService, hospitalService, userService } from '../api/services'
 import { toast } from 'react-toastify'
 import { useSelector } from 'react-redux'
 import FileUpload from '../components/FileUpload'
 import api from '../api/axios'
+import AccessDenied from '../components/Auth/AccessDenied'
 
 const ErrorLogs = () => {
   const { user } = useSelector((state) => state.auth)
   const navigate = useNavigate()
   
+  // ✅ HOSPITAL_ADMIN - Access Denied
+  if (user?.role === 'HOSPITAL_ADMIN') {
+    return <AccessDenied message="Hospital Administrators cannot access Error Logs." />
+  }
+  
   const isSuperAdmin = user?.role === 'SUPER_ADMIN'
-  const isHospitalAdmin = user?.role === 'HOSPITAL_ADMIN'
   const isEngineer = user?.role === 'ENGINEER'
   
   // ✅ PERMISSIONS
-  // ✅ Only ENGINEER can create, edit, delete
-  const canCreate = isEngineer
-  const canEdit = isEngineer
-  const canDelete = isEngineer
-  const canView = isSuperAdmin || isHospitalAdmin || isEngineer
-  
-  // ❌ SUPER_ADMIN and HOSPITAL_ADMIN cannot edit/delete
-  const canChangeStatus = isEngineer // Only Engineer can change status
+  // ✅ ENGINEER: Report, View, Edit (NO Delete)
+  // ✅ SUPER_ADMIN: View, Delete (ONLY) - No Report/Edit
+  const canCreate = isEngineer // ✅ Only Engineer can report
+  const canEdit = isEngineer // ✅ Only Engineer can edit
+  const canDelete = isSuperAdmin // ✅ Only Super Admin can delete
+  const canView = isEngineer || isSuperAdmin // ✅ Both can view
+  const canChangeStatus = isEngineer // ✅ Only Engineer can change status
 
   const [errors, setErrors] = useState([])
   const [equipment, setEquipment] = useState([])
@@ -445,9 +452,9 @@ const ErrorLogs = () => {
   }
 
   const handleErrorDelete = async (id) => {
-    // ✅ Only ENGINEER can delete
-    if (!isEngineer) {
-      toast.error('Only Biomedical Engineers can delete errors')
+    // ✅ Only SUPER_ADMIN can delete
+    if (!isSuperAdmin) {
+      toast.error('Only Super Admin can delete errors')
       return
     }
     
@@ -486,11 +493,29 @@ const ErrorLogs = () => {
 
   return (
     <Box>
-      {/* Header */}
+      {/* Header - Role Chips */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700, color: '#2C3E50' }}>
-          Error Logs
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Typography variant="h5" sx={{ fontWeight: 700, color: '#2C3E50' }}>
+            Error Logs
+          </Typography>
+          {isEngineer && (
+            <Chip 
+              icon={<EngineeringIcon sx={{ fontSize: 16 }} />}
+              label="Engineer Mode" 
+              size="small" 
+              color="info" 
+            />
+          )}
+          {isSuperAdmin && (
+            <Chip 
+              icon={<AdminPanelSettings sx={{ fontSize: 16 }} />}
+              label="Super Admin (View & Delete Only)" 
+              size="small" 
+              color="warning" 
+            />
+          )}
+        </Box>
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
           <Button
             variant="outlined"
@@ -668,9 +693,18 @@ const ErrorLogs = () => {
                     </Typography>
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2" fontWeight={500}>
-                      {error.status}
-                    </Typography>
+                    <Chip 
+                      label={error.status} 
+                      size="small"
+                      color={
+                        error.status === 'Resolved' || error.status === 'Closed' ? 'success' :
+                        error.status === 'Completed' ? 'info' :
+                        error.status === 'Pending' ? 'default' :
+                        error.status === 'In Progress' ? 'warning' :
+                        error.status === 'Rejected' ? 'error' : 'default'
+                      }
+                      sx={{ height: 22, fontSize: '11px' }}
+                    />
                   </TableCell>
                   <TableCell>
                     <Typography variant="body2">
@@ -694,7 +728,7 @@ const ErrorLogs = () => {
                         </Tooltip>
                       )}
                       
-                      {/* ✅ Only ENGINEER can delete */}
+                      {/* ✅ Only SUPER_ADMIN can delete */}
                       {canDelete && (
                         <Tooltip title="Delete Error">
                           <IconButton size="small" color="error" onClick={() => handleErrorDelete(error.id)}>
@@ -718,6 +752,7 @@ const ErrorLogs = () => {
             <Typography variant="h6" fontWeight={600}>
               {editingError ? 'Edit Error' : 'Report New Error'}
             </Typography>
+            <Chip label="Engineer Only" size="small" color="info" sx={{ bgcolor: '#2196f3' }} />
             <IconButton onClick={handleCloseDialog} sx={{ color: 'white' }}>
               <Close />
             </IconButton>
@@ -989,9 +1024,17 @@ const ErrorLogs = () => {
                 ID: {viewingError?.id} • {new Date(viewingError?.created_at).toLocaleString()}
               </Typography>
             </Box>
-            <IconButton onClick={handleCloseView} sx={{ color: 'white', mt: -1 }}>
-              <Close />
-            </IconButton>
+            <Box>
+              {isEngineer && (
+                <Chip label="Engineer" size="small" color="info" sx={{ mr: 1 }} />
+              )}
+              {isSuperAdmin && (
+                <Chip label="Super Admin" size="small" color="warning" sx={{ mr: 1 }} />
+              )}
+              <IconButton onClick={handleCloseView} sx={{ color: 'white', mt: -1 }}>
+                <Close />
+              </IconButton>
+            </Box>
           </Box>
         </DialogTitle>
         
@@ -1229,11 +1272,11 @@ const ErrorLogs = () => {
                 </Box>
               )}
 
-              {/* ✅ SUPER_ADMIN / HOSPITAL_ADMIN - View Only Message */}
-              {(isSuperAdmin || isHospitalAdmin) && (
+              {/* ✅ SUPER_ADMIN - View Only Message with Delete option */}
+              {isSuperAdmin && (
                 <Alert severity="info" sx={{ mt: 3 }}>
                   <Typography variant="body2">
-                    <strong>👀 View Only Mode:</strong> You can view all error details. 
+                    <strong>👀 Super Admin View:</strong> You can view all error details and <strong>delete</strong> errors if needed.
                     Only Biomedical Engineers can report, edit, or update error status.
                   </Typography>
                 </Alert>
@@ -1244,8 +1287,8 @@ const ErrorLogs = () => {
         
         <DialogActions sx={{ p: 3, justifyContent: 'space-between' }}>
           <Button onClick={handleCloseView}>Close</Button>
-          {/* ✅ Only ENGINEER can delete from view dialog */}
-          {isEngineer && viewingError && (
+          {/* ✅ Only SUPER_ADMIN can delete from view dialog */}
+          {isSuperAdmin && viewingError && (
             <Button
               variant="contained"
               color="error"

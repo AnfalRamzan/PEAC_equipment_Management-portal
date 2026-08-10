@@ -245,19 +245,22 @@ const createNotification = async (userId, title, message, type, relatedId = null
     }
 };
 
+// ✅ UPDATED: Notify Super Admin and Engineers instead of Hospital Admins
 const notifyAdmins = async (hospitalId, title, message, type, relatedId = null, relatedModule = null) => {
     try {
+        // Notify Super Admin (role_id = 1)
         await createNotification(1, title, message, type, relatedId, relatedModule);
         
-        const admins = await query(
+        // Notify all Engineers in the hospital (role_id = 3)
+        const engineers = await query(
             `SELECT id FROM users 
-             WHERE role_id = 2 
+             WHERE role_id = 3 
              AND hospital_id = ? 
              AND is_active = 1`,
             [hospitalId]
         );
-        for (const admin of admins) {
-            await createNotification(admin.id, title, message, type, relatedId, relatedModule);
+        for (const eng of engineers) {
+            await createNotification(eng.id, title, message, type, relatedId, relatedModule);
         }
     } catch (error) {
         console.error('❌ Notify admins error:', error);
@@ -1204,7 +1207,8 @@ app.get('/api/users/roles', authenticate, async (req, res) => {
     }
 });
 
-app.post('/api/users', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), async (req, res) => {
+// ✅ UPDATED: Only SUPER_ADMIN can create users (removed HOSPITAL_ADMIN)
+app.post('/api/users', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     try {
         const { username, full_name, email, password, role_id, hospital_id, phone } = req.body;
 
@@ -1243,23 +1247,6 @@ app.post('/api/users', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'),
             });
         }
 
-        if (req.user.role_name === 'HOSPITAL_ADMIN') {
-            const roleName = await query('SELECT name FROM roles WHERE id = ?', [role_id]);
-            if (roleName.length > 0 && roleName[0].name !== 'ENGINEER') {
-                return res.status(403).json({ 
-                    success: false, 
-                    message: 'You can only create ENGINEER accounts' 
-                });
-            }
-            
-            if (hospital_id && parseInt(hospital_id) !== req.user.hospital_id) {
-                return res.status(403).json({ 
-                    success: false, 
-                    message: 'You can only create users for your hospital' 
-                });
-            }
-        }
-
         const existing = await query('SELECT * FROM users WHERE email = ?', [email]);
         if (existing.length > 0) {
             return res.status(400).json({ 
@@ -1271,10 +1258,6 @@ app.post('/api/users', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'),
         const hashedPassword = await bcrypt.hash(password, 10);
 
         let finalHospitalId = hospital_id;
-        if (req.user.role_name === 'HOSPITAL_ADMIN') {
-            finalHospitalId = req.user.hospital_id;
-        }
-
         if (finalHospitalId === '' || finalHospitalId === 'null' || finalHospitalId === 'undefined') {
             finalHospitalId = null;
         }
@@ -1323,7 +1306,8 @@ app.post('/api/users', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'),
     }
 });
 
-app.put('/api/users/:id', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), async (req, res) => {
+// ✅ UPDATED: Only SUPER_ADMIN can edit users (removed HOSPITAL_ADMIN)
+app.put('/api/users/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     try {
         const { id } = req.params;
         const { username, full_name, email, password, role_id, hospital_id, phone, is_active } = req.body;
@@ -1336,23 +1320,6 @@ app.put('/api/users/:id', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN
                 success: false, 
                 message: 'User not found' 
             });
-        }
-
-        if (req.user.role_name === 'HOSPITAL_ADMIN') {
-            const userRole = await query('SELECT name FROM roles WHERE id = ?', [existing[0].role_id]);
-            if (userRole.length > 0 && userRole[0].name !== 'ENGINEER') {
-                return res.status(403).json({ 
-                    success: false, 
-                    message: 'You can only edit ENGINEER accounts' 
-                });
-            }
-            
-            if (existing[0].hospital_id !== req.user.hospital_id) {
-                return res.status(403).json({ 
-                    success: false, 
-                    message: 'You can only edit users from your hospital' 
-                });
-            }
         }
 
         let updateQuery = `
@@ -2023,7 +1990,8 @@ app.put('/api/equipment/:id', authenticate, async (req, res) => {
     }
 });
 
-app.delete('/api/equipment/:id', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), async (req, res) => {
+// ✅ UPDATED: Only SUPER_ADMIN can delete equipment (removed HOSPITAL_ADMIN)
+app.delete('/api/equipment/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     try {
         const { id } = req.params;
         console.log('🗑️ Deleting equipment ID:', id);
@@ -2034,15 +2002,6 @@ app.delete('/api/equipment/:id', authenticate, authorize('SUPER_ADMIN', 'HOSPITA
                 success: false, 
                 message: 'Equipment not found' 
             });
-        }
-        
-        if (req.user.role_name !== 'SUPER_ADMIN') {
-            if (existing[0].hospital_id !== req.user.hospital_id) {
-                return res.status(403).json({ 
-                    success: false, 
-                    message: 'Access denied' 
-                });
-            }
         }
         
         await query("UPDATE equipment SET status = 'Inactive' WHERE id = ?", [id]);
@@ -2231,17 +2190,18 @@ app.post('/api/errors', authenticate, async (req, res) => {
             'errors'
         );
 
-        const admins = await query(
+        // Notify Engineers in the hospital
+        const engineers = await query(
             `SELECT id FROM users 
-             WHERE role_id = 2 
+             WHERE role_id = 3 
              AND hospital_id = ? 
              AND is_active = 1`,
             [equipmentCheck[0].hospital_id]
         );
         
-        for (const admin of admins) {
+        for (const eng of engineers) {
             await createNotification(
-                admin.id,
+                eng.id,
                 'New Error Reported',
                 `Error "${error_title}" reported for ${equipmentName} in your hospital`,
                 'Error',
@@ -2618,7 +2578,8 @@ app.get('/api/repairs/:id', authenticate, async (req, res) => {
     }
 });
 
-app.post('/api/repairs', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), async (req, res) => {
+// ✅ UPDATED: Only SUPER_ADMIN can create repairs (removed HOSPITAL_ADMIN)
+app.post('/api/repairs', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     try {
         const { 
             error_log_id, engineer_id, root_cause, problem_analysis, 
@@ -2970,7 +2931,8 @@ app.get('/api/maintenance/:id', authenticate, async (req, res) => {
     }
 });
 
-app.post('/api/maintenance', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), async (req, res) => {
+// ✅ UPDATED: Only SUPER_ADMIN can create maintenance (removed HOSPITAL_ADMIN)
+app.post('/api/maintenance', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     try {
         const { 
             equipment_id, maintenance_type, frequency, 
@@ -3041,7 +3003,8 @@ app.post('/api/maintenance', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_AD
     }
 });
 
-app.put('/api/maintenance/:id', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), async (req, res) => {
+// ✅ UPDATED: Only SUPER_ADMIN can update maintenance (removed HOSPITAL_ADMIN)
+app.put('/api/maintenance/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     try {
         const { id } = req.params;
         const { 
@@ -3115,7 +3078,8 @@ app.put('/api/maintenance/:id', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL
     }
 });
 
-app.delete('/api/maintenance/:id', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), async (req, res) => {
+// ✅ UPDATED: Only SUPER_ADMIN can delete maintenance (removed HOSPITAL_ADMIN)
+app.delete('/api/maintenance/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     try {
         const { id } = req.params;
         console.log('🗑️ Deleting maintenance schedule. ID:', id);
@@ -3283,7 +3247,8 @@ app.post('/api/spare-parts', authenticate, async (req, res) => {
     }
 });
 
-app.put('/api/spare-parts/:id', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), async (req, res) => {
+// ✅ UPDATED: Only SUPER_ADMIN can update spare parts (removed HOSPITAL_ADMIN)
+app.put('/api/spare-parts/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     try {
         const { id } = req.params;
         const { 
@@ -3935,7 +3900,8 @@ app.post('/api/amc', authenticate, async (req, res) => {
     }
 });
 
-app.put('/api/amc/:id/renew', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), async (req, res) => {
+// ✅ UPDATED: Only SUPER_ADMIN can renew AMC (removed HOSPITAL_ADMIN)
+app.put('/api/amc/:id/renew', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     try {
         const { id } = req.params;
         const { end_date, cost, notes } = req.body;
@@ -4116,7 +4082,8 @@ app.get('/api/purchase-orders/:id', authenticate, async (req, res) => {
     }
 });
 
-app.post('/api/purchase-orders', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), async (req, res) => {
+// ✅ UPDATED: Only SUPER_ADMIN can create purchase orders (removed HOSPITAL_ADMIN)
+app.post('/api/purchase-orders', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     try {
         const { 
             hospital_id, vendor_name, po_number, order_date, 
@@ -4250,7 +4217,8 @@ app.post('/api/purchase-orders', authenticate, authorize('SUPER_ADMIN', 'HOSPITA
     }
 });
 
-app.put('/api/purchase-orders/:id', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), async (req, res) => {
+// ✅ UPDATED: Only SUPER_ADMIN can update purchase orders (removed HOSPITAL_ADMIN)
+app.put('/api/purchase-orders/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     try {
         const { id } = req.params;
         const { status } = req.body;
@@ -4417,7 +4385,8 @@ app.get('/api/procurement/:id', authenticate, async (req, res) => {
     }
 });
 
-app.post('/api/procurement', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), async (req, res) => {
+// ✅ UPDATED: Only SUPER_ADMIN can create procurement requests (removed HOSPITAL_ADMIN)
+app.post('/api/procurement', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     try {
         const { 
             hospital_id, equipment_name, category_id, manufacturer, 
@@ -4442,15 +4411,6 @@ app.post('/api/procurement', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_AD
         }
 
         let finalHospitalId = hospital_id;
-        if (req.user.role_name === 'HOSPITAL_ADMIN') {
-            if (parseInt(hospital_id) !== req.user.hospital_id) {
-                return res.status(403).json({ 
-                    success: false, 
-                    message: 'You can only create requests for your hospital' 
-                });
-            }
-            finalHospitalId = req.user.hospital_id;
-        }
 
         const result = await query(
             `INSERT INTO equipment_procurement 
@@ -4746,7 +4706,7 @@ app.delete('/api/notifications/:id', authenticate, async (req, res) => {
 });
 
 // ============================================================
-// ✅ DASHBOARD ROUTES
+// ✅ DASHBOARD ROUTES - UPDATED: Removed HOSPITAL_ADMIN block
 // ============================================================
 app.get('/api/dashboard/stats', authenticate, async (req, res) => {
     try {
@@ -4814,59 +4774,8 @@ app.get('/api/dashboard/stats', authenticate, async (req, res) => {
                 myReportedErrors: 0,
                 criticalEquipment: 0
             };
-        } else if (role === 'HOSPITAL_ADMIN') {
-            const [
-                totalEquipment,
-                totalEngineers,
-                openErrors,
-                criticalErrors,
-                resolvedErrors,
-                pendingRepairs,
-                inProgressRepairs,
-                maintenanceDue,
-                criticalEquipment,
-                pendingPurchaseOrders,
-                sparePartsLow,
-                totalReports
-            ] = await Promise.all([
-                query("SELECT COUNT(*) as count FROM equipment WHERE hospital_id = ? AND status != 'Inactive'", [hospitalId]),
-                query("SELECT COUNT(*) as count FROM users u JOIN roles r ON u.role_id = r.id WHERE r.name = 'ENGINEER' AND u.hospital_id = ? AND u.is_active = 1", [hospitalId]),
-                query("SELECT COUNT(*) as count FROM error_logs e LEFT JOIN equipment eq ON e.equipment_id = eq.id WHERE eq.hospital_id = ? AND e.status IN ('Pending', 'In Progress')", [hospitalId]),
-                query("SELECT COUNT(*) as count FROM error_logs e LEFT JOIN equipment eq ON e.equipment_id = eq.id WHERE eq.hospital_id = ? AND e.severity = 'Critical'", [hospitalId]),
-                query("SELECT COUNT(*) as count FROM error_logs e LEFT JOIN equipment eq ON e.equipment_id = eq.id WHERE eq.hospital_id = ? AND e.status IN ('Resolved', 'Closed')", [hospitalId]),
-                query("SELECT COUNT(*) as count FROM repairs r LEFT JOIN error_logs e ON r.error_log_id = e.id LEFT JOIN equipment eq ON e.equipment_id = eq.id WHERE eq.hospital_id = ? AND r.status = 'Pending'", [hospitalId]),
-                query("SELECT COUNT(*) as count FROM repairs r LEFT JOIN error_logs e ON r.error_log_id = e.id LEFT JOIN equipment eq ON e.equipment_id = eq.id WHERE eq.hospital_id = ? AND r.status = 'In Progress'", [hospitalId]),
-                query("SELECT COUNT(*) as count FROM maintenance_schedule m LEFT JOIN equipment eq ON m.equipment_id = eq.id WHERE eq.hospital_id = ? AND (m.status = 'Overdue' OR (m.next_due_date < CURDATE() AND m.status != 'Completed'))", [hospitalId]),
-                query("SELECT COUNT(*) as count FROM equipment WHERE hospital_id = ? AND status = 'Critical'", [hospitalId]),
-                query("SELECT COUNT(*) as count FROM purchase_orders WHERE hospital_id = ? AND status = 'Pending Approval'", [hospitalId]),
-                query("SELECT COUNT(*) as count FROM spare_parts s LEFT JOIN repairs r ON s.repair_id = r.id LEFT JOIN error_logs e ON r.error_log_id = e.id LEFT JOIN equipment eq ON e.equipment_id = eq.id WHERE eq.hospital_id = ? AND s.quantity < 5", [hospitalId]),
-                query("SELECT COUNT(*) as count FROM error_logs e LEFT JOIN equipment eq ON e.equipment_id = eq.id WHERE eq.hospital_id = ?", [hospitalId])
-            ]);
-
-            stats = {
-                totalEquipment: totalEquipment[0]?.count || 0,
-                totalHospitals: 0,
-                totalHospitalAdmins: 0,
-                totalEngineers: totalEngineers[0]?.count || 0,
-                totalUsers: 0,
-                openErrors: openErrors[0]?.count || 0,
-                criticalErrors: criticalErrors[0]?.count || 0,
-                resolvedErrors: resolvedErrors[0]?.count || 0,
-                pendingRepairs: pendingRepairs[0]?.count || 0,
-                inProgressRepairs: inProgressRepairs[0]?.count || 0,
-                maintenanceDue: maintenanceDue[0]?.count || 0,
-                criticalEquipment: criticalEquipment[0]?.count || 0,
-                pendingPurchaseOrders: pendingPurchaseOrders[0]?.count || 0,
-                sparePartsLow: sparePartsLow[0]?.count || 0,
-                totalReports: totalReports[0]?.count || 0,
-                myAssignedRepairs: 0,
-                myPendingRepairs: 0,
-                myInProgressRepairs: 0,
-                myCompletedRepairs: 0,
-                myMaintenanceTasks: 0,
-                myReportedErrors: 0
-            };
         } else if (role === 'ENGINEER') {
+            // Engineer stats
             const [
                 myAssignedRepairs,
                 myPendingRepairs,
@@ -4905,6 +4814,31 @@ app.get('/api/dashboard/stats', authenticate, async (req, res) => {
                 myCompletedRepairs: myCompletedRepairs[0]?.count || 0,
                 myMaintenanceTasks: myMaintenanceTasks[0]?.count || 0,
                 myReportedErrors: myReportedErrors[0]?.count || 0
+            };
+        } else {
+            // Default stats for any other role (should not happen)
+            stats = {
+                totalEquipment: 0,
+                totalHospitals: 0,
+                totalHospitalAdmins: 0,
+                totalEngineers: 0,
+                totalUsers: 0,
+                openErrors: 0,
+                criticalErrors: 0,
+                resolvedErrors: 0,
+                pendingRepairs: 0,
+                inProgressRepairs: 0,
+                maintenanceDue: 0,
+                criticalEquipment: 0,
+                pendingPurchaseOrders: 0,
+                sparePartsLow: 0,
+                totalReports: 0,
+                myAssignedRepairs: 0,
+                myPendingRepairs: 0,
+                myInProgressRepairs: 0,
+                myCompletedRepairs: 0,
+                myMaintenanceTasks: 0,
+                myReportedErrors: 0
             };
         }
 

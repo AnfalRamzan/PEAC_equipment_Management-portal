@@ -1,4 +1,7 @@
-// src/pages/SpareParts.jsx - FIXED HEADER (removed role labels)
+// src/pages/SpareParts.jsx
+// ✅ ENGINEER: Add, View, Edit (NO Delete)
+// ✅ SUPER_ADMIN: Add, View, Edit, Delete (Full Access)
+// ❌ HOSPITAL_ADMIN: Access Denied
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -51,7 +54,9 @@ import {
   Build,
   History,
   Remove,
-  Add as AddIcon
+  Add as AddIcon,
+  Engineering as EngineeringIcon,
+  AdminPanelSettings
 } from '@mui/icons-material'
 import { sparePartService, repairService } from '../api/services'
 import { toast } from 'react-toastify'
@@ -77,15 +82,21 @@ const SpareParts = () => {
   
   const { user } = useSelector((state) => state.auth)
   
-  // ✅ Engineer cannot access Spare Parts
-  if (user?.role === 'ENGINEER') {
-    return <AccessDenied message="Biomedical Engineers cannot access Spare Parts Inventory." />
+  // ✅ HOSPITAL_ADMIN - Access Denied
+  if (user?.role === 'HOSPITAL_ADMIN') {
+    return <AccessDenied message="Hospital Administrators cannot access Spare Parts Inventory." />
   }
   
-  const canCreate = user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN'
-  const canEdit = user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN'
-  const canDelete = user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN'
-  const canUseInRepair = user?.role === 'ENGINEER'
+  const isEngineer = user?.role === 'ENGINEER'
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN'
+  
+  // ✅ PERMISSIONS
+  // ✅ ENGINEER: Add, View, Edit (NO Delete)
+  // ✅ SUPER_ADMIN: Add, View, Edit, Delete (Full Access)
+  const canCreate = isEngineer || isSuperAdmin
+  const canEdit = isEngineer || isSuperAdmin
+  const canDelete = isSuperAdmin // ✅ ONLY Super Admin can delete
+  const canUseInRepair = isEngineer // ✅ Engineer can use in repair
 
   const [spareParts, setSpareParts] = useState([])
   const [repairs, setRepairs] = useState([])
@@ -311,7 +322,7 @@ const SpareParts = () => {
 
   const handleDelete = async (id) => {
     if (!canDelete) {
-      toast.error('You do not have permission to delete spare parts')
+      toast.error('Only Super Admin can delete spare parts')
       return
     }
     
@@ -346,11 +357,29 @@ const SpareParts = () => {
 
   return (
     <Box>
-      {/* ✅ Header - REMOVED Super Admin and Hospital Admin labels */}
+      {/* ✅ Header - Role Chips */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700, color: '#2C3E50' }}>
-          Spare Parts Inventory
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Typography variant="h5" sx={{ fontWeight: 700, color: '#2C3E50' }}>
+            Spare Parts Inventory
+          </Typography>
+          {isEngineer && (
+            <Chip 
+              icon={<EngineeringIcon sx={{ fontSize: 16 }} />}
+              label="Engineer Mode" 
+              size="small" 
+              color="info" 
+            />
+          )}
+          {isSuperAdmin && (
+            <Chip 
+              icon={<AdminPanelSettings sx={{ fontSize: 16 }} />}
+              label="Super Admin" 
+              size="small" 
+              color="warning" 
+            />
+          )}
+        </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button
             variant="outlined"
@@ -497,7 +526,7 @@ const SpareParts = () => {
         </Box>
       </Paper>
 
-      {/* Table - Removed Avatar column */}
+      {/* Table */}
       <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
         <Table>
           <TableHead sx={{ bgcolor: '#0B5FA5' }}>
@@ -565,38 +594,43 @@ const SpareParts = () => {
                     <TableCell>{formatPKR(part.total_cost)}</TableCell>
                     <TableCell>{part.compatible_equipment || '-'}</TableCell>
                     <TableCell align="center">
-                      <Tooltip title="View Details">
-                        <IconButton size="small" color="primary" onClick={() => handleView(part)}>
-                          <Visibility fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      
-                      {canUseInRepair && (
-                        <Tooltip title="Use in Repair">
-                          <IconButton 
-                            size="small" 
-                            color="success" 
-                            onClick={() => handleUseInRepair(part)}
-                          >
-                            <Build fontSize="small" />
+                      <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5 }}>
+                        <Tooltip title="View Details">
+                          <IconButton size="small" color="primary" onClick={() => handleView(part)}>
+                            <Visibility fontSize="small" />
                           </IconButton>
                         </Tooltip>
-                      )}
-                      
-                      {canEdit && (
-                        <Tooltip title="Edit">
-                          <IconButton size="small" color="info" onClick={() => handleOpenDialog(part)}>
-                            <Edit fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      {canDelete && (
-                        <Tooltip title="Delete">
-                          <IconButton size="small" color="error" onClick={() => handleDelete(part.id)}>
-                            <Delete fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
+                        
+                        {canUseInRepair && (
+                          <Tooltip title="Use in Repair">
+                            <IconButton 
+                              size="small" 
+                              color="success" 
+                              onClick={() => handleUseInRepair(part)}
+                            >
+                              <Build fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                        
+                        {/* ✅ Both Engineer and Super Admin can Edit */}
+                        {canEdit && (
+                          <Tooltip title="Edit">
+                            <IconButton size="small" color="info" onClick={() => handleOpenDialog(part)}>
+                              <Edit fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                        
+                        {/* ✅ ONLY Super Admin can Delete */}
+                        {canDelete && (
+                          <Tooltip title="Delete">
+                            <IconButton size="small" color="error" onClick={() => handleDelete(part.id)}>
+                              <Delete fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </Box>
                     </TableCell>
                   </TableRow>
                 )
@@ -611,9 +645,17 @@ const SpareParts = () => {
         <DialogTitle sx={{ bgcolor: '#0B5FA5', color: 'white' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6" fontWeight={600}>Spare Part Details</Typography>
-            <IconButton onClick={handleCloseView} sx={{ color: 'white' }}>
-              <Close />
-            </IconButton>
+            <Box>
+              {isEngineer && (
+                <Chip label="Engineer" size="small" color="info" sx={{ mr: 1 }} />
+              )}
+              {isSuperAdmin && (
+                <Chip label="Super Admin" size="small" color="warning" sx={{ mr: 1 }} />
+              )}
+              <IconButton onClick={handleCloseView} sx={{ color: 'white' }}>
+                <Close />
+              </IconButton>
+            </Box>
           </Box>
         </DialogTitle>
         <DialogContent dividers>
@@ -770,6 +812,11 @@ const SpareParts = () => {
             <Typography variant="h6" fontWeight={600}>
               {editingPart ? 'Edit Spare Part' : 'Add New Spare Part'}
             </Typography>
+            <Chip 
+              label={isEngineer ? 'Engineer' : 'Super Admin'} 
+              size="small" 
+              color={isEngineer ? 'info' : 'warning'} 
+            />
           </Box>
           <IconButton onClick={handleCloseDialog} sx={{ position: 'absolute', right: 8, top: 8, color: 'white' }}>
             <Close />

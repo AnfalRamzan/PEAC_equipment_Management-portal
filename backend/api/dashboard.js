@@ -1,19 +1,22 @@
+// backend/routes/dashboard.js
+// ✅ Complete Dashboard Routes with SSE Real-time Updates
+
 const express = require('express');
 const router = express.Router();
 const { query } = require('../config/database');
 const { authenticate } = require('../middleware/auth');
 
-// Get dashboard stats
-router.get('/stats', authenticate, async (req, res) => {
+// ============================================================
+// ✅ HELPER: Get Dashboard Stats
+// ============================================================
+const getDashboardStats = async (userId, roleName, hospitalId) => {
     try {
-        console.log('Dashboard stats request for user:', req.user.id);
-        
         let hospitalFilter = '';
         let params = [];
 
-        if (req.user.role_name !== 'SUPER_ADMIN') {
+        if (roleName !== 'SUPER_ADMIN') {
             hospitalFilter = ' AND hospital_id = ?';
-            params.push(req.user.hospital_id);
+            params.push(hospitalId);
         }
 
         const [totalEquipment, openErrors, resolvedErrors, totalHospitals, totalEngineers] = await Promise.all([
@@ -24,15 +27,154 @@ router.get('/stats', authenticate, async (req, res) => {
             query(`SELECT COUNT(*) as count FROM users u JOIN roles r ON u.role_id = r.id WHERE r.name = 'ENGINEER' AND u.is_active = TRUE`)
         ]);
 
-        res.json({
+        // Engineer specific stats
+        let myAssignedRepairs = 0;
+        let myPendingRepairs = 0;
+        let myInProgressRepairs = 0;
+        let myCompletedRepairs = 0;
+        let myMaintenanceTasks = 0;
+        let myReportedErrors = 0;
+
+        if (roleName === 'ENGINEER') {
+            const [assigned, pending, inProgress, completed, maintenance, reported] = await Promise.all([
+                query(`SELECT COUNT(*) as count FROM repairs WHERE engineer_id = ? AND status = 'Assigned'`, [userId]),
+                query(`SELECT COUNT(*) as count FROM repairs WHERE engineer_id = ? AND status = 'Pending'`, [userId]),
+                query(`SELECT COUNT(*) as count FROM repairs WHERE engineer_id = ? AND status = 'In Progress'`, [userId]),
+                query(`SELECT COUNT(*) as count FROM repairs WHERE engineer_id = ? AND status IN ('Completed', 'Verified', 'Resolved')`, [userId]),
+                query(`SELECT COUNT(*) as count FROM maintenance_schedules WHERE assigned_to = ? AND status != 'Completed'`, [userId]),
+                query(`SELECT COUNT(*) as count FROM error_logs WHERE reported_by = ?`, [userId])
+            ]);
+            
+            myAssignedRepairs = assigned[0]?.count || 0;
+            myPendingRepairs = pending[0]?.count || 0;
+            myInProgressRepairs = inProgress[0]?.count || 0;
+            myCompletedRepairs = completed[0]?.count || 0;
+            myMaintenanceTasks = maintenance[0]?.count || 0;
+            myReportedErrors = reported[0]?.count || 0;
+        }
+
+        // Additional stats for Super Admin
+        let criticalErrors = 0;
+        let pendingRepairs = 0;
+        let inProgressRepairs = 0;
+        let maintenanceDue = 0;
+        let criticalEquipment = 0;
+        let pendingPurchaseOrders = 0;
+        let sparePartsLow = 0;
+        let totalUsers = 0;
+        let totalReports = 0;
+
+        if (roleName === 'SUPER_ADMIN') {
+            const [critical, pendingRep, inProgressRep, maintDue, critEquip, pendingPO, spareLow, users, reports] = await Promise.all([
+                query(`SELECT COUNT(*) as count FROM error_logs WHERE severity = 'Critical'`),
+                query(`SELECT COUNT(*) as count FROM repairs WHERE status = 'Pending'`),
+                query(`SELECT COUNT(*) as count FROM repairs WHERE status = 'In Progress'`),
+                query(`SELECT COUNT(*) as count FROM maintenance_schedules WHERE next_due_date < NOW() AND status != 'Completed'`),
+                query(`SELECT COUNT(*) as count FROM equipment WHERE status = 'Critical'`),
+                query(`SELECT COUNT(*) as count FROM purchase_orders WHERE status = 'Pending Approval'`),
+                query(`SELECT COUNT(*) as count FROM spare_parts WHERE quantity <= minimum_stock_level`),
+                query(`SELECT COUNT(*) as count FROM users WHERE is_active = TRUE`),
+                query(`SELECT COUNT(*) as count FROM reports`)
+            ]);
+            
+            criticalErrors = critical[0]?.count || 0;
+            pendingRepairs = pendingRep[0]?.count || 0;
+            inProgressRepairs = inProgressRep[0]?.count || 0;
+            maintenanceDue = maintDue[0]?.count || 0;
+            criticalEquipment = critEquip[0]?.count || 0;
+            pendingPurchaseOrders = pendingPO[0]?.count || 0;
+            sparePartsLow = spareLow[0]?.count || 0;
+            totalUsers = users[0]?.count || 0;
+            totalReports = reports[0]?.count || 0;
+        }
+
+        return {
             success: true,
             totalEquipment: totalEquipment[0]?.count || 0,
             openErrors: openErrors[0]?.count || 0,
             resolvedErrors: resolvedErrors[0]?.count || 0,
             totalHospitals: totalHospitals[0]?.count || 0,
             totalEngineers: totalEngineers[0]?.count || 0,
-            totalReports: 0
-        });
+            criticalErrors,
+            pendingRepairs,
+            inProgressRepairs,
+            maintenanceDue,
+            criticalEquipment,
+            pendingPurchaseOrders,
+            sparePartsLow,
+            totalUsers,
+            totalReports,
+            // Engineer specific
+            myAssignedRepairs,
+            myPendingRepairs,
+            myInProgressRepairs,
+            myCompletedRepairs,
+            myMaintenanceTasks,
+            myReportedErrors
+        };
+    } catch (error) {
+        console.error('Get dashboard stats error:', error);
+        throw error;
+    }
+};
+
+// ============================================================
+// ✅ SSE ENDPOINT FOR REAL-TIME UPDATES
+// ============================================================
+router.get('/stream', authenticate, async (req, res) => {
+    console.log('📡 SSE Connection established for user:', req.user.id);
+    
+    // Set headers for SSE
+    res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*'
+    });
+
+    // Send initial data immediately
+    const sendUpdate = async () => {
+        try {
+            const stats = await getDashboardStats(
+                req.user.id,
+                req.user.role_name,
+                req.user.hospital_id
+            );
+            res.write(`data: ${JSON.stringify(stats)}\n\n`);
+        } catch (error) {
+            console.error('SSE Error:', error);
+            res.write(`data: ${JSON.stringify({ success: false, error: error.message })}\n\n`);
+        }
+    };
+
+    // Send initial data
+    await sendUpdate();
+
+    // Send updates every 3 seconds (real-time)
+    const interval = setInterval(sendUpdate, 3000);
+
+    // Clean up on connection close
+    req.on('close', () => {
+        console.log('📡 SSE Connection closed for user:', req.user.id);
+        clearInterval(interval);
+        res.end();
+    });
+});
+
+// ============================================================
+// ✅ GET DASHBOARD STATS
+// ============================================================
+router.get('/stats', authenticate, async (req, res) => {
+    try {
+        console.log('📊 Dashboard stats request for user:', req.user.id);
+        
+        const stats = await getDashboardStats(
+            req.user.id,
+            req.user.role_name,
+            req.user.hospital_id
+        );
+
+        res.json(stats);
     } catch (error) {
         console.error('Dashboard stats error:', error);
         res.status(500).json({ 
@@ -43,7 +185,9 @@ router.get('/stats', authenticate, async (req, res) => {
     }
 });
 
-// Get monthly error chart data
+// ============================================================
+// ✅ GET MONTHLY ERROR CHART DATA
+// ============================================================
 router.get('/charts/monthly', authenticate, async (req, res) => {
     try {
         let hospitalFilter = '';
@@ -82,7 +226,9 @@ router.get('/charts/monthly', authenticate, async (req, res) => {
     }
 });
 
-// Get equipment breakdown chart data
+// ============================================================
+// ✅ GET EQUIPMENT BREAKDOWN CHART DATA
+// ============================================================
 router.get('/charts/equipment-breakdown', authenticate, async (req, res) => {
     try {
         let hospitalFilter = '';
@@ -114,7 +260,9 @@ router.get('/charts/equipment-breakdown', authenticate, async (req, res) => {
     }
 });
 
-// Get most failed equipment
+// ============================================================
+// ✅ GET MOST FAILED EQUIPMENT
+// ============================================================
 router.get('/charts/most-failed', authenticate, async (req, res) => {
     try {
         let hospitalFilter = '';
@@ -152,7 +300,9 @@ router.get('/charts/most-failed', authenticate, async (req, res) => {
     }
 });
 
-// Get hospital comparison chart data
+// ============================================================
+// ✅ GET HOSPITAL COMPARISON CHART DATA
+// ============================================================
 router.get('/charts/hospital-comparison', authenticate, async (req, res) => {
     try {
         // Super Admin only
@@ -191,7 +341,9 @@ router.get('/charts/hospital-comparison', authenticate, async (req, res) => {
     }
 });
 
-// Get engineer performance chart data
+// ============================================================
+// ✅ GET ENGINEER PERFORMANCE CHART DATA
+// ============================================================
 router.get('/charts/engineer-performance', authenticate, async (req, res) => {
     try {
         let hospitalFilter = '';
@@ -238,7 +390,9 @@ router.get('/charts/engineer-performance', authenticate, async (req, res) => {
     }
 });
 
-// Get department-wise error chart data
+// ============================================================
+// ✅ GET DEPARTMENT-WISE ERROR CHART DATA
+// ============================================================
 router.get('/charts/department-errors', authenticate, async (req, res) => {
     try {
         let hospitalFilter = '';
@@ -275,7 +429,9 @@ router.get('/charts/department-errors', authenticate, async (req, res) => {
     }
 });
 
-// Get recent activity
+// ============================================================
+// ✅ GET RECENT ACTIVITY
+// ============================================================
 router.get('/recent-activity', authenticate, async (req, res) => {
     try {
         let hospitalFilter = '';
@@ -312,7 +468,8 @@ router.get('/recent-activity', authenticate, async (req, res) => {
             LEFT JOIN error_logs el ON r.error_log_id = el.id
             LEFT JOIN equipment e ON el.equipment_id = e.id
             LEFT JOIN users u ON r.engineer_id = u.id
-            WHERE r.status IN ('Completed', 'Verified') ${hospitalFilter.replace('e.', '')}
+            WHERE r.status IN ('Completed', 'Verified') 
+            ${hospitalFilter.replace('e.', '')}
             ORDER BY r.repair_date DESC
             LIMIT 5)
             
@@ -331,7 +488,9 @@ router.get('/recent-activity', authenticate, async (req, res) => {
     }
 });
 
-// Get comprehensive dashboard data (all charts in one call)
+// ============================================================
+// ✅ GET COMPREHENSIVE DASHBOARD DATA (ALL CHARTS IN ONE CALL)
+// ============================================================
 router.get('/all', authenticate, async (req, res) => {
     try {
         // Fetch all chart data in parallel
@@ -586,5 +745,4 @@ router.get('/all', authenticate, async (req, res) => {
         });
     }
 });
-
 module.exports = router;

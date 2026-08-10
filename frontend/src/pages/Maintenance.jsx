@@ -1,7 +1,5 @@
 // src/pages/Maintenance.jsx
-// ✅ ENGINEER: Create, Edit, View
-// ✅ SUPER_ADMIN: Create, Edit, View, Delete, Approve/Status Change
-// ❌ HOSPITAL_ADMIN: Access Denied
+// ✅ FIXED: Added FormHelperText import
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -32,7 +30,8 @@ import {
   Alert,
   Card,
   CardContent,
-  Tooltip
+  Tooltip,
+  FormHelperText, // ✅ ADDED
 } from '@mui/material'
 import {
   Add,

@@ -1,6 +1,5 @@
 // src/pages/KnowledgeBase.jsx
-// ✅ SUPER_ADMIN and ENGINEER only
-// ✅ HOSPITAL_ADMIN - Access Denied
+// ✅ FIXED: Added null checks for canEdit function
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -69,7 +68,9 @@ import {
   AddCircle,
   RemoveCircle,
   ToggleOn,
-  ToggleOff
+  ToggleOff,
+  Engineering as EngineeringIcon,
+  AdminPanelSettings
 } from '@mui/icons-material'
 import { toast } from 'react-toastify'
 import { useSelector } from 'react-redux'
@@ -101,11 +102,24 @@ const KnowledgeBase = () => {
   const isSuperAdmin = user?.role === 'SUPER_ADMIN'
   
   // ✅ PERMISSIONS
-  // ✅ All users (Super Admin & Engineer) can Add and Edit
-  const canAdd = true // Both can add
-  const canEdit = true // Both can edit
+  // ✅ ENGINEER: View ALL, Add, Edit ONLY own solutions (NO Delete)
+  // ✅ SUPER_ADMIN: View ALL, Add, Edit ANY, Delete ANY (Full Access)
+  const canAdd = isEngineer || isSuperAdmin // ✅ Both can add
   const canDelete = isSuperAdmin // ✅ ONLY Super Admin can delete
-  const isViewOnly = false
+  
+  // ✅ Engineer can ONLY edit their own solutions - WITH NULL CHECK
+  const canEdit = (solution) => {
+    // ✅ NULL CHECK - if solution is null or undefined, return false
+    if (!solution) return false
+    
+    if (isSuperAdmin) return true // ✅ Super Admin can edit any
+    
+    if (isEngineer) {
+      // Check if this solution belongs to this engineer
+      return solution.created_by === user?.id || solution.created_by_name === user?.full_name
+    }
+    return false
+  }
 
   const [loading, setLoading] = useState(true)
   const [equipmentList, setEquipmentList] = useState([])
@@ -249,12 +263,20 @@ const KnowledgeBase = () => {
       reported_by: user?.full_name || '',
       engineer_name: '',
       hospital_name: user?.hospital_name || '',
-      department_name: ''
+      department_name: '',
+      created_by: user?.id || null,
+      created_by_name: user?.full_name || ''
     })
     setOpenAddDialog(true)
   }
 
   const handleEditSolution = (solution) => {
+    // ✅ Check if user can edit this solution
+    if (!canEdit(solution)) {
+      toast.error('You can only edit your own solutions')
+      return
+    }
+    
     setEditingSolution(solution)
     
     if (solution.spare_parts_used && solution.spare_parts_used.trim() !== '') {
@@ -298,7 +320,9 @@ const KnowledgeBase = () => {
       reported_by: solution.reported_by || user?.full_name || '',
       engineer_name: solution.engineer_name || '',
       hospital_name: solution.hospital_name || user?.hospital_name || '',
-      department_name: solution.department_name || ''
+      department_name: solution.department_name || '',
+      created_by: solution.created_by || user?.id || null,
+      created_by_name: solution.created_by_name || user?.full_name || ''
     })
     setOpenAddDialog(true)
   }
@@ -460,7 +484,9 @@ const KnowledgeBase = () => {
         reported_by: addFormData.reported_by || null,
         engineer_name: addFormData.engineer_name || null,
         hospital_name: addFormData.hospital_name || null,
-        department_name: addFormData.department_name || null
+        department_name: addFormData.department_name || null,
+        created_by: user?.id || null,
+        created_by_name: user?.full_name || ''
       }
 
       console.log('📤 Submitting solution:', payload)
@@ -510,17 +536,53 @@ const KnowledgeBase = () => {
 
   return (
     <Box>
-      {/* Header */}
+      {/* Header - Role Chips */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700, color: '#2C3E50' }}>
-          Knowledge Base
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Typography variant="h5" sx={{ fontWeight: 700, color: '#2C3E50' }}>
+            Knowledge Base
+          </Typography>
+          {isEngineer && (
+            <Chip 
+              icon={<EngineeringIcon sx={{ fontSize: 16 }} />}
+              label="Engineer Mode - View & Upload Only" 
+              size="small" 
+              color="info" 
+            />
+          )}
+          {isSuperAdmin && (
+            <Chip 
+              icon={<AdminPanelSettings sx={{ fontSize: 16 }} />}
+              label="Super Admin (Full Control)" 
+              size="small" 
+              color="warning" 
+            />
+          )}
+        </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button variant="outlined" startIcon={<Refresh />} onClick={fetchEquipment} size="small">
             Refresh
           </Button>
         </Box>
       </Box>
+
+      {/* Info Alert */}
+      {isEngineer && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          <Typography variant="body2">
+            <strong>📚 Collaborative Knowledge Base:</strong> You can see all solutions from all engineers. 
+            You can only <strong>edit</strong> your own solutions. Only <strong>Super Admin</strong> can delete solutions.
+          </Typography>
+        </Alert>
+      )}
+
+      {isSuperAdmin && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          <Typography variant="body2">
+            <strong>👑 Super Admin:</strong> You have full control. You can view, add, edit, and delete any solution.
+          </Typography>
+        </Alert>
+      )}
 
       {/* Stats Cards */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
@@ -697,64 +759,78 @@ const KnowledgeBase = () => {
             </Box>
           ) : (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              {solutions.map((sol) => (
-                <Paper key={sol.id} sx={{ p: 2, borderRadius: 2, '&:hover': { bgcolor: '#f8f9fa' } }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <Box sx={{ flex: 1 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                        <ErrorIcon sx={{ color: sol.error_code ? '#dc3545' : '#6c757d', fontSize: 20 }} />
-                        <Typography variant="subtitle1" fontWeight={600}>
-                          {sol.error_title}
-                        </Typography>
-                        {sol.error_code && (
-                          <Chip label={`Code: ${sol.error_code}`} size="small" variant="outlined" />
-                        )}
-                      </Box>
-                      <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', fontSize: '0.875rem', color: '#6c757d' }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <Person sx={{ fontSize: 14 }} />
-                          {sol.created_by_name || 'Unknown'}
+              {solutions.map((sol) => {
+                const isOwnSolution = isEngineer && (sol.created_by === user?.id || sol.created_by_name === user?.full_name)
+                
+                return (
+                  <Paper key={sol.id} sx={{ p: 2, borderRadius: 2, '&:hover': { bgcolor: '#f8f9fa' } }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <Box sx={{ flex: 1 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                          <ErrorIcon sx={{ color: sol.error_code ? '#dc3545' : '#6c757d', fontSize: 20 }} />
+                          <Typography variant="subtitle1" fontWeight={600}>
+                            {sol.error_title}
+                          </Typography>
+                          {sol.error_code && (
+                            <Chip label={`Code: ${sol.error_code}`} size="small" variant="outlined" />
+                          )}
+                          {isOwnSolution && (
+                            <Chip 
+                              label="My Solution" 
+                              size="small" 
+                              color="primary" 
+                              sx={{ height: 18, fontSize: '9px' }}
+                            />
+                          )}
                         </Box>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <CalendarToday sx={{ fontSize: 14 }} />
-                          {formatDate(sol.created_at)}
-                        </Box>
-                        {sol.time_taken && (
+                        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', fontSize: '0.875rem', color: '#6c757d' }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <AccessTime sx={{ fontSize: 14 }} />
-                            {sol.time_taken} min
+                            <Person sx={{ fontSize: 14 }} />
+                            {sol.created_by_name || 'Unknown'}
                           </Box>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <CalendarToday sx={{ fontSize: 14 }} />
+                            {formatDate(sol.created_at)}
+                          </Box>
+                          {sol.time_taken && (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <AccessTime sx={{ fontSize: 14 }} />
+                              {sol.time_taken} min
+                            </Box>
+                          )}
+                        </Box>
+                      </Box>
+                      <Box sx={{ display: 'flex', gap: 0.5 }}>
+                        <Tooltip title="View Details">
+                          <IconButton size="small" color="primary" onClick={() => handleViewSolution(sol)}>
+                            <Visibility fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        {/* ✅ Engineer can ONLY edit their own solutions, Super Admin can edit any */}
+                        {canEdit(sol) && (
+                          <Tooltip title="Edit">
+                            <IconButton size="small" color="info" onClick={() => handleEditSolution(sol)}>
+                              <Edit fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                        {/* ✅ ONLY Super Admin can delete */}
+                        {canDelete && (
+                          <Tooltip title="Delete">
+                            <IconButton 
+                              size="small" 
+                              color="error" 
+                              onClick={() => handleDeleteClick(sol)}
+                            >
+                              <Delete fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
                         )}
                       </Box>
                     </Box>
-                    <Box sx={{ display: 'flex', gap: 0.5 }}>
-                      <Tooltip title="View Details">
-                        <IconButton size="small" color="primary" onClick={() => handleViewSolution(sol)}>
-                          <Visibility fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      {canEdit && (
-                        <Tooltip title="Edit">
-                          <IconButton size="small" color="info" onClick={() => handleEditSolution(sol)}>
-                            <Edit fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      {canDelete && (
-                        <Tooltip title="Delete">
-                          <IconButton 
-                            size="small" 
-                            color="error" 
-                            onClick={() => handleDeleteClick(sol)}
-                          >
-                            <Delete fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                    </Box>
-                  </Box>
-                </Paper>
-              ))}
+                  </Paper>
+                )
+              })}
             </Box>
           )}
         </DialogContent>
@@ -770,9 +846,17 @@ const KnowledgeBase = () => {
             <Typography variant="h6" fontWeight={600}>
               Solution Details
             </Typography>
-            <IconButton onClick={() => setOpenViewDialog(false)} sx={{ color: 'white' }}>
-              <Close />
-            </IconButton>
+            <Box>
+              {isSuperAdmin && (
+                <Chip label="Super Admin" size="small" color="warning" sx={{ mr: 1 }} />
+              )}
+              {isEngineer && (
+                <Chip label="Engineer" size="small" color="info" sx={{ mr: 1 }} />
+              )}
+              <IconButton onClick={() => setOpenViewDialog(false)} sx={{ color: 'white' }}>
+                <Close />
+              </IconButton>
+            </Box>
           </Box>
         </DialogTitle>
         <DialogContent dividers>
@@ -792,6 +876,9 @@ const KnowledgeBase = () => {
                   )}
                   <Typography variant="body2" color="textSecondary">
                     Reported by: {selectedSolution.created_by_name || selectedSolution.reported_by || 'Unknown'}
+                    {isEngineer && selectedSolution.created_by === user?.id && (
+                      <span style={{ color: '#0B5FA5', fontWeight: 600, marginLeft: '8px' }}>(Your Solution)</span>
+                    )}
                   </Typography>
                 </Box>
               </Box>
@@ -998,7 +1085,8 @@ const KnowledgeBase = () => {
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
           <Button onClick={() => setOpenViewDialog(false)}>Close</Button>
-          {canEdit && selectedSolution && (
+          {/* ✅ Engineer can ONLY edit their own solutions, Super Admin can edit any */}
+          {canEdit(selectedSolution) && (
             <Button
               variant="outlined"
               color="info"
@@ -1010,6 +1098,7 @@ const KnowledgeBase = () => {
               Edit
             </Button>
           )}
+          {/* ✅ ONLY Super Admin can delete */}
           {canDelete && selectedSolution && (
             <Button
               variant="contained"
@@ -1081,6 +1170,13 @@ const KnowledgeBase = () => {
             <Typography variant="h6" fontWeight={600}>
               {editingSolution ? 'Edit Solution' : 'Add New Solution'}
             </Typography>
+            {editingSolution && (
+              <Chip 
+                label={isEngineer ? 'Editing Your Solution' : 'Super Admin Edit'} 
+                size="small" 
+                color={isEngineer ? 'info' : 'warning'} 
+              />
+            )}
             <IconButton onClick={() => setOpenAddDialog(false)} sx={{ color: 'white' }}>
               <Close />
             </IconButton>

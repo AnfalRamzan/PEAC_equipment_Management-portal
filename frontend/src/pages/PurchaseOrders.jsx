@@ -1,4 +1,7 @@
-// src/pages/PurchaseOrders.jsx - REMOVED ROLE LABELS
+// src/pages/PurchaseOrders.jsx
+// ✅ ENGINEER: Create, View, Edit (NO Delete, NO Approve/Reject)
+// ✅ SUPER_ADMIN: Create, View, Edit, Delete, Approve, Reject (Full Access)
+// ❌ HOSPITAL_ADMIN: Access Denied
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -71,7 +74,9 @@ import {
   Description,
   Note,
   Image,
-  PictureAsPdf
+  PictureAsPdf,
+  Engineering as EngineeringIcon,
+  AdminPanelSettings
 } from '@mui/icons-material'
 import { purchaseOrderService, hospitalService } from '../api/services'
 import { toast } from 'react-toastify'
@@ -120,15 +125,22 @@ const getStatusColorForPrint = (status) => {
 const PurchaseOrders = () => {
   const { user } = useSelector((state) => state.auth)
   
-  if (user?.role === 'ENGINEER') {
-    return <AccessDenied message="Biomedical Engineers cannot access Purchase Orders." />
+  // ✅ HOSPITAL_ADMIN - Access Denied
+  if (user?.role === 'HOSPITAL_ADMIN') {
+    return <AccessDenied message="Hospital Administrators cannot access Purchase Orders." />
   }
   
-  const canCreate = user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN'
-  const canEdit = user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN'
-  const canDelete = user?.role === 'SUPER_ADMIN'
-  const canApprove = user?.role === 'SUPER_ADMIN'
-  const canView = user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN'
+  const isEngineer = user?.role === 'ENGINEER'
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN'
+  
+  // ✅ PERMISSIONS
+  // ✅ ENGINEER: Create, View, Edit (NO Delete, NO Approve/Reject)
+  // ✅ SUPER_ADMIN: Create, View, Edit, Delete, Approve, Reject (Full Access)
+  const canCreate = isEngineer || isSuperAdmin
+  const canEdit = isEngineer || isSuperAdmin
+  const canDelete = isSuperAdmin // ✅ ONLY Super Admin can delete
+  const canApprove = isSuperAdmin // ✅ ONLY Super Admin can approve/reject
+  const canView = isEngineer || isSuperAdmin
 
   const [orders, setOrders] = useState([])
   const [hospitals, setHospitals] = useState([])
@@ -192,6 +204,11 @@ const PurchaseOrders = () => {
   }
 
   const handleOpenDialog = (order = null) => {
+    if (order && !canEdit) {
+      toast.error('You do not have permission to edit purchase orders')
+      return
+    }
+    
     if (order) {
       setEditingOrder(order)
       setFormData({
@@ -362,7 +379,7 @@ const PurchaseOrders = () => {
   };
 
   const handleDelete = async (id) => {
-    if (user?.role !== 'SUPER_ADMIN') {
+    if (!canDelete) {
       toast.error('Only Super Admin can delete purchase orders')
       return
     }
@@ -391,15 +408,15 @@ const PurchaseOrders = () => {
   }
 
   const handleApprove = async (id) => {
+    if (!canApprove) {
+      toast.error('Only Super Admin can approve orders')
+      return
+    }
+    
     try {
       const order = orders.find(o => o.id === id)
       if (!order) {
         toast.error('Order not found')
-        return
-      }
-
-      if (user?.role !== 'SUPER_ADMIN') {
-        toast.error('Only Super Admin can approve orders')
         return
       }
 
@@ -423,15 +440,15 @@ const PurchaseOrders = () => {
   }
 
   const handleReject = async (id) => {
+    if (!canApprove) {
+      toast.error('Only Super Admin can reject orders')
+      return
+    }
+    
     try {
       const order = orders.find(o => o.id === id)
       if (!order) {
         toast.error('Order not found')
-        return
-      }
-
-      if (user?.role !== 'SUPER_ADMIN') {
-        toast.error('Only Super Admin can reject orders')
         return
       }
 
@@ -476,13 +493,8 @@ const PurchaseOrders = () => {
         return
       }
 
-      if (newStatus === 'Approved' && user?.role !== 'SUPER_ADMIN') {
-        toast.error('Only Super Admin can approve orders')
-        return
-      }
-
-      if (newStatus === 'Cancelled' && user?.role !== 'SUPER_ADMIN') {
-        toast.error('Only Super Admin can cancel orders')
+      if ((newStatus === 'Approved' || newStatus === 'Cancelled') && !canApprove) {
+        toast.error('Only Super Admin can approve or cancel orders')
         return
       }
 
@@ -869,11 +881,29 @@ const PurchaseOrders = () => {
 
   return (
     <Box>
-      {/* ✅ Header - REMOVED Super Admin and Hospital Admin labels */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700, color: '#2C3E50' }}>
-          Purchase Orders
-        </Typography>
+      {/* ✅ Header - Role Chips */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Typography variant="h5" sx={{ fontWeight: 700, color: '#2C3E50' }}>
+            Purchase Orders
+          </Typography>
+          {isEngineer && (
+            <Chip 
+              icon={<EngineeringIcon sx={{ fontSize: 16 }} />}
+              label="Engineer Mode" 
+              size="small" 
+              color="info" 
+            />
+          )}
+          {isSuperAdmin && (
+            <Chip 
+              icon={<AdminPanelSettings sx={{ fontSize: 16 }} />}
+              label="Super Admin" 
+              size="small" 
+              color="warning" 
+            />
+          )}
+        </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button
             variant="outlined"
@@ -1024,7 +1054,7 @@ const PurchaseOrders = () => {
         </MenuItem>
       </Menu>
 
-      {/* Table - REMOVED Status Chip */}
+      {/* Table */}
       <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
         <Table>
           <TableHead sx={{ bgcolor: '#0B5FA5' }}>
@@ -1067,53 +1097,69 @@ const PurchaseOrders = () => {
                     {order.total_amount ? `$${parseFloat(order.total_amount).toFixed(2)}` : '-'}
                   </TableCell>
                   <TableCell>
-                    {order.status}
+                    <Chip 
+                      label={order.status} 
+                      size="small"
+                      color={
+                        order.status === 'Approved' || order.status === 'Received' ? 'success' :
+                        order.status === 'Pending Approval' ? 'warning' :
+                        order.status === 'Draft' ? 'default' :
+                        order.status === 'Ordered' ? 'info' :
+                        order.status === 'Cancelled' ? 'error' : 'default'
+                      }
+                      sx={{ height: 22, fontSize: '11px' }}
+                    />
                   </TableCell>
                   <TableCell align="center">
-                    <Tooltip title="View Details">
-                      <IconButton size="small" color="primary" onClick={() => handleView(order)}>
-                        <Visibility fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    
-                    {canEdit && order.status === 'Draft' && (
-                      <Tooltip title="Edit">
-                        <IconButton size="small" color="info" onClick={() => handleOpenDialog(order)}>
-                          <Edit fontSize="small" />
+                    <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5 }}>
+                      <Tooltip title="View Details">
+                        <IconButton size="small" color="primary" onClick={() => handleView(order)}>
+                          <Visibility fontSize="small" />
                         </IconButton>
                       </Tooltip>
-                    )}
-                    
-                    {user?.role === 'SUPER_ADMIN' && order.status === 'Draft' && (
-                      <Tooltip title="Delete">
-                        <IconButton size="small" color="error" onClick={() => handleDelete(order.id)}>
-                          <Delete fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    )}
-                    
-                    {user?.role === 'SUPER_ADMIN' && order.status === 'Pending Approval' && (
-                      <>
-                        <Tooltip title="Approve">
-                          <IconButton size="small" color="success" onClick={() => handleApprove(order.id)}>
-                            <CheckCircle fontSize="small" />
+                      
+                      {/* ✅ Both Engineer and Super Admin can edit (Draft only) */}
+                      {canEdit && order.status === 'Draft' && (
+                        <Tooltip title="Edit">
+                          <IconButton size="small" color="info" onClick={() => handleOpenDialog(order)}>
+                            <Edit fontSize="small" />
                           </IconButton>
                         </Tooltip>
-                        <Tooltip title="Reject">
-                          <IconButton size="small" color="error" onClick={() => handleReject(order.id)}>
-                            <Cancel fontSize="small" />
+                      )}
+                      
+                      {/* ✅ ONLY Super Admin can delete (Draft only) */}
+                      {canDelete && order.status === 'Draft' && (
+                        <Tooltip title="Delete">
+                          <IconButton size="small" color="error" onClick={() => handleDelete(order.id)}>
+                            <Delete fontSize="small" />
                           </IconButton>
                         </Tooltip>
-                      </>
-                    )}
-                    
-                    {(order.status === 'Approved' || order.status === 'Ordered' || order.status === 'Received') && (
-                      <Tooltip title="Print">
-                        <IconButton size="small" color="primary" onClick={handlePrint}>
-                          <Print fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    )}
+                      )}
+                      
+                      {/* ✅ ONLY Super Admin can approve/reject */}
+                      {canApprove && order.status === 'Pending Approval' && (
+                        <>
+                          <Tooltip title="Approve">
+                            <IconButton size="small" color="success" onClick={() => handleApprove(order.id)}>
+                              <CheckCircle fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Reject">
+                            <IconButton size="small" color="error" onClick={() => handleReject(order.id)}>
+                              <Cancel fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </>
+                      )}
+                      
+                      {(order.status === 'Approved' || order.status === 'Ordered' || order.status === 'Received') && (
+                        <Tooltip title="Print">
+                          <IconButton size="small" color="primary" onClick={handlePrint}>
+                            <Print fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                    </Box>
                   </TableCell>
                 </TableRow>
               ))
@@ -1130,6 +1176,12 @@ const PurchaseOrders = () => {
             <Typography variant="h6" fontWeight={600}>
               {editingOrder ? 'Edit Purchase Order' : 'Create Purchase Order'}
             </Typography>
+            <Chip 
+              label={isEngineer ? 'Engineer' : 'Super Admin'} 
+              size="small" 
+              color={isEngineer ? 'info' : 'warning'}
+              sx={{ ml: 1 }}
+            />
           </Box>
           <IconButton
             onClick={handleCloseDialog}
@@ -1447,16 +1499,24 @@ const PurchaseOrders = () => {
         </DialogActions>
       </Dialog>
 
-      {/* View Dialog - REMOVED Status Chip */}
+      {/* View Dialog */}
       <Dialog open={openViewDialog} onClose={handleCloseView} maxWidth="md" fullWidth>
         <DialogTitle sx={{ bgcolor: '#0B5FA5', color: 'white' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6" fontWeight={600}>
               Purchase Order Details
             </Typography>
-            <IconButton onClick={handleCloseView} sx={{ color: 'white' }}>
-              <Close />
-            </IconButton>
+            <Box>
+              {isEngineer && (
+                <Chip label="Engineer" size="small" color="info" sx={{ mr: 1 }} />
+              )}
+              {isSuperAdmin && (
+                <Chip label="Super Admin" size="small" color="warning" sx={{ mr: 1 }} />
+              )}
+              <IconButton onClick={handleCloseView} sx={{ color: 'white' }}>
+                <Close />
+              </IconButton>
+            </Box>
           </Box>
         </DialogTitle>
         <DialogContent dividers>
@@ -1467,9 +1527,16 @@ const PurchaseOrders = () => {
                   <Typography variant="h6" fontWeight={600}>
                     {viewingOrder.po_number}
                   </Typography>
-                  <Typography variant="body1" fontWeight={500}>
-                    Status: {viewingOrder.status}
-                  </Typography>
+                  <Chip 
+                    label={viewingOrder.status} 
+                    color={
+                      viewingOrder.status === 'Approved' || viewingOrder.status === 'Received' ? 'success' :
+                      viewingOrder.status === 'Pending Approval' ? 'warning' :
+                      viewingOrder.status === 'Draft' ? 'default' :
+                      viewingOrder.status === 'Ordered' ? 'info' :
+                      viewingOrder.status === 'Cancelled' ? 'error' : 'default'
+                    }
+                  />
                 </Box>
               </Grid>
               <Grid item xs={12}>
@@ -1685,6 +1752,13 @@ const PurchaseOrders = () => {
                         </Button>
                       </>
                     )}
+                    {viewingOrder.status === 'Pending Approval' && !canApprove && (
+                      <Alert severity="info" sx={{ mt: 1, width: '100%' }}>
+                        <Typography variant="body2">
+                          <strong>Waiting for Super Admin approval.</strong> Only Super Admin can approve or reject orders.
+                        </Typography>
+                      </Alert>
+                    )}
                     {viewingOrder.status === 'Approved' && canEdit && (
                       <Button 
                         size="small" 
@@ -1708,6 +1782,26 @@ const PurchaseOrders = () => {
                       </Button>
                     )}
                   </Box>
+                </Grid>
+              )}
+
+              {viewingOrder.status === 'Cancelled' && (
+                <Grid item xs={12}>
+                  <Alert severity="error" sx={{ mt: 2 }}>
+                    <Typography variant="body2">
+                      <strong>This order has been cancelled.</strong> No further actions can be taken.
+                    </Typography>
+                  </Alert>
+                </Grid>
+              )}
+
+              {viewingOrder.status === 'Received' && (
+                <Grid item xs={12}>
+                  <Alert severity="success" sx={{ mt: 2 }}>
+                    <Typography variant="body2">
+                      <strong>Order completed!</strong> All items have been received.
+                    </Typography>
+                  </Alert>
                 </Grid>
               )}
             </Grid>
