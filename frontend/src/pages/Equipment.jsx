@@ -32,6 +32,7 @@ import {
   Tabs,
   Tab,
   FormHelperText,
+  Divider,
 } from '@mui/material'
 import {
   Add,
@@ -56,7 +57,7 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import api from '../api/axios'
 import AccessDenied from '../components/Auth/AccessDenied'
-import { Divider } from '@mui/material'
+
 const apiEndpoints = {
   getEquipment: () => api.get('/equipment'),
   createEquipment: (data) => api.post('/equipment', data),
