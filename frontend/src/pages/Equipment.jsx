@@ -1,5 +1,5 @@
 // src/pages/Equipment.jsx
-// ✅ FIXED: Added FormHelperText import
+// ✅ FIXED: Added FormHelperText import and fixed image upload endpoint
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -35,7 +35,7 @@ import {
   Tabs,
   Tab,
   Alert,
-  FormHelperText, // ✅ ADDED
+  FormHelperText,
 } from '@mui/material'
 import {
   Add,
@@ -1484,7 +1484,7 @@ const Equipment = () => {
                 </Typography>
                 
                 <FileUpload
-                  endpoint="/api/upload"
+                  endpoint="/service-documentation/upload"
                   accept="image/*"
                   multiple={true}
                   label="Click to upload equipment images"

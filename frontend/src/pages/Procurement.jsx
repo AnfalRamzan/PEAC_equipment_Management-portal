@@ -1010,7 +1010,7 @@ const Procurement = () => {
                 </Typography>
                 
                 <FileUpload
-                  endpoint="/api/upload"
+                  endpoint="/upload"
                   accept=".pdf,.doc,.docx,.xls,.xlsx,image/*"
                   multiple={true}
                   label="Click to upload documents"

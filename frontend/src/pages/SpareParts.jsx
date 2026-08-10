@@ -980,7 +980,7 @@ const SpareParts = () => {
               </Typography>
               
               <FileUpload
-                endpoint="/api/upload"
+                endpoint="/upload"
                 accept="image/*"
                 multiple={false}
                 label="Click to upload spare part image"

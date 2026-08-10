@@ -1,4 +1,4 @@
-// src/components/FileUpload.jsx - COMPLETE FIXED VERSION
+// frontend/src/components/FileUpload.jsx
 import React, { useState, useRef } from 'react'
 import {
   Box,
@@ -32,19 +32,19 @@ import { toast } from 'react-toastify'
 import api from '../api/axios'
 
 const FileUpload = ({
-  endpoint = '/service-documentation/upload',
+  endpoint = '/upload',  // ✅ FIXED: Removed /api from here
   accept = '*/*',
   multiple = false,
   label = 'Upload File',
   maxFiles = 5,
-  maxSize = 50, // MB
+  maxSize = 50,
   showPreview = true,
   onUploadComplete,
   onUploadError,
   onDelete,
   existingFiles = [],
   autoUpload = true,
-  fieldName = 'file' // 'file' for single, 'files' for multiple
+  fieldName = 'file'
 }) => {
   const [files, setFiles] = useState([])
   const [uploading, setUploading] = useState(false)
@@ -62,20 +62,17 @@ const FileUpload = ({
     if (url.startsWith('http://') || url.startsWith('https://')) {
       return url
     }
-    // Use full URL with localhost:5000
     return `http://localhost:5000${url}`
   }
 
   const handleFileSelect = (event) => {
     const selectedFiles = Array.from(event.target.files)
     
-    // Check max files
     if (selectedFiles.length + files.length > maxFiles) {
       toast.error(`Maximum ${maxFiles} files allowed`)
       return
     }
     
-    // Check file size
     const validFiles = selectedFiles.filter(file => {
       const fileSizeMB = file.size / (1024 * 1024)
       if (fileSizeMB > maxSize) {
@@ -97,7 +94,7 @@ const FileUpload = ({
             file.type.startsWith('video/') ? 'video' : 'document',
       mimetype: file.type,
       progress: 0,
-      status: 'pending', // pending, uploading, completed, error
+      status: 'pending',
       error: null
     }))
     
@@ -107,13 +104,11 @@ const FileUpload = ({
       handleUpload(newFiles)
     }
     
-    // Reset input
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
   }
 
-  // ✅ FIXED: handleUpload with proper response handling
   const handleUpload = async (filesToUpload = files) => {
     if (filesToUpload.length === 0) {
       toast.warning('No files to upload')
@@ -125,8 +120,6 @@ const FileUpload = ({
     setUploadProgress(0)
 
     const formData = new FormData()
-    
-    // Get the actual File objects
     const pendingFiles = filesToUpload.filter(f => f.status === 'pending')
     
     if (pendingFiles.length === 0) {
@@ -135,18 +128,14 @@ const FileUpload = ({
       return
     }
     
-    // ✅ Append files - use the correct field name
     pendingFiles.forEach((fileObj) => {
       if (fileObj.file instanceof File) {
         formData.append(fieldName, fileObj.file)
         console.log(`📎 Appending file: ${fileObj.file.name} (${fileObj.file.size} bytes)`)
-      } else {
-        console.warn('⚠️ Invalid file object:', fileObj)
       }
     })
 
     try {
-      // Update status to uploading
       setFiles(prev => prev.map(f => {
         if (pendingFiles.includes(f)) {
           return { ...f, status: 'uploading', progress: 0 }
@@ -156,17 +145,12 @@ const FileUpload = ({
 
       const token = localStorage.getItem('token')
       
-      // ✅ Normalize endpoint
       let finalEndpoint = endpoint
       if (!finalEndpoint.startsWith('/')) {
         finalEndpoint = '/' + finalEndpoint
       }
       
-      console.log('📤 Uploading files to:', finalEndpoint)
-      console.log('📤 FormData entries:')
-      for (let pair of formData.entries()) {
-        console.log(`   ${pair[0]}: ${pair[1] instanceof File ? pair[1].name : pair[1]}`)
-      }
+      console.log('📤 Uploading files to:', finalEndpoint) // Should show: /upload
 
       const response = await api.post(finalEndpoint, formData, {
         headers: {
@@ -177,7 +161,6 @@ const FileUpload = ({
           const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total)
           setUploadProgress(percentCompleted)
           
-          // Update individual file progress
           setFiles(prev => prev.map(f => {
             if (pendingFiles.includes(f)) {
               return { ...f, progress: percentCompleted }
@@ -185,23 +168,19 @@ const FileUpload = ({
             return f
           }))
         },
-        timeout: 120000 // 2 minutes for large files
+        timeout: 120000
       })
 
       console.log('✅ Upload response:', response.data)
 
-      // ✅ Handle response - support different response formats
       let uploadedFilesData = []
       
       if (response.data.success) {
         if (response.data.files) {
-          // Multiple files
           uploadedFilesData = response.data.files
         } else if (response.data.file) {
-          // Single file
           uploadedFilesData = [response.data.file]
         } else if (response.data.fileUrl) {
-          // Alternative single file format
           uploadedFilesData = [{
             url: response.data.fileUrl,
             name: response.data.fileName || 'file',
@@ -209,7 +188,6 @@ const FileUpload = ({
             type: response.data.fileType || 'document'
           }]
         } else if (response.data.url) {
-          // Another alternative
           uploadedFilesData = [{
             url: response.data.url,
             name: response.data.name || 'file',
@@ -217,17 +195,13 @@ const FileUpload = ({
             type: response.data.type || 'document'
           }]
         } else if (Array.isArray(response.data)) {
-          // Direct array response
           uploadedFilesData = response.data
         } else {
-          // Fallback: use the response data directly
           uploadedFilesData = [response.data]
         }
         
-        // ✅ Update file status to completed
         setFiles(prev => prev.map(f => {
           if (pendingFiles.includes(f)) {
-            // Find matching uploaded file
             const uploaded = uploadedFilesData.find(u => 
               u.name === f.name || 
               (u.originalName === f.name)
@@ -263,7 +237,6 @@ const FileUpload = ({
       console.error('❌ Upload error:', error)
       console.error('❌ Error response:', error.response?.data)
       
-      // Update file status to error
       setFiles(prev => prev.map(f => {
         if (pendingFiles.includes(f)) {
           return { 
@@ -290,10 +263,8 @@ const FileUpload = ({
   }
 
   const handleDelete = (fileToDelete) => {
-    // Remove from files list
     setFiles(prev => prev.filter(f => f !== fileToDelete))
     
-    // If it was uploaded, remove from uploaded files
     if (fileToDelete.status === 'completed' && fileToDelete.url) {
       setUploadedFiles(prev => prev.filter(f => f.url !== fileToDelete.url))
     }
@@ -371,7 +342,6 @@ const FileUpload = ({
     }
   }
 
-  // ✅ Render file preview with full URL
   const renderFilePreview = (file) => {
     const isImage = file.type === 'image' || file.mimetype?.startsWith('image/')
     const isVideo = file.type === 'video' || file.mimetype?.startsWith('video/')
@@ -508,14 +478,12 @@ const FileUpload = ({
         />
       </Paper>
 
-      {/* Error Alert */}
       {error && (
         <Alert severity="error" sx={{ mt: 2 }} onClose={() => setError(null)}>
           {error}
         </Alert>
       )}
 
-      {/* Upload Progress */}
       {uploading && (
         <Box sx={{ mt: 2 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
@@ -530,7 +498,6 @@ const FileUpload = ({
         </Box>
       )}
 
-      {/* Existing Files */}
       {existingFiles.length > 0 && (
         <Box sx={{ mt: 2 }}>
           <Typography variant="subtitle2" fontWeight={600} gutterBottom>
@@ -595,7 +562,6 @@ const FileUpload = ({
         </Box>
       )}
 
-      {/* File List */}
       {files.length > 0 && (
         <Box sx={{ mt: 2 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
@@ -610,7 +576,6 @@ const FileUpload = ({
         </Box>
       )}
 
-      {/* Upload Button (for manual upload) */}
       {!autoUpload && files.some(f => f.status === 'pending') && (
         <Button
           variant="contained"

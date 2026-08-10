@@ -951,7 +951,7 @@ const ErrorLogs = () => {
                 Attachments (Optional)
               </Typography>
               <FileUpload
-                endpoint="/api/upload"
+                endpoint="/upload"
                 accept="image/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx"
                 multiple={true}
                 label="Click to upload images, videos, or documents"

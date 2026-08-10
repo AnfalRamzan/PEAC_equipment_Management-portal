@@ -1497,7 +1497,7 @@ const KnowledgeBase = () => {
                 Spare Part Images
               </Typography>
               <FileUpload
-                endpoint="/api/upload"
+                endpoint="/upload"
                 accept="image/*"
                 multiple={true}
                 label="Click to upload spare part images"
@@ -1516,7 +1516,7 @@ const KnowledgeBase = () => {
                 Before Repair Images
               </Typography>
               <FileUpload
-                endpoint="/api/upload"
+                endpoint="/upload"
                 accept="image/*"
                 multiple={true}
                 label="Click to upload before repair images"
@@ -1535,7 +1535,7 @@ const KnowledgeBase = () => {
                 After Repair Images
               </Typography>
               <FileUpload
-                endpoint="/api/upload"
+                endpoint="/upload"
                 accept="image/*"
                 multiple={true}
                 label="Click to upload after repair images"
@@ -1554,7 +1554,7 @@ const KnowledgeBase = () => {
                 General Images
               </Typography>
               <FileUpload
-                endpoint="/api/upload"
+                endpoint="/upload"
                 accept="image/*,.pdf,.doc,.docx"
                 multiple={true}
                 label="Click to upload general images"
@@ -1573,7 +1573,7 @@ const KnowledgeBase = () => {
                 Attachments
               </Typography>
               <FileUpload
-                endpoint="/api/upload"
+                endpoint="/upload"
                 accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.zip"
                 multiple={true}
                 label="Click to upload attachments"
