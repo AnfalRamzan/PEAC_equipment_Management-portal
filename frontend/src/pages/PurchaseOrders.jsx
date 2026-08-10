@@ -7,39 +7,34 @@ import React, { useState, useEffect } from 'react'
 import {
   Box,
   Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
+  Typography,
   Button,
+  Grid,
+  Card,
+  CardContent,
+  CardActions,
   IconButton,
   TextField,
   InputAdornment,
-  Chip,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  MenuItem,
-  Grid,
-  Typography,
+  Chip,
   LinearProgress,
+  MenuItem,
+  Select,
   FormControl,
   InputLabel,
-  Select,
   Alert,
   Tooltip,
-  Menu,
   Divider,
   Stepper,
   Step,
   StepLabel,
   StepContent,
   Avatar,
-  Card,
-  CardContent
+  CircularProgress
 } from '@mui/material'
 import {
   Add,
@@ -63,7 +58,9 @@ import {
   Check,
   Description,
   Image,
-  PictureAsPdf
+  PictureAsPdf,
+  Warning as WarningIcon,
+  Info
 } from '@mui/icons-material'
 import { purchaseOrderService, hospitalService } from '../api/services'
 import { toast } from 'react-toastify'
@@ -97,16 +94,28 @@ const safeFormatDate = (date) => {
   }
 }
 
-const getStatusColorForPrint = (status) => {
+const getStatusColor = (status) => {
   const colors = {
     'Draft': '#6c757d',
-    'Pending Approval': '#ffc107',
+    'Pending Approval': '#ff9800',
     'Approved': '#28a745',
-    'Ordered': '#17a2b8',
-    'Received': '#28a745',
+    'Ordered': '#2196f3',
+    'Received': '#4caf50',
     'Cancelled': '#dc3545'
   }
   return colors[status] || '#6c757d'
+}
+
+const getStatusIcon = (status) => {
+  switch(status) {
+    case 'Draft': return <Description sx={{ fontSize: 20 }} />
+    case 'Pending Approval': return <Info sx={{ fontSize: 20 }} />
+    case 'Approved': return <CheckCircle sx={{ fontSize: 20 }} />
+    case 'Ordered': return <LocalShipping sx={{ fontSize: 20 }} />
+    case 'Received': return <Check sx={{ fontSize: 20 }} />
+    case 'Cancelled': return <Cancel sx={{ fontSize: 20 }} />
+    default: return <ShoppingCart sx={{ fontSize: 20 }} />
+  }
 }
 
 const PurchaseOrders = () => {
@@ -135,7 +144,6 @@ const PurchaseOrders = () => {
   const [editingOrder, setEditingOrder] = useState(null)
   const [viewingOrder, setViewingOrder] = useState(null)
   const [openViewDialog, setOpenViewDialog] = useState(false)
-  const [exportAnchorEl, setExportAnchorEl] = useState(null)
   const [filters, setFilters] = useState({
     status: '',
     hospital_id: ''
@@ -497,7 +505,6 @@ const PurchaseOrders = () => {
     }
   }
 
-  // ==================== PRINT FUNCTION ====================
   const handlePrint = () => {
     if (!viewingOrder) {
       toast.error('No order selected to print')
@@ -530,7 +537,7 @@ const PurchaseOrders = () => {
           .info-item { display: flex; padding: 8px 0; border-bottom: 1px solid #eee; }
           .info-item .label { font-weight: 600; min-width: 120px; color: #666; }
           .info-item .value { color: #333; }
-          .status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; background: ${getStatusColorForPrint(viewingOrder.status)}; color: white; }
+          .status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; background: ${getStatusColor(viewingOrder.status)}; color: white; }
           table { width: 100%; border-collapse: collapse; margin: 20px 0; }
           th { background: #f8f9fa; padding: 12px; text-align: left; border-bottom: 2px solid #0B5FA5; font-weight: 600; }
           td { padding: 10px 12px; border-bottom: 1px solid #eee; }
@@ -591,78 +598,6 @@ const PurchaseOrders = () => {
     }
   }
 
-  // Export Functions
-  const handleExportClick = (event) => {
-    setExportAnchorEl(event.currentTarget)
-  }
-
-  const handleExportClose = () => {
-    setExportAnchorEl(null)
-  }
-
-  const exportToCSV = () => {
-    try {
-      const headers = ['PO Number', 'Hospital', 'Vendor', 'Order Date', 'Delivery Date', 'Total Amount', 'Status', 'Notes']
-      const rows = filteredOrders.map(o => [
-        o.po_number,
-        o.hospital_name || 'N/A',
-        o.vendor_name,
-        o.order_date || '',
-        o.delivery_date || '',
-        o.total_amount || '',
-        o.status,
-        o.notes || ''
-      ])
-      
-      let csv = headers.join(',') + '\n'
-      rows.forEach(row => {
-        csv += row.join(',') + '\n'
-      })
-      
-      const blob = new Blob([csv], { type: 'text/csv' })
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `purchase_orders_${new Date().toISOString().split('T')[0]}.csv`
-      a.click()
-      window.URL.revokeObjectURL(url)
-      
-      toast.success('CSV exported successfully!')
-      handleExportClose()
-    } catch (error) {
-      toast.error('Failed to export CSV')
-    }
-  }
-
-  const exportToExcel = () => {
-    try {
-      import('xlsx').then((XLSX) => {
-        const data = filteredOrders.map(o => ({
-          'PO Number': o.po_number,
-          'Hospital': o.hospital_name || 'N/A',
-          'Vendor': o.vendor_name,
-          'Order Date': o.order_date || '',
-          'Delivery Date': o.delivery_date || '',
-          'Total Amount': o.total_amount || '',
-          'Status': o.status,
-          'Notes': o.notes || ''
-        }))
-        
-        const ws = XLSX.utils.json_to_sheet(data)
-        const wb = XLSX.utils.book_new()
-        XLSX.utils.book_append_sheet(wb, ws, 'Purchase Orders')
-        XLSX.writeFile(wb, `purchase_orders_${new Date().toISOString().split('T')[0]}.xlsx`)
-        
-        toast.success('Excel exported successfully!')
-        handleExportClose()
-      }).catch(() => {
-        toast.error('Excel library not loaded')
-      })
-    } catch (error) {
-      toast.error('Failed to export Excel')
-    }
-  }
-
   const getStatusSteps = () => {
     return ['Draft', 'Pending Approval', 'Approved', 'Ordered', 'Received']
   }
@@ -695,7 +630,7 @@ const PurchaseOrders = () => {
 
   return (
     <Box>
-      {/* ✅ Header */}
+      {/* ✅ Header - Same as Service Documentation */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Typography variant="h5" sx={{ fontWeight: 700, color: '#2C3E50' }}>
@@ -727,63 +662,53 @@ const PurchaseOrders = () => {
         </Box>
       </Box>
 
-      {/* Stats Cards */}
+      {/* ✅ Stats Cards - Same as Service Documentation */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={6} sm={2.4}>
-          <Card sx={{ borderRadius: 2 }}>
-            <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" color="#0B5FA5" fontWeight={700}>
-                {totalOrders}
-              </Typography>
-              <Typography variant="body2" color="textSecondary">Total Orders</Typography>
-            </CardContent>
-          </Card>
+          <Paper sx={{ p: 2, textAlign: 'center', borderRadius: 2 }}>
+            <Typography variant="h4" fontWeight={700} color="#0B5FA5">
+              {totalOrders}
+            </Typography>
+            <Typography variant="body2" color="textSecondary">Total Orders</Typography>
+          </Paper>
         </Grid>
         <Grid item xs={6} sm={2.4}>
-          <Card sx={{ borderRadius: 2, bgcolor: '#e3f2fd' }}>
-            <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" color="info.main" fontWeight={700}>
-                {draftOrders}
-              </Typography>
-              <Typography variant="body2" color="textSecondary">Draft</Typography>
-            </CardContent>
-          </Card>
+          <Paper sx={{ p: 2, textAlign: 'center', borderRadius: 2, bgcolor: '#e3f2fd' }}>
+            <Typography variant="h4" fontWeight={700} color="#2196f3">
+              {draftOrders}
+            </Typography>
+            <Typography variant="body2" color="textSecondary">Draft</Typography>
+          </Paper>
         </Grid>
         <Grid item xs={6} sm={2.4}>
-          <Card sx={{ borderRadius: 2, bgcolor: '#fff3e0' }}>
-            <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" color="warning.main" fontWeight={700}>
-                {pendingOrders}
-              </Typography>
-              <Typography variant="body2" color="textSecondary">Pending Approval</Typography>
-            </CardContent>
-          </Card>
+          <Paper sx={{ p: 2, textAlign: 'center', borderRadius: 2, bgcolor: '#fff3e0' }}>
+            <Typography variant="h4" fontWeight={700} color="#ff9800">
+              {pendingOrders}
+            </Typography>
+            <Typography variant="body2" color="textSecondary">Pending Approval</Typography>
+          </Paper>
         </Grid>
         <Grid item xs={6} sm={2.4}>
-          <Card sx={{ borderRadius: 2, bgcolor: '#e8f5e9' }}>
-            <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" color="success.main" fontWeight={700}>
-                {completedOrders}
-              </Typography>
-              <Typography variant="body2" color="textSecondary">Completed</Typography>
-            </CardContent>
-          </Card>
+          <Paper sx={{ p: 2, textAlign: 'center', borderRadius: 2, bgcolor: '#e8f5e9' }}>
+            <Typography variant="h4" fontWeight={700} color="#4caf50">
+              {completedOrders}
+            </Typography>
+            <Typography variant="body2" color="textSecondary">Completed</Typography>
+          </Paper>
         </Grid>
         <Grid item xs={6} sm={2.4}>
-          <Card sx={{ borderRadius: 2, bgcolor: '#ffebee' }}>
-            <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" color="error.main" fontWeight={700}>
-                {cancelledOrders}
-              </Typography>
-              <Typography variant="body2" color="textSecondary">Cancelled</Typography>
-            </CardContent>
-          </Card>
+          <Paper sx={{ p: 2, textAlign: 'center', borderRadius: 2, bgcolor: '#ffebee' }}>
+            <Typography variant="h4" fontWeight={700} color="#dc3545">
+              {cancelledOrders}
+            </Typography>
+            <Typography variant="body2" color="textSecondary">Cancelled</Typography>
+          </Paper>
         </Grid>
       </Grid>
 
-      {/* Search & Filters */}
+      {/* ✅ Search & Filter - Same as Service Documentation */}
       <Paper sx={{ p: 2, mb: 3, borderRadius: 2 }}>
-        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
           <TextField
             size="small"
             placeholder="Search purchase orders..."
@@ -798,6 +723,7 @@ const PurchaseOrders = () => {
               )
             }}
           />
+          
           <FormControl size="small" sx={{ minWidth: 150 }}>
             <InputLabel>Status</InputLabel>
             <Select
@@ -814,6 +740,7 @@ const PurchaseOrders = () => {
               <MenuItem value="Cancelled">Cancelled</MenuItem>
             </Select>
           </FormControl>
+
           <FormControl size="small" sx={{ minWidth: 150 }}>
             <InputLabel>Hospital</InputLabel>
             <Select
@@ -827,76 +754,40 @@ const PurchaseOrders = () => {
               ))}
             </Select>
           </FormControl>
-          <Button 
-            variant="outlined" 
-            startIcon={<Download />}
-            onClick={handleExportClick}
-          >
-            Export
-          </Button>
         </Box>
       </Paper>
 
-      {/* Export Menu */}
-      <Menu
-        anchorEl={exportAnchorEl}
-        open={Boolean(exportAnchorEl)}
-        onClose={handleExportClose}
-        PaperProps={{ sx: { p: 1, width: 200 } }}
-      >
-        <MenuItem onClick={exportToCSV}>
-          <FileDownload sx={{ mr: 1, fontSize: 20 }} /> Export CSV
-        </MenuItem>
-        <MenuItem onClick={exportToExcel}>
-          <FileDownload sx={{ mr: 1, fontSize: 20 }} /> Export Excel
-        </MenuItem>
-      </Menu>
-
-      {/* Table */}
-      <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
-        <Table>
-          <TableHead sx={{ bgcolor: '#0B5FA5' }}>
-            <TableRow>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>PO Number</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Hospital</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Vendor</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Order Date</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Delivery Date</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Amount</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Status</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }} align="center">Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {filteredOrders.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={8} align="center">
-                  <Typography variant="body1" sx={{ py: 3, color: '#6c757d' }}>
-                    No purchase orders found
-                  </Typography>
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredOrders.map((order) => (
-                <TableRow key={order.id} hover>
-                  <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <ShoppingCart sx={{ fontSize: 18, color: '#0B5FA5' }} />
-                      <Typography variant="body2" fontWeight={500}>
-                        {order.po_number}
-                      </Typography>
-                    </Box>
-                  </TableCell>
-                  <TableCell>{order.hospital_name}</TableCell>
-                  <TableCell>{order.vendor_name}</TableCell>
-                  <TableCell>{order.order_date ? new Date(order.order_date).toLocaleDateString() : '-'}</TableCell>
-                  <TableCell>{order.delivery_date ? new Date(order.delivery_date).toLocaleDateString() : '-'}</TableCell>
-                  <TableCell>
-                    {order.total_amount ? `$${parseFloat(order.total_amount).toFixed(2)}` : '-'}
-                  </TableCell>
-                  <TableCell>
-                    <Chip 
-                      label={order.status} 
+      {/* ✅ Cards View - Same as Service Documentation */}
+      <Grid container spacing={3}>
+        {filteredOrders.map((order) => (
+          <Grid item xs={12} sm={6} md={4} key={order.id}>
+            <Card sx={{ 
+              borderRadius: 2, 
+              height: '100%', 
+              display: 'flex', 
+              flexDirection: 'column',
+              transition: 'transform 0.2s',
+              '&:hover': {
+                transform: 'translateY(-4px)',
+                boxShadow: 4
+              }
+            }}>
+              <CardContent sx={{ flexGrow: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                  <Avatar sx={{ 
+                    bgcolor: getStatusColor(order.status),
+                    width: 40,
+                    height: 40,
+                    mr: 2
+                  }}>
+                    {getStatusIcon(order.status)}
+                  </Avatar>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography variant="subtitle1" fontWeight={600} noWrap>
+                      {order.po_number}
+                    </Typography>
+                    <Chip
+                      label={order.status}
                       size="small"
                       color={
                         order.status === 'Approved' || order.status === 'Received' ? 'success' :
@@ -907,66 +798,132 @@ const PurchaseOrders = () => {
                       }
                       sx={{ height: 22, fontSize: '11px' }}
                     />
-                  </TableCell>
-                  <TableCell align="center">
-                    <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5 }}>
-                      <Tooltip title="View Details">
-                        <IconButton size="small" color="primary" onClick={() => handleView(order)}>
-                          <Visibility fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      
-                      {canEdit && order.status === 'Draft' && (
-                        <Tooltip title="Edit">
-                          <IconButton size="small" color="info" onClick={() => handleOpenDialog(order)}>
-                            <Edit fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      
-                      {canDelete && order.status === 'Draft' && (
-                        <Tooltip title="Delete">
-                          <IconButton size="small" color="error" onClick={() => handleDelete(order.id)}>
-                            <Delete fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      
-                      {canApprove && order.status === 'Pending Approval' && (
-                        <>
-                          <Tooltip title="Approve">
-                            <IconButton size="small" color="success" onClick={() => handleApprove(order.id)}>
-                              <CheckCircle fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Reject">
-                            <IconButton size="small" color="error" onClick={() => handleReject(order.id)}>
-                              <Cancel fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        </>
-                      )}
-                      
-                      {(order.status === 'Approved' || order.status === 'Ordered' || order.status === 'Received') && (
-                        <Tooltip title="Print">
-                          <IconButton size="small" color="primary" onClick={() => {
-                            setViewingOrder(order)
-                            setTimeout(handlePrint, 100)
-                          }}>
-                            <Print fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                    </Box>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+                  </Box>
+                </Box>
 
-      {/* Add/Edit Dialog */}
+                <Typography variant="body2" color="textSecondary">
+                  <Business sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
+                  Vendor: {order.vendor_name}
+                </Typography>
+                <Typography variant="body2" color="textSecondary">
+                  <ShoppingCart sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
+                  Hospital: {order.hospital_name}
+                </Typography>
+                <Typography variant="body2" color="textSecondary">
+                  <Receipt sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
+                  Amount: ${safeToFixed(order.total_amount)}
+                </Typography>
+                <Typography variant="body2" color="textSecondary">
+                  <Description sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
+                  Items: {order.items?.length || 0}
+                </Typography>
+                <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mt: 1 }}>
+                  {order.order_date ? `Ordered: ${new Date(order.order_date).toLocaleDateString()}` : ''}
+                  {order.delivery_date ? ` | Delivery: ${new Date(order.delivery_date).toLocaleDateString()}` : ''}
+                </Typography>
+              </CardContent>
+              <CardActions sx={{ p: 2, pt: 0 }}>
+                <Tooltip title="View Details">
+                  <Button 
+                    size="small" 
+                    startIcon={<Visibility />} 
+                    color="primary"
+                    onClick={() => handleView(order)}
+                  >
+                    View
+                  </Button>
+                </Tooltip>
+                
+                {canEdit && order.status === 'Draft' && (
+                  <Tooltip title="Edit">
+                    <IconButton 
+                      size="small" 
+                      color="info" 
+                      onClick={() => handleOpenDialog(order)}
+                    >
+                      <Edit fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
+                
+                {canDelete && order.status === 'Draft' && (
+                  <Tooltip title="Delete">
+                    <IconButton 
+                      size="small" 
+                      color="error" 
+                      onClick={() => handleDelete(order.id)}
+                    >
+                      <Delete fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
+                
+                {canApprove && order.status === 'Pending Approval' && (
+                  <>
+                    <Tooltip title="Approve">
+                      <IconButton 
+                        size="small" 
+                        color="success" 
+                        onClick={() => handleApprove(order.id)}
+                      >
+                        <CheckCircle fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Reject">
+                      <IconButton 
+                        size="small" 
+                        color="error" 
+                        onClick={() => handleReject(order.id)}
+                      >
+                        <Cancel fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </>
+                )}
+                
+                {(order.status === 'Approved' || order.status === 'Ordered' || order.status === 'Received') && (
+                  <Tooltip title="Print">
+                    <IconButton 
+                      size="small" 
+                      color="primary" 
+                      onClick={() => {
+                        setViewingOrder(order)
+                        setTimeout(handlePrint, 100)
+                      }}
+                    >
+                      <Print fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </CardActions>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
+
+      {/* ✅ Empty State - Same as Service Documentation */}
+      {filteredOrders.length === 0 && !loading && (
+        <Paper sx={{ p: 4, textAlign: 'center', borderRadius: 2 }}>
+          <ShoppingCart sx={{ fontSize: 64, color: '#6c757d' }} />
+          <Typography variant="h6" color="textSecondary" sx={{ mt: 2 }}>
+            No purchase orders found
+          </Typography>
+          <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+            Try adjusting your search or filters
+          </Typography>
+          {canCreate && (
+            <Button              variant="contained"
+              startIcon={<Add />}
+              onClick={() => handleOpenDialog()}
+              sx={{ mt: 2 }}
+            >
+              Create First Purchase Order
+            </Button>
+          )}
+        </Paper>
+      )}
+
+      {/* ✅ Add/Edit Dialog - Same as Service Documentation */}
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
         <DialogTitle sx={{ bgcolor: '#0B5FA5', color: 'white' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -1291,7 +1248,7 @@ const PurchaseOrders = () => {
         </DialogActions>
       </Dialog>
 
-      {/* View Dialog */}
+      {/* ✅ View Dialog - Same as Service Documentation */}
       <Dialog open={openViewDialog} onClose={handleCloseView} maxWidth="md" fullWidth>
         <DialogTitle sx={{ bgcolor: '#0B5FA5', color: 'white' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
