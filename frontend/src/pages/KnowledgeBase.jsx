@@ -1,5 +1,4 @@
 // src/pages/KnowledgeBase.jsx
-// ✅ FIXED: Added null checks for canEdit function
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -27,7 +26,6 @@ import {
   Alert,
   Tooltip,
   Divider,
-  Snackbar,
   CircularProgress,
   Table,
   TableBody,
@@ -69,7 +67,6 @@ import {
   RemoveCircle,
   ToggleOn,
   ToggleOff,
-  Engineering as EngineeringIcon,
   AdminPanelSettings
 } from '@mui/icons-material'
 import { toast } from 'react-toastify'
@@ -78,7 +75,6 @@ import api from '../api/axios'
 import FileUpload from '../components/FileUpload'
 import AccessDenied from '../components/Auth/AccessDenied'
 
-// ==================== HELPER FUNCTIONS ====================
 const getFullUrl = (url) => {
   if (!url) return ''
   if (url.startsWith('http://') || url.startsWith('https://')) {
@@ -93,7 +89,6 @@ const getFullUrl = (url) => {
 const KnowledgeBase = () => {
   const { user } = useSelector((state) => state.auth)
   
-  // ✅ HOSPITAL_ADMIN - Access Denied
   if (user?.role === 'HOSPITAL_ADMIN') {
     return <AccessDenied message="Hospital Administrators cannot access Knowledge Base." />
   }
@@ -101,25 +96,9 @@ const KnowledgeBase = () => {
   const isEngineer = user?.role === 'ENGINEER'
   const isSuperAdmin = user?.role === 'SUPER_ADMIN'
   
-  // ✅ PERMISSIONS
-  // ✅ ENGINEER: View ALL, Add, Edit ONLY own solutions (NO Delete)
-  // ✅ SUPER_ADMIN: View ALL, Add, Edit ANY, Delete ANY (Full Access)
-  const canAdd = isEngineer || isSuperAdmin // ✅ Both can add
-  const canDelete = isSuperAdmin // ✅ ONLY Super Admin can delete
-  
-  // ✅ Engineer can ONLY edit their own solutions - WITH NULL CHECK
-  const canEdit = (solution) => {
-    // ✅ NULL CHECK - if solution is null or undefined, return false
-    if (!solution) return false
-    
-    if (isSuperAdmin) return true // ✅ Super Admin can edit any
-    
-    if (isEngineer) {
-      // Check if this solution belongs to this engineer
-      return solution.created_by === user?.id || solution.created_by_name === user?.full_name
-    }
-    return false
-  }
+  const canAdd = isEngineer || isSuperAdmin
+  const canEdit = isSuperAdmin
+  const canDelete = isSuperAdmin
 
   const [loading, setLoading] = useState(true)
   const [equipmentList, setEquipmentList] = useState([])
@@ -142,7 +121,6 @@ const KnowledgeBase = () => {
 
   const [uploadingFiles, setUploadingFiles] = useState(false)
 
-  // ✅ SPARE PARTS STATE
   const [sparePartsList, setSparePartsList] = useState([])
   const [hasSpareParts, setHasSpareParts] = useState(false)
 
@@ -169,7 +147,6 @@ const KnowledgeBase = () => {
     department_name: ''
   })
 
-  // ✅ SPARE PART FORM STATE
   const [sparePartForm, setSparePartForm] = useState({
     part_name: '',
     quantity: 1,
@@ -271,9 +248,8 @@ const KnowledgeBase = () => {
   }
 
   const handleEditSolution = (solution) => {
-    // ✅ Check if user can edit this solution
-    if (!canEdit(solution)) {
-      toast.error('You can only edit your own solutions')
+    if (!isSuperAdmin) {
+      toast.error('Only Super Admin can edit solutions')
       return
     }
     
@@ -327,7 +303,6 @@ const KnowledgeBase = () => {
     setOpenAddDialog(true)
   }
 
-  // ✅ SPARE PART FUNCTIONS
   const handleSparePartChange = (e) => {
     const { name, value } = e.target
     setSparePartForm(prev => {
@@ -366,7 +341,6 @@ const KnowledgeBase = () => {
     toast.info('Spare part removed')
   }
 
-  // ✅ Format spare parts for database
   const formatSparePartsForDB = () => {
     if (sparePartsList.length === 0) return ''
     return sparePartsList.map(p => 
@@ -450,7 +424,6 @@ const KnowledgeBase = () => {
     }))
   }
 
-  // ✅ SUBMIT SOLUTION with spare parts
   const handleSubmitSolution = async () => {
     try {
       if (!addFormData.equipment_id) {
@@ -536,28 +509,11 @@ const KnowledgeBase = () => {
 
   return (
     <Box>
-      {/* Header - Role Chips */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Typography variant="h5" sx={{ fontWeight: 700, color: '#2C3E50' }}>
             Knowledge Base
           </Typography>
-          {isEngineer && (
-            <Chip 
-              icon={<EngineeringIcon sx={{ fontSize: 16 }} />}
-              label="Engineer Mode - View & Upload Only" 
-              size="small" 
-              color="info" 
-            />
-          )}
-          {isSuperAdmin && (
-            <Chip 
-              icon={<AdminPanelSettings sx={{ fontSize: 16 }} />}
-              label="Super Admin (Full Control)" 
-              size="small" 
-              color="warning" 
-            />
-          )}
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button variant="outlined" startIcon={<Refresh />} onClick={fetchEquipment} size="small">
@@ -566,25 +522,6 @@ const KnowledgeBase = () => {
         </Box>
       </Box>
 
-      {/* Info Alert */}
-      {isEngineer && (
-        <Alert severity="info" sx={{ mb: 2 }}>
-          <Typography variant="body2">
-            <strong>📚 Collaborative Knowledge Base:</strong> You can see all solutions from all engineers. 
-            You can only <strong>edit</strong> your own solutions. Only <strong>Super Admin</strong> can delete solutions.
-          </Typography>
-        </Alert>
-      )}
-
-      {isSuperAdmin && (
-        <Alert severity="warning" sx={{ mb: 2 }}>
-          <Typography variant="body2">
-            <strong>👑 Super Admin:</strong> You have full control. You can view, add, edit, and delete any solution.
-          </Typography>
-        </Alert>
-      )}
-
-      {/* Stats Cards */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={6} sm={3}>
           <Card sx={{ borderRadius: 2 }}>
@@ -628,7 +565,6 @@ const KnowledgeBase = () => {
         </Grid>
       </Grid>
 
-      {/* Search & Filter */}
       <Paper sx={{ p: 2, mb: 3, borderRadius: 2 }}>
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
           <TextField
@@ -661,7 +597,6 @@ const KnowledgeBase = () => {
         </Box>
       </Paper>
 
-      {/* Equipment Cards */}
       <Grid container spacing={3}>
         {filteredEquipment.map((eq) => (
           <Grid item xs={12} sm={6} md={4} key={eq.id}>
@@ -722,7 +657,6 @@ const KnowledgeBase = () => {
         </Paper>
       )}
 
-      {/* Solutions Dialog */}
       <Dialog open={openSolutionsDialog} onClose={() => setOpenSolutionsDialog(false)} maxWidth="md" fullWidth>
         <DialogTitle sx={{ bgcolor: '#0B5FA5', color: 'white' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -760,7 +694,7 @@ const KnowledgeBase = () => {
           ) : (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {solutions.map((sol) => {
-                const isOwnSolution = isEngineer && (sol.created_by === user?.id || sol.created_by_name === user?.full_name)
+                const isEngineerSolution = isEngineer && (sol.created_by === user?.id || sol.created_by_name === user?.full_name)
                 
                 return (
                   <Paper key={sol.id} sx={{ p: 2, borderRadius: 2, '&:hover': { bgcolor: '#f8f9fa' } }}>
@@ -774,7 +708,7 @@ const KnowledgeBase = () => {
                           {sol.error_code && (
                             <Chip label={`Code: ${sol.error_code}`} size="small" variant="outlined" />
                           )}
-                          {isOwnSolution && (
+                          {isEngineerSolution && (
                             <Chip 
                               label="My Solution" 
                               size="small" 
@@ -806,16 +740,14 @@ const KnowledgeBase = () => {
                             <Visibility fontSize="small" />
                           </IconButton>
                         </Tooltip>
-                        {/* ✅ Engineer can ONLY edit their own solutions, Super Admin can edit any */}
-                        {canEdit(sol) && (
+                        {isSuperAdmin && (
                           <Tooltip title="Edit">
                             <IconButton size="small" color="info" onClick={() => handleEditSolution(sol)}>
                               <Edit fontSize="small" />
                             </IconButton>
                           </Tooltip>
                         )}
-                        {/* ✅ ONLY Super Admin can delete */}
-                        {canDelete && (
+                        {isSuperAdmin && (
                           <Tooltip title="Delete">
                             <IconButton 
                               size="small" 
@@ -839,254 +771,262 @@ const KnowledgeBase = () => {
         </DialogActions>
       </Dialog>
 
-      {/* View Solution Dialog */}
+      {/* VIEW DIALOG - IMPROVED FORMAT */}
       <Dialog open={openViewDialog} onClose={() => setOpenViewDialog(false)} maxWidth="md" fullWidth>
         <DialogTitle sx={{ bgcolor: '#0B5FA5', color: 'white' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6" fontWeight={600}>
               Solution Details
             </Typography>
-            <Box>
-              {isSuperAdmin && (
-                <Chip label="Super Admin" size="small" color="warning" sx={{ mr: 1 }} />
-              )}
-              {isEngineer && (
-                <Chip label="Engineer" size="small" color="info" sx={{ mr: 1 }} />
-              )}
-              <IconButton onClick={() => setOpenViewDialog(false)} sx={{ color: 'white' }}>
-                <Close />
-              </IconButton>
-            </Box>
+            <IconButton onClick={() => setOpenViewDialog(false)} sx={{ color: 'white' }}>
+              <Close />
+            </IconButton>
           </Box>
         </DialogTitle>
         <DialogContent dividers>
           {selectedSolution && (
             <Box>
-              {/* Header */}
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+              {/* Header with Error Title */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3, p: 2, bgcolor: '#f8f9fa', borderRadius: 2 }}>
                 <Avatar sx={{ bgcolor: '#dc3545', width: 56, height: 56 }}>
                   <ErrorIcon sx={{ fontSize: 28 }} />
                 </Avatar>
                 <Box>
-                  <Typography variant="h6" fontWeight={600}>
+                  <Typography variant="h5" fontWeight={600}>
                     {selectedSolution.error_title}
                   </Typography>
-                  {selectedSolution.error_code && (
-                    <Chip label={`Error Code: ${selectedSolution.error_code}`} size="small" color="error" />
-                  )}
-                  <Typography variant="body2" color="textSecondary">
-                    Reported by: {selectedSolution.created_by_name || selectedSolution.reported_by || 'Unknown'}
-                    {isEngineer && selectedSolution.created_by === user?.id && (
-                      <span style={{ color: '#0B5FA5', fontWeight: 600, marginLeft: '8px' }}>(Your Solution)</span>
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 0.5 }}>
+                    {selectedSolution.error_code && (
+                      <Chip label={`Code: ${selectedSolution.error_code}`} size="small" color="error" />
                     )}
-                  </Typography>
+                    {selectedSolution.time_taken && (
+                      <Chip label={`Time: ${selectedSolution.time_taken} min`} size="small" color="info" />
+                    )}
+                    {selectedSolution.repair_date && (
+                      <Chip label={`Repair: ${formatDate(selectedSolution.repair_date)}`} size="small" />
+                    )}
+                    {isEngineer && selectedSolution.created_by === user?.id && (
+                      <Chip label="Your Solution" size="small" color="primary" />
+                    )}
+                  </Box>
                 </Box>
               </Box>
 
               <Divider sx={{ mb: 3 }} />
 
-              {/* Equipment Information */}
-              <Typography variant="subtitle2" fontWeight={600} color="primary" gutterBottom>
-                Equipment Information
-              </Typography>
-              <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid item xs={12} md={4}>
-                  <Typography variant="body2" color="textSecondary">Equipment</Typography>
-                  <Typography variant="body1">{selectedSolution.equipment_name || 'N/A'}</Typography>
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <Typography variant="body2" color="textSecondary">Hospital / Center</Typography>
-                  <Typography variant="body1">{selectedSolution.hospital_name || 'N/A'}</Typography>
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <Typography variant="body2" color="textSecondary">Department</Typography>
-                  <Typography variant="body1">{selectedSolution.department_name || 'N/A'}</Typography>
-                </Grid>
-              </Grid>
+              {/* Two Column Layout */}
+              <Grid container spacing={3}>
+                {/* Left Column - Equipment & Error Info */}
+                <Grid item xs={12} md={6}>
+                  <Typography variant="subtitle2" fontWeight={600} color="primary" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <MedicalServices fontSize="small" /> Equipment Information
+                  </Typography>
+                  <Paper sx={{ p: 2, bgcolor: '#f5f7fa', borderRadius: 2, mb: 3 }}>
+                    <Grid container spacing={1}>
+                      <Grid item xs={6}>
+                        <Typography variant="caption" color="textSecondary">Equipment</Typography>
+                        <Typography variant="body2" fontWeight={500}>{selectedSolution.equipment_name || 'N/A'}</Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="caption" color="textSecondary">Hospital</Typography>
+                        <Typography variant="body2">{selectedSolution.hospital_name || 'N/A'}</Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="caption" color="textSecondary">Department</Typography>
+                        <Typography variant="body2">{selectedSolution.department_name || 'N/A'}</Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="caption" color="textSecondary">Reported By</Typography>
+                        <Typography variant="body2">{selectedSolution.reported_by || selectedSolution.created_by_name || 'N/A'}</Typography>
+                      </Grid>
+                    </Grid>
+                  </Paper>
 
-              {/* Error Details */}
-              <Typography variant="subtitle2" fontWeight={600} color="primary" gutterBottom>
-                Error Details
-              </Typography>
-              <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid item xs={12}>
-                  <Typography variant="body2" color="textSecondary">Description</Typography>
-                  <Paper sx={{ p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
-                    <Typography variant="body2">{selectedSolution.error_description || 'No description'}</Typography>
+                  <Typography variant="subtitle2" fontWeight={600} color="primary" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <ErrorIcon fontSize="small" /> Error Details
+                  </Typography>
+                  <Paper sx={{ p: 2, bgcolor: '#f5f7fa', borderRadius: 2, mb: 3 }}>
+                    <Typography variant="caption" color="textSecondary">Description</Typography>
+                    <Typography variant="body2" sx={{ mt: 0.5 }}>{selectedSolution.error_description || 'No description'}</Typography>
                   </Paper>
                 </Grid>
-              </Grid>
 
-              {/* Solution Details */}
-              <Typography variant="subtitle2" fontWeight={600} color="primary" gutterBottom>
-                Solution Details
-              </Typography>
-              <Grid container spacing={2} sx={{ mb: 3 }}>
+                {/* Right Column - Solution & Procedure */}
                 <Grid item xs={12} md={6}>
-                  <Typography variant="body2" color="textSecondary">Root Cause</Typography>
-                  <Typography variant="body1">{selectedSolution.root_cause || 'N/A'}</Typography>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="body2" color="textSecondary">Solution</Typography>
-                  <Typography variant="body1">{selectedSolution.solution || 'N/A'}</Typography>
-                </Grid>
-                <Grid item xs={12}>
-                  <Typography variant="body2" color="textSecondary">Repair Procedure</Typography>
-                  <Paper sx={{ p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
-                    <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
-                      {selectedSolution.repair_procedure || 'N/A'}
+                  <Typography variant="subtitle2" fontWeight={600} color="primary" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Build fontSize="small" /> Solution Details
+                  </Typography>
+                  
+                  <Paper sx={{ p: 2, bgcolor: '#f5f7fa', borderRadius: 2, mb: 2 }}>
+                    <Typography variant="caption" color="textSecondary">Root Cause</Typography>
+                    <Typography variant="body2" sx={{ mt: 0.5 }}>{selectedSolution.root_cause || 'Not specified'}</Typography>
+                  </Paper>
+
+                  <Paper sx={{ p: 2, bgcolor: '#f5f7fa', borderRadius: 2, mb: 2 }}>
+                    <Typography variant="caption" color="textSecondary">Solution</Typography>
+                    <Typography variant="body2" sx={{ mt: 0.5 }}>{selectedSolution.solution || 'Not specified'}</Typography>
+                  </Paper>
+
+                  <Paper sx={{ p: 2, bgcolor: '#f5f7fa', borderRadius: 2 }}>
+                    <Typography variant="caption" color="textSecondary">Repair Procedure</Typography>
+                    <Typography variant="body2" sx={{ mt: 0.5, whiteSpace: 'pre-line' }}>
+                      {selectedSolution.repair_procedure || 'Not specified'}
                     </Typography>
                   </Paper>
                 </Grid>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="body2" color="textSecondary">Time Taken</Typography>
-                  <Typography variant="body1">{selectedSolution.time_taken ? `${selectedSolution.time_taken} minutes` : 'N/A'}</Typography>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="body2" color="textSecondary">Repair Date</Typography>
-                  <Typography variant="body1">{formatDate(selectedSolution.repair_date)}</Typography>
-                </Grid>
               </Grid>
 
-              {/* Spare Parts */}
-              <Typography variant="subtitle2" fontWeight={600} color="primary" gutterBottom>
-                Spare Parts
-              </Typography>
-              <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid item xs={12}>
-                  <Typography variant="body2" color="textSecondary">Spare Parts Used</Typography>
-                  <Typography variant="body1">{selectedSolution.spare_parts_used || 'N/A'}</Typography>
-                </Grid>
-              </Grid>
+              {/* Spare Parts Section */}
+              {selectedSolution.spare_parts_used && (
+                <>
+                  <Divider sx={{ my: 3 }} />
+                  <Typography variant="subtitle2" fontWeight={600} color="primary" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Inventory fontSize="small" /> Spare Parts Used
+                  </Typography>
+                  <Paper sx={{ p: 2, bgcolor: '#f5f7fa', borderRadius: 2 }}>
+                    <Typography variant="body2">{selectedSolution.spare_parts_used}</Typography>
+                  </Paper>
+                </>
+              )}
 
-              {/* Images */}
-              <Typography variant="subtitle2" fontWeight={600} color="primary" gutterBottom>
-                Images
-              </Typography>
-              <Grid container spacing={2} sx={{ mb: 3 }}>
-                {selectedSolution.spare_part_images && (
-                  <Grid item xs={12}>
-                    <Typography variant="body2" color="textSecondary">Spare Part Images</Typography>
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
-                      {selectedSolution.spare_part_images.split(',').filter(Boolean).map((url, idx) => {
-                        const fullUrl = getFullUrl(url.trim())
-                        return (
-                          <Box
-                            key={idx}
-                            component="img"
-                            src={fullUrl}
-                            alt={`Spare part ${idx + 1}`}
-                            sx={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 1, cursor: 'pointer' }}
-                            onClick={() => window.open(fullUrl, '_blank')}
-                            onError={(e) => { e.target.style.display = 'none' }}
-                          />
-                        )
-                      })}
-                    </Box>
+              {/* Images Section */}
+              {(selectedSolution.spare_part_images || selectedSolution.before_repair_images || selectedSolution.after_repair_images || selectedSolution.images) && (
+                <>
+                  <Divider sx={{ my: 3 }} />
+                  <Typography variant="subtitle2" fontWeight={600} color="primary" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Image fontSize="small" /> Images
+                  </Typography>
+                  
+                  <Grid container spacing={2}>
+                    {selectedSolution.spare_part_images && (
+                      <Grid item xs={12}>
+                        <Typography variant="caption" color="textSecondary">Spare Part Images</Typography>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 0.5 }}>
+                          {selectedSolution.spare_part_images.split(',').filter(Boolean).map((url, idx) => {
+                            const fullUrl = getFullUrl(url.trim())
+                            return (
+                              <Box
+                                key={idx}
+                                component="img"
+                                src={fullUrl}
+                                alt={`Spare part ${idx + 1}`}
+                                sx={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 1, cursor: 'pointer' }}
+                                onClick={() => window.open(fullUrl, '_blank')}
+                                onError={(e) => { e.target.style.display = 'none' }}
+                              />
+                            )
+                          })}
+                        </Box>
+                      </Grid>
+                    )}
+
+                    {selectedSolution.before_repair_images && (
+                      <Grid item xs={12}>
+                        <Typography variant="caption" color="textSecondary">Before Repair</Typography>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 0.5 }}>
+                          {selectedSolution.before_repair_images.split(',').filter(Boolean).map((url, idx) => {
+                            const fullUrl = getFullUrl(url.trim())
+                            return (
+                              <Box
+                                key={idx}
+                                component="img"
+                                src={fullUrl}
+                                alt={`Before repair ${idx + 1}`}
+                                sx={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 1, cursor: 'pointer' }}
+                                onClick={() => window.open(fullUrl, '_blank')}
+                                onError={(e) => { e.target.style.display = 'none' }}
+                              />
+                            )
+                          })}
+                        </Box>
+                      </Grid>
+                    )}
+
+                    {selectedSolution.after_repair_images && (
+                      <Grid item xs={12}>
+                        <Typography variant="caption" color="textSecondary">After Repair</Typography>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 0.5 }}>
+                          {selectedSolution.after_repair_images.split(',').filter(Boolean).map((url, idx) => {
+                            const fullUrl = getFullUrl(url.trim())
+                            return (
+                              <Box
+                                key={idx}
+                                component="img"
+                                src={fullUrl}
+                                alt={`After repair ${idx + 1}`}
+                                sx={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 1, cursor: 'pointer' }}
+                                onClick={() => window.open(fullUrl, '_blank')}
+                                onError={(e) => { e.target.style.display = 'none' }}
+                              />
+                            )
+                          })}
+                        </Box>
+                      </Grid>
+                    )}
+
+                    {selectedSolution.images && (
+                      <Grid item xs={12}>
+                        <Typography variant="caption" color="textSecondary">General Images</Typography>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 0.5 }}>
+                          {selectedSolution.images.split(',').filter(Boolean).map((url, idx) => {
+                            const fullUrl = getFullUrl(url.trim())
+                            return (
+                              <Box
+                                key={idx}
+                                component="img"
+                                src={fullUrl}
+                                alt={`Image ${idx + 1}`}
+                                sx={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 1, cursor: 'pointer' }}
+                                onClick={() => window.open(fullUrl, '_blank')}
+                                onError={(e) => { e.target.style.display = 'none' }}
+                              />
+                            )
+                          })}
+                        </Box>
+                      </Grid>
+                    )}
                   </Grid>
-                )}
-
-                {selectedSolution.before_repair_images && (
-                  <Grid item xs={12}>
-                    <Typography variant="body2" color="textSecondary">Before Repair Images</Typography>
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
-                      {selectedSolution.before_repair_images.split(',').filter(Boolean).map((url, idx) => {
-                        const fullUrl = getFullUrl(url.trim())
-                        return (
-                          <Box
-                            key={idx}
-                            component="img"
-                            src={fullUrl}
-                            alt={`Before repair ${idx + 1}`}
-                            sx={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 1, cursor: 'pointer' }}
-                            onClick={() => window.open(fullUrl, '_blank')}
-                            onError={(e) => { e.target.style.display = 'none' }}
-                          />
-                        )
-                      })}
-                    </Box>
-                  </Grid>
-                )}
-
-                {selectedSolution.after_repair_images && (
-                  <Grid item xs={12}>
-                    <Typography variant="body2" color="textSecondary">After Repair Images</Typography>
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
-                      {selectedSolution.after_repair_images.split(',').filter(Boolean).map((url, idx) => {
-                        const fullUrl = getFullUrl(url.trim())
-                        return (
-                          <Box
-                            key={idx}
-                            component="img"
-                            src={fullUrl}
-                            alt={`After repair ${idx + 1}`}
-                            sx={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 1, cursor: 'pointer' }}
-                            onClick={() => window.open(fullUrl, '_blank')}
-                            onError={(e) => { e.target.style.display = 'none' }}
-                          />
-                        )
-                      })}
-                    </Box>
-                  </Grid>
-                )}
-
-                {selectedSolution.images && (
-                  <Grid item xs={12}>
-                    <Typography variant="body2" color="textSecondary">General Images</Typography>
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
-                      {selectedSolution.images.split(',').filter(Boolean).map((url, idx) => {
-                        const fullUrl = getFullUrl(url.trim())
-                        return (
-                          <Box
-                            key={idx}
-                            component="img"
-                            src={fullUrl}
-                            alt={`Image ${idx + 1}`}
-                            sx={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 1, cursor: 'pointer' }}
-                            onClick={() => window.open(fullUrl, '_blank')}
-                            onError={(e) => { e.target.style.display = 'none' }}
-                          />
-                        )
-                      })}
-                    </Box>
-                  </Grid>
-                )}
-              </Grid>
-
-              {/* People Information */}
-              <Typography variant="subtitle2" fontWeight={600} color="primary" gutterBottom>
-                People Information
-              </Typography>
-              <Grid container spacing={2} sx={{ mb: 2 }}>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="body2" color="textSecondary">Reported By</Typography>
-                  <Typography variant="body1">{selectedSolution.reported_by || selectedSolution.created_by_name || 'N/A'}</Typography>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="body2" color="textSecondary">Engineer Name</Typography>
-                  <Typography variant="body1">{selectedSolution.engineer_name || 'N/A'}</Typography>
-                </Grid>
-              </Grid>
+                </>
+              )}
 
               {/* Remarks */}
               {selectedSolution.remarks && (
                 <>
-                  <Divider sx={{ my: 2 }} />
-                  <Typography variant="subtitle2" fontWeight={600} color="primary" gutterBottom>
-                    Remarks
+                  <Divider sx={{ my: 3 }} />
+                  <Typography variant="subtitle2" fontWeight={600} color="primary" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Description fontSize="small" /> Remarks
                   </Typography>
-                  <Paper sx={{ p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
+                  <Paper sx={{ p: 2, bgcolor: '#f5f7fa', borderRadius: 2 }}>
                     <Typography variant="body2">{selectedSolution.remarks}</Typography>
                   </Paper>
                 </>
               )}
+
+              {/* People Information */}
+              <Divider sx={{ my: 3 }} />
+              <Typography variant="subtitle2" fontWeight={600} color="primary" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Person fontSize="small" /> People Information
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <Paper sx={{ p: 2, bgcolor: '#f5f7fa', borderRadius: 2 }}>
+                    <Typography variant="caption" color="textSecondary">Engineer Name</Typography>
+                    <Typography variant="body2" fontWeight={500}>{selectedSolution.engineer_name || 'N/A'}</Typography>
+                  </Paper>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Paper sx={{ p: 2, bgcolor: '#f5f7fa', borderRadius: 2 }}>
+                    <Typography variant="caption" color="textSecondary">Created By</Typography>
+                    <Typography variant="body2" fontWeight={500}>{selectedSolution.created_by_name || 'Unknown'}</Typography>
+                  </Paper>
+                </Grid>
+              </Grid>
             </Box>
           )}
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
           <Button onClick={() => setOpenViewDialog(false)}>Close</Button>
-          {/* ✅ Engineer can ONLY edit their own solutions, Super Admin can edit any */}
-          {canEdit(selectedSolution) && (
+          {isSuperAdmin && selectedSolution && (
             <Button
               variant="outlined"
               color="info"
@@ -1098,8 +1038,7 @@ const KnowledgeBase = () => {
               Edit
             </Button>
           )}
-          {/* ✅ ONLY Super Admin can delete */}
-          {canDelete && selectedSolution && (
+          {isSuperAdmin && selectedSolution && (
             <Button
               variant="contained"
               color="error"
@@ -1115,7 +1054,6 @@ const KnowledgeBase = () => {
         </DialogActions>
       </Dialog>
 
-      {/* DELETE CONFIRMATION DIALOG */}
       <Dialog open={openDeleteDialog} onClose={() => setOpenDeleteDialog(false)}>
         <DialogTitle sx={{ bgcolor: '#dc3545', color: 'white' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -1163,20 +1101,12 @@ const KnowledgeBase = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Add/Edit Solution Dialog */}
       <Dialog open={openAddDialog} onClose={() => setOpenAddDialog(false)} maxWidth="md" fullWidth>
         <DialogTitle sx={{ bgcolor: '#0B5FA5', color: 'white' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6" fontWeight={600}>
               {editingSolution ? 'Edit Solution' : 'Add New Solution'}
             </Typography>
-            {editingSolution && (
-              <Chip 
-                label={isEngineer ? 'Editing Your Solution' : 'Super Admin Edit'} 
-                size="small" 
-                color={isEngineer ? 'info' : 'warning'} 
-              />
-            )}
             <IconButton onClick={() => setOpenAddDialog(false)} sx={{ color: 'white' }}>
               <Close />
             </IconButton>
@@ -1319,7 +1249,6 @@ const KnowledgeBase = () => {
               />
             </Grid>
 
-            {/* SPARE PARTS SECTION */}
             <Grid item xs={12}>
               <Divider sx={{ my: 1 }} />
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>

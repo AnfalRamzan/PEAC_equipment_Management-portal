@@ -38,10 +38,6 @@ import {
   StepLabel,
   StepContent,
   Avatar,
-  List,
-  ListItem,
-  ListItemText,
-  ListItemIcon,
   Card,
   CardContent
 } from '@mui/material'
@@ -60,23 +56,14 @@ import {
   Refresh,
   AttachFile,
   FileDownload,
-  Timeline,
   Person,
-  Email,
-  Phone,
-  LocationOn,
   Business,
   Receipt,
   LocalShipping,
   Check,
-  Warning,
-  Info,
   Description,
-  Note,
   Image,
-  PictureAsPdf,
-  Engineering as EngineeringIcon,
-  AdminPanelSettings
+  PictureAsPdf
 } from '@mui/icons-material'
 import { purchaseOrderService, hospitalService } from '../api/services'
 import { toast } from 'react-toastify'
@@ -97,29 +84,29 @@ const getFullUrl = (url) => {
 }
 
 const safeToFixed = (value, decimals = 2) => {
-    const num = parseFloat(value)
-    return isNaN(num) ? '0.00' : num.toFixed(decimals)
+  const num = parseFloat(value)
+  return isNaN(num) ? '0.00' : num.toFixed(decimals)
 }
 
 const safeFormatDate = (date) => {
-    if (!date) return 'N/A'
-    try {
-        return new Date(date).toLocaleDateString()
-    } catch {
-        return 'N/A'
-    }
+  if (!date) return 'N/A'
+  try {
+    return new Date(date).toLocaleDateString()
+  } catch {
+    return 'N/A'
+  }
 }
 
 const getStatusColorForPrint = (status) => {
-    const colors = {
-        'Draft': '#6c757d',
-        'Pending Approval': '#ffc107',
-        'Approved': '#28a745',
-        'Ordered': '#17a2b8',
-        'Received': '#28a745',
-        'Cancelled': '#dc3545'
-    }
-    return colors[status] || '#6c757d'
+  const colors = {
+    'Draft': '#6c757d',
+    'Pending Approval': '#ffc107',
+    'Approved': '#28a745',
+    'Ordered': '#17a2b8',
+    'Received': '#28a745',
+    'Cancelled': '#dc3545'
+  }
+  return colors[status] || '#6c757d'
 }
 
 const PurchaseOrders = () => {
@@ -134,12 +121,10 @@ const PurchaseOrders = () => {
   const isSuperAdmin = user?.role === 'SUPER_ADMIN'
   
   // ✅ PERMISSIONS
-  // ✅ ENGINEER: Create, View, Edit (NO Delete, NO Approve/Reject)
-  // ✅ SUPER_ADMIN: Create, View, Edit, Delete, Approve, Reject (Full Access)
   const canCreate = isEngineer || isSuperAdmin
   const canEdit = isEngineer || isSuperAdmin
-  const canDelete = isSuperAdmin // ✅ ONLY Super Admin can delete
-  const canApprove = isSuperAdmin // ✅ ONLY Super Admin can approve/reject
+  const canDelete = isSuperAdmin
+  const canApprove = isSuperAdmin
   const canView = isEngineer || isSuperAdmin
 
   const [orders, setOrders] = useState([])
@@ -376,7 +361,7 @@ const PurchaseOrders = () => {
       const errorMsg = error.response?.data?.message || error.message || 'Operation failed';
       toast.error(errorMsg);
     }
-  };
+  }
 
   const handleDelete = async (id) => {
     if (!canDelete) {
@@ -515,265 +500,94 @@ const PurchaseOrders = () => {
   // ==================== PRINT FUNCTION ====================
   const handlePrint = () => {
     if (!viewingOrder) {
-        toast.error('No order selected to print')
-        return
+      toast.error('No order selected to print')
+      return
     }
 
     try {
-        const printWindow = window.open('', '_blank', 'width=900,height=700')
-        if (!printWindow) {
-            toast.error('Please allow popups for printing')
-            return
-        }
+      const printWindow = window.open('', '_blank', 'width=900,height=700')
+      if (!printWindow) {
+        toast.error('Please allow popups for printing')
+        return
+      }
 
-        const orderDate = safeFormatDate(viewingOrder.order_date)
-        const deliveryDate = safeFormatDate(viewingOrder.delivery_date)
+      const orderDate = safeFormatDate(viewingOrder.order_date)
+      const deliveryDate = safeFormatDate(viewingOrder.delivery_date)
 
-        const content = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Purchase Order ${viewingOrder.po_number}</title>
-            <style>
-                * { margin: 0; padding: 0; box-sizing: border-box; }
-                body { 
-                    font-family: Arial, sans-serif; 
-                    padding: 40px; 
-                    color: #333;
-                    background: #fff;
-                }
-                .header {
-                    text-align: center;
-                    border-bottom: 2px solid #0B5FA5;
-                    padding-bottom: 20px;
-                    margin-bottom: 20px;
-                }
-                .header h1 {
-                    color: #0B5FA5;
-                    font-size: 28px;
-                    margin-bottom: 5px;
-                }
-                .header p {
-                    color: #666;
-                    font-size: 14px;
-                }
-                .po-number {
-                    text-align: right;
-                    font-size: 18px;
-                    font-weight: bold;
-                    color: #0B5FA5;
-                    margin-bottom: 20px;
-                }
-                .info-grid {
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    gap: 10px 30px;
-                    margin-bottom: 20px;
-                }
-                .info-item {
-                    display: flex;
-                    padding: 8px 0;
-                    border-bottom: 1px solid #eee;
-                }
-                .info-item .label {
-                    font-weight: 600;
-                    min-width: 120px;
-                    color: #666;
-                }
-                .info-item .value {
-                    color: #333;
-                }
-                .status-badge {
-                    display: inline-block;
-                    padding: 4px 12px;
-                    border-radius: 20px;
-                    font-size: 12px;
-                    font-weight: 600;
-                    background: ${getStatusColorForPrint(viewingOrder.status)};
-                    color: white;
-                }
-                table {
-                    width: 100%;
-                    border-collapse: collapse;
-                    margin: 20px 0;
-                }
-                th {
-                    background: #f8f9fa;
-                    padding: 12px;
-                    text-align: left;
-                    border-bottom: 2px solid #0B5FA5;
-                    font-weight: 600;
-                }
-                td {
-                    padding: 10px 12px;
-                    border-bottom: 1px solid #eee;
-                }
-                .total-row {
-                    font-weight: 600;
-                    font-size: 16px;
-                }
-                .total-row td {
-                    border-top: 2px solid #0B5FA5;
-                    padding-top: 12px;
-                }
-                .total-amount {
-                    font-size: 18px;
-                    color: #0B5FA5;
-                }
-                .notes {
-                    margin-top: 20px;
-                    padding: 15px;
-                    background: #f8f9fa;
-                    border-radius: 5px;
-                }
-                .footer {
-                    margin-top: 30px;
-                    text-align: center;
-                    font-size: 12px;
-                    color: #999;
-                    border-top: 1px solid #eee;
-                    padding-top: 20px;
-                }
-                .documents {
-                    margin-top: 15px;
-                    padding: 10px;
-                    background: #f8f9fa;
-                    border-radius: 5px;
-                }
-                @media print {
-                    body { padding: 20px; }
-                    .no-print { display: none; }
-                }
-            </style>
-        </head>
-        <body>
-            <div class="header">
-                <h1>PAEC Equipment Management Portal</h1>
-                <p>Purchase Order</p>
-            </div>
+      const content = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Purchase Order ${viewingOrder.po_number}</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: Arial, sans-serif; padding: 40px; color: #333; background: #fff; }
+          .header { text-align: center; border-bottom: 2px solid #0B5FA5; padding-bottom: 20px; margin-bottom: 20px; }
+          .header h1 { color: #0B5FA5; font-size: 28px; margin-bottom: 5px; }
+          .header p { color: #666; font-size: 14px; }
+          .po-number { text-align: right; font-size: 18px; font-weight: bold; color: #0B5FA5; margin-bottom: 20px; }
+          .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 30px; margin-bottom: 20px; }
+          .info-item { display: flex; padding: 8px 0; border-bottom: 1px solid #eee; }
+          .info-item .label { font-weight: 600; min-width: 120px; color: #666; }
+          .info-item .value { color: #333; }
+          .status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; background: ${getStatusColorForPrint(viewingOrder.status)}; color: white; }
+          table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+          th { background: #f8f9fa; padding: 12px; text-align: left; border-bottom: 2px solid #0B5FA5; font-weight: 600; }
+          td { padding: 10px 12px; border-bottom: 1px solid #eee; }
+          .total-row { font-weight: 600; font-size: 16px; }
+          .total-row td { border-top: 2px solid #0B5FA5; padding-top: 12px; }
+          .total-amount { font-size: 18px; color: #0B5FA5; }
+          .notes { margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 5px; }
+          .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #999; border-top: 1px solid #eee; padding-top: 20px; }
+          .documents { margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 5px; }
+          @media print { body { padding: 20px; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>PAEC Equipment Management Portal</h1>
+          <p>Purchase Order</p>
+        </div>
+        <div class="po-number">
+          ${viewingOrder.po_number || 'N/A'}
+          <span class="status-badge" style="margin-left: 15px;">${viewingOrder.status || 'Draft'}</span>
+        </div>
+        <div class="info-grid">
+          <div class="info-item"><span class="label">Hospital:</span><span class="value">${viewingOrder.hospital_name || 'N/A'}</span></div>
+          <div class="info-item"><span class="label">Vendor:</span><span class="value">${viewingOrder.vendor_name || 'N/A'}</span></div>
+          <div class="info-item"><span class="label">Order Date:</span><span class="value">${orderDate}</span></div>
+          <div class="info-item"><span class="label">Delivery Date:</span><span class="value">${deliveryDate}</span></div>
+          ${viewingOrder.vendor_contact ? `<div class="info-item"><span class="label">Contact Person:</span><span class="value">${viewingOrder.vendor_contact}</span></div>` : ''}
+          ${viewingOrder.vendor_email ? `<div class="info-item"><span class="label">Email:</span><span class="value">${viewingOrder.vendor_email}</span></div>` : ''}
+          ${viewingOrder.vendor_address ? `<div class="info-item" style="grid-column: span 2;"><span class="label">Address:</span><span class="value">${viewingOrder.vendor_address}</span></div>` : ''}
+        </div>
+        <h3 style="margin: 20px 0 10px 0; color: #0B5FA5;">Order Items</h3>
+        <table>
+          <thead><tr><th>#</th><th>Description</th><th style="text-align: center;">Quantity</th><th style="text-align: right;">Unit Price</th><th style="text-align: right;">Total</th></tr></thead>
+          <tbody>
+            ${viewingOrder.items && viewingOrder.items.length > 0 ? viewingOrder.items.map((item, index) => `
+            <tr><td>${index + 1}</td><td>${item.description || 'N/A'}</td><td style="text-align: center;">${item.quantity || 0}</td><td style="text-align: right;">$${safeToFixed(item.unit_price)}</td><td style="text-align: right;">$${safeToFixed(item.total)}</td></tr>
+            `).join('') : `<tr><td colspan="5" style="text-align: center; color: #999;">No items</td></tr>`}
+            <tr class="total-row"><td colspan="4" style="text-align: right;">Total Amount:</td><td style="text-align: right;"><span class="total-amount">$${safeToFixed(viewingOrder.total_amount)}</span></td></tr>
+          </tbody>
+        </table>
+        ${viewingOrder.notes ? `<div class="notes"><strong>Notes:</strong><p style="margin-top: 5px;">${viewingOrder.notes}</p></div>` : ''}
+        ${viewingOrder.documents && viewingOrder.documents.split(',').filter(Boolean).length > 0 ? `
+        <div class="documents"><strong>Attached Documents:</strong><ul style="margin-top: 5px; list-style: none; padding: 0;">
+          ${viewingOrder.documents.split(',').filter(Boolean).map(url => `<li style="padding: 2px 0;">📎 ${url.split('/').pop()}</li>`).join('')}
+        </ul></div>` : ''}
+        <div class="footer">Generated on ${new Date().toLocaleString()}<br>This is a system-generated document from PAEC Equipment Management Portal</div>
+        <script>setTimeout(() => { window.print(); window.close(); }, 500);<\/script>
+      </body>
+      </html>
+      `
 
-            <div class="po-number">
-                ${viewingOrder.po_number || 'N/A'}
-                <span class="status-badge" style="margin-left: 15px;">${viewingOrder.status || 'Draft'}</span>
-            </div>
-
-            <div class="info-grid">
-                <div class="info-item">
-                    <span class="label">Hospital:</span>
-                    <span class="value">${viewingOrder.hospital_name || 'N/A'}</span>
-                </div>
-                <div class="info-item">
-                    <span class="label">Vendor:</span>
-                    <span class="value">${viewingOrder.vendor_name || 'N/A'}</span>
-                </div>
-                <div class="info-item">
-                    <span class="label">Order Date:</span>
-                    <span class="value">${orderDate}</span>
-                </div>
-                <div class="info-item">
-                    <span class="label">Delivery Date:</span>
-                    <span class="value">${deliveryDate}</span>
-                </div>
-                ${viewingOrder.vendor_contact ? `
-                <div class="info-item">
-                    <span class="label">Contact Person:</span>
-                    <span class="value">${viewingOrder.vendor_contact}</span>
-                </div>
-                ` : ''}
-                ${viewingOrder.vendor_email ? `
-                <div class="info-item">
-                    <span class="label">Email:</span>
-                    <span class="value">${viewingOrder.vendor_email}</span>
-                </div>
-                ` : ''}
-                ${viewingOrder.vendor_phone ? `
-                <div class="info-item">
-                    <span class="label">Phone:</span>
-                    <span class="value">${viewingOrder.vendor_phone}</span>
-                </div>
-                ` : ''}
-                ${viewingOrder.vendor_address ? `
-                <div class="info-item" style="grid-column: span 2;">
-                    <span class="label">Address:</span>
-                    <span class="value">${viewingOrder.vendor_address}</span>
-                </div>
-                ` : ''}
-            </div>
-
-            <h3 style="margin: 20px 0 10px 0; color: #0B5FA5;">Order Items</h3>
-            <table>
-                <thead>
-                    <tr>
-                        <th>#</th>
-                        <th>Description</th>
-                        <th style="text-align: center;">Quantity</th>
-                        <th style="text-align: right;">Unit Price</th>
-                        <th style="text-align: right;">Total</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${viewingOrder.items && viewingOrder.items.length > 0 ? viewingOrder.items.map((item, index) => `
-                    <tr>
-                        <td>${index + 1}</td>
-                        <td>${item.description || 'N/A'}</td>
-                        <td style="text-align: center;">${item.quantity || 0}</td>
-                        <td style="text-align: right;">$${safeToFixed(item.unit_price)}</td>
-                        <td style="text-align: right;">$${safeToFixed(item.total)}</td>
-                    </tr>
-                    `).join('') : `
-                    <tr>
-                        <td colspan="5" style="text-align: center; color: #999;">No items</td>
-                    </tr>
-                    `}
-                    <tr class="total-row">
-                        <td colspan="4" style="text-align: right;">Total Amount:</td>
-                        <td style="text-align: right;">
-                            <span class="total-amount">$${safeToFixed(viewingOrder.total_amount)}</span>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
-
-            ${viewingOrder.notes ? `
-            <div class="notes">
-                <strong>Notes:</strong>
-                <p style="margin-top: 5px;">${viewingOrder.notes}</p>
-            </div>
-            ` : ''}
-
-            ${viewingOrder.documents && viewingOrder.documents.split(',').filter(Boolean).length > 0 ? `
-            <div class="documents">
-                <strong>Attached Documents:</strong>
-                <ul style="margin-top: 5px; list-style: none; padding: 0;">
-                    ${viewingOrder.documents.split(',').filter(Boolean).map(url => `
-                    <li style="padding: 2px 0;">📎 ${url.split('/').pop()}</li>
-                    `).join('')}
-                </ul>
-            </div>
-            ` : ''}
-
-            <div class="footer">
-                Generated on ${new Date().toLocaleString()}
-                <br>
-                This is a system-generated document from PAEC Equipment Management Portal
-            </div>
-
-            <script>
-                setTimeout(() => {
-                    window.print();
-                    window.close();
-                }, 500);
-            <\/script>
-        </body>
-        </html>
-        `
-
-        printWindow.document.write(content)
-        printWindow.document.close()
+      printWindow.document.write(content)
+      printWindow.document.close()
 
     } catch (error) {
-        console.error('Print error:', error)
-        toast.error('Failed to print: ' + error.message)
+      console.error('Print error:', error)
+      toast.error('Failed to print: ' + error.message)
     }
   }
 
@@ -881,28 +695,12 @@ const PurchaseOrders = () => {
 
   return (
     <Box>
-      {/* ✅ Header - Role Chips */}
+      {/* ✅ Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Typography variant="h5" sx={{ fontWeight: 700, color: '#2C3E50' }}>
             Purchase Orders
           </Typography>
-          {isEngineer && (
-            <Chip 
-              icon={<EngineeringIcon sx={{ fontSize: 16 }} />}
-              label="Engineer Mode" 
-              size="small" 
-              color="info" 
-            />
-          )}
-          {isSuperAdmin && (
-            <Chip 
-              icon={<AdminPanelSettings sx={{ fontSize: 16 }} />}
-              label="Super Admin" 
-              size="small" 
-              color="warning" 
-            />
-          )}
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button
@@ -1118,7 +916,6 @@ const PurchaseOrders = () => {
                         </IconButton>
                       </Tooltip>
                       
-                      {/* ✅ Both Engineer and Super Admin can edit (Draft only) */}
                       {canEdit && order.status === 'Draft' && (
                         <Tooltip title="Edit">
                           <IconButton size="small" color="info" onClick={() => handleOpenDialog(order)}>
@@ -1127,7 +924,6 @@ const PurchaseOrders = () => {
                         </Tooltip>
                       )}
                       
-                      {/* ✅ ONLY Super Admin can delete (Draft only) */}
                       {canDelete && order.status === 'Draft' && (
                         <Tooltip title="Delete">
                           <IconButton size="small" color="error" onClick={() => handleDelete(order.id)}>
@@ -1136,7 +932,6 @@ const PurchaseOrders = () => {
                         </Tooltip>
                       )}
                       
-                      {/* ✅ ONLY Super Admin can approve/reject */}
                       {canApprove && order.status === 'Pending Approval' && (
                         <>
                           <Tooltip title="Approve">
@@ -1154,7 +949,10 @@ const PurchaseOrders = () => {
                       
                       {(order.status === 'Approved' || order.status === 'Ordered' || order.status === 'Received') && (
                         <Tooltip title="Print">
-                          <IconButton size="small" color="primary" onClick={handlePrint}>
+                          <IconButton size="small" color="primary" onClick={() => {
+                            setViewingOrder(order)
+                            setTimeout(handlePrint, 100)
+                          }}>
                             <Print fontSize="small" />
                           </IconButton>
                         </Tooltip>
@@ -1176,12 +974,6 @@ const PurchaseOrders = () => {
             <Typography variant="h6" fontWeight={600}>
               {editingOrder ? 'Edit Purchase Order' : 'Create Purchase Order'}
             </Typography>
-            <Chip 
-              label={isEngineer ? 'Engineer' : 'Super Admin'} 
-              size="small" 
-              color={isEngineer ? 'info' : 'warning'}
-              sx={{ ml: 1 }}
-            />
           </Box>
           <IconButton
             onClick={handleCloseDialog}
@@ -1506,17 +1298,9 @@ const PurchaseOrders = () => {
             <Typography variant="h6" fontWeight={600}>
               Purchase Order Details
             </Typography>
-            <Box>
-              {isEngineer && (
-                <Chip label="Engineer" size="small" color="info" sx={{ mr: 1 }} />
-              )}
-              {isSuperAdmin && (
-                <Chip label="Super Admin" size="small" color="warning" sx={{ mr: 1 }} />
-              )}
-              <IconButton onClick={handleCloseView} sx={{ color: 'white' }}>
-                <Close />
-              </IconButton>
-            </Box>
+            <IconButton onClick={handleCloseView} sx={{ color: 'white' }}>
+              <Close />
+            </IconButton>
           </Box>
         </DialogTitle>
         <DialogContent dividers>

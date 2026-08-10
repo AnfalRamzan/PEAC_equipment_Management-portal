@@ -1,6 +1,6 @@
 // src/pages/ServiceDocumentation.jsx
-// ✅ ENGINEER: View ALL documents, Upload (Create), Edit ONLY own documents (NO Delete)
-// ✅ SUPER_ADMIN: View ALL, Edit ANY, Delete ANY (Full Access)
+// ✅ SUPER_ADMIN: View, Upload, Edit, Delete (Full Access)
+// ✅ ENGINEER: View, Upload (NO Edit, NO Delete)
 // ❌ HOSPITAL_ADMIN: Access Denied
 
 import React, { useState, useEffect } from 'react'
@@ -83,22 +83,13 @@ const ServiceDocumentation = () => {
   const isEngineer = user?.role === 'ENGINEER'
   const isSuperAdmin = user?.role === 'SUPER_ADMIN'
   
-  // ✅ PERMISSIONS
-  // ✅ ENGINEER: View ALL, Upload (Create), Edit ONLY own documents (NO Delete)
-  // ✅ SUPER_ADMIN: Full Access (View, Upload, Edit, Delete)
+  // ✅ UPDATED PERMISSIONS
+  // ✅ SUPER_ADMIN: View, Upload, Edit, Delete (Full Access)
+  // ✅ ENGINEER: View, Upload (NO Edit, NO Delete)
+  const canView = isEngineer || isSuperAdmin
   const canUpload = isEngineer || isSuperAdmin
+  const canEdit = isSuperAdmin // ✅ ONLY Super Admin can edit
   const canDelete = isSuperAdmin // ✅ ONLY Super Admin can delete
-  const canView = isEngineer || isSuperAdmin // ✅ Both can view
-  
-  // ✅ Engineer can ONLY edit their own documents
-  const canEdit = (doc) => {
-    if (isSuperAdmin) return true // ✅ Super Admin can edit any
-    if (isEngineer) {
-      // Check if this document belongs to this engineer
-      return doc.uploaded_by === user?.id || doc.uploaded_by_name === user?.full_name
-    }
-    return false
-  }
 
   const [documents, setDocuments] = useState([])
   const [equipmentList, setEquipmentList] = useState([])
@@ -284,6 +275,11 @@ const ServiceDocumentation = () => {
 
       let response
       if (editingDocument) {
+        // ✅ ONLY Super Admin can edit
+        if (!isSuperAdmin) {
+          toast.error('Only Super Admin can edit documents')
+          return
+        }
         response = await api.put(`/service-documentation/${selectedDoc.id}`, payload)
         toast.success('Document updated successfully')
       } else {
@@ -322,9 +318,9 @@ const ServiceDocumentation = () => {
   }
 
   const handleEdit = (doc) => {
-    // ✅ Check if user can edit this document
-    if (!canEdit(doc)) {
-      toast.error('You can only edit your own documents')
+    // ✅ ONLY Super Admin can edit
+    if (!isSuperAdmin) {
+      toast.error('Only Super Admin can edit documents')
       return
     }
     setSelectedDoc(doc)
@@ -369,7 +365,8 @@ const ServiceDocumentation = () => {
   }
 
   const handleDelete = async (id) => {
-    if (!canDelete) {
+    // ✅ ONLY Super Admin can delete
+    if (!isSuperAdmin) {
       toast.error('Only Super Admin can delete documents')
       return
     }
@@ -406,7 +403,7 @@ const ServiceDocumentation = () => {
 
   const stats = getStats()
 
-  // ✅ Everyone can see ALL documents (no filtering by uploader)
+  // ✅ Everyone can see ALL documents (no filtering)
   const filteredDocs = documents.filter(doc => {
     const matchesSearch = doc.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           doc.equipment?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -439,28 +436,14 @@ const ServiceDocumentation = () => {
 
   return (
     <Box>
-      {/* ✅ Header - Role Chips */}
+      {/* ✅ Header - REMOVED ROLE CHIPS */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Typography variant="h5" sx={{ fontWeight: 700, color: '#2C3E50' }}>
             Service Documentation
           </Typography>
-          {isEngineer && (
-            <Chip 
-              icon={<EngineeringIcon sx={{ fontSize: 16 }} />}
-              label="Engineer Mode - View & Upload Only" 
-              size="small" 
-              color="info" 
-            />
-          )}
-          {isSuperAdmin && (
-            <Chip 
-              icon={<AdminPanelSettings sx={{ fontSize: 16 }} />}
-              label="Super Admin (Full Control)" 
-              size="small" 
-              color="warning" 
-            />
-          )}
+          {/* ❌ REMOVED: Engineer Chip */}
+          {/* ❌ REMOVED: Super Admin Chip */}
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button
@@ -500,23 +483,7 @@ const ServiceDocumentation = () => {
         </Box>
       </Box>
 
-      {/* Info Alert - Engineers can see all documents */}
-      {isEngineer && (
-        <Alert severity="info" sx={{ mb: 2 }}>
-          <Typography variant="body2">
-            <strong>📄 Collaborative View:</strong> You can see all documents from all engineers. 
-            You can only <strong>edit</strong> your own documents. Only <strong>Super Admin</strong> can delete documents.
-          </Typography>
-        </Alert>
-      )}
-
-      {isSuperAdmin && (
-        <Alert severity="warning" sx={{ mb: 2 }}>
-          <Typography variant="body2">
-            <strong>👑 Super Admin:</strong> You have full control. You can view, upload, edit, and delete any document.
-          </Typography>
-        </Alert>
-      )}
+      {/* ❌ REMOVED: Info Alerts for Engineers and Super Admin */}
 
       {/* Stats Cards */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
@@ -591,8 +558,6 @@ const ServiceDocumentation = () => {
       {/* Document Cards */}
       <Grid container spacing={3}>
         {filteredDocs.map((doc) => {
-          const isOwnDocument = isEngineer && (doc.uploaded_by === user?.id || doc.uploaded_by_name === user?.full_name)
-          
           return (
             <Grid item xs={12} sm={6} md={4} key={doc.id}>
               <Card sx={{ 
@@ -627,14 +592,7 @@ const ServiceDocumentation = () => {
                         size="small"
                         variant="outlined"
                       />
-                      {isOwnDocument && (
-                        <Chip 
-                          label="My Document" 
-                          size="small" 
-                          color="primary" 
-                          sx={{ ml: 0.5, height: 18, fontSize: '9px' }}
-                        />
-                      )}
+                      {/* ❌ REMOVED: "My Document" chip */}
                     </Box>
                   </Box>
                   <Typography variant="body2" color="textSecondary">
@@ -676,8 +634,8 @@ const ServiceDocumentation = () => {
                     </Button>
                   </Tooltip>
                   
-                  {/* ✅ Engineer can ONLY edit their own documents, Super Admin can edit any */}
-                  {canEdit(doc) && (
+                  {/* ✅ ONLY Super Admin can Edit */}
+                  {canEdit && (
                     <Tooltip title="Edit">
                       <IconButton 
                         size="small" 
@@ -755,13 +713,7 @@ const ServiceDocumentation = () => {
               <Typography variant="h6" fontWeight={600}>
                 {editingDocument ? 'Edit Document' : 'Upload Document'}
               </Typography>
-              {editingDocument && (
-                <Chip 
-                  label={isEngineer ? 'Editing Your Document' : 'Super Admin Edit'} 
-                  size="small" 
-                  color={isEngineer ? 'info' : 'warning'} 
-                />
-              )}
+              {/* ❌ REMOVED: Editing chip */}
               <IconButton onClick={() => {
                 setOpenDialog(false)
                 setEditingDocument(false)
@@ -953,12 +905,8 @@ const ServiceDocumentation = () => {
               Document Details
             </Typography>
             <Box>
-              {isSuperAdmin && (
-                <Chip label="Super Admin" size="small" color="warning" sx={{ mr: 1 }} />
-              )}
-              {isEngineer && (
-                <Chip label="Engineer" size="small" color="info" sx={{ mr: 1 }} />
-              )}
+              {/* ❌ REMOVED: Super Admin Chip */}
+              {/* ❌ REMOVED: Engineer Chip */}
               <IconButton onClick={() => setOpenViewDialog(false)} sx={{ color: 'white' }}>
                 <Close />
               </IconButton>
@@ -989,9 +937,7 @@ const ServiceDocumentation = () => {
                         size="small"
                         variant="outlined"
                       />
-                      {isEngineer && selectedDoc.uploaded_by === user?.id && (
-                        <Chip label="Your Document" size="small" color="primary" />
-                      )}
+                      {/* ❌ REMOVED: "Your Document" chip */}
                     </Box>
                   </Box>
                 </Grid>

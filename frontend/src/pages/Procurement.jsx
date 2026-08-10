@@ -60,9 +60,7 @@ import {
   AttachFile,
   Print,
   Image,
-  PictureAsPdf,
-  Engineering as EngineeringIcon,
-  AdminPanelSettings
+  PictureAsPdf
 } from '@mui/icons-material'
 import { procurementService, equipmentService, hospitalService } from '../api/services'
 import { toast } from 'react-toastify'
@@ -97,8 +95,6 @@ const Procurement = () => {
   const isSuperAdmin = user?.role === 'SUPER_ADMIN'
 
   // ✅ PERMISSIONS
-  // ✅ ENGINEER & SUPER_ADMIN: Create, Edit, Delete, Review, Mark Procured
-  // ✅ SUPER_ADMIN ONLY: Approve, Reject
   const canCreate = isEngineer || isSuperAdmin
   const canEdit = isEngineer || isSuperAdmin
   const canDelete = isEngineer || isSuperAdmin
@@ -518,29 +514,11 @@ const Procurement = () => {
 
   return (
     <Box>
-      {/* ✅ Header - Role Chips */}
+      {/* ✅ Header - No Chips */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Typography variant="h5" sx={{ fontWeight: 700, color: '#2C3E50' }}>
-            Equipment Procurement
-          </Typography>
-          {isEngineer && (
-            <Chip 
-              icon={<EngineeringIcon sx={{ fontSize: 16 }} />}
-              label="Engineer Mode" 
-              size="small" 
-              color="info" 
-            />
-          )}
-          {isSuperAdmin && (
-            <Chip 
-              icon={<AdminPanelSettings sx={{ fontSize: 16 }} />}
-              label="Super Admin" 
-              size="small" 
-              color="warning" 
-            />
-          )}
-        </Box>
+        <Typography variant="h5" sx={{ fontWeight: 700, color: '#2C3E50' }}>
+          Equipment Procurement
+        </Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button
             variant="outlined"
@@ -1397,13 +1375,6 @@ const Procurement = () => {
                         </Button>
                       </>
                     )}
-                    {viewingRequest.status === 'Under Review' && !canApprove && (
-                      <Alert severity="info" sx={{ mt: 1, width: '100%' }}>
-                        <Typography variant="body2">
-                          <strong>Waiting for Super Admin approval.</strong> Only Super Admin can approve or reject requests.
-                        </Typography>
-                      </Alert>
-                    )}
                     {viewingRequest.status === 'Approved' && canMarkProcured && (
                       <Button
                         size="small"
@@ -1415,35 +1386,23 @@ const Procurement = () => {
                         Mark as Procured
                       </Button>
                     )}
-                    {viewingRequest.status === 'Approved' && !canMarkProcured && (
-                      <Alert severity="info" sx={{ mt: 1, width: '100%' }}>
-                        <Typography variant="body2">
-                          <strong>Request Approved!</strong> Mark as Procured when equipment is received.
-                        </Typography>
-                      </Alert>
-                    )}
                   </Box>
                 </Grid>
               )}
 
-              {/* View Only Message for Rejected */}
+              {/* View Only Messages - Simplified */}
               {viewingRequest.status === 'Rejected' && (
                 <Grid item xs={12}>
                   <Alert severity="error" sx={{ mt: 2 }}>
-                    <Typography variant="body2">
-                      <strong>This request has been rejected.</strong> No further actions can be taken.
-                    </Typography>
+                    This request has been rejected. No further actions can be taken.
                   </Alert>
                 </Grid>
               )}
 
-              {/* View Only Message for Procured */}
               {viewingRequest.status === 'Procured' && (
                 <Grid item xs={12}>
                   <Alert severity="success" sx={{ mt: 2 }}>
-                    <Typography variant="body2">
-                      <strong>Equipment has been procured!</strong> This request is complete.
-                    </Typography>
+                    Equipment has been procured! This request is complete.
                   </Alert>
                 </Grid>
               )}

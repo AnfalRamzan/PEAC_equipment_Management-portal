@@ -1,7 +1,4 @@
 // src/pages/ErrorLogs.jsx
-// ✅ ENGINEER: Report, View, Edit (NO Delete)
-// ✅ SUPER_ADMIN: View, Delete (ONLY) - No Report/Edit
-// ❌ HOSPITAL_ADMIN: Access Denied
 
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -17,7 +14,6 @@ import {
   Button,
   IconButton,
   TextField,
-  InputAdornment,
   Chip,
   Dialog,
   DialogTitle,
@@ -31,12 +27,9 @@ import {
   FormControl,
   InputLabel,
   Tooltip,
-  Divider,
   Alert,
-  CircularProgress,
   Card,
   CardContent,
-  Avatar,
   Stack,
   FormHelperText
 } from '@mui/material'
@@ -47,35 +40,7 @@ import {
   Delete,
   Visibility,
   Close,
-  Refresh,
-  AttachFile,
-  Person,
-  Error as ErrorIcon,
-  CheckCircle,
-  Close as CloseIcon,
-  Assignment,
-  PersonAdd,
-  Cancel,
-  PictureAsPdf,
-  Description,
-  TableChart,
-  InsertDriveFile,
-  Build,
-  Warning,
-  Info,
-  Check,
-  Schedule,
-  Business,
-  MedicalServices,
-  Email,
-  Phone,
-  LocationOn,
-  CalendarToday,
-  Pending,
-  Verified,
-  Save,
-  Engineering as EngineeringIcon,
-  AdminPanelSettings
+  Refresh
 } from '@mui/icons-material'
 import { errorService, equipmentService, hospitalService, userService } from '../api/services'
 import { toast } from 'react-toastify'
@@ -88,7 +53,6 @@ const ErrorLogs = () => {
   const { user } = useSelector((state) => state.auth)
   const navigate = useNavigate()
   
-  // ✅ HOSPITAL_ADMIN - Access Denied
   if (user?.role === 'HOSPITAL_ADMIN') {
     return <AccessDenied message="Hospital Administrators cannot access Error Logs." />
   }
@@ -96,14 +60,8 @@ const ErrorLogs = () => {
   const isSuperAdmin = user?.role === 'SUPER_ADMIN'
   const isEngineer = user?.role === 'ENGINEER'
   
-  // ✅ PERMISSIONS
-  // ✅ ENGINEER: Report, View, Edit (NO Delete)
-  // ✅ SUPER_ADMIN: View, Delete (ONLY) - No Report/Edit
-  const canCreate = isEngineer // ✅ Only Engineer can report
-  const canEdit = isEngineer // ✅ Only Engineer can edit
-  const canDelete = isSuperAdmin // ✅ Only Super Admin can delete
-  const canView = isEngineer || isSuperAdmin // ✅ Both can view
-  const canChangeStatus = isEngineer // ✅ Only Engineer can change status
+  const canReport = isEngineer
+  const canDelete = isSuperAdmin
 
   const [errors, setErrors] = useState([])
   const [equipment, setEquipment] = useState([])
@@ -116,9 +74,6 @@ const ErrorLogs = () => {
   const [openViewDialog, setOpenViewDialog] = useState(false)
   const [editingError, setEditingError] = useState(null)
   const [viewingError, setViewingError] = useState(null)
-  const [statusUpdateLoading, setStatusUpdateLoading] = useState(false)
-
-  const [tempStatus, setTempStatus] = useState('')
 
   const [errors_validation, setErrors_validation] = useState({
     equipment_id: '',
@@ -129,7 +84,6 @@ const ErrorLogs = () => {
   })
 
   const [filters, setFilters] = useState({
-    status: '',
     severity: ''
   })
 
@@ -140,7 +94,6 @@ const ErrorLogs = () => {
     error_description: '',
     severity: 'Medium',
     priority: 'Medium',
-    status: 'Pending',
     error_date: new Date().toISOString().slice(0, 16),
     reported_by: user?.id || 1,
     hospital_id: user?.hospital_id || '',
@@ -271,9 +224,8 @@ const ErrorLogs = () => {
   }
 
   const handleOpenDialog = (error = null) => {
-    // ✅ Only ENGINEER can create/edit
-    if (!isEngineer) {
-      toast.error('Only Biomedical Engineers can report and edit errors')
+    if (!isEngineer && !error) {
+      toast.error('Only Engineers can report errors')
       return
     }
     
@@ -286,40 +238,25 @@ const ErrorLogs = () => {
     })
     
     if (error) {
-      setEditingError(error)
-      setErrorFormData({
-        equipment_id: error.equipment_id || '',
-        error_code: error.error_code || '',
-        error_title: error.error_title || '',
-        error_description: error.error_description || '',
-        severity: error.severity || 'Medium',
-        priority: error.priority || 'Medium',
-        status: error.status || 'Pending',
-        error_date: error.error_date ? error.error_date.slice(0, 16) : new Date().toISOString().slice(0, 16),
-        reported_by: error.reported_by || user?.id || 1,
-        hospital_id: error.hospital_id || user?.hospital_id || '',
-        department_id: error.department_id || '',
-        attachments: error.attachments || '',
-        assigned_to: error.assigned_to || ''
-      })
-    } else {
-      setEditingError(null)
-      setErrorFormData({
-        equipment_id: '',
-        error_code: '',
-        error_title: '',
-        error_description: '',
-        severity: 'Medium',
-        priority: 'Medium',
-        status: 'Pending',
-        error_date: new Date().toISOString().slice(0, 16),
-        reported_by: user?.id || 1,
-        hospital_id: user?.hospital_id || '',
-        department_id: '',
-        attachments: '',
-        assigned_to: ''
-      })
+      toast.error('Only Engineers can edit errors')
+      return
     }
+    
+    setEditingError(null)
+    setErrorFormData({
+      equipment_id: '',
+      error_code: '',
+      error_title: '',
+      error_description: '',
+      severity: 'Medium',
+      priority: 'Medium',
+      error_date: new Date().toISOString().slice(0, 16),
+      reported_by: user?.id || 1,
+      hospital_id: user?.hospital_id || '',
+      department_id: '',
+      attachments: '',
+      assigned_to: ''
+    })
     setOpenDialog(true)
   }
 
@@ -340,14 +277,12 @@ const ErrorLogs = () => {
       ...error,
       attachments: error.attachments || ''
     })
-    setTempStatus(error.status || 'Pending')
     setOpenViewDialog(true)
   }
 
   const handleCloseView = () => {
     setOpenViewDialog(false)
     setViewingError(null)
-    setTempStatus('')
   }
 
   const handleFormChange = (e) => {
@@ -367,9 +302,8 @@ const ErrorLogs = () => {
   }
 
   const handleSubmit = async () => {
-    // ✅ Only ENGINEER can submit
     if (!isEngineer) {
-      toast.error('Only Biomedical Engineers can report errors')
+      toast.error('Only Engineers can report errors')
       return
     }
 
@@ -386,73 +320,22 @@ const ErrorLogs = () => {
         error_description: errorFormData.error_description || '',
         severity: errorFormData.severity || 'Medium',
         priority: errorFormData.priority || 'Medium',
-        status: errorFormData.status || 'Pending',
         error_date: errorFormData.error_date || new Date().toISOString().slice(0, 19).replace('T', ' '),
-        assigned_to: errorFormData.assigned_to || null,
         attachments: errorFormData.attachments || ''
       }
 
-      if (editingError) {
-        await errorService.update(editingError.id, submitData)
-        toast.success('Error updated successfully')
-      } else {
-        await errorService.create(submitData)
-        toast.success('Error reported successfully')
-      }
+      await errorService.create(submitData)
+      toast.success('Error reported successfully')
       
       fetchErrors()
       handleCloseDialog()
     } catch (error) {
-      console.error('❌ Submit error:', error)
+      console.error('Submit error:', error)
       toast.error(error.response?.data?.message || error.message || 'Operation failed')
     }
   }
 
-  // ✅ Only ENGINEER can save status
-  const handleSaveStatus = async () => {
-    if (!isEngineer) {
-      toast.error('Only Biomedical Engineers can change error status')
-      return
-    }
-
-    if (!viewingError) return
-    if (tempStatus === viewingError.status) {
-      toast.info('No changes to save')
-      return
-    }
-
-    try {
-      setStatusUpdateLoading(true)
-
-      await errorService.update(viewingError.id, { status: tempStatus })
-      
-      const statusMessages = {
-        'Pending': '⏳ Error marked as Pending',
-        'In Progress': '🔄 Error in progress',
-        'Completed': '✅ Error completed',
-        'Resolved': '✅ Error resolved',
-        'Closed': '🔒 Error closed',
-        'Rejected': '❌ Error rejected'
-      }
-      
-      toast.success(statusMessages[tempStatus] || `Status updated to ${tempStatus}`)
-      setStatusUpdateLoading(false)
-      fetchErrors()
-      setViewingError({ ...viewingError, status: tempStatus })
-      
-    } catch (error) {
-      console.error('Status update error:', error)
-      toast.error(error.response?.data?.message || 'Failed to update status')
-      setStatusUpdateLoading(false)
-    }
-  }
-
-  const handleStatusChange = (event) => {
-    setTempStatus(event.target.value)
-  }
-
   const handleErrorDelete = async (id) => {
-    // ✅ Only SUPER_ADMIN can delete
     if (!isSuperAdmin) {
       toast.error('Only Super Admin can delete errors')
       return
@@ -476,16 +359,14 @@ const ErrorLogs = () => {
     const matchesSearch = error.error_title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           error.error_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           error.equipment_name?.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesStatus = !filters.status || error.status === filters.status
     const matchesSeverity = !filters.severity || error.severity === filters.severity
-    return matchesSearch && matchesStatus && matchesSeverity
+    return matchesSearch && matchesSeverity
   })
 
   const totalErrors = errors.length
   const openErrors = errors.filter(e => e.status === 'Pending' || e.status === 'In Progress').length
   const completedErrors = errors.filter(e => e.status === 'Completed').length
   const resolvedErrors = errors.filter(e => e.status === 'Resolved' || e.status === 'Closed').length
-  const criticalErrors = errors.filter(e => e.severity === 'Critical').length
 
   if (loading) {
     return <LinearProgress />
@@ -493,29 +374,10 @@ const ErrorLogs = () => {
 
   return (
     <Box>
-      {/* Header - Role Chips */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Typography variant="h5" sx={{ fontWeight: 700, color: '#2C3E50' }}>
-            Error Logs
-          </Typography>
-          {isEngineer && (
-            <Chip 
-              icon={<EngineeringIcon sx={{ fontSize: 16 }} />}
-              label="Engineer Mode" 
-              size="small" 
-              color="info" 
-            />
-          )}
-          {isSuperAdmin && (
-            <Chip 
-              icon={<AdminPanelSettings sx={{ fontSize: 16 }} />}
-              label="Super Admin (View & Delete Only)" 
-              size="small" 
-              color="warning" 
-            />
-          )}
-        </Box>
+        <Typography variant="h5" sx={{ fontWeight: 700, color: '#2C3E50' }}>
+          Error Logs
+        </Typography>
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
           <Button
             variant="outlined"
@@ -525,7 +387,7 @@ const ErrorLogs = () => {
           >
             Refresh
           </Button>
-          {canCreate && (
+          {canReport && (
             <Button
               variant="contained"
               startIcon={<Add />}
@@ -538,7 +400,6 @@ const ErrorLogs = () => {
         </Box>
       </Box>
 
-      {/* Stats Cards */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={6} sm={3}>
           <Card sx={{ borderRadius: 2 }}>
@@ -582,15 +443,6 @@ const ErrorLogs = () => {
         </Grid>
       </Grid>
 
-      {criticalErrors > 0 && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          <Typography variant="body2">
-            <strong>{criticalErrors}</strong> critical error{criticalErrors > 1 ? 's' : ''} need immediate attention!
-          </Typography>
-        </Alert>
-      )}
-
-      {/* Filters & Search */}
       <Paper sx={{ p: 2, mb: 3, borderRadius: 2 }}>
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
           <TextField
@@ -600,22 +452,6 @@ const ErrorLogs = () => {
             onChange={(e) => setSearchTerm(e.target.value)}
             sx={{ flexGrow: 1, minWidth: 200 }}
           />
-          <FormControl size="small" sx={{ minWidth: 150 }}>
-            <InputLabel>Status</InputLabel>
-            <Select
-              value={filters.status}
-              onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-              label="Status"
-            >
-              <MenuItem value="">All</MenuItem>
-              <MenuItem value="Pending">Pending</MenuItem>
-              <MenuItem value="In Progress">In Progress</MenuItem>
-              <MenuItem value="Completed">Completed</MenuItem>
-              <MenuItem value="Resolved">Resolved</MenuItem>
-              <MenuItem value="Closed">Closed</MenuItem>
-              <MenuItem value="Rejected">Rejected</MenuItem>
-            </Select>
-          </FormControl>
           <FormControl size="small" sx={{ minWidth: 150 }}>
             <InputLabel>Severity</InputLabel>
             <Select
@@ -633,7 +469,6 @@ const ErrorLogs = () => {
         </Box>
       </Paper>
 
-      {/* Table */}
       <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
         <Table>
           <TableHead sx={{ bgcolor: '#0B5FA5' }}>
@@ -641,7 +476,6 @@ const ErrorLogs = () => {
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Error</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Equipment</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Priority</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Assigned To</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Severity</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Status</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Date</TableCell>
@@ -651,7 +485,7 @@ const ErrorLogs = () => {
           <TableBody>
             {filteredErrors.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} align="center">
+                <TableCell colSpan={7} align="center">
                   <Typography variant="body1" sx={{ py: 3, color: '#6c757d' }}>
                     No errors found
                   </Typography>
@@ -677,15 +511,6 @@ const ErrorLogs = () => {
                     <Typography variant="body2">
                       {error.priority || 'Medium'}
                     </Typography>
-                  </TableCell>
-                  <TableCell>
-                    {error.assigned_to_name ? (
-                      <Typography variant="body2" fontWeight={500} sx={{ color: '#0B5FA5' }}>
-                        {error.assigned_to_name}
-                      </Typography>
-                    ) : (
-                      <Typography variant="body2" color="textSecondary">Unassigned</Typography>
-                    )}
                   </TableCell>
                   <TableCell>
                     <Typography variant="body2">
@@ -719,16 +544,6 @@ const ErrorLogs = () => {
                         </IconButton>
                       </Tooltip>
                       
-                      {/* ✅ Only ENGINEER can edit */}
-                      {canEdit && (
-                        <Tooltip title="Edit Error">
-                          <IconButton size="small" color="info" onClick={() => handleOpenDialog(error)}>
-                            <Edit fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      
-                      {/* ✅ Only SUPER_ADMIN can delete */}
                       {canDelete && (
                         <Tooltip title="Delete Error">
                           <IconButton size="small" color="error" onClick={() => handleErrorDelete(error.id)}>
@@ -745,14 +560,13 @@ const ErrorLogs = () => {
         </Table>
       </TableContainer>
 
-      {/* ADD/EDIT ERROR DIALOG - Only for ENGINEER */}
+      {/* REPORT ERROR DIALOG */}
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
         <DialogTitle sx={{ bgcolor: '#0B5FA5', color: 'white' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6" fontWeight={600}>
-              {editingError ? 'Edit Error' : 'Report New Error'}
+              Report New Error
             </Typography>
-            <Chip label="Engineer Only" size="small" color="info" sx={{ bgcolor: '#2196f3' }} />
             <IconButton onClick={handleCloseDialog} sx={{ color: 'white' }}>
               <Close />
             </IconButton>
@@ -760,7 +574,6 @@ const ErrorLogs = () => {
         </DialogTitle>
         <DialogContent dividers>
           <Grid container spacing={2} sx={{ mt: 1 }}>
-            {/* Hospital - Optional */}
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
                 <InputLabel>Hospital</InputLabel>
@@ -769,7 +582,6 @@ const ErrorLogs = () => {
                   value={errorFormData.hospital_id}
                   onChange={handleFormChange}
                   label="Hospital"
-                  disabled={!isEngineer}
                 >
                   <MenuItem value="">Select Hospital (Optional)</MenuItem>
                   {hospitals.map(h => (
@@ -779,7 +591,6 @@ const ErrorLogs = () => {
               </FormControl>
             </Grid>
 
-            {/* Department - Optional */}
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
                 <InputLabel>Department</InputLabel>
@@ -797,7 +608,6 @@ const ErrorLogs = () => {
               </FormControl>
             </Grid>
 
-            {/* Equipment - REQUIRED */}
             <Grid item xs={12}>
               <FormControl fullWidth required error={!!errors_validation.equipment_id}>
                 <InputLabel>Equipment *</InputLabel>
@@ -821,7 +631,6 @@ const ErrorLogs = () => {
               </FormControl>
             </Grid>
 
-            {/* Error Code - Optional */}
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
@@ -833,7 +642,6 @@ const ErrorLogs = () => {
               />
             </Grid>
 
-            {/* Severity - REQUIRED */}
             <Grid item xs={12} md={6}>
               <FormControl fullWidth required error={!!errors_validation.severity}>
                 <InputLabel>Severity *</InputLabel>
@@ -855,7 +663,6 @@ const ErrorLogs = () => {
               </FormControl>
             </Grid>
 
-            {/* Priority - REQUIRED */}
             <Grid item xs={12} md={6}>
               <FormControl fullWidth required error={!!errors_validation.priority}>
                 <InputLabel>Priority *</InputLabel>
@@ -877,28 +684,6 @@ const ErrorLogs = () => {
               </FormControl>
             </Grid>
 
-            {/* Status - ENGINEER can change */}
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel>Status</InputLabel>
-                <Select
-                  name="status"
-                  value={errorFormData.status}
-                  onChange={handleFormChange}
-                  label="Status"
-                  disabled={!isEngineer}
-                >
-                  <MenuItem value="Pending">Pending</MenuItem>
-                  <MenuItem value="In Progress">In Progress</MenuItem>
-                  <MenuItem value="Completed">Completed</MenuItem>
-                  <MenuItem value="Resolved">Resolved</MenuItem>
-                  <MenuItem value="Closed">Closed</MenuItem>
-                  <MenuItem value="Rejected">Rejected</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-
-            {/* Error Title - REQUIRED */}
             <Grid item xs={12}>
               <TextField
                 fullWidth
@@ -914,7 +699,6 @@ const ErrorLogs = () => {
               />
             </Grid>
 
-            {/* Error Description - Optional */}
             <Grid item xs={12}>
               <TextField
                 fullWidth
@@ -928,7 +712,6 @@ const ErrorLogs = () => {
               />
             </Grid>
 
-            {/* Error Date - REQUIRED */}
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
@@ -945,7 +728,6 @@ const ErrorLogs = () => {
               />
             </Grid>
 
-            {/* Attachments - Optional */}
             <Grid item xs={12}>
               <Typography variant="subtitle2" color="textSecondary" gutterBottom>
                 Attachments (Optional)
@@ -995,12 +777,12 @@ const ErrorLogs = () => {
             onClick={handleSubmit} 
             sx={{ bgcolor: '#0B5FA5', '&:hover': { bgcolor: '#084a8a' } }}
           >
-            {editingError ? 'Update' : 'Report Error'}
+            Report Error
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* VIEW ERROR DIALOG - All users can view */}
+      {/* VIEW ERROR DIALOG - REMOVED ASSIGNED TO */}
       <Dialog 
         open={openViewDialog} 
         onClose={handleCloseView} 
@@ -1024,17 +806,9 @@ const ErrorLogs = () => {
                 ID: {viewingError?.id} • {new Date(viewingError?.created_at).toLocaleString()}
               </Typography>
             </Box>
-            <Box>
-              {isEngineer && (
-                <Chip label="Engineer" size="small" color="info" sx={{ mr: 1 }} />
-              )}
-              {isSuperAdmin && (
-                <Chip label="Super Admin" size="small" color="warning" sx={{ mr: 1 }} />
-              )}
-              <IconButton onClick={handleCloseView} sx={{ color: 'white', mt: -1 }}>
-                <Close />
-              </IconButton>
-            </Box>
+            <IconButton onClick={handleCloseView} sx={{ color: 'white', mt: -1 }}>
+              <Close />
+            </IconButton>
           </Box>
         </DialogTitle>
         
@@ -1095,14 +869,6 @@ const ErrorLogs = () => {
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <Paper sx={{ p: 2, bgcolor: '#f8f9fa', borderRadius: 2 }}>
-                    <Typography variant="caption" color="textSecondary">Assigned To</Typography>
-                    <Typography variant="body2" fontWeight={600} sx={{ color: viewingError.assigned_to_name ? '#28a745' : '#6c757d' }}>
-                      {viewingError.assigned_to_name || 'Unassigned'}
-                    </Typography>
-                  </Paper>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Paper sx={{ p: 2, bgcolor: '#f8f9fa', borderRadius: 2 }}>
                     <Typography variant="caption" color="textSecondary">Error Date</Typography>
                     <Typography variant="body2" fontWeight={600}>
                       {viewingError.error_date ? new Date(viewingError.error_date).toLocaleString() : 'N/A'}
@@ -1135,9 +901,6 @@ const ErrorLogs = () => {
                     {viewingError.attachments.split(',').filter(Boolean).map((url, index) => {
                       const isImage = url.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i)
                       const isVideo = url.match(/\.(mp4|webm|ogg|mov|avi)$/i)
-                      const isPDF = url.match(/\.(pdf)$/i)
-                      const isWord = url.match(/\.(doc|docx)$/i)
-                      const isExcel = url.match(/\.(xls|xlsx)$/i)
                       
                       const fullUrl = getFullUrl(url)
                       
@@ -1154,10 +917,7 @@ const ErrorLogs = () => {
                             bgcolor: '#f8f9fa',
                             cursor: 'pointer',
                             transition: 'transform 0.2s',
-                            '&:hover': {
-                              transform: 'scale(1.05)',
-                              boxShadow: 4
-                            }
+                            '&:hover': { transform: 'scale(1.05)', boxShadow: 4 }
                           }}
                           onClick={() => window.open(fullUrl, '_blank')}
                         >
@@ -1175,25 +935,9 @@ const ErrorLogs = () => {
                             <video style={{ width: '100%', height: '100%', objectFit: 'cover' }} onClick={(e) => e.stopPropagation()}>
                               <source src={fullUrl} />
                             </video>
-                          ) : isPDF ? (
-                            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', p: 1 }}>
-                              <Typography variant="caption" align="center" noWrap>{url.split('/').pop()}</Typography>
-                              <Typography variant="caption" color="textSecondary">PDF</Typography>
-                            </Box>
-                          ) : isWord ? (
-                            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', p: 1 }}>
-                              <Typography variant="caption" align="center" noWrap>{url.split('/').pop()}</Typography>
-                              <Typography variant="caption" color="textSecondary">Word</Typography>
-                            </Box>
-                          ) : isExcel ? (
-                            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', p: 1 }}>
-                              <Typography variant="caption" align="center" noWrap>{url.split('/').pop()}</Typography>
-                              <Typography variant="caption" color="textSecondary">Excel</Typography>
-                            </Box>
                           ) : (
                             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', p: 1 }}>
                               <Typography variant="caption" align="center" noWrap>{url.split('/').pop()}</Typography>
-                              <Typography variant="caption" color="textSecondary">File</Typography>
                             </Box>
                           )}
                           <Box sx={{ 
@@ -1216,78 +960,12 @@ const ErrorLogs = () => {
                   </Box>
                 </Box>
               )}
-
-              {/* ✅ STATUS UPDATE - Only for ENGINEER */}
-              {isEngineer && (
-                <Box sx={{ mt: 3 }}>
-                  <Divider sx={{ mb: 2 }} />
-                  <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2, color: '#0B5FA5' }}>
-                    Update Status
-                  </Typography>
-                  
-                  <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-                    <FormControl size="small" sx={{ minWidth: 200 }}>
-                      <InputLabel>Select Status</InputLabel>
-                      <Select
-                        value={tempStatus}
-                        onChange={handleStatusChange}
-                        label="Select Status"
-                        disabled={statusUpdateLoading}
-                      >
-                        <MenuItem value="Pending">⏳ Pending</MenuItem>
-                        <MenuItem value="In Progress">🔄 In Progress</MenuItem>
-                        <MenuItem value="Completed">✅ Completed</MenuItem>
-                        <MenuItem value="Resolved">✅ Resolved</MenuItem>
-                        <MenuItem value="Closed">🔒 Closed</MenuItem>
-                        <MenuItem value="Rejected">❌ Rejected</MenuItem>
-                      </Select>
-                    </FormControl>
-
-                    <Button
-                      variant="contained"
-                      startIcon={statusUpdateLoading ? <CircularProgress size={20} color="inherit" /> : <Save />}
-                      onClick={handleSaveStatus}
-                      disabled={statusUpdateLoading || tempStatus === viewingError.status}
-                      sx={{ 
-                        bgcolor: statusUpdateLoading ? '#6c757d' : '#28a745',
-                        '&:hover': { bgcolor: statusUpdateLoading ? '#6c757d' : '#1e7e34' },
-                        minWidth: 120
-                      }}
-                    >
-                      {statusUpdateLoading ? 'Saving...' : 'Save Status'}
-                    </Button>
-
-                    {tempStatus !== viewingError.status && !statusUpdateLoading && (
-                      <Typography variant="caption" color="warning.main">
-                        ⚠️ Status changed, click Save to apply
-                      </Typography>
-                    )}
-                  </Box>
-
-                  {viewingError.assigned_to_name && (
-                    <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mt: 1 }}>
-                      👤 Assigned to: <strong>{viewingError.assigned_to_name}</strong>
-                    </Typography>
-                  )}
-                </Box>
-              )}
-
-              {/* ✅ SUPER_ADMIN - View Only Message with Delete option */}
-              {isSuperAdmin && (
-                <Alert severity="info" sx={{ mt: 3 }}>
-                  <Typography variant="body2">
-                    <strong>👀 Super Admin View:</strong> You can view all error details and <strong>delete</strong> errors if needed.
-                    Only Biomedical Engineers can report, edit, or update error status.
-                  </Typography>
-                </Alert>
-              )}
             </Box>
           )}
         </DialogContent>
         
         <DialogActions sx={{ p: 3, justifyContent: 'space-between' }}>
           <Button onClick={handleCloseView}>Close</Button>
-          {/* ✅ Only SUPER_ADMIN can delete from view dialog */}
           {isSuperAdmin && viewingError && (
             <Button
               variant="contained"

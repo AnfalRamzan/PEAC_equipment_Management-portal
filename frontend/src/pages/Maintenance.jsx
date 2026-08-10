@@ -1,5 +1,4 @@
 // src/pages/Maintenance.jsx
-// ✅ FIXED: Added FormHelperText import
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -31,7 +30,8 @@ import {
   Card,
   CardContent,
   Tooltip,
-  FormHelperText, // ✅ ADDED
+  FormHelperText,
+  Divider,
 } from '@mui/material'
 import {
   Add,
@@ -39,20 +39,16 @@ import {
   Edit,
   Delete,
   Visibility,
-  Download,
   Close,
   Refresh,
-  CheckCircle,
-  Warning,
   CalendarToday,
   Build,
   Schedule,
   Person,
-  Engineering as EngineeringIcon,
   AdminPanelSettings,
   Verified
 } from '@mui/icons-material'
-import { maintenanceService, equipmentService, userService } from '../api/services'
+import { maintenanceService, equipmentService } from '../api/services'
 import { toast } from 'react-toastify'
 import { useSelector } from 'react-redux'
 import AccessDenied from '../components/Auth/AccessDenied'
@@ -60,7 +56,6 @@ import AccessDenied from '../components/Auth/AccessDenied'
 const Maintenance = () => {
   const { user } = useSelector((state) => state.auth)
   
-  // ✅ HOSPITAL_ADMIN - Access Denied
   if (user?.role === 'HOSPITAL_ADMIN') {
     return <AccessDenied message="Hospital Administrators cannot access Maintenance." />
   }
@@ -68,18 +63,20 @@ const Maintenance = () => {
   const isEngineer = user?.role === 'ENGINEER'
   const isSuperAdmin = user?.role === 'SUPER_ADMIN'
   
-  // ✅ PERMISSIONS
-  // ✅ ENGINEER: Create, Edit, View
-  // ✅ SUPER_ADMIN: Create, Edit, View, Delete, Status Change (Approve)
   const canCreate = isEngineer || isSuperAdmin
-  const canEdit = isEngineer || isSuperAdmin
   const canView = isEngineer || isSuperAdmin
-  const canDelete = isSuperAdmin // ✅ Only Super Admin can delete
-  const canChangeStatus = isSuperAdmin // ✅ Only Super Admin can approve/change status
+  const canDelete = isSuperAdmin
+  const canChangeStatus = isSuperAdmin
+  
+  const canEdit = (schedule) => {
+    if (isEngineer) {
+      return schedule.engineer_name === user?.full_name
+    }
+    return false
+  }
 
   const [schedules, setSchedules] = useState([])
   const [equipment, setEquipment] = useState([])
-  const [engineers, setEngineers] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [openDialog, setOpenDialog] = useState(false)
@@ -90,9 +87,6 @@ const Maintenance = () => {
     status: '',
     frequency: ''
   })
-  
-  const [assignMethod, setAssignMethod] = useState('select')
-  const [manualEngineerName, setManualEngineerName] = useState('')
   
   const [formData, setFormData] = useState({
     equipment_id: '',
@@ -105,13 +99,12 @@ const Maintenance = () => {
     warranty_expiry: '',
     amc_details: '',
     status: 'Scheduled',
-    assigned_to: ''
+    engineer_name: ''
   })
 
   useEffect(() => {
     fetchSchedules()
     fetchEquipment()
-    fetchEngineers()
   }, [])
 
   const fetchSchedules = async () => {
@@ -136,30 +129,11 @@ const Maintenance = () => {
     }
   }
 
-  const fetchEngineers = async () => {
-    try {
-      const response = await userService.getAll()
-      const engineerList = response.data.users?.filter(u => u.role_name === 'ENGINEER') || []
-      setEngineers(engineerList)
-      console.log('👷 Engineers loaded:', engineerList.length)
-    } catch (error) {
-      console.error('Failed to fetch engineers:', error)
-      setEngineers([])
-    }
-  }
-
-  const handleManualEngineerChange = (e) => {
-    setManualEngineerName(e.target.value)
-  }
-
   const handleOpenDialog = (schedule = null) => {
-    if (schedule && !canEdit) {
-      toast.error('You do not have permission to edit maintenance schedules')
+    if (schedule && !canEdit(schedule)) {
+      toast.error('Only engineers can edit their own schedules')
       return
     }
-    
-    setAssignMethod('select')
-    setManualEngineerName('')
     
     if (schedule) {
       setEditingSchedule(schedule)
@@ -167,18 +141,15 @@ const Maintenance = () => {
         equipment_id: schedule.equipment_id || '',
         maintenance_type: schedule.maintenance_type || 'Preventive',
         frequency: schedule.frequency || 'Monthly',
-        last_maintenance_date: schedule.last_maintenance_date || '',
-        next_due_date: schedule.next_due_date || '',
+        last_maintenance_date: schedule.last_maintenance_date ? new Date(schedule.last_maintenance_date).toISOString().split('T')[0] : '',
+        next_due_date: schedule.next_due_date ? new Date(schedule.next_due_date).toISOString().split('T')[0] : '',
         maintenance_checklist: schedule.maintenance_checklist || '',
-        calibration_date: schedule.calibration_date || '',
-        warranty_expiry: schedule.warranty_expiry || '',
+        calibration_date: schedule.calibration_date ? new Date(schedule.calibration_date).toISOString().split('T')[0] : '',
+        warranty_expiry: schedule.warranty_expiry ? new Date(schedule.warranty_expiry).toISOString().split('T')[0] : '',
         amc_details: schedule.amc_details || '',
         status: schedule.status || 'Scheduled',
-        assigned_to: schedule.assigned_to || ''
+        engineer_name: schedule.engineer_name || ''
       })
-      if (schedule.assigned_to) {
-        setAssignMethod('select')
-      }
     } else {
       setEditingSchedule(null)
       setFormData({
@@ -192,7 +163,7 @@ const Maintenance = () => {
         warranty_expiry: '',
         amc_details: '',
         status: 'Scheduled',
-        assigned_to: ''
+        engineer_name: user?.full_name || ''
       })
     }
     setOpenDialog(true)
@@ -201,8 +172,6 @@ const Maintenance = () => {
   const handleCloseDialog = () => {
     setOpenDialog(false)
     setEditingSchedule(null)
-    setAssignMethod('select')
-    setManualEngineerName('')
   }
 
   const handleView = (schedule) => {
@@ -220,9 +189,17 @@ const Maintenance = () => {
   }
 
   const handleFormChange = (e) => {
+    const { name, value } = e.target
+    
+    // Prevent status change from dialog for engineers
+    if (name === 'status' && isEngineer && !isSuperAdmin) {
+      toast.warning('Engineers cannot change status here')
+      return
+    }
+    
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [name]: value
     })
   }
 
@@ -237,29 +214,24 @@ const Maintenance = () => {
         return
       }
 
-      let assignedToId = formData.assigned_to
-      
-      if (assignMethod === 'manual' && manualEngineerName.trim()) {
-        const existingEngineer = engineers.find(e => 
-          e.full_name?.toLowerCase() === manualEngineerName.trim().toLowerCase()
-        )
-        
-        if (existingEngineer) {
-          assignedToId = existingEngineer.id
-          toast.success(`Engineer "${manualEngineerName}" found and assigned!`)
-        } else {
-          toast.warning(`Engineer "${manualEngineerName}" not found in system. Assignment will be saved without engineer.`)
-          assignedToId = null
-        }
-      }
-
+      // ✅ Prepare submit data - send only date part (YYYY-MM-DD) or null
       const submitData = {
-        ...formData,
         equipment_id: parseInt(formData.equipment_id),
-        assigned_to: assignedToId ? parseInt(assignedToId) : null
+        maintenance_type: formData.maintenance_type || 'Preventive',
+        frequency: formData.frequency || 'Monthly',
+        // ✅ Convert dates to YYYY-MM-DD or null
+        last_maintenance_date: formData.last_maintenance_date || null,
+        next_due_date: formData.next_due_date || null,
+        calibration_date: formData.calibration_date || null,
+        warranty_expiry: formData.warranty_expiry || null,
+        maintenance_checklist: formData.maintenance_checklist || '',
+        amc_details: formData.amc_details || '',
+        status: isEngineer && editingSchedule ? editingSchedule.status : formData.status,
+        engineer_name: formData.engineer_name || user?.full_name || '',
+        assigned_to: null
       }
 
-      console.log('📤 Submitting maintenance data:', submitData)
+      console.log('📤 Submitting maintenance data:', JSON.stringify(submitData, null, 2))
 
       if (editingSchedule) {
         await maintenanceService.update(editingSchedule.id, submitData)
@@ -296,21 +268,25 @@ const Maintenance = () => {
 
   const handleStatusChange = async (id, status) => {
     if (!canChangeStatus) {
-      toast.error('Only Super Admin can approve/change status')
+      toast.error('Only Super Admin can change status')
       return
     }
     
     try {
       await maintenanceService.update(id, { status })
       const statusMessages = {
-        'Scheduled': '📋 Schedule approved and marked as Scheduled',
-        'In Progress': '🔄 Maintenance marked as In Progress',
-        'Completed': '✅ Maintenance completed and approved',
-        'Overdue': '⚠️ Marked as Overdue',
-        'Cancelled': '❌ Schedule cancelled'
+        'Scheduled': 'Schedule approved',
+        'In Progress': 'Marked as In Progress',
+        'Completed': 'Maintenance completed',
+        'Overdue': 'Marked as Overdue',
+        'Cancelled': 'Schedule cancelled'
       }
       toast.success(statusMessages[status] || `Status updated to ${status}`)
       fetchSchedules()
+      // Update viewingSchedule if open
+      if (viewingSchedule && viewingSchedule.id === id) {
+        setViewingSchedule({ ...viewingSchedule, status })
+      }
     } catch (error) {
       console.error('Status update error:', error)
       toast.error('Failed to update status')
@@ -325,13 +301,12 @@ const Maintenance = () => {
   const filteredSchedules = schedules.filter(schedule => {
     const matchesSearch = schedule.equipment_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           schedule.maintenance_type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          schedule.assigned_to_name?.toLowerCase().includes(searchTerm.toLowerCase())
+                          schedule.engineer_name?.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = !filters.status || schedule.status === filters.status
     const matchesFrequency = !filters.frequency || schedule.frequency === filters.frequency
     return matchesSearch && matchesStatus && matchesFrequency
   })
 
-  // Stats
   const totalSchedules = schedules.length
   const upcomingSchedules = schedules.filter(s => s.status === 'Scheduled').length
   const completedSchedules = schedules.filter(s => s.status === 'Completed').length
@@ -343,28 +318,14 @@ const Maintenance = () => {
 
   return (
     <Box>
-      {/* Header */}
+      {/* ✅ REMOVED: Super Admin and Engineer chips from header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Typography variant="h5" sx={{ fontWeight: 700, color: '#2C3E50' }}>
-            Preventive Maintenance
+            Maintenance
           </Typography>
-          {isEngineer && (
-            <Chip 
-              icon={<EngineeringIcon sx={{ fontSize: 16 }} />}
-              label="Engineer Mode" 
-              size="small" 
-              color="info" 
-            />
-          )}
-          {isSuperAdmin && (
-            <Chip 
-              icon={<AdminPanelSettings sx={{ fontSize: 16 }} />}
-              label="Super Admin" 
-              size="small" 
-              color="warning" 
-            />
-          )}
+          {/* ❌ REMOVED: Super Admin chip */}
+          {/* ❌ REMOVED: Engineer chip */}
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button
@@ -396,7 +357,7 @@ const Maintenance = () => {
               <Typography variant="h4" color="#0B5FA5" fontWeight={700}>
                 {totalSchedules}
               </Typography>
-              <Typography variant="body2" color="textSecondary">Total Schedules</Typography>
+              <Typography variant="body2" color="textSecondary">Total</Typography>
             </CardContent>
           </Card>
         </Grid>
@@ -432,7 +393,6 @@ const Maintenance = () => {
         </Grid>
       </Grid>
 
-      {/* Overdue Alert */}
       {overdueSchedules > 0 && (
         <Alert 
           severity="error" 
@@ -448,7 +408,7 @@ const Maintenance = () => {
           }
         >
           <Typography variant="body2">
-            <strong>{overdueSchedules}</strong> maintenance schedule{overdueSchedules > 1 ? 's are' : ' is'} overdue!
+            <strong>{overdueSchedules}</strong> schedule{overdueSchedules > 1 ? 's are' : ' is'} overdue!
           </Typography>
         </Alert>
       )}
@@ -458,14 +418,14 @@ const Maintenance = () => {
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
           <TextField
             size="small"
-            placeholder="Search by equipment, type or engineer..."
+            placeholder="Search..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             sx={{ flexGrow: 1, minWidth: 200 }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <Search sx={{ color: '#0B5FA5' }} />
+                  <Search />
                 </InputAdornment>
               )
             }}
@@ -510,9 +470,9 @@ const Maintenance = () => {
             <TableRow>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Equipment</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Type</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Assigned To</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Engineer</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Frequency</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Last Maintenance</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Last</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Next Due</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Status</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }} align="center">Actions</TableCell>
@@ -523,118 +483,102 @@ const Maintenance = () => {
               <TableRow>
                 <TableCell colSpan={8} align="center">
                   <Typography variant="body1" sx={{ py: 4, color: '#6c757d' }}>
-                    No maintenance schedules found
+                    No schedules found
                   </Typography>
                 </TableCell>
               </TableRow>
             ) : (
-              filteredSchedules.map((schedule) => (
-                <TableRow key={schedule.id} hover>
-                  <TableCell>
-                    <Typography variant="body2" fontWeight={500}>
-                      {schedule.equipment_name || 'N/A'}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2">
+              filteredSchedules.map((schedule) => {
+                const isOwnSchedule = isEngineer && schedule.engineer_name === user?.full_name
+                
+                return (
+                  <TableRow key={schedule.id} hover>
+                    <TableCell>
+                      <Typography variant="body2" fontWeight={500}>
+                        {schedule.equipment_name || 'N/A'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
                       {schedule.maintenance_type || 'Preventive'}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    {schedule.assigned_to_name ? (
-                      <Typography variant="body2" fontWeight={500} sx={{ color: '#0B5FA5' }}>
-                        {schedule.assigned_to_name}
-                      </Typography>
-                    ) : (
-                      <Typography variant="caption" color="textSecondary">Unassigned</Typography>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2">
-                      {schedule.frequency || 'Monthly'}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    {schedule.last_maintenance_date ? new Date(schedule.last_maintenance_date).toLocaleDateString() : '-'}
-                  </TableCell>
-                  <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Typography variant="body2">
-                        {schedule.next_due_date ? new Date(schedule.next_due_date).toLocaleDateString() : '-'}
-                      </Typography>
-                      {isOverdue(schedule.next_due_date) && schedule.status !== 'Completed' && (
+                    </TableCell>
+                    <TableCell>
+                      {schedule.engineer_name ? (
+                        <Typography variant="body2" fontWeight={500} sx={{ color: '#0B5FA5' }}>
+                          {schedule.engineer_name}
+                        </Typography>
+                      ) : (
+                        <Typography variant="caption" color="textSecondary">Unassigned</Typography>
+                      )}
+                      {isOwnSchedule && (
                         <Chip 
-                          label="Overdue" 
+                          label="My Schedule" 
                           size="small" 
-                          color="error" 
-                          sx={{ height: 20, fontSize: '10px' }}
+                          color="primary" 
+                          sx={{ height: 18, fontSize: '9px', ml: 0.5 }}
                         />
                       )}
-                    </Box>
-                  </TableCell>
-                  <TableCell>
-                    <Chip 
-                      label={schedule.status || 'Scheduled'} 
-                      size="small"
-                      color={
-                        schedule.status === 'Completed' ? 'success' :
-                        schedule.status === 'Scheduled' ? 'primary' :
-                        schedule.status === 'In Progress' ? 'warning' :
-                        schedule.status === 'Overdue' ? 'error' :
-                        schedule.status === 'Cancelled' ? 'default' : 'default'
-                      }
-                      sx={{ height: 24, fontSize: '11px' }}
-                    />
-                  </TableCell>
-                  <TableCell align="center">
-                    <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5, flexWrap: 'wrap' }}>
-                      <Tooltip title="View Details">
-                        <IconButton size="small" color="primary" onClick={() => handleView(schedule)}>
-                          <Visibility fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      {canEdit && (
-                        <Tooltip title="Edit">
-                          <IconButton size="small" color="info" onClick={() => handleOpenDialog(schedule)}>
-                            <Edit fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      {/* ✅ Only Super Admin can change status (Approve) */}
-                      {canChangeStatus && schedule.status !== 'Completed' && schedule.status !== 'Cancelled' && (
-                        <Tooltip title="Approve & Complete">
-                          <IconButton 
+                    </TableCell>
+                    <TableCell>
+                      {schedule.frequency || 'Monthly'}
+                    </TableCell>
+                    <TableCell>
+                      {schedule.last_maintenance_date ? new Date(schedule.last_maintenance_date).toLocaleDateString() : '-'}
+                    </TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {schedule.next_due_date ? new Date(schedule.next_due_date).toLocaleDateString() : '-'}
+                        {isOverdue(schedule.next_due_date) && schedule.status !== 'Completed' && (
+                          <Chip 
+                            label="Overdue" 
                             size="small" 
-                            color="success" 
-                            onClick={() => handleStatusChange(schedule.id, 'Completed')}
-                          >
-                            <Verified fontSize="small" />
+                            color="error" 
+                            sx={{ height: 20, fontSize: '10px' }}
+                          />
+                        )}
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Chip 
+                        label={schedule.status || 'Scheduled'} 
+                        size="small"
+                        color={
+                          schedule.status === 'Completed' ? 'success' :
+                          schedule.status === 'Scheduled' ? 'primary' :
+                          schedule.status === 'In Progress' ? 'warning' :
+                          schedule.status === 'Overdue' ? 'error' :
+                          schedule.status === 'Cancelled' ? 'default' : 'default'
+                        }
+                        sx={{ height: 24, fontSize: '11px' }}
+                      />
+                    </TableCell>
+                    <TableCell align="center">
+                      <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+                        <Tooltip title="View">
+                          <IconButton size="small" color="primary" onClick={() => handleView(schedule)}>
+                            <Visibility fontSize="small" />
                           </IconButton>
                         </Tooltip>
-                      )}
-                      {canChangeStatus && schedule.status === 'Scheduled' && (
-                        <Tooltip title="Mark In Progress">
-                          <IconButton 
-                            size="small" 
-                            color="warning" 
-                            onClick={() => handleStatusChange(schedule.id, 'In Progress')}
-                          >
-                            <Schedule fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      {/* ✅ Only Super Admin can delete */}
-                      {canDelete && (
-                        <Tooltip title="Delete">
-                          <IconButton size="small" color="error" onClick={() => handleDelete(schedule.id)}>
-                            <Delete fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                    </Box>
-                  </TableCell>
-                </TableRow>
-              ))
+                        
+                        {canEdit(schedule) && (
+                          <Tooltip title="Edit (Status cannot be changed here)">
+                            <IconButton size="small" color="info" onClick={() => handleOpenDialog(schedule)}>
+                              <Edit fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                        
+                        {canDelete && (
+                          <Tooltip title="Delete">
+                            <IconButton size="small" color="error" onClick={() => handleDelete(schedule.id)}>
+                              <Delete fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                )
+              })
             )}
           </TableBody>
         </Table>
@@ -644,10 +588,13 @@ const Maintenance = () => {
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
         <DialogTitle sx={{ bgcolor: '#0B5FA5', color: 'white' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Build sx={{ color: 'white' }} />
+            <Build />
             <Typography variant="h6" fontWeight={600}>
-              {editingSchedule ? 'Edit Maintenance Schedule' : 'Add Maintenance Schedule'}
+              {editingSchedule ? 'Edit Schedule' : 'Add Schedule'}
             </Typography>
+            {editingSchedule && isEngineer && (
+              <Chip label="Editing Your Schedule" size="small" color="info" />
+            )}
           </Box>
           <IconButton onClick={handleCloseDialog} sx={{ position: 'absolute', right: 8, top: 8, color: 'white' }}>
             <Close />
@@ -676,12 +623,12 @@ const Maintenance = () => {
 
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
-                <InputLabel>Maintenance Type</InputLabel>
+                <InputLabel>Type</InputLabel>
                 <Select
                   name="maintenance_type"
                   value={formData.maintenance_type}
                   onChange={handleFormChange}
-                  label="Maintenance Type"
+                  label="Type"
                 >
                   <MenuItem value="Preventive">Preventive</MenuItem>
                   <MenuItem value="Corrective">Corrective</MenuItem>
@@ -708,109 +655,38 @@ const Maintenance = () => {
             </Grid>
 
             <Grid item xs={12} md={6}>
-              <Box sx={{ mb: 1 }}>
-                <Typography variant="subtitle2" color="textSecondary" gutterBottom>
-                  Assign To Engineer
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-                  <Button
-                    variant={assignMethod === 'select' ? 'contained' : 'outlined'}
-                    size="small"
-                    onClick={() => setAssignMethod('select')}
-                    sx={{ 
-                      bgcolor: assignMethod === 'select' ? '#0B5FA5' : 'transparent',
-                      borderRadius: 20,
-                      fontSize: '11px',
-                      '&:hover': {
-                        bgcolor: assignMethod === 'select' ? '#084a8a' : '#e3f2fd'
-                      }
-                    }}
-                  >
-                    Select from List
-                  </Button>
-                  <Button
-                    variant={assignMethod === 'manual' ? 'contained' : 'outlined'}
-                    size="small"
-                    onClick={() => setAssignMethod('manual')}
-                    sx={{ 
-                      bgcolor: assignMethod === 'manual' ? '#0B5FA5' : 'transparent',
-                      borderRadius: 20,
-                      fontSize: '11px',
-                      '&:hover': {
-                        bgcolor: assignMethod === 'manual' ? '#084a8a' : '#e3f2fd'
-                      }
-                    }}
-                  >
-                    Enter Manually
-                  </Button>
-                </Box>
-              </Box>
-
-              {assignMethod === 'select' ? (
-                <FormControl fullWidth>
-                  <InputLabel>Select Engineer</InputLabel>
-                  <Select
-                    name="assigned_to"
-                    value={formData.assigned_to}
-                    onChange={handleFormChange}
-                    label="Select Engineer"
-                  >
-                    <MenuItem value="">Select Engineer</MenuItem>
-                    {engineers.length === 0 ? (
-                      <MenuItem disabled>No engineers available</MenuItem>
-                    ) : (
-                      engineers.map(eng => (
-                        <MenuItem key={eng.id} value={eng.id}>
-                          {eng.full_name} {eng.hospital_name ? `(${eng.hospital_name})` : ''}
-                        </MenuItem>
-                      ))
-                    )}
-                  </Select>
-                  {engineers.length === 0 && (
-                    <Typography variant="caption" color="warning.main" sx={{ mt: 0.5 }}>
-                      No engineers available. Please add engineers first.
-                    </Typography>
-                  )}
-                </FormControl>
-              ) : (
-                <TextField
-                  fullWidth
-                  label="Enter Engineer Name"
-                  value={manualEngineerName}
-                  onChange={handleManualEngineerChange}
-                  placeholder="e.g., Engr. Ali Khan"
-                  helperText="Engineer must exist in the system"
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Person sx={{ color: '#0B5FA5' }} />
-                      </InputAdornment>
-                    )
-                  }}
-                />
-              )}
-
-              {assignMethod === 'manual' && manualEngineerName && (
-                <Alert severity="info" sx={{ mt: 1 }}>
-                  <Typography variant="caption">
-                    <strong>Note:</strong> "{manualEngineerName}" will be assigned. 
-                    If not found in system, assignment will be saved without engineer ID.
-                  </Typography>
-                </Alert>
-              )}
+              <TextField
+                fullWidth
+                label="Engineer Name"
+                name="engineer_name"
+                value={formData.engineer_name}
+                onChange={handleFormChange}
+                placeholder="Enter engineer name"
+                disabled={isEngineer}
+                helperText={isEngineer ? "Auto-assigned to you" : ""}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Person />
+                    </InputAdornment>
+                  )
+                }}
+              />
             </Grid>
 
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                label="Last Maintenance Date"
+                label="Last Maintenance"
                 name="last_maintenance_date"
                 type="date"
                 value={formData.last_maintenance_date}
                 onChange={handleFormChange}
                 InputLabelProps={{ shrink: true }}
+                helperText="YYYY-MM-DD"
               />
             </Grid>
+
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
@@ -821,13 +697,14 @@ const Maintenance = () => {
                 value={formData.next_due_date}
                 onChange={handleFormChange}
                 InputLabelProps={{ shrink: true }}
+                helperText="YYYY-MM-DD"
               />
             </Grid>
 
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Maintenance Checklist"
+                label="Checklist"
                 name="maintenance_checklist"
                 value={formData.maintenance_checklist}
                 onChange={handleFormChange}
@@ -846,6 +723,7 @@ const Maintenance = () => {
                 value={formData.calibration_date}
                 onChange={handleFormChange}
                 InputLabelProps={{ shrink: true }}
+                helperText="YYYY-MM-DD"
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -857,6 +735,7 @@ const Maintenance = () => {
                 value={formData.warranty_expiry}
                 onChange={handleFormChange}
                 InputLabelProps={{ shrink: true }}
+                helperText="YYYY-MM-DD"
               />
             </Grid>
 
@@ -881,7 +760,7 @@ const Maintenance = () => {
                   value={formData.status}
                   onChange={handleFormChange}
                   label="Status"
-                  disabled={!isSuperAdmin} // ✅ Only Super Admin can set initial status
+                  disabled={true}
                 >
                   <MenuItem value="Scheduled">Scheduled</MenuItem>
                   <MenuItem value="In Progress">In Progress</MenuItem>
@@ -889,21 +768,19 @@ const Maintenance = () => {
                   <MenuItem value="Overdue">Overdue</MenuItem>
                   <MenuItem value="Cancelled">Cancelled</MenuItem>
                 </Select>
-                {!isSuperAdmin && (
-                  <FormHelperText>Only Super Admin can change status</FormHelperText>
-                )}
+                <FormHelperText>Status cannot be changed here</FormHelperText>
               </FormControl>
             </Grid>
 
-            <Grid item xs={12}>
-              <Alert severity="info" icon={<Schedule sx={{ color: '#0B5FA5' }} />}>
-                {isEngineer ? (
-                  'Engineers can create and edit maintenance schedules. Super Admin will approve and mark as completed.'
-                ) : (
-                  'Super Admin: You can create, edit, approve, and delete maintenance schedules.'
-                )}
-              </Alert>
-            </Grid>
+            {isEngineer && editingSchedule && (
+              <Grid item xs={12}>
+                <Alert severity="info">
+                  <Typography variant="body2">
+                    <strong>🔧 Engineer Mode:</strong> You can edit your schedule details, but <strong>Status</strong> cannot be changed here.
+                  </Typography>
+                </Alert>
+              </Grid>
+            )}
           </Grid>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
@@ -913,7 +790,7 @@ const Maintenance = () => {
             onClick={handleSubmit}
             sx={{ bgcolor: '#0B5FA5', '&:hover': { bgcolor: '#084a8a' } }}
           >
-            {editingSchedule ? 'Update Schedule' : 'Create Schedule'}
+            {editingSchedule ? 'Update' : 'Create'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -922,7 +799,7 @@ const Maintenance = () => {
       <Dialog open={openViewDialog} onClose={handleCloseView} maxWidth="md" fullWidth>
         <DialogTitle sx={{ bgcolor: '#0B5FA5', color: 'white' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" fontWeight={600}>Maintenance Schedule Details</Typography>
+            <Typography variant="h6" fontWeight={600}>Schedule Details</Typography>
             <IconButton onClick={handleCloseView} sx={{ color: 'white' }}>
               <Close />
             </IconButton>
@@ -930,124 +807,144 @@ const Maintenance = () => {
         </DialogTitle>
         <DialogContent dividers>
           {viewingSchedule && (
-            <Grid container spacing={2}>
-              <Grid item xs={12} md={6}>
-                <Typography variant="body2" color="textSecondary">Equipment</Typography>
-                <Typography variant="body1" fontWeight={500}>
-                  {viewingSchedule.equipment_name || 'N/A'}
-                </Typography>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Typography variant="body2" color="textSecondary">Status</Typography>
-                <Chip 
-                  label={viewingSchedule.status || 'Scheduled'} 
-                  size="small"
-                  color={
-                    viewingSchedule.status === 'Completed' ? 'success' :
-                    viewingSchedule.status === 'Scheduled' ? 'primary' :
-                    viewingSchedule.status === 'In Progress' ? 'warning' :
-                    viewingSchedule.status === 'Overdue' ? 'error' :
-                    viewingSchedule.status === 'Cancelled' ? 'default' : 'default'
-                  }
-                  sx={{ height: 28, fontSize: '12px', fontWeight: 500 }}
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Typography variant="body2" color="textSecondary">Maintenance Type</Typography>
-                <Typography variant="body1">{viewingSchedule.maintenance_type || 'Preventive'}</Typography>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Typography variant="body2" color="textSecondary">Frequency</Typography>
-                <Typography variant="body1">{viewingSchedule.frequency || 'Monthly'}</Typography>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Typography variant="body2" color="textSecondary">Assigned To</Typography>
-                <Typography variant="body1" fontWeight={500} sx={{ color: '#0B5FA5' }}>
-                  {viewingSchedule.assigned_to_name || 'Unassigned'}
-                </Typography>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Typography variant="body2" color="textSecondary">Last Maintenance</Typography>
-                <Typography variant="body1">
-                  {viewingSchedule.last_maintenance_date ? new Date(viewingSchedule.last_maintenance_date).toLocaleDateString() : '-'}
-                </Typography>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Typography variant="body2" color="textSecondary">Next Due</Typography>
-                <Typography variant="body1" fontWeight={600}>
-                  {viewingSchedule.next_due_date ? new Date(viewingSchedule.next_due_date).toLocaleDateString() : '-'}
-                </Typography>
-              </Grid>
-              {viewingSchedule.maintenance_checklist && (
-                <Grid item xs={12}>
-                  <Typography variant="body2" color="textSecondary">Maintenance Checklist</Typography>
-                  <Paper sx={{ p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
-                    <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
-                      {viewingSchedule.maintenance_checklist}
+            <Box>
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={6}>
+                  <Typography variant="body2" color="textSecondary">Equipment</Typography>
+                  <Typography variant="body1" fontWeight={500}>
+                    {viewingSchedule.equipment_name || 'N/A'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Typography variant="body2" color="textSecondary">Status</Typography>
+                  <Chip 
+                    label={viewingSchedule.status || 'Scheduled'} 
+                    size="small"
+                    color={
+                      viewingSchedule.status === 'Completed' ? 'success' :
+                      viewingSchedule.status === 'Scheduled' ? 'primary' :
+                      viewingSchedule.status === 'In Progress' ? 'warning' :
+                      viewingSchedule.status === 'Overdue' ? 'error' :
+                      viewingSchedule.status === 'Cancelled' ? 'default' : 'default'
+                    }
+                    sx={{ height: 28, fontSize: '12px', fontWeight: 500 }}
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Typography variant="body2" color="textSecondary">Type</Typography>
+                  <Typography variant="body1">{viewingSchedule.maintenance_type || 'Preventive'}</Typography>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Typography variant="body2" color="textSecondary">Frequency</Typography>
+                  <Typography variant="body1">{viewingSchedule.frequency || 'Monthly'}</Typography>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Typography variant="body2" color="textSecondary">Engineer</Typography>
+                  <Typography variant="body1" fontWeight={500} sx={{ color: '#0B5FA5' }}>
+                    {viewingSchedule.engineer_name || 'Unassigned'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Typography variant="body2" color="textSecondary">Last Maintenance</Typography>
+                  <Typography variant="body1">
+                    {viewingSchedule.last_maintenance_date ? new Date(viewingSchedule.last_maintenance_date).toLocaleDateString() : '-'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Typography variant="body2" color="textSecondary">Next Due</Typography>
+                  <Typography variant="body1" fontWeight={600}>
+                    {viewingSchedule.next_due_date ? new Date(viewingSchedule.next_due_date).toLocaleDateString() : '-'}
+                  </Typography>
+                </Grid>
+                {viewingSchedule.maintenance_checklist && (
+                  <Grid item xs={12}>
+                    <Typography variant="body2" color="textSecondary">Checklist</Typography>
+                    <Paper sx={{ p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
+                      <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
+                        {viewingSchedule.maintenance_checklist}
+                      </Typography>
+                    </Paper>
+                  </Grid>
+                )}
+                {viewingSchedule.calibration_date && (
+                  <Grid item xs={12} md={6}>
+                    <Typography variant="body2" color="textSecondary">Calibration Date</Typography>
+                    <Typography variant="body1">
+                      {new Date(viewingSchedule.calibration_date).toLocaleDateString()}
                     </Typography>
-                  </Paper>
-                </Grid>
-              )}
-              {viewingSchedule.calibration_date && (
-                <Grid item xs={12} md={6}>
-                  <Typography variant="body2" color="textSecondary">Calibration Date</Typography>
-                  <Typography variant="body1">
-                    {new Date(viewingSchedule.calibration_date).toLocaleDateString()}
+                  </Grid>
+                )}
+                {viewingSchedule.warranty_expiry && (
+                  <Grid item xs={12} md={6}>
+                    <Typography variant="body2" color="textSecondary">Warranty Expiry</Typography>
+                    <Typography variant="body1">
+                      {new Date(viewingSchedule.warranty_expiry).toLocaleDateString()}
+                    </Typography>
+                  </Grid>
+                )}
+                {viewingSchedule.amc_details && (
+                  <Grid item xs={12}>
+                    <Typography variant="body2" color="textSecondary">AMC/CMC Details</Typography>
+                    <Typography variant="body1">{viewingSchedule.amc_details}</Typography>
+                  </Grid>
+                )}
+                {viewingSchedule.created_at && (
+                  <Grid item xs={12}>
+                    <Typography variant="body2" color="textSecondary">Created At</Typography>
+                    <Typography variant="body2">
+                      {new Date(viewingSchedule.created_at).toLocaleString()}
+                    </Typography>
+                  </Grid>
+                )}
+              </Grid>
+
+              {/* ✅ SUPER ADMIN STATUS UPDATE SECTION - INSIDE VIEW DIALOG */}
+              {isSuperAdmin && (
+                <>
+                  <Divider sx={{ my: 3 }} />
+                  <Typography variant="subtitle2" fontWeight={600} color="primary" gutterBottom>
+                    <AdminPanelSettings sx={{ fontSize: 16, verticalAlign: 'middle', mr: 1 }} />
+                    Update Status (Super Admin Only)
                   </Typography>
-                </Grid>
+                  
+                  <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap', mt: 1 }}>
+                    <FormControl size="small" sx={{ minWidth: 200 }}>
+                      <InputLabel>Select Status</InputLabel>
+                      <Select
+                        value={viewingSchedule.status || 'Scheduled'}
+                        onChange={(e) => handleStatusChange(viewingSchedule.id, e.target.value)}
+                        label="Select Status"
+                      >
+                        <MenuItem value="Scheduled">Scheduled</MenuItem>
+                        <MenuItem value="In Progress">In Progress</MenuItem>
+                        <MenuItem value="Completed">Completed</MenuItem>
+                        <MenuItem value="Overdue">Overdue</MenuItem>
+                        <MenuItem value="Cancelled">Cancelled</MenuItem>
+                      </Select>
+                    </FormControl>
+                    
+                    <Typography variant="caption" color="textSecondary">
+                      Select a new status and it will be updated immediately
+                    </Typography>
+                  </Box>
+                </>
               )}
-              {viewingSchedule.warranty_expiry && (
-                <Grid item xs={12} md={6}>
-                  <Typography variant="body2" color="textSecondary">Warranty Expiry</Typography>
-                  <Typography variant="body1">
-                    {new Date(viewingSchedule.warranty_expiry).toLocaleDateString()}
-                  </Typography>
-                </Grid>
-              )}
-              {viewingSchedule.amc_details && (
-                <Grid item xs={12}>
-                  <Typography variant="body2" color="textSecondary">AMC/CMC Details</Typography>
-                  <Typography variant="body1">{viewingSchedule.amc_details}</Typography>
-                </Grid>
-              )}
-              {viewingSchedule.created_at && (
-                <Grid item xs={12}>
-                  <Typography variant="body2" color="textSecondary">Created At</Typography>
-                  <Typography variant="body2">
-                    {new Date(viewingSchedule.created_at).toLocaleString()}
-                  </Typography>
-                </Grid>
-              )}
-            </Grid>
+            </Box>
           )}
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
           <Button onClick={handleCloseView}>Close</Button>
-          {/* ✅ Only Super Admin can approve */}
-          {canChangeStatus && viewingSchedule?.status !== 'Completed' && viewingSchedule?.status !== 'Cancelled' && (
+          {canDelete && viewingSchedule && (
             <Button
               variant="contained"
-              color="success"
-              startIcon={<Verified />}
+              color="error"
               onClick={() => {
-                handleStatusChange(viewingSchedule.id, 'Completed')
+                handleDelete(viewingSchedule.id)
                 handleCloseView()
               }}
+              startIcon={<Delete />}
             >
-              Approve & Complete
-            </Button>
-          )}
-          {canChangeStatus && viewingSchedule?.status === 'Scheduled' && (
-            <Button
-              variant="contained"
-              color="warning"
-              startIcon={<Schedule />}
-              onClick={() => {
-                handleStatusChange(viewingSchedule.id, 'In Progress')
-                handleCloseView()
-              }}
-            >
-              Mark In Progress
+              Delete
             </Button>
           )}
         </DialogActions>

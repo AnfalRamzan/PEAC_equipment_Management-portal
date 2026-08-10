@@ -357,28 +357,14 @@ const SpareParts = () => {
 
   return (
     <Box>
-      {/* ✅ Header - Role Chips */}
+      {/* ✅ Header - REMOVED ROLE CHIPS */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Typography variant="h5" sx={{ fontWeight: 700, color: '#2C3E50' }}>
             Spare Parts Inventory
           </Typography>
-          {isEngineer && (
-            <Chip 
-              icon={<EngineeringIcon sx={{ fontSize: 16 }} />}
-              label="Engineer Mode" 
-              size="small" 
-              color="info" 
-            />
-          )}
-          {isSuperAdmin && (
-            <Chip 
-              icon={<AdminPanelSettings sx={{ fontSize: 16 }} />}
-              label="Super Admin" 
-              size="small" 
-              color="warning" 
-            />
-          )}
+          {/* ❌ REMOVED: Engineer Chip */}
+          {/* ❌ REMOVED: Super Admin Chip */}
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button
@@ -646,12 +632,8 @@ const SpareParts = () => {
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6" fontWeight={600}>Spare Part Details</Typography>
             <Box>
-              {isEngineer && (
-                <Chip label="Engineer" size="small" color="info" sx={{ mr: 1 }} />
-              )}
-              {isSuperAdmin && (
-                <Chip label="Super Admin" size="small" color="warning" sx={{ mr: 1 }} />
-              )}
+              {/* ❌ REMOVED: Engineer Chip */}
+              {/* ❌ REMOVED: Super Admin Chip */}
               <IconButton onClick={handleCloseView} sx={{ color: 'white' }}>
                 <Close />
               </IconButton>
@@ -812,11 +794,7 @@ const SpareParts = () => {
             <Typography variant="h6" fontWeight={600}>
               {editingPart ? 'Edit Spare Part' : 'Add New Spare Part'}
             </Typography>
-            <Chip 
-              label={isEngineer ? 'Engineer' : 'Super Admin'} 
-              size="small" 
-              color={isEngineer ? 'info' : 'warning'} 
-            />
+            {/* ❌ REMOVED: Engineer/Super Admin Chip */}
           </Box>
           <IconButton onClick={handleCloseDialog} sx={{ position: 'absolute', right: 8, top: 8, color: 'white' }}>
             <Close />

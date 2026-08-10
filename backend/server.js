@@ -19,19 +19,16 @@ testConnection();
 // ============================================================
 app.use(cors({ 
     origin: function (origin, callback) {
-        // Allow all origins for Vercel deployment
         if (!origin) {
             return callback(null, true);
         }
         
-        // Allow all Vercel domains and localhost
         if (origin.includes('vercel.app') || 
             origin.includes('localhost') || 
             origin.includes('127.0.0.1')) {
             return callback(null, true);
         }
         
-        // Allow all origins (for development)
         callback(null, true);
     },
     credentials: true,
@@ -40,14 +37,13 @@ app.use(cors({
     exposedHeaders: ['Content-Range', 'X-Content-Range']
 }));
 
-// ✅ Handle preflight requests
 app.options('*', cors());
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // ============================================================
-// ✅ ROOT ROUTE - REQUIRED FOR VERCEL
+// ✅ ROOT ROUTE
 // ============================================================
 app.get('/', (req, res) => {
     res.json({
@@ -80,7 +76,7 @@ app.get('/', (req, res) => {
 });
 
 // ============================================================
-// ✅ CREATE UPLOAD DIRECTORIES (Vercel Compatible)
+// ✅ CREATE UPLOAD DIRECTORIES
 // ============================================================
 const uploadDirs = [
     'uploads',
@@ -101,7 +97,6 @@ const uploadDirs = [
     'uploads/service-documentation'
 ];
 
-// ✅ Safe directory creation for Vercel (read-only filesystem)
 uploadDirs.forEach(dir => {
     try {
         const fullPath = path.join(__dirname, dir);
@@ -119,7 +114,7 @@ uploadDirs.forEach(dir => {
 });
 
 // ============================================================
-// ✅ STATIC FILE SERVE (Vercel Compatible)
+// ✅ STATIC FILE SERVE
 // ============================================================
 try {
     app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -131,7 +126,6 @@ try {
 // ============================================================
 // ✅ CONSTANTS
 // ============================================================
-const validErrorStatuses = ['Pending', 'In Progress', 'Completed', 'Resolved', 'Closed'];
 const validRepairStatuses = [
     'Pending', 'Assigned', 'Accepted', 'In Progress',
     'Waiting for Spare Parts', 'Testing', 'Completed', 'Verified', 'Resolved', 'Closed'
@@ -139,6 +133,27 @@ const validRepairStatuses = [
 const validPOStatuses = ['Draft', 'Pending Approval', 'Approved', 'Ordered', 'Received', 'Cancelled'];
 const validProcStatuses = ['Requested', 'Under Review', 'Approved', 'Rejected', 'Procured'];
 const validMaintenanceStatuses = ['Scheduled', 'In Progress', 'Completed', 'Cancelled', 'Overdue'];
+
+// ============================================================
+// ✅ HELPER FUNCTION - Format Date for MySQL
+// ============================================================
+const formatDateForMySQL = (date) => {
+    if (!date) return null;
+    if (date === '' || date === '0000-00-00') return null;
+    if (date === 'Invalid Date') return null;
+    
+    // If it's already YYYY-MM-DD format
+    if (date.match(/^\d{4}-\d{2}-\d{2}$/)) return date;
+    
+    // Try to parse and format
+    try {
+        const d = new Date(date);
+        if (isNaN(d.getTime())) return null;
+        return d.toISOString().split('T')[0];
+    } catch (e) {
+        return null;
+    }
+};
 
 // ============================================================
 // ✅ WEBSOCKET SERVER
@@ -245,13 +260,10 @@ const createNotification = async (userId, title, message, type, relatedId = null
     }
 };
 
-// ✅ UPDATED: Notify Super Admin and Engineers instead of Hospital Admins
 const notifyAdmins = async (hospitalId, title, message, type, relatedId = null, relatedModule = null) => {
     try {
-        // Notify Super Admin (role_id = 1)
         await createNotification(1, title, message, type, relatedId, relatedModule);
         
-        // Notify all Engineers in the hospital (role_id = 3)
         const engineers = await query(
             `SELECT id FROM users 
              WHERE role_id = 3 
@@ -366,7 +378,7 @@ const authorize = (...allowedRoles) => {
 };
 
 // ============================================================
-// ✅ PROFILE PICTURE UPLOAD (Vercel Compatible)
+// ✅ PROFILE PICTURE UPLOAD
 // ============================================================
 const profileStorage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -406,7 +418,7 @@ const profileUpload = multer({
 });
 
 // ============================================================
-// ✅ GENERAL FILE UPLOAD (Vercel Compatible)
+// ✅ GENERAL FILE UPLOAD
 // ============================================================
 const generalStorage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -1207,7 +1219,6 @@ app.get('/api/users/roles', authenticate, async (req, res) => {
     }
 });
 
-// ✅ UPDATED: Only SUPER_ADMIN can create users (removed HOSPITAL_ADMIN)
 app.post('/api/users', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     try {
         const { username, full_name, email, password, role_id, hospital_id, phone } = req.body;
@@ -1306,7 +1317,6 @@ app.post('/api/users', authenticate, authorize('SUPER_ADMIN'), async (req, res) 
     }
 });
 
-// ✅ UPDATED: Only SUPER_ADMIN can edit users (removed HOSPITAL_ADMIN)
 app.put('/api/users/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     try {
         const { id } = req.params;
@@ -1990,7 +2000,6 @@ app.put('/api/equipment/:id', authenticate, async (req, res) => {
     }
 });
 
-// ✅ UPDATED: Only SUPER_ADMIN can delete equipment (removed HOSPITAL_ADMIN)
 app.delete('/api/equipment/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     try {
         const { id } = req.params;
@@ -2021,7 +2030,7 @@ app.delete('/api/equipment/:id', authenticate, authorize('SUPER_ADMIN'), async (
 });
 
 // ============================================================
-// ✅ ERRORS ROUTES
+// ✅ ERRORS ROUTES - COMPLETELY REMOVED status AND assigned_to
 // ============================================================
 app.get('/api/errors', authenticate, async (req, res) => {
     try {
@@ -2030,14 +2039,12 @@ app.get('/api/errors', authenticate, async (req, res) => {
                    eq.name as equipment_name, 
                    h.name as hospital_name, 
                    d.name as department_name,
-                   u.full_name as reported_by_name,
-                   u2.full_name as assigned_to_name
+                   u.full_name as reported_by_name
             FROM error_logs e
             LEFT JOIN equipment eq ON e.equipment_id = eq.id
             LEFT JOIN hospitals h ON eq.hospital_id = h.id
             LEFT JOIN departments d ON eq.department_id = d.id
             LEFT JOIN users u ON e.reported_by = u.id
-            LEFT JOIN users u2 ON e.assigned_to = u2.id
             WHERE 1=1
         `;
         const params = [];
@@ -2065,14 +2072,12 @@ app.get('/api/errors/:id', authenticate, async (req, res) => {
                    eq.name as equipment_name, 
                    h.name as hospital_name, 
                    d.name as department_name,
-                   u.full_name as reported_by_name,
-                   u2.full_name as assigned_to_name
+                   u.full_name as reported_by_name
             FROM error_logs e
             LEFT JOIN equipment eq ON e.equipment_id = eq.id
             LEFT JOIN hospitals h ON eq.hospital_id = h.id
             LEFT JOIN departments d ON eq.department_id = d.id
             LEFT JOIN users u ON e.reported_by = u.id
-            LEFT JOIN users u2 ON e.assigned_to = u2.id
             WHERE e.id = ?
         `;
         const params = [id];
@@ -2102,9 +2107,7 @@ app.post('/api/errors', authenticate, async (req, res) => {
             error_description, 
             severity, 
             priority,
-            status,
             error_date,
-            assigned_to,
             attachments
         } = req.body;
 
@@ -2146,7 +2149,6 @@ app.post('/api/errors', authenticate, async (req, res) => {
             });
         }
 
-        const finalStatus = status || 'Pending';
         const finalSeverity = severity || 'Medium';
         const finalPriority = priority || 'Medium';
         
@@ -2160,8 +2162,8 @@ app.post('/api/errors', authenticate, async (req, res) => {
         const result = await query(
             `INSERT INTO error_logs 
              (equipment_id, error_code, error_title, error_description, 
-              severity, priority, status, reported_by, error_date, assigned_to, attachments)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              severity, priority, reported_by, error_date, attachments)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 parseInt(equipment_id),
                 error_code || null,
@@ -2169,10 +2171,8 @@ app.post('/api/errors', authenticate, async (req, res) => {
                 error_description || '',
                 finalSeverity,
                 finalPriority,
-                finalStatus,
                 req.user.id,
                 finalErrorDate,
-                assigned_to || null,
                 attachments || ''
             ]
         );
@@ -2190,7 +2190,6 @@ app.post('/api/errors', authenticate, async (req, res) => {
             'errors'
         );
 
-        // Notify Engineers in the hospital
         const engineers = await query(
             `SELECT id FROM users 
              WHERE role_id = 3 
@@ -2237,7 +2236,7 @@ app.post('/api/errors', authenticate, async (req, res) => {
 app.put('/api/errors/:id', authenticate, async (req, res) => {
     try {
         const { id } = req.params;
-        const { error_code, error_title, error_description, severity, priority, status, assigned_to, attachments } = req.body;
+        const { error_code, error_title, error_description, severity, priority, attachments } = req.body;
 
         const existing = await query('SELECT * FROM error_logs WHERE id = ?', [id]);
         if (existing.length === 0) {
@@ -2275,10 +2274,10 @@ app.put('/api/errors/:id', authenticate, async (req, res) => {
         if (isHospitalAdmin) {
             // Hospital Admin can update all errors in their hospital
         } else if (isEngineer) {
-            if (errorData.assigned_to !== req.user.id && errorData.reported_by !== req.user.id) {
+            if (errorData.reported_by !== req.user.id) {
                 return res.status(403).json({ 
                     success: false, 
-                    message: 'Access denied - You can only update errors assigned to you or reported by you' 
+                    message: 'Access denied - You can only update errors reported by you' 
                 });
             }
         } else if (!isSuperAdmin) {
@@ -2315,39 +2314,6 @@ app.put('/api/errors/:id', authenticate, async (req, res) => {
             updateFields.push('attachments = ?');
             updateValues.push(attachments || '');
         }
-        if (assigned_to !== undefined) {
-            updateFields.push('assigned_to = ?');
-            updateValues.push(assigned_to || null);
-        }
-
-        if (status !== undefined) {
-            if (isSuperAdmin) {
-                updateFields.push('status = ?');
-                updateValues.push(status);
-            } else if (isHospitalAdmin) {
-                if (['In Progress', 'Completed'].includes(status)) {
-                    updateFields.push('status = ?');
-                    updateValues.push(status);
-                } else if (status !== errorData.status) {
-                    updateFields.push('status = ?');
-                    updateValues.push(errorData.status);
-                }
-            } else if (isEngineer) {
-                if (status === 'Completed' && errorData.status === 'In Progress') {
-                    updateFields.push('status = ?');
-                    updateValues.push(status);
-                } else if (status !== errorData.status) {
-                    updateFields.push('status = ?');
-                    updateValues.push(errorData.status);
-                }
-            } else {
-                updateFields.push('status = ?');
-                updateValues.push(errorData.status);
-            }
-        } else {
-            updateFields.push('status = ?');
-            updateValues.push(errorData.status);
-        }
 
         updateFields.push('updated_at = NOW()');
         updateValues.push(id);
@@ -2371,42 +2337,7 @@ app.put('/api/errors/:id', authenticate, async (req, res) => {
     }
 });
 
-app.patch('/api/errors/:id/status', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { status } = req.body;
-
-        const existing = await query('SELECT * FROM error_logs WHERE id = ?', [id]);
-        if (existing.length === 0) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Error not found' 
-            });
-        }
-
-        const validStatuses = ['Pending', 'In Progress', 'Completed', 'Resolved', 'Closed'];
-        if (!validStatuses.includes(status)) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Invalid status. Must be one of: ' + validStatuses.join(', ')
-            });
-        }
-
-        await query('UPDATE error_logs SET status = ? WHERE id = ?', [status, id]);
-
-        console.log('✅ Error status updated:', id, '->', status);
-        res.json({ 
-            success: true, 
-            message: 'Status updated successfully' 
-        });
-    } catch (error) {
-        console.error('❌ Update status error:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: 'Failed to update status: ' + error.message 
-        });
-    }
-});
+// ✅ REMOVED: PATCH /api/errors/:id/status endpoint completely
 
 app.delete('/api/errors/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     try {
@@ -2502,7 +2433,7 @@ app.post('/api/errors/upload', authenticate, errorUpload.single('file'), async (
 });
 
 // ============================================================
-// ✅ REPAIRS ROUTES
+// ✅ REPAIRS ROUTES - COMPLETE UPDATE WITH ALL CHANGES
 // ============================================================
 app.get('/api/repairs', authenticate, async (req, res) => {
     try {
@@ -2510,12 +2441,11 @@ app.get('/api/repairs', authenticate, async (req, res) => {
             SELECT r.*, 
                    e.name as equipment_name,
                    e.model as equipment_model,
-                   u.full_name as engineer_name,
+                   r.engineer_name,
                    el.error_title
             FROM repairs r
             LEFT JOIN error_logs el ON r.error_log_id = el.id
             LEFT JOIN equipment e ON el.equipment_id = e.id
-            LEFT JOIN users u ON r.engineer_id = u.id
             WHERE 1=1
         `;
         const params = [];
@@ -2542,12 +2472,11 @@ app.get('/api/repairs/:id', authenticate, async (req, res) => {
             SELECT r.*, 
                    e.name as equipment_name,
                    e.model as equipment_model,
-                   u.full_name as engineer_name,
+                   r.engineer_name,
                    el.error_title
             FROM repairs r
             LEFT JOIN error_logs el ON r.error_log_id = el.id
             LEFT JOIN equipment e ON el.equipment_id = e.id
-            LEFT JOIN users u ON r.engineer_id = u.id
             WHERE r.id = ?
         `;
         const params = [id];
@@ -2578,16 +2507,34 @@ app.get('/api/repairs/:id', authenticate, async (req, res) => {
     }
 });
 
-// ✅ UPDATED: Only SUPER_ADMIN can create repairs (removed HOSPITAL_ADMIN)
-app.post('/api/repairs', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
+// ✅ POST /api/repairs - Allow SUPER_ADMIN & ENGINEER
+app.post('/api/repairs', authenticate, async (req, res) => {
     try {
         const { 
-            error_log_id, engineer_id, root_cause, problem_analysis, 
+            error_log_id, 
+            engineer_name,
+            root_cause, problem_analysis, 
             corrective_action, repair_procedure, solution_description, 
-            time_taken, spare_part_used, remarks, status
+            time_taken, spare_part_used, remarks,
+            repair_date,
+            spare_parts,
+            attachments
         } = req.body;
 
-        console.log('🛠️ Creating repair:', req.body);
+        console.log('🛠️ Creating repair...');
+        console.log('👤 User:', req.user.email, 'Role:', req.user.role_name);
+        console.log('📦 Payload:', req.body);
+
+        // ✅ Check permission - Allow SUPER_ADMIN and ENGINEER
+        const isSuperAdmin = req.user.role_name === 'SUPER_ADMIN';
+        const isEngineer = req.user.role_name === 'ENGINEER';
+
+        if (!isSuperAdmin && !isEngineer) {
+            return res.status(403).json({ 
+                success: false, 
+                message: 'Only Engineers and Super Admin can create repairs' 
+            });
+        }
 
         if (!error_log_id) {
             return res.status(400).json({ 
@@ -2596,22 +2543,55 @@ app.post('/api/repairs', authenticate, authorize('SUPER_ADMIN'), async (req, res
             });
         }
 
-        let finalStatus = 'Pending';
-        if (status && validRepairStatuses.includes(status)) {
-            finalStatus = status;
+        // Check if error exists
+        const errorCheck = await query(
+            'SELECT id, equipment_id, error_title FROM error_logs WHERE id = ?',
+            [error_log_id]
+        );
+        
+        if (errorCheck.length === 0) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Error log not found' 
+            });
         }
 
+        // Check if equipment exists
+        const equipmentCheck = await query(
+            'SELECT id, name, hospital_id FROM equipment WHERE id = ?',
+            [errorCheck[0].equipment_id]
+        );
+        
+        if (equipmentCheck.length === 0) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Equipment not found' 
+            });
+        }
+
+        // ✅ Validate engineer_name
+        const finalEngineerName = engineer_name || req.user.full_name || '';
+        if (!finalEngineerName.trim()) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Engineer name is required' 
+            });
+        }
+
+        // ✅ Convert spare_part_used from 'Yes'/'No' to 1/0
         const spareUsed = spare_part_used === 'Yes' ? 1 : 0;
 
+        // ✅ INSERT repair (NO status column, WITH attachments)
         const result = await query(
             `INSERT INTO repairs 
-             (error_log_id, engineer_id, root_cause, problem_analysis, 
+             (error_log_id, engineer_id, engineer_name, root_cause, problem_analysis, 
               corrective_action, repair_procedure, solution_description, 
-              time_taken, spare_part_used, remarks, status)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              time_taken, spare_part_used, remarks, repair_date, attachments)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 parseInt(error_log_id),
-                engineer_id ? parseInt(engineer_id) : req.user.id,
+                req.user.id,
+                finalEngineerName.trim(),
                 root_cause || '',
                 problem_analysis || '',
                 corrective_action || '',
@@ -2620,62 +2600,74 @@ app.post('/api/repairs', authenticate, authorize('SUPER_ADMIN'), async (req, res
                 time_taken ? parseInt(time_taken) : 0,
                 spareUsed,
                 remarks || '',
-                finalStatus
+                repair_date || new Date().toISOString().slice(0, 19).replace('T', ' '),
+                attachments || ''
             ]
         );
 
-        await query('UPDATE error_logs SET status = ? WHERE id = ?', ['In Progress', error_log_id]);
+        console.log('✅ Repair created. ID:', result.insertId);
 
-        console.log('✅ Repair created:', result.insertId);
-
-        const errorData = await query(
-            'SELECT error_title, equipment_id FROM error_logs WHERE id = ?',
-            [error_log_id]
-        );
-        
-        if (errorData.length > 0) {
-            const equipment = await query(
-                'SELECT name, hospital_id FROM equipment WHERE id = ?',
-                [errorData[0].equipment_id]
-            );
-            
-            if (equipment.length > 0) {
-                await createNotification(
-                    1, 
-                    'New Repair Started', 
-                    `Repair started for "${equipment[0].name}" - ${errorData[0].error_title}`,
-                    'Repair',
-                    result.insertId,
-                    'repairs'
-                );
-
-                await notifyAdmins(
-                    equipment[0].hospital_id,
-                    'New Repair Started',
-                    `Repair started for "${equipment[0].name}"`,
-                    'Repair',
-                    result.insertId,
-                    'repairs'
-                );
-
-                if (engineer_id) {
-                    await notifyEngineer(
-                        engineer_id,
-                        'Repair Assigned to You',
-                        `You have been assigned to repair "${equipment[0].name}"`,
-                        'Repair',
+        // ✅ Insert spare parts if any
+        if (spare_parts && Array.isArray(spare_parts) && spare_parts.length > 0) {
+            for (const part of spare_parts) {
+                await query(
+                    `INSERT INTO repair_spare_parts 
+                     (repair_id, part_name, part_number, brand, quantity, unit_cost, total_cost, installation_notes)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [
                         result.insertId,
-                        'repairs'
-                    );
-                }
+                        part.part_name || '',
+                        part.part_number || '',
+                        part.brand || '',
+                        part.quantity || 1,
+                        part.unit_cost || 0,
+                        part.total_cost || 0,
+                        part.installation_notes || ''
+                    ]
+                );
             }
+            console.log(`✅ Added ${spare_parts.length} spare parts`);
         }
+
+        // ✅ Update error status to 'In Progress'
+        try {
+            await query(
+                `UPDATE error_logs SET status = 'In Progress' WHERE id = ?`,
+                [error_log_id]
+            );
+            console.log('✅ Error status updated to In Progress');
+        } catch (updateError) {
+            console.log('⚠️ Could not update error status:', updateError.message);
+        }
+
+        // ✅ Send notification
+        await createNotification(
+            1,
+            'New Repair Created',
+            `Repair created for "${equipmentCheck[0].name}" - ${errorCheck[0].error_title}`,
+            'Repair',
+            result.insertId,
+            'repairs'
+        );
+
+        await notifyAdmins(
+            equipmentCheck[0].hospital_id,
+            'New Repair Started',
+            `Repair started for "${equipmentCheck[0].name}"`,
+            'Repair',
+            result.insertId,
+            'repairs'
+        );
 
         res.status(201).json({
             success: true,
-            message: 'Repair created successfully',
-            repair: { id: result.insertId }
+            message: 'Repair recorded successfully',
+            repair: { 
+                id: result.insertId,
+                equipment_name: equipmentCheck[0].name
+            }
         });
+
     } catch (error) {
         console.error('❌ Create repair error:', error);
         console.error('❌ SQL:', error.sql);
@@ -2686,16 +2678,28 @@ app.post('/api/repairs', authenticate, authorize('SUPER_ADMIN'), async (req, res
     }
 });
 
+// ✅ PUT /api/repairs/:id - Only SUPER_ADMIN can update
 app.put('/api/repairs/:id', authenticate, async (req, res) => {
     try {
         const { id } = req.params;
         const { 
             root_cause, problem_analysis, corrective_action, 
             repair_procedure, solution_description, time_taken, 
-            spare_part_used, remarks, status, engineer_id 
+            spare_part_used, remarks, 
+            engineer_name,
+            attachments
         } = req.body;
 
         console.log('🔄 Updating repair:', id);
+        console.log('👤 User:', req.user.email, 'Role:', req.user.role_name);
+
+        // ✅ Only SUPER_ADMIN can update repairs
+        if (req.user.role_name !== 'SUPER_ADMIN') {
+            return res.status(403).json({ 
+                success: false, 
+                message: 'Only Super Admin can update repairs' 
+            });
+        }
 
         const existing = await query('SELECT * FROM repairs WHERE id = ?', [id]);
         if (existing.length === 0) {
@@ -2705,23 +2709,15 @@ app.put('/api/repairs/:id', authenticate, async (req, res) => {
             });
         }
 
-        if (req.user.role_name !== 'SUPER_ADMIN') {
-            if (existing[0].engineer_id !== req.user.id) {
-                return res.status(403).json({ 
-                    success: false, 
-                    message: 'You can only update your assigned repairs' 
-                });
-            }
-        }
-
-        const finalStatus = validRepairStatuses.includes(status) ? status : existing[0].status;
         const spareUsed = spare_part_used === 'Yes' ? 1 : 0;
 
         await query(
             `UPDATE repairs SET 
              root_cause = ?, problem_analysis = ?, corrective_action = ?,
              repair_procedure = ?, solution_description = ?, time_taken = ?,
-             spare_part_used = ?, remarks = ?, status = ?
+             spare_part_used = ?, remarks = ?,
+             engineer_name = ?,
+             attachments = ?
              WHERE id = ?`,
             [
                 root_cause || existing[0].root_cause,
@@ -2732,92 +2728,47 @@ app.put('/api/repairs/:id', authenticate, async (req, res) => {
                 time_taken || existing[0].time_taken,
                 spareUsed,
                 remarks || existing[0].remarks,
-                finalStatus,
+                engineer_name || existing[0].engineer_name,
+                attachments !== undefined ? attachments : existing[0].attachments,
                 id
             ]
         );
 
-        if (finalStatus === 'Resolved' || finalStatus === 'Closed' || finalStatus === 'Completed') {
+        // Auto-save to knowledge base when repair has complete info
+        const hasRootCause = root_cause && root_cause.trim() !== '';
+        const hasSolution = solution_description && solution_description.trim() !== '';
+        const hasProcedure = repair_procedure && repair_procedure.trim() !== '';
+        
+        if (hasRootCause && hasSolution && hasProcedure) {
             const repairData = await query(
                 'SELECT error_log_id FROM repairs WHERE id = ?',
                 [id]
             );
             
             if (repairData.length > 0 && repairData[0].error_log_id) {
-                await query(
-                    'UPDATE error_logs SET status = "Resolved" WHERE id = ?',
-                    [repairData[0].error_log_id]
-                );
-
-                await query(
-                    `INSERT INTO knowledge_base 
-                     (equipment_id, error_code, error_title, error_description, 
-                      root_cause, solution, repair_procedure, time_taken, 
-                      spare_parts_used, created_by)
-                     SELECT el.equipment_id, el.error_code, el.error_title, 
-                            el.error_description, r.root_cause, 
-                            r.solution_description, r.repair_procedure, 
-                            r.time_taken, 
-                            CASE WHEN r.spare_part_used = 1 THEN 'Yes' ELSE 'No' END,
-                            r.engineer_id
-                     FROM repairs r
-                     LEFT JOIN error_logs el ON r.error_log_id = el.id
-                     WHERE r.id = ?`,
-                    [id]
-                );
-                console.log('📚 Auto-saved to knowledge base from repair:', id);
-
-                try {
-                    const spareParts = await query(
-                        'SELECT part_id, quantity FROM repair_spare_parts WHERE repair_id = ?',
-                        [id]
-                    );
-                    
-                    for (const part of spareParts) {
-                        const stockCheck = await query(
-                            'SELECT quantity FROM spare_parts WHERE id = ?',
-                            [part.part_id]
-                        );
-                        
-                        if (stockCheck.length > 0) {
-                            const currentQty = stockCheck[0].quantity;
-                            if (currentQty >= part.quantity) {
-                                await query(
-                                    'UPDATE spare_parts SET quantity = quantity - ? WHERE id = ?',
-                                    [part.quantity, part.part_id]
-                                );
-                                
-                                await query(
-                                    `INSERT INTO stock_movement 
-                                     (spare_part_id, quantity, type, reference_id, reference_type, created_at)
-                                     VALUES (?, ?, 'OUT', ?, 'repair', NOW())`,
-                                    [part.part_id, part.quantity, id]
-                                );
-                                
-                                console.log(`📦 Deducted ${part.quantity} from spare part ${part.part_id}`);
-                            } else {
-                                console.log(`⚠️ Insufficient stock for part ${part.part_id}. Available: ${currentQty}, Required: ${part.quantity}`);
-                            }
-                        }
-                    }
-                } catch (inventoryError) {
-                    console.error('❌ Inventory deduction error:', inventoryError);
-                }
-
-                const errorInfo = await query(
-                    'SELECT reported_by, error_title FROM error_logs WHERE id = ?',
-                    [repairData[0].error_log_id]
+                const existingKB = await query(
+                    'SELECT id FROM knowledge_base WHERE error_title LIKE ? AND equipment_id IN (SELECT equipment_id FROM error_logs WHERE id = ?)',
+                    [`%${existing[0].root_cause?.substring(0, 30)}%`, repairData[0].error_log_id]
                 );
                 
-                if (errorInfo.length > 0 && errorInfo[0].reported_by) {
-                    await createNotification(
-                        errorInfo[0].reported_by,
-                        'Repair Completed',
-                        `Your reported error "${errorInfo[0].error_title}" has been resolved`,
-                        'Repair',
-                        id,
-                        'repairs'
+                if (existingKB.length === 0) {
+                    await query(
+                        `INSERT INTO knowledge_base 
+                         (equipment_id, error_code, error_title, error_description, 
+                          root_cause, solution, repair_procedure, time_taken, 
+                          spare_parts_used, created_by)
+                         SELECT el.equipment_id, el.error_code, el.error_title, 
+                                el.error_description, r.root_cause, 
+                                r.solution_description, r.repair_procedure, 
+                                r.time_taken, 
+                                CASE WHEN r.spare_part_used = 1 THEN 'Yes' ELSE 'No' END,
+                                ? 
+                         FROM repairs r
+                         LEFT JOIN error_logs el ON r.error_log_id = el.id
+                         WHERE r.id = ?`,
+                        [req.user.id || 1, id]
                     );
+                    console.log('📚 Auto-saved to knowledge base from repair:', id);
                 }
             }
         }
@@ -2836,6 +2787,7 @@ app.put('/api/repairs/:id', authenticate, async (req, res) => {
     }
 });
 
+// ✅ DELETE /api/repairs/:id - Only SUPER_ADMIN
 app.delete('/api/repairs/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     try {
         const { id } = req.params;
@@ -2867,249 +2819,7 @@ app.delete('/api/repairs/:id', authenticate, authorize('SUPER_ADMIN'), async (re
 });
 
 // ============================================================
-// ✅ MAINTENANCE ROUTES
-// ============================================================
-app.get('/api/maintenance', authenticate, async (req, res) => {
-    try {
-        let sql = `
-            SELECT m.*, e.name as equipment_name, h.name as hospital_name,
-                   u.full_name as assigned_to_name
-            FROM maintenance_schedule m
-            LEFT JOIN equipment e ON m.equipment_id = e.id
-            LEFT JOIN hospitals h ON e.hospital_id = h.id
-            LEFT JOIN users u ON m.assigned_to = u.id
-            WHERE 1=1
-        `;
-        const params = [];
-
-        if (req.user.role_name !== 'SUPER_ADMIN') {
-            sql += ' AND e.hospital_id = ?';
-            params.push(req.user.hospital_id);
-        }
-
-        sql += ' ORDER BY m.next_due_date ASC';
-        const schedules = await query(sql, params);
-        res.json({ success: true, schedules });
-    } catch (error) {
-        console.error('Get maintenance error:', error);
-        res.status(500).json({ success: false, message: 'Failed to fetch maintenance schedules' });
-    }
-});
-
-app.get('/api/maintenance/:id', authenticate, async (req, res) => {
-    try {
-        const { id } = req.params;
-        
-        let sql = `
-            SELECT m.*, e.name as equipment_name, h.name as hospital_name,
-                   u.full_name as assigned_to_name
-            FROM maintenance_schedule m
-            LEFT JOIN equipment e ON m.equipment_id = e.id
-            LEFT JOIN hospitals h ON e.hospital_id = h.id
-            LEFT JOIN users u ON m.assigned_to = u.id
-            WHERE m.id = ?
-        `;
-        const params = [id];
-
-        if (req.user.role_name !== 'SUPER_ADMIN') {
-            sql += ' AND e.hospital_id = ?';
-            params.push(req.user.hospital_id);
-        }
-
-        const schedules = await query(sql, params);
-        if (schedules.length === 0) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Maintenance schedule not found' 
-            });
-        }
-
-        res.json({ success: true, schedule: schedules[0] });
-    } catch (error) {
-        console.error('Get maintenance schedule error:', error);
-        res.status(500).json({ success: false, message: 'Failed to fetch maintenance schedule' });
-    }
-});
-
-// ✅ UPDATED: Only SUPER_ADMIN can create maintenance (removed HOSPITAL_ADMIN)
-app.post('/api/maintenance', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
-    try {
-        const { 
-            equipment_id, maintenance_type, frequency, 
-            last_maintenance_date, next_due_date,
-            maintenance_checklist, calibration_date, 
-            warranty_expiry, amc_details, status, 
-            assigned_to, description, priority 
-        } = req.body;
-
-        console.log('📅 Creating maintenance schedule for equipment:', equipment_id);
-        console.log('👷 Assigned to engineer ID:', assigned_to);
-
-        if (!equipment_id) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Equipment is required' 
-            });
-        }
-
-        const result = await query(
-            `INSERT INTO maintenance_schedule 
-             (equipment_id, maintenance_type, frequency,
-              last_maintenance_date, next_due_date,
-              maintenance_checklist, calibration_date,
-              warranty_expiry, amc_details, status,
-              assigned_to, description, priority)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-                equipment_id,
-                maintenance_type || 'Preventive',
-                frequency || 'Monthly',
-                last_maintenance_date || null,
-                next_due_date || null,
-                maintenance_checklist || null,
-                calibration_date || null,
-                warranty_expiry || null,
-                amc_details || null,
-                status || 'Scheduled',
-                assigned_to || null,
-                description || null,
-                priority || 'Medium'
-            ]
-        );
-
-        if (assigned_to) {
-            await notifyEngineer(
-                assigned_to,
-                'Maintenance Task Assigned',
-                `Maintenance scheduled for equipment ID: ${equipment_id}`,
-                'Maintenance',
-                result.insertId,
-                'maintenance'
-            );
-        }
-
-        console.log('✅ Maintenance schedule created. ID:', result.insertId);
-        res.status(201).json({
-            success: true,
-            message: 'Maintenance schedule created successfully',
-            schedule: { id: result.insertId }
-        });
-    } catch (error) {
-        console.error('❌ Create maintenance error:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: 'Failed to create maintenance schedule: ' + error.message 
-        });
-    }
-});
-
-// ✅ UPDATED: Only SUPER_ADMIN can update maintenance (removed HOSPITAL_ADMIN)
-app.put('/api/maintenance/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { 
-            maintenance_type, frequency, 
-            last_maintenance_date, next_due_date,
-            maintenance_checklist, calibration_date,
-            warranty_expiry, amc_details, status,
-            assigned_to, description, priority 
-        } = req.body;
-
-        console.log('🔄 Updating maintenance schedule. ID:', id);
-
-        const existing = await query('SELECT * FROM maintenance_schedule WHERE id = ?', [id]);
-        if (existing.length === 0) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Maintenance schedule not found' 
-            });
-        }
-
-        const finalStatus = validMaintenanceStatuses.includes(status) ? status : existing[0].status;
-
-        await query(
-            `UPDATE maintenance_schedule SET 
-             maintenance_type = ?, frequency = ?,
-             last_maintenance_date = ?, next_due_date = ?,
-             maintenance_checklist = ?, calibration_date = ?,
-             warranty_expiry = ?, amc_details = ?,
-             status = ?, assigned_to = ?,
-             description = ?, priority = ?
-             WHERE id = ?`,
-            [
-                maintenance_type || existing[0].maintenance_type,
-                frequency || existing[0].frequency,
-                last_maintenance_date || existing[0].last_maintenance_date,
-                next_due_date || existing[0].next_due_date,
-                maintenance_checklist || existing[0].maintenance_checklist,
-                calibration_date || existing[0].calibration_date,
-                warranty_expiry || existing[0].warranty_expiry,
-                amc_details || existing[0].amc_details,
-                finalStatus,
-                assigned_to !== undefined ? assigned_to : existing[0].assigned_to,
-                description || existing[0].description,
-                priority || existing[0].priority,
-                id
-            ]
-        );
-
-        if (assigned_to && assigned_to !== existing[0].assigned_to) {
-            await notifyEngineer(
-                assigned_to,
-                'Maintenance Task Reassigned',
-                `Maintenance schedule updated for equipment ID: ${existing[0].equipment_id}`,
-                'Maintenance',
-                id,
-                'maintenance'
-            );
-        }
-
-        console.log('✅ Maintenance schedule updated:', id);
-        res.json({ 
-            success: true, 
-            message: 'Maintenance schedule updated successfully' 
-        });
-    } catch (error) {
-        console.error('❌ Update maintenance error:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: 'Failed to update maintenance schedule: ' + error.message 
-        });
-    }
-});
-
-// ✅ UPDATED: Only SUPER_ADMIN can delete maintenance (removed HOSPITAL_ADMIN)
-app.delete('/api/maintenance/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
-    try {
-        const { id } = req.params;
-        console.log('🗑️ Deleting maintenance schedule. ID:', id);
-
-        const existing = await query('SELECT * FROM maintenance_schedule WHERE id = ?', [id]);
-        if (existing.length === 0) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Maintenance schedule not found' 
-            });
-        }
-
-        await query('DELETE FROM maintenance_schedule WHERE id = ?', [id]);
-
-        console.log('✅ Maintenance schedule deleted:', id);
-        res.json({ 
-            success: true, 
-            message: 'Maintenance schedule deleted successfully' 
-        });
-    } catch (error) {
-        console.error('❌ Delete maintenance error:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: 'Failed to delete maintenance schedule: ' + error.message 
-        });
-    }
-});
-
-// ============================================================
-// ✅ SPARE PARTS ROUTES
+// ✅ SPARE PARTS ROUTES - UPDATED to use engineer_name
 // ============================================================
 app.get('/api/spare-parts', authenticate, async (req, res) => {
     try {
@@ -3117,12 +2827,11 @@ app.get('/api/spare-parts', authenticate, async (req, res) => {
             SELECT sp.*, 
                    e.name as equipment_name,
                    e.model as equipment_model,
-                   u.full_name as engineer_name
+                   r.engineer_name
             FROM spare_parts sp
             LEFT JOIN repairs r ON sp.repair_id = r.id
             LEFT JOIN error_logs el ON r.error_log_id = el.id
             LEFT JOIN equipment e ON el.equipment_id = e.id
-            LEFT JOIN users u ON r.engineer_id = u.id
             WHERE 1=1
         `;
         const params = [];
@@ -3148,12 +2857,11 @@ app.get('/api/spare-parts/:id', authenticate, async (req, res) => {
         let sql = `
             SELECT sp.*, 
                    e.name as equipment_name,
-                   u.full_name as engineer_name
+                   r.engineer_name
             FROM spare_parts sp
             LEFT JOIN repairs r ON sp.repair_id = r.id
             LEFT JOIN error_logs el ON r.error_log_id = el.id
             LEFT JOIN equipment e ON el.equipment_id = e.id
-            LEFT JOIN users u ON r.engineer_id = u.id
             WHERE sp.id = ?
         `;
         const params = [id];
@@ -3247,7 +2955,6 @@ app.post('/api/spare-parts', authenticate, async (req, res) => {
     }
 });
 
-// ✅ UPDATED: Only SUPER_ADMIN can update spare parts (removed HOSPITAL_ADMIN)
 app.put('/api/spare-parts/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     try {
         const { id } = req.params;
@@ -3846,6 +3553,585 @@ app.delete('/api/knowledge-base/:id', authenticate, async (req, res) => {
 });
 
 // ============================================================
+// ✅ SEARCH ROUTES - UPDATED to use engineer_name
+// ============================================================
+app.get('/api/search', authenticate, async (req, res) => {
+    try {
+        const { q } = req.query;
+        console.log('🔍 Search Query:', q);
+        
+        if (!q || q.trim().length < 2) {
+            return res.json({ 
+                success: true, 
+                results: {
+                    hospitals: [],
+                    equipment: [],
+                    errors: [],
+                    repairs: [],
+                    knowledge: [],
+                    spareParts: [],
+                    users: []
+                },
+                total: 0
+            });
+        }
+
+        const searchTerm = `%${q.trim().toLowerCase()}%`;
+        const results = {
+            hospitals: [],
+            equipment: [],
+            errors: [],
+            repairs: [],
+            knowledge: [],
+            spareParts: [],
+            users: []
+        };
+
+        if (req.user.role_name === 'SUPER_ADMIN') {
+            results.hospitals = await query(
+                `SELECT id, name, city, phone, email, is_active as status
+                 FROM hospitals 
+                 WHERE LOWER(name) LIKE ? 
+                    OR LOWER(city) LIKE ? 
+                    OR LOWER(email) LIKE ? 
+                    OR LOWER(phone) LIKE ?
+                 AND is_active = 1
+                 LIMIT 10`,
+                [searchTerm, searchTerm, searchTerm, searchTerm]
+            );
+        }
+
+        let equipmentSql = `
+            SELECT e.id, e.name, e.model, e.manufacturer, 
+                   e.serial_number, e.status,
+                   h.name as hospital_name,
+                   c.name as category_name
+            FROM equipment e
+            LEFT JOIN hospitals h ON e.hospital_id = h.id
+            LEFT JOIN equipment_categories c ON e.category_id = c.id
+            WHERE (LOWER(e.name) LIKE ? 
+               OR LOWER(e.model) LIKE ? 
+               OR LOWER(e.manufacturer) LIKE ? 
+               OR LOWER(e.serial_number) LIKE ?)
+               AND e.status != 'Retired'
+        `;
+        const equipmentParams = [searchTerm, searchTerm, searchTerm, searchTerm];
+
+        if (req.user.role_name !== 'SUPER_ADMIN') {
+            equipmentSql += ' AND e.hospital_id = ?';
+            equipmentParams.push(req.user.hospital_id);
+        }
+
+        equipmentSql += ' LIMIT 10';
+        results.equipment = await query(equipmentSql, equipmentParams);
+
+        let errorSql = `
+            SELECT e.id, e.error_title, e.error_code, e.severity,
+                   eq.name as equipment_name,
+                   h.name as hospital_name,
+                   u.full_name as reported_by_name
+            FROM error_logs e
+            LEFT JOIN equipment eq ON e.equipment_id = eq.id
+            LEFT JOIN hospitals h ON eq.hospital_id = h.id
+            LEFT JOIN users u ON e.reported_by = u.id
+            WHERE LOWER(e.error_title) LIKE ? 
+               OR LOWER(e.error_code) LIKE ? 
+               OR LOWER(e.error_description) LIKE ?
+        `;
+        const errorParams = [searchTerm, searchTerm, searchTerm];
+
+        if (req.user.role_name !== 'SUPER_ADMIN') {
+            errorSql += ' AND eq.hospital_id = ?';
+            errorParams.push(req.user.hospital_id);
+        }
+
+        errorSql += ' LIMIT 10';
+        results.errors = await query(errorSql, errorParams);
+
+        let repairSql = `
+            SELECT r.id, r.root_cause, r.repair_date,
+                   eq.name as equipment_name,
+                   r.engineer_name
+            FROM repairs r
+            LEFT JOIN error_logs e ON r.error_log_id = e.id
+            LEFT JOIN equipment eq ON e.equipment_id = eq.id
+            WHERE LOWER(r.root_cause) LIKE ? 
+               OR LOWER(r.solution_description) LIKE ? 
+               OR LOWER(r.repair_procedure) LIKE ?
+               OR LOWER(r.engineer_name) LIKE ?
+        `;
+        const repairParams = [searchTerm, searchTerm, searchTerm, searchTerm];
+
+        if (req.user.role_name !== 'SUPER_ADMIN') {
+            repairSql += ' AND eq.hospital_id = ?';
+            repairParams.push(req.user.hospital_id);
+        }
+
+        repairSql += ' LIMIT 10';
+        results.repairs = await query(repairSql, repairParams);
+
+        let kbSql = `
+            SELECT k.id, k.error_title, k.error_code, 
+                   k.solution, k.root_cause, k.created_at,
+                   eq.name as equipment_name
+            FROM knowledge_base k
+            LEFT JOIN equipment eq ON k.equipment_id = eq.id
+            WHERE LOWER(k.error_title) LIKE ? 
+               OR LOWER(k.error_code) LIKE ? 
+               OR LOWER(k.solution) LIKE ? 
+               OR LOWER(k.root_cause) LIKE ?
+        `;
+        const kbParams = [searchTerm, searchTerm, searchTerm, searchTerm];
+
+        if (req.user.role_name !== 'SUPER_ADMIN') {
+            kbSql += ' AND eq.hospital_id = ?';
+            kbParams.push(req.user.hospital_id);
+        }
+
+        kbSql += ' LIMIT 10';
+        results.knowledge = await query(kbSql, kbParams);
+
+        let spareSql = `
+            SELECT s.id, s.part_name, s.part_number, 
+                   s.brand, s.quantity, s.unit_cost,
+                   eq.name as equipment_name,
+                   r.engineer_name
+            FROM spare_parts s
+            LEFT JOIN repairs r ON s.repair_id = r.id
+            LEFT JOIN error_logs e ON r.error_log_id = e.id
+            LEFT JOIN equipment eq ON e.equipment_id = eq.id
+            WHERE LOWER(s.part_name) LIKE ? 
+               OR LOWER(s.part_number) LIKE ? 
+               OR LOWER(s.brand) LIKE ?
+               OR LOWER(s.manufacturer) LIKE ?
+        `;
+        const spareParams = [searchTerm, searchTerm, searchTerm, searchTerm];
+
+        if (req.user.role_name !== 'SUPER_ADMIN') {
+            spareSql += ' AND eq.hospital_id = ?';
+            spareParams.push(req.user.hospital_id);
+        }
+
+        spareSql += ' LIMIT 10';
+        results.spareParts = await query(spareSql, spareParams);
+
+        if (req.user.role_name === 'SUPER_ADMIN') {
+            results.users = await query(
+                `SELECT u.id, u.full_name, u.email, u.username,
+                        r.name as role_name,
+                        h.name as hospital_name,
+                        u.is_active as status
+                 FROM users u
+                 LEFT JOIN roles r ON u.role_id = r.id
+                 LEFT JOIN hospitals h ON u.hospital_id = h.id
+                 WHERE LOWER(u.full_name) LIKE ? 
+                    OR LOWER(u.email) LIKE ? 
+                    OR LOWER(u.username) LIKE ?
+                    AND u.is_active = 1
+                 LIMIT 10`,
+                [searchTerm, searchTerm, searchTerm]
+            );
+        }
+
+        const total = 
+            (results.hospitals?.length || 0) +
+            (results.equipment?.length || 0) +
+            (results.errors?.length || 0) +
+            (results.repairs?.length || 0) +
+            (results.knowledge?.length || 0) +
+            (results.spareParts?.length || 0) +
+            (results.users?.length || 0);
+
+        console.log('📊 Search Results Count:', total);
+        console.log('📊 Results Breakdown:');
+        console.log(`   🏥 Hospitals: ${results.hospitals?.length || 0}`);
+        console.log(`   🛠️ Equipment: ${results.equipment?.length || 0}`);
+        console.log(`   ❌ Errors: ${results.errors?.length || 0}`);
+        console.log(`   🔧 Repairs: ${results.repairs?.length || 0}`);
+        console.log(`   📚 Knowledge: ${results.knowledge?.length || 0}`);
+        console.log(`   🔩 Spare Parts: ${results.spareParts?.length || 0}`);
+        console.log(`   👤 Users: ${results.users?.length || 0}`);
+
+        res.json({ 
+            success: true, 
+            results: results,
+            total: total,
+            count: total
+        });
+
+    } catch (error) {
+        console.error('❌ Search error:', error);
+        console.error('❌ Error details:', error.stack);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Search failed: ' + error.message 
+        });
+    }
+});
+
+// ============================================================
+// ✅ MAINTENANCE ROUTES - FIXED (NO assigned_to, using engineer_name)
+// ============================================================
+app.get('/api/maintenance', authenticate, async (req, res) => {
+    try {
+        let sql = `
+            SELECT m.*, e.name as equipment_name, h.name as hospital_name
+            FROM maintenance_schedule m
+            LEFT JOIN equipment e ON m.equipment_id = e.id
+            LEFT JOIN hospitals h ON e.hospital_id = h.id
+            WHERE 1=1
+        `;
+        const params = [];
+
+        if (req.user.role_name !== 'SUPER_ADMIN') {
+            sql += ' AND e.hospital_id = ?';
+            params.push(req.user.hospital_id);
+        }
+
+        sql += ' ORDER BY m.next_due_date ASC';
+        const schedules = await query(sql, params);
+        res.json({ success: true, schedules });
+    } catch (error) {
+        console.error('Get maintenance error:', error);
+        res.status(500).json({ success: false, message: 'Failed to fetch maintenance schedules' });
+    }
+});
+
+app.get('/api/maintenance/:id', authenticate, async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        let sql = `
+            SELECT m.*, e.name as equipment_name, h.name as hospital_name
+            FROM maintenance_schedule m
+            LEFT JOIN equipment e ON m.equipment_id = e.id
+            LEFT JOIN hospitals h ON e.hospital_id = h.id
+            WHERE m.id = ?
+        `;
+        const params = [id];
+
+        if (req.user.role_name !== 'SUPER_ADMIN') {
+            sql += ' AND e.hospital_id = ?';
+            params.push(req.user.hospital_id);
+        }
+
+        const schedules = await query(sql, params);
+        if (schedules.length === 0) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Maintenance schedule not found' 
+            });
+        }
+
+        res.json({ success: true, schedule: schedules[0] });
+    } catch (error) {
+        console.error('Get maintenance schedule error:', error);
+        res.status(500).json({ success: false, message: 'Failed to fetch maintenance schedule' });
+    }
+});
+
+// ✅ POST /api/maintenance - Allow SUPER_ADMIN & ENGINEER
+app.post('/api/maintenance', authenticate, async (req, res) => {
+    try {
+        const { 
+            equipment_id, maintenance_type, frequency, 
+            last_maintenance_date, next_due_date,
+            maintenance_checklist, calibration_date, 
+            warranty_expiry, amc_details, status, 
+            engineer_name, description, priority 
+        } = req.body;
+
+        console.log('📅 Creating maintenance schedule for equipment:', equipment_id);
+        console.log('👷 Engineer name:', engineer_name);
+
+        // ✅ Check permission - Allow SUPER_ADMIN and ENGINEER
+        const isSuperAdmin = req.user.role_name === 'SUPER_ADMIN';
+        const isEngineer = req.user.role_name === 'ENGINEER';
+
+        if (!isSuperAdmin && !isEngineer) {
+            return res.status(403).json({ 
+                success: false, 
+                message: 'Only Engineers and Super Admin can create maintenance schedules' 
+            });
+        }
+
+        if (!equipment_id) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Equipment is required' 
+            });
+        }
+
+        const result = await query(
+            `INSERT INTO maintenance_schedule 
+             (equipment_id, maintenance_type, frequency,
+              last_maintenance_date, next_due_date,
+              maintenance_checklist, calibration_date,
+              warranty_expiry, amc_details, status,
+              engineer_name, description, priority)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                equipment_id,
+                maintenance_type || 'Preventive',
+                frequency || 'Monthly',
+                formatDateForMySQL(last_maintenance_date),
+                formatDateForMySQL(next_due_date),
+                maintenance_checklist || null,
+                formatDateForMySQL(calibration_date),
+                formatDateForMySQL(warranty_expiry),
+                amc_details || null,
+                status || 'Scheduled',
+                engineer_name || null,
+                description || null,
+                priority || 'Medium'
+            ]
+        );
+
+        console.log('✅ Maintenance schedule created. ID:', result.insertId);
+        res.status(201).json({
+            success: true,
+            message: 'Maintenance schedule created successfully',
+            schedule: { id: result.insertId }
+        });
+    } catch (error) {
+        console.error('❌ Create maintenance error:', error);
+        console.error('❌ SQL:', error.sql);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Failed to create maintenance schedule: ' + error.message 
+        });
+    }
+});
+
+// ✅ PUT /api/maintenance/:id - Only SUPER_ADMIN
+app.put('/api/maintenance/:id', authenticate, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { 
+            maintenance_type, frequency, 
+            last_maintenance_date, next_due_date,
+            maintenance_checklist, calibration_date,
+            warranty_expiry, amc_details, status,
+            engineer_name, description, priority 
+        } = req.body;
+
+        console.log('🔄 Updating maintenance schedule. ID:', id);
+        console.log('📦 Payload:', req.body);
+
+        // ✅ Check if user is SUPER_ADMIN
+        if (req.user.role_name !== 'SUPER_ADMIN') {
+            return res.status(403).json({ 
+                success: false, 
+                message: 'Only Super Admin can update maintenance schedules' 
+            });
+        }
+
+        // ✅ Check if schedule exists
+        const existing = await query('SELECT * FROM maintenance_schedule WHERE id = ?', [id]);
+        if (existing.length === 0) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Maintenance schedule not found' 
+            });
+        }
+
+        // ✅ Valid statuses
+        const validStatuses = ['Scheduled', 'In Progress', 'Completed', 'Overdue', 'Cancelled'];
+        const finalStatus = validStatuses.includes(status) ? status : existing[0].status;
+
+        const result = await query(
+            `UPDATE maintenance_schedule SET 
+             maintenance_type = ?,
+             frequency = ?,
+             last_maintenance_date = ?,
+             next_due_date = ?,
+             maintenance_checklist = ?,
+             calibration_date = ?,
+             warranty_expiry = ?,
+             amc_details = ?,
+             status = ?,
+             engineer_name = ?,
+             description = ?,
+             priority = ?
+             WHERE id = ?`,
+            [
+                maintenance_type || existing[0].maintenance_type,
+                frequency || existing[0].frequency,
+                formatDateForMySQL(last_maintenance_date) !== null ? formatDateForMySQL(last_maintenance_date) : existing[0].last_maintenance_date,
+                formatDateForMySQL(next_due_date) !== null ? formatDateForMySQL(next_due_date) : existing[0].next_due_date,
+                maintenance_checklist || existing[0].maintenance_checklist,
+                formatDateForMySQL(calibration_date) !== null ? formatDateForMySQL(calibration_date) : existing[0].calibration_date,
+                formatDateForMySQL(warranty_expiry) !== null ? formatDateForMySQL(warranty_expiry) : existing[0].warranty_expiry,
+                amc_details || existing[0].amc_details,
+                finalStatus,
+                engineer_name !== undefined ? engineer_name : existing[0].engineer_name,
+                description || existing[0].description,
+                priority || existing[0].priority,
+                id
+            ]
+        );
+
+        console.log('✅ Maintenance schedule updated:', id);
+        res.json({ 
+            success: true, 
+            message: 'Maintenance schedule updated successfully' 
+        });
+    } catch (error) {
+        console.error('❌ Update maintenance error:', error);
+        console.error('❌ SQL:', error.sql);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Failed to update maintenance schedule: ' + error.message 
+        });
+    }
+});
+
+// ✅ DELETE /api/maintenance/:id - Only SUPER_ADMIN
+app.delete('/api/maintenance/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
+    try {
+        const { id } = req.params;
+        console.log('🗑️ Deleting maintenance schedule. ID:', id);
+
+        const existing = await query('SELECT * FROM maintenance_schedule WHERE id = ?', [id]);
+        if (existing.length === 0) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Maintenance schedule not found' 
+            });
+        }
+
+        await query('DELETE FROM maintenance_schedule WHERE id = ?', [id]);
+
+        console.log('✅ Maintenance schedule deleted:', id);
+        res.json({ 
+            success: true, 
+            message: 'Maintenance schedule deleted successfully' 
+        });
+    } catch (error) {
+        console.error('❌ Delete maintenance error:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Failed to delete maintenance schedule: ' + error.message 
+        });
+    }
+});
+
+// ============================================================
+// ✅ DASHBOARD ROUTES - Updated to remove status references
+// ============================================================
+app.get('/api/dashboard/stats', authenticate, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const role = req.user.role_name;
+        const hospitalId = req.user.hospital_id;
+
+        console.log('📊 Dashboard stats for:', role, 'User:', userId);
+
+        let stats = {};
+
+        if (role === 'SUPER_ADMIN') {
+            const [
+                totalEquipment,
+                totalHospitals,
+                totalHospitalAdmins,
+                totalEngineers,
+                totalUsers,
+                totalErrors,
+                criticalErrors,
+                totalRepairs,
+                maintenanceDue,
+                pendingPurchaseOrders,
+                sparePartsLow
+            ] = await Promise.all([
+                query("SELECT COUNT(*) as count FROM equipment WHERE status != 'Inactive'"),
+                query("SELECT COUNT(*) as count FROM hospitals WHERE is_active = 1"),
+                query("SELECT COUNT(*) as count FROM users u JOIN roles r ON u.role_id = r.id WHERE r.name = 'HOSPITAL_ADMIN' AND u.is_active = 1"),
+                query("SELECT COUNT(*) as count FROM users u JOIN roles r ON u.role_id = r.id WHERE r.name = 'ENGINEER' AND u.is_active = 1"),
+                query("SELECT COUNT(*) as count FROM users WHERE is_active = 1"),
+                query("SELECT COUNT(*) as count FROM error_logs"),
+                query("SELECT COUNT(*) as count FROM error_logs WHERE severity = 'Critical'"),
+                query("SELECT COUNT(*) as count FROM repairs"),
+                query("SELECT COUNT(*) as count FROM maintenance_schedule WHERE status = 'Overdue' OR (next_due_date < CURDATE() AND status != 'Completed')"),
+                query("SELECT COUNT(*) as count FROM purchase_orders WHERE status = 'Pending Approval'"),
+                query("SELECT COUNT(*) as count FROM spare_parts WHERE quantity < 5")
+            ]);
+
+            stats = {
+                totalEquipment: totalEquipment[0]?.count || 0,
+                totalHospitals: totalHospitals[0]?.count || 0,
+                totalHospitalAdmins: totalHospitalAdmins[0]?.count || 0,
+                totalEngineers: totalEngineers[0]?.count || 0,
+                totalUsers: totalUsers[0]?.count || 0,
+                totalErrors: totalErrors[0]?.count || 0,
+                criticalErrors: criticalErrors[0]?.count || 0,
+                totalRepairs: totalRepairs[0]?.count || 0,
+                maintenanceDue: maintenanceDue[0]?.count || 0,
+                pendingPurchaseOrders: pendingPurchaseOrders[0]?.count || 0,
+                sparePartsLow: sparePartsLow[0]?.count || 0
+            };
+        } else if (role === 'ENGINEER') {
+            const [
+                myAssignedRepairs,
+                myMaintenanceTasks,
+                myReportedErrors
+            ] = await Promise.all([
+                query("SELECT COUNT(*) as count FROM repairs WHERE engineer_name = ?", [req.user.full_name]),
+                query("SELECT COUNT(*) as count FROM maintenance_schedule WHERE engineer_name = ? AND status != 'Completed'", [req.user.full_name]),
+                query("SELECT COUNT(*) as count FROM error_logs WHERE reported_by = ?", [userId])
+            ]);
+
+            stats = {
+                totalEquipment: 0,
+                totalHospitals: 0,
+                totalHospitalAdmins: 0,
+                totalEngineers: 0,
+                totalUsers: 0,
+                totalErrors: 0,
+                criticalErrors: 0,
+                totalRepairs: 0,
+                maintenanceDue: 0,
+                pendingPurchaseOrders: 0,
+                sparePartsLow: 0,
+                myAssignedRepairs: myAssignedRepairs[0]?.count || 0,
+                myMaintenanceTasks: myMaintenanceTasks[0]?.count || 0,
+                myReportedErrors: myReportedErrors[0]?.count || 0
+            };
+        } else {
+            stats = {
+                totalEquipment: 0,
+                totalHospitals: 0,
+                totalHospitalAdmins: 0,
+                totalEngineers: 0,
+                totalUsers: 0,
+                totalErrors: 0,
+                criticalErrors: 0,
+                totalRepairs: 0,
+                maintenanceDue: 0,
+                pendingPurchaseOrders: 0,
+                sparePartsLow: 0,
+                myAssignedRepairs: 0,
+                myMaintenanceTasks: 0,
+                myReportedErrors: 0
+            };
+        }
+
+        console.log('✅ Dashboard stats sent for:', role);
+        res.json({
+            success: true,
+            ...stats
+        });
+
+    } catch (error) {
+        console.error('❌ Dashboard stats error:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Failed to fetch dashboard stats',
+            error: error.message 
+        });
+    }
+});
+
+// ============================================================
 // ✅ SERVICE DOCUMENTATION ROUTES
 // ============================================================
 const serviceDocumentationRoutes = require('./routes/serviceDocumentation');
@@ -3900,7 +4186,6 @@ app.post('/api/amc', authenticate, async (req, res) => {
     }
 });
 
-// ✅ UPDATED: Only SUPER_ADMIN can renew AMC (removed HOSPITAL_ADMIN)
 app.put('/api/amc/:id/renew', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     try {
         const { id } = req.params;
@@ -4082,7 +4367,6 @@ app.get('/api/purchase-orders/:id', authenticate, async (req, res) => {
     }
 });
 
-// ✅ UPDATED: Only SUPER_ADMIN can create purchase orders (removed HOSPITAL_ADMIN)
 app.post('/api/purchase-orders', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     try {
         const { 
@@ -4217,7 +4501,6 @@ app.post('/api/purchase-orders', authenticate, authorize('SUPER_ADMIN'), async (
     }
 });
 
-// ✅ UPDATED: Only SUPER_ADMIN can update purchase orders (removed HOSPITAL_ADMIN)
 app.put('/api/purchase-orders/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     try {
         const { id } = req.params;
@@ -4385,7 +4668,6 @@ app.get('/api/procurement/:id', authenticate, async (req, res) => {
     }
 });
 
-// ✅ UPDATED: Only SUPER_ADMIN can create procurement requests (removed HOSPITAL_ADMIN)
 app.post('/api/procurement', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     try {
         const { 
@@ -4703,416 +4985,6 @@ app.delete('/api/notifications/:id', authenticate, async (req, res) => {
         console.error('❌ Delete notification error:', error);
         res.status(500).json({ success: false, message: 'Database error' });
     }
-});
-
-// ============================================================
-// ✅ DASHBOARD ROUTES - UPDATED: Removed HOSPITAL_ADMIN block
-// ============================================================
-app.get('/api/dashboard/stats', authenticate, async (req, res) => {
-    try {
-        const userId = req.user.id;
-        const role = req.user.role_name;
-        const hospitalId = req.user.hospital_id;
-
-        console.log('📊 Dashboard stats for:', role, 'User:', userId);
-
-        let stats = {};
-
-        if (role === 'SUPER_ADMIN') {
-            const [
-                totalEquipment,
-                totalHospitals,
-                totalHospitalAdmins,
-                totalEngineers,
-                totalUsers,
-                openErrors,
-                criticalErrors,
-                resolvedErrors,
-                pendingRepairs,
-                inProgressRepairs,
-                maintenanceDue,
-                pendingPurchaseOrders,
-                sparePartsLow,
-                totalReports
-            ] = await Promise.all([
-                query("SELECT COUNT(*) as count FROM equipment WHERE status != 'Inactive'"),
-                query("SELECT COUNT(*) as count FROM hospitals WHERE is_active = 1"),
-                query("SELECT COUNT(*) as count FROM users u JOIN roles r ON u.role_id = r.id WHERE r.name = 'HOSPITAL_ADMIN' AND u.is_active = 1"),
-                query("SELECT COUNT(*) as count FROM users u JOIN roles r ON u.role_id = r.id WHERE r.name = 'ENGINEER' AND u.is_active = 1"),
-                query("SELECT COUNT(*) as count FROM users WHERE is_active = 1"),
-                query("SELECT COUNT(*) as count FROM error_logs WHERE status IN ('Pending', 'In Progress')"),
-                query("SELECT COUNT(*) as count FROM error_logs WHERE severity = 'Critical'"),
-                query("SELECT COUNT(*) as count FROM error_logs WHERE status IN ('Resolved', 'Closed')"),
-                query("SELECT COUNT(*) as count FROM repairs WHERE status = 'Pending'"),
-                query("SELECT COUNT(*) as count FROM repairs WHERE status = 'In Progress'"),
-                query("SELECT COUNT(*) as count FROM maintenance_schedule WHERE status = 'Overdue' OR (next_due_date < CURDATE() AND status != 'Completed')"),
-                query("SELECT COUNT(*) as count FROM purchase_orders WHERE status = 'Pending Approval'"),
-                query("SELECT COUNT(*) as count FROM spare_parts WHERE quantity < 5"),
-                query("SELECT COUNT(*) as count FROM error_logs")
-            ]);
-
-            stats = {
-                totalEquipment: totalEquipment[0]?.count || 0,
-                totalHospitals: totalHospitals[0]?.count || 0,
-                totalHospitalAdmins: totalHospitalAdmins[0]?.count || 0,
-                totalEngineers: totalEngineers[0]?.count || 0,
-                totalUsers: totalUsers[0]?.count || 0,
-                openErrors: openErrors[0]?.count || 0,
-                criticalErrors: criticalErrors[0]?.count || 0,
-                resolvedErrors: resolvedErrors[0]?.count || 0,
-                pendingRepairs: pendingRepairs[0]?.count || 0,
-                inProgressRepairs: inProgressRepairs[0]?.count || 0,
-                maintenanceDue: maintenanceDue[0]?.count || 0,
-                pendingPurchaseOrders: pendingPurchaseOrders[0]?.count || 0,
-                sparePartsLow: sparePartsLow[0]?.count || 0,
-                totalReports: totalReports[0]?.count || 0,
-                myAssignedRepairs: 0,
-                myPendingRepairs: 0,
-                myInProgressRepairs: 0,
-                myCompletedRepairs: 0,
-                myMaintenanceTasks: 0,
-                myReportedErrors: 0,
-                criticalEquipment: 0
-            };
-        } else if (role === 'ENGINEER') {
-            // Engineer stats
-            const [
-                myAssignedRepairs,
-                myPendingRepairs,
-                myInProgressRepairs,
-                myCompletedRepairs,
-                myMaintenanceTasks,
-                myReportedErrors
-            ] = await Promise.all([
-                query("SELECT COUNT(*) as count FROM repairs WHERE engineer_id = ? AND status IN ('Assigned', 'Accepted')", [userId]),
-                query("SELECT COUNT(*) as count FROM repairs WHERE engineer_id = ? AND status = 'Pending'", [userId]),
-                query("SELECT COUNT(*) as count FROM repairs WHERE engineer_id = ? AND status = 'In Progress'", [userId]),
-                query("SELECT COUNT(*) as count FROM repairs WHERE engineer_id = ? AND status IN ('Completed', 'Resolved', 'Closed')", [userId]),
-                query("SELECT COUNT(*) as count FROM maintenance_schedule WHERE assigned_to = ? AND status != 'Completed'", [userId]),
-                query("SELECT COUNT(*) as count FROM error_logs WHERE reported_by = ? AND status IN ('Pending', 'In Progress')", [userId])
-            ]);
-
-            stats = {
-                totalEquipment: 0,
-                totalHospitals: 0,
-                totalHospitalAdmins: 0,
-                totalEngineers: 0,
-                totalUsers: 0,
-                openErrors: 0,
-                criticalErrors: 0,
-                resolvedErrors: 0,
-                pendingRepairs: 0,
-                inProgressRepairs: 0,
-                maintenanceDue: 0,
-                criticalEquipment: 0,
-                pendingPurchaseOrders: 0,
-                sparePartsLow: 0,
-                totalReports: 0,
-                myAssignedRepairs: myAssignedRepairs[0]?.count || 0,
-                myPendingRepairs: myPendingRepairs[0]?.count || 0,
-                myInProgressRepairs: myInProgressRepairs[0]?.count || 0,
-                myCompletedRepairs: myCompletedRepairs[0]?.count || 0,
-                myMaintenanceTasks: myMaintenanceTasks[0]?.count || 0,
-                myReportedErrors: myReportedErrors[0]?.count || 0
-            };
-        } else {
-            // Default stats for any other role (should not happen)
-            stats = {
-                totalEquipment: 0,
-                totalHospitals: 0,
-                totalHospitalAdmins: 0,
-                totalEngineers: 0,
-                totalUsers: 0,
-                openErrors: 0,
-                criticalErrors: 0,
-                resolvedErrors: 0,
-                pendingRepairs: 0,
-                inProgressRepairs: 0,
-                maintenanceDue: 0,
-                criticalEquipment: 0,
-                pendingPurchaseOrders: 0,
-                sparePartsLow: 0,
-                totalReports: 0,
-                myAssignedRepairs: 0,
-                myPendingRepairs: 0,
-                myInProgressRepairs: 0,
-                myCompletedRepairs: 0,
-                myMaintenanceTasks: 0,
-                myReportedErrors: 0
-            };
-        }
-
-        console.log('✅ Dashboard stats sent for:', role);
-        res.json({
-            success: true,
-            ...stats
-        });
-
-    } catch (error) {
-        console.error('❌ Dashboard stats error:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: 'Failed to fetch dashboard stats',
-            error: error.message 
-        });
-    }
-});
-
-// ============================================================
-// ✅ SEARCH ROUTES
-// ============================================================
-app.get('/api/search', authenticate, async (req, res) => {
-    try {
-        const { q } = req.query;
-        console.log('🔍 Search Query:', q);
-        
-        if (!q || q.trim().length < 2) {
-            return res.json({ 
-                success: true, 
-                results: {
-                    hospitals: [],
-                    equipment: [],
-                    errors: [],
-                    repairs: [],
-                    knowledge: [],
-                    spareParts: [],
-                    users: []
-                },
-                total: 0
-            });
-        }
-
-        const searchTerm = `%${q.trim().toLowerCase()}%`;
-        const results = {
-            hospitals: [],
-            equipment: [],
-            errors: [],
-            repairs: [],
-            knowledge: [],
-            spareParts: [],
-            users: []
-        };
-
-        if (req.user.role_name === 'SUPER_ADMIN') {
-            results.hospitals = await query(
-                `SELECT id, name, city, phone, email, is_active as status
-                 FROM hospitals 
-                 WHERE LOWER(name) LIKE ? 
-                    OR LOWER(city) LIKE ? 
-                    OR LOWER(email) LIKE ? 
-                    OR LOWER(phone) LIKE ?
-                 AND is_active = 1
-                 LIMIT 10`,
-                [searchTerm, searchTerm, searchTerm, searchTerm]
-            );
-        }
-
-        let equipmentSql = `
-            SELECT e.id, e.name, e.model, e.manufacturer, 
-                   e.serial_number, e.status,
-                   h.name as hospital_name,
-                   c.name as category_name
-            FROM equipment e
-            LEFT JOIN hospitals h ON e.hospital_id = h.id
-            LEFT JOIN equipment_categories c ON e.category_id = c.id
-            WHERE (LOWER(e.name) LIKE ? 
-               OR LOWER(e.model) LIKE ? 
-               OR LOWER(e.manufacturer) LIKE ? 
-               OR LOWER(e.serial_number) LIKE ?)
-               AND e.status != 'Retired'
-        `;
-        const equipmentParams = [searchTerm, searchTerm, searchTerm, searchTerm];
-
-        if (req.user.role_name !== 'SUPER_ADMIN') {
-            equipmentSql += ' AND e.hospital_id = ?';
-            equipmentParams.push(req.user.hospital_id);
-        }
-
-        equipmentSql += ' LIMIT 10';
-        results.equipment = await query(equipmentSql, equipmentParams);
-
-        let errorSql = `
-            SELECT e.id, e.error_title, e.error_code, e.status, e.severity,
-                   eq.name as equipment_name,
-                   h.name as hospital_name,
-                   u.full_name as reported_by_name
-            FROM error_logs e
-            LEFT JOIN equipment eq ON e.equipment_id = eq.id
-            LEFT JOIN hospitals h ON eq.hospital_id = h.id
-            LEFT JOIN users u ON e.reported_by = u.id
-            WHERE LOWER(e.error_title) LIKE ? 
-               OR LOWER(e.error_code) LIKE ? 
-               OR LOWER(e.error_description) LIKE ?
-        `;
-        const errorParams = [searchTerm, searchTerm, searchTerm];
-
-        if (req.user.role_name !== 'SUPER_ADMIN') {
-            errorSql += ' AND eq.hospital_id = ?';
-            errorParams.push(req.user.hospital_id);
-        }
-
-        errorSql += ' LIMIT 10';
-        results.errors = await query(errorSql, errorParams);
-
-        let repairSql = `
-            SELECT r.id, r.root_cause, r.status, r.repair_date,
-                   eq.name as equipment_name,
-                   u.full_name as engineer_name
-            FROM repairs r
-            LEFT JOIN error_logs e ON r.error_log_id = e.id
-            LEFT JOIN equipment eq ON e.equipment_id = eq.id
-            LEFT JOIN users u ON r.engineer_id = u.id
-            WHERE LOWER(r.root_cause) LIKE ? 
-               OR LOWER(r.solution_description) LIKE ? 
-               OR LOWER(r.repair_procedure) LIKE ?
-        `;
-        const repairParams = [searchTerm, searchTerm, searchTerm];
-
-        if (req.user.role_name !== 'SUPER_ADMIN') {
-            repairSql += ' AND eq.hospital_id = ?';
-            repairParams.push(req.user.hospital_id);
-        }
-
-        repairSql += ' LIMIT 10';
-        results.repairs = await query(repairSql, repairParams);
-
-        let kbSql = `
-            SELECT k.id, k.error_title, k.error_code, 
-                   k.solution, k.root_cause, k.created_at,
-                   eq.name as equipment_name
-            FROM knowledge_base k
-            LEFT JOIN equipment eq ON k.equipment_id = eq.id
-            WHERE LOWER(k.error_title) LIKE ? 
-               OR LOWER(k.error_code) LIKE ? 
-               OR LOWER(k.solution) LIKE ? 
-               OR LOWER(k.root_cause) LIKE ?
-        `;
-        const kbParams = [searchTerm, searchTerm, searchTerm, searchTerm];
-
-        if (req.user.role_name !== 'SUPER_ADMIN') {
-            kbSql += ' AND eq.hospital_id = ?';
-            kbParams.push(req.user.hospital_id);
-        }
-
-        kbSql += ' LIMIT 10';
-        results.knowledge = await query(kbSql, kbParams);
-
-        let spareSql = `
-            SELECT s.id, s.part_name, s.part_number, 
-                   s.brand, s.quantity, s.unit_cost,
-                   eq.name as equipment_name
-            FROM spare_parts s
-            LEFT JOIN repairs r ON s.repair_id = r.id
-            LEFT JOIN error_logs e ON r.error_log_id = e.id
-            LEFT JOIN equipment eq ON e.equipment_id = eq.id
-            WHERE LOWER(s.part_name) LIKE ? 
-               OR LOWER(s.part_number) LIKE ? 
-               OR LOWER(s.brand) LIKE ?
-               OR LOWER(s.manufacturer) LIKE ?
-        `;
-        const spareParams = [searchTerm, searchTerm, searchTerm, searchTerm];
-
-        if (req.user.role_name !== 'SUPER_ADMIN') {
-            spareSql += ' AND eq.hospital_id = ?';
-            spareParams.push(req.user.hospital_id);
-        }
-
-        spareSql += ' LIMIT 10';
-        results.spareParts = await query(spareSql, spareParams);
-
-        if (req.user.role_name === 'SUPER_ADMIN') {
-            results.users = await query(
-                `SELECT u.id, u.full_name, u.email, u.username,
-                        r.name as role_name,
-                        h.name as hospital_name,
-                        u.is_active as status
-                 FROM users u
-                 LEFT JOIN roles r ON u.role_id = r.id
-                 LEFT JOIN hospitals h ON u.hospital_id = h.id
-                 WHERE LOWER(u.full_name) LIKE ? 
-                    OR LOWER(u.email) LIKE ? 
-                    OR LOWER(u.username) LIKE ?
-                    AND u.is_active = 1
-                 LIMIT 10`,
-                [searchTerm, searchTerm, searchTerm]
-            );
-        }
-
-        const total = 
-            (results.hospitals?.length || 0) +
-            (results.equipment?.length || 0) +
-            (results.errors?.length || 0) +
-            (results.repairs?.length || 0) +
-            (results.knowledge?.length || 0) +
-            (results.spareParts?.length || 0) +
-            (results.users?.length || 0);
-
-        console.log('📊 Search Results Count:', total);
-        console.log('📊 Results Breakdown:');
-        console.log(`   🏥 Hospitals: ${results.hospitals?.length || 0}`);
-        console.log(`   🛠️ Equipment: ${results.equipment?.length || 0}`);
-        console.log(`   ❌ Errors: ${results.errors?.length || 0}`);
-        console.log(`   🔧 Repairs: ${results.repairs?.length || 0}`);
-        console.log(`   📚 Knowledge: ${results.knowledge?.length || 0}`);
-        console.log(`   🔩 Spare Parts: ${results.spareParts?.length || 0}`);
-        console.log(`   👤 Users: ${results.users?.length || 0}`);
-
-        res.json({ 
-            success: true, 
-            results: results,
-            total: total,
-            count: total
-        });
-
-    } catch (error) {
-        console.error('❌ Search error:', error);
-        console.error('❌ Error details:', error.stack);
-        res.status(500).json({ 
-            success: false, 
-            message: 'Search failed: ' + error.message 
-        });
-    }
-});
-
-// ============================================================
-// ✅ HEALTH CHECK WITH DATABASE TEST
-// ============================================================
-app.get('/api/health', async (req, res) => {
-    try {
-        await query('SELECT 1 as connected');
-        res.json({ 
-            status: 'OK', 
-            message: 'Server and Database are connected',
-            timestamp: new Date().toISOString(),
-            database: 'connected',
-            version: '1.0.0',
-            websocket: wss ? 'enabled' : 'disabled'
-        });
-    } catch (error) {
-        console.error('❌ Health check failed:', error);
-        res.status(500).json({ 
-            status: 'ERROR', 
-            message: 'Database connection failed',
-            error: error.message,
-            code: error.code,
-            timestamp: new Date().toISOString()
-        });
-    }
-});
-
-// ============================================================
-// ✅ WEBSOCKET STATUS ENDPOINT
-// ============================================================
-app.get('/api/websocket/status', (req, res) => {
-    const clients = wss ? wss.clients.size : 0;
-    res.json({
-        success: true,
-        websocket: {
-            enabled: !!wss,
-            clients: clients,
-            path: '/ws/notifications'
-        }
-    });
 });
 
 // ============================================================
