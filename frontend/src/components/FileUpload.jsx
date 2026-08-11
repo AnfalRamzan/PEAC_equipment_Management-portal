@@ -1,4 +1,6 @@
 // frontend/src/components/FileUpload.jsx
+// ✅ COMPLETE FIXED VERSION
+
 import React, { useState, useRef } from 'react'
 import {
   Box,
@@ -14,7 +16,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Grid
 } from '@mui/material'
 import {
   CloudUpload,
@@ -26,7 +27,6 @@ import {
   Close,
   CheckCircle,
   Error as ErrorIcon,
-  Cancel
 } from '@mui/icons-material'
 import { toast } from 'react-toastify'
 import api from '../api/axios'
@@ -56,18 +56,35 @@ const FileUpload = ({
   
   const fileInputRef = useRef(null)
 
-  // ✅ Helper: Get full URL (works with Vercel Blob and local)
+  // ✅ FIXED: Get full URL - works with Vercel Blob and local
   const getFullUrl = (url) => {
     if (!url) return ''
+    
     // ✅ If it's already a full URL (Vercel Blob), return as-is
     if (url.startsWith('http://') || url.startsWith('https://')) {
       return url
     }
-    // ✅ For local development
+    
+    // ✅ For local development - use environment variable
     if (url.startsWith('/uploads')) {
-      return `http://localhost:5000${url}`
+      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+      const baseWithoutApi = baseUrl.replace('/api', '')
+      return `${baseWithoutApi}${url}`
     }
+    
     return url
+  }
+
+  // ✅ FIXED: Check if file is image
+  const isImageFile = (file) => {
+    const type = file?.type || file?.mimetype || ''
+    return type.startsWith('image/') || type === 'image'
+  }
+
+  // ✅ FIXED: Check if file is video
+  const isVideoFile = (file) => {
+    const type = file?.type || file?.mimetype || ''
+    return type.startsWith('video/') || type === 'video'
   }
 
   const handleFileSelect = (event) => {
@@ -150,7 +167,6 @@ const FileUpload = ({
 
       const token = localStorage.getItem('token')
       
-      // ✅ Fix: Use endpoint as-is
       const finalEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`
       
       console.log('📤 Uploading files to:', finalEndpoint)
@@ -188,14 +204,16 @@ const FileUpload = ({
             url: response.data.fileUrl,
             name: response.data.fileName || 'file',
             size: response.data.fileSize || 0,
-            type: response.data.fileType || 'document'
+            type: response.data.fileType || 'document',
+            mimetype: response.data.fileType || 'application/octet-stream'
           }]
         } else if (response.data.url) {
           uploadedFilesData = [{
             url: response.data.url,
             name: response.data.name || 'file',
             size: response.data.size || 0,
-            type: response.data.type || 'document'
+            type: response.data.type || 'document',
+            mimetype: response.data.mimetype || 'application/octet-stream'
           }]
         } else if (Array.isArray(response.data)) {
           uploadedFilesData = response.data
@@ -203,16 +221,22 @@ const FileUpload = ({
           uploadedFilesData = [response.data]
         }
         
+        // ✅ Ensure uploadedFilesData is always an array
+        if (!Array.isArray(uploadedFilesData)) {
+          uploadedFilesData = [uploadedFilesData]
+        }
+        
         setFiles(prev => prev.map(f => {
           if (pendingFiles.includes(f)) {
             const uploaded = uploadedFilesData.find(u => 
               u.name === f.name || 
-              (u.originalName === f.name)
+              u.originalName === f.name
             ) || { 
               url: `/uploads/documents/${f.name}`, 
               name: f.name, 
               size: f.size, 
-              type: f.type 
+              type: f.type,
+              mimetype: f.mimetype
             }
             return { 
               ...f, 
@@ -227,6 +251,7 @@ const FileUpload = ({
         
         setUploadedFiles(prev => [...prev, ...uploadedFilesData])
         
+        // ✅ Always pass array to onUploadComplete
         if (onUploadComplete) {
           onUploadComplete(uploadedFilesData)
         }
@@ -240,18 +265,31 @@ const FileUpload = ({
       console.error('❌ Upload error:', error)
       console.error('❌ Error response:', error.response?.data)
       
+      // ✅ Better error messages
+      let errorMessage = 'Upload failed'
+      if (error.response?.status === 413) {
+        errorMessage = 'File is too large. Maximum size is 100MB.'
+      } else if (error.response?.status === 401) {
+        errorMessage = 'You are not logged in. Please refresh and try again.'
+      } else if (error.response?.status === 403) {
+        errorMessage = 'You do not have permission to upload files.'
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message
+      } else if (error.message) {
+        errorMessage = error.message
+      }
+      
       setFiles(prev => prev.map(f => {
         if (pendingFiles.includes(f)) {
           return { 
             ...f, 
             status: 'error', 
-            error: error.response?.data?.message || error.message || 'Upload failed' 
+            error: errorMessage
           }
         }
         return f
       }))
       
-      const errorMessage = error.response?.data?.message || error.message || 'Upload failed'
       setError(errorMessage)
       
       if (onUploadError) {
@@ -346,9 +384,8 @@ const FileUpload = ({
   }
 
   const renderFilePreview = (file) => {
-    const isImage = file.type === 'image' || file.mimetype?.startsWith('image/')
-    const isVideo = file.type === 'video' || file.mimetype?.startsWith('video/')
-    
+    const isImage = isImageFile(file)
+    const isVideo = isVideoFile(file)
     const imageUrl = file.url ? getFullUrl(file.url) : ''
 
     return (
@@ -505,62 +542,67 @@ const FileUpload = ({
           <Typography variant="subtitle2" fontWeight={600} gutterBottom>
             Existing Files
           </Typography>
-          {existingFiles.map((file, index) => (
-            <Paper 
-              key={file.url + index} 
-              sx={{ 
-                p: 1.5, 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: 2, 
-                mb: 1, 
-                borderRadius: 1, 
-                border: '1px solid #e9ecef',
-                bgcolor: '#f0f7ff'
-              }}
-            >
-              {file.type === 'image' || file.mimetype?.startsWith('image/') ? (
-                <Box
-                  component="img"
-                  src={getFullUrl(file.url)}
-                  alt={file.name}
-                  sx={{
-                    width: 50,
-                    height: 50,
-                    objectFit: 'cover',
-                    borderRadius: 1
-                  }}
-                  onError={(e) => {
-                    console.error('❌ Existing image load error:', getFullUrl(file.url))
-                    e.target.style.display = 'none'
-                  }}
-                />
-              ) : (
-                getFileIcon(file)
-              )}
-              <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Typography variant="body2" noWrap fontWeight={500}>
-                  {file.name}
-                </Typography>
-                <Typography variant="caption" color="textSecondary">
-                  {getFileSize(file.size)}
-                </Typography>
-              </Box>
-              <Tooltip title="Remove">
-                <IconButton 
-                  size="small" 
-                  color="error" 
-                  onClick={() => {
-                    if (onDelete) {
-                      onDelete(file)
-                    }
-                  }}
-                >
-                  <Delete fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            </Paper>
-          ))}
+          {existingFiles.map((file, index) => {
+            const isImage = isImageFile(file)
+            const isVideo = isVideoFile(file)
+            
+            return (
+              <Paper 
+                key={file.url + index} 
+                sx={{ 
+                  p: 1.5, 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: 2, 
+                  mb: 1, 
+                  borderRadius: 1, 
+                  border: '1px solid #e9ecef',
+                  bgcolor: '#f0f7ff'
+                }}
+              >
+                {isImage ? (
+                  <Box
+                    component="img"
+                    src={getFullUrl(file.url)}
+                    alt={file.name}
+                    sx={{
+                      width: 50,
+                      height: 50,
+                      objectFit: 'cover',
+                      borderRadius: 1
+                    }}
+                    onError={(e) => {
+                      console.error('❌ Existing image load error:', getFullUrl(file.url))
+                      e.target.style.display = 'none'
+                    }}
+                  />
+                ) : (
+                  getFileIcon(file)
+                )}
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography variant="body2" noWrap fontWeight={500}>
+                    {file.name}
+                  </Typography>
+                  <Typography variant="caption" color="textSecondary">
+                    {getFileSize(file.size)}
+                  </Typography>
+                </Box>
+                <Tooltip title="Remove">
+                  <IconButton 
+                    size="small" 
+                    color="error" 
+                    onClick={() => {
+                      if (onDelete) {
+                        onDelete(file)
+                      }
+                    }}
+                  >
+                    <Delete fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </Paper>
+            )
+          })}
         </Box>
       )}
 
@@ -574,7 +616,7 @@ const FileUpload = ({
               Remove All
             </Button>
           </Box>
-          {files.map((file, index) => renderFilePreview(file))}
+          {files.map((file) => renderFilePreview(file))}
         </Box>
       )}
 
@@ -606,7 +648,7 @@ const FileUpload = ({
         <DialogContent>
           {previewFile && (
             <Box sx={{ textAlign: 'center' }}>
-              {previewFile.type === 'image' || previewFile.mimetype?.startsWith('image/') ? (
+              {isImageFile(previewFile) ? (
                 <Box
                   component="img"
                   src={getFullUrl(previewFile.url)}
@@ -621,7 +663,7 @@ const FileUpload = ({
                     e.target.style.display = 'none'
                   }}
                 />
-              ) : previewFile.type === 'video' || previewFile.mimetype?.startsWith('video/') ? (
+              ) : isVideoFile(previewFile) ? (
                 <video
                   src={getFullUrl(previewFile.url)}
                   controls

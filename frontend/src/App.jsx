@@ -1,4 +1,5 @@
 // src/App.jsx
+// ✅ ADDED: Training route
 // ✅ REMOVED: Equipment Categories route (since removed from sidebar)
 // ✅ REMOVED: Settings route
 
@@ -20,6 +21,7 @@ import AMC from './pages/AMC';
 import PurchaseOrders from './pages/PurchaseOrders';
 import Procurement from './pages/Procurement';
 import Reports from './pages/Reports';
+import Training from './pages/Training'; // ✅ ADDED
 // ❌ EquipmentCategories REMOVED
 // ❌ Settings REMOVED
 import Notifications from './pages/Notifications';
@@ -57,6 +59,7 @@ const App = () => {
                     <Route path="purchase-orders" element={<PurchaseOrders />} />
                     <Route path="procurement" element={<Procurement />} />
                     <Route path="reports" element={<Reports />} />
+                    <Route path="training" element={<Training />} /> {/* ✅ ADDED */}
                     {/* ❌ settings route REMOVED */}
                     <Route path="notifications" element={<Notifications />} />
                 </Route>

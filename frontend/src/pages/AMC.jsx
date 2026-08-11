@@ -1,5 +1,12 @@
 // src/pages/AMC.jsx
-// ✅ PAEC THEME - Green & Gold Colors
+// ✅ COMPLETE AMC MANAGEMENT PAGE
+// ✅ WHITE BACKGROUND - Matching sidebar theme
+// ✅ DARK NAVY + LIGHT CYAN THEME
+// ✅ All CRUD operations working
+// ✅ Renew functionality
+// ✅ File upload for documents
+// ✅ Export to CSV, Excel, PDF
+// ✅ Expiry alerts
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -31,7 +38,11 @@ import {
   Tooltip,
   Menu,
   Card,
-  CardContent
+  CardContent,
+  Avatar,
+  Fade,
+  Grow,
+  Divider,
 } from '@mui/material'
 import {
   Add,
@@ -51,7 +62,16 @@ import {
   Warning,
   Autorenew,
   Description,
-  Business
+  Business,
+  CheckCircle,
+  Cancel,
+  Schedule,
+  Receipt,
+  Person,
+  Phone,
+  Email,
+  LocationOn,
+  Print,
 } from '@mui/icons-material'
 import { amcService, equipmentService } from '../api/services'
 import { toast } from 'react-toastify'
@@ -60,30 +80,89 @@ import AccessDenied from '../components/Auth/AccessDenied'
 import FileUpload from '../components/FileUpload'
 
 // ============================================================
-// ✅ PAEC THEME COLORS
+// ✅ THEME COLORS - MATCHING SIDEBAR
 // ============================================================
 const colors = {
-  sidebar: '#01411C',
-  sidebarHover: '#0B542B',
-  active: '#0E6335',
+  darkNavy: '#0F172A',
+  darkNavyLight: '#1E293B',
+  darkNavyHover: '#1E3A5F',
+  lightCyan: '#67E8F9',
+  lightCyanBright: '#A5F3FC',
+  lightCyanDark: '#22D3EE',
+  lightCyanGlow: 'rgba(103, 232, 249, 0.15)',
   accentGold: '#C9A227',
   goldLight: '#E8C84A',
-  text: '#FFFFFF',
-  secondaryText: '#B8C8BE',
-  mainBg: '#F0F2F5',
-  white: '#FFFFFF',
-  darkText: '#1A2A3A',
-  lightText: '#5A7A8A',
-  error: '#D32F2F',
-  success: '#2E7D32',
-  warning: '#ED6C02',
-  info: '#0B5FA5',
-  borderColor: 'rgba(1, 65, 28, 0.08)',
-  shadowColor: 'rgba(1, 65, 28, 0.08)',
+  textPrimary: '#0F172A',
+  textSecondary: '#475569',
+  textLight: '#64748B',
+  textWhite: '#FFFFFF',
+  bgWhite: '#FFFFFF',
+  bgLight: '#F8FAFC',
+  bgGray: '#F1F5F9',
   cardBg: '#FFFFFF',
+  cardShadow: 'rgba(15, 23, 42, 0.08)',
+  borderColor: 'rgba(103, 232, 249, 0.2)',
+  borderDark: '#E2E8F0',
+  error: '#EF4444',
+  success: '#22C55E',
+  warning: '#F59E0B',
+  info: '#3B82F6',
 }
 
-// ==================== HELPER FUNCTIONS ====================
+// ============================================================
+// ✅ STATS CARD COMPONENT
+// ============================================================
+const StatsCard = ({ title, value, icon, color, bgColor, subtext }) => (
+  <Grow in timeout={300}>
+    <Card sx={{ 
+      borderRadius: 3, 
+      border: `1px solid ${colors.borderColor}`,
+      boxShadow: `0 2px 8px ${colors.cardShadow}`,
+      transition: 'all 0.3s ease',
+      position: 'relative',
+      overflow: 'hidden',
+      bgcolor: colors.cardBg,
+      '&:hover': {
+        transform: 'translateY(-4px)',
+        boxShadow: `0 8px 30px ${colors.cardShadow}`,
+        borderColor: colors.lightCyan,
+      }
+    }}>
+      <CardContent sx={{ textAlign: 'center', py: 3, position: 'relative', zIndex: 1 }}>
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          mb: 1.5
+        }}>
+          <Avatar sx={{ 
+            bgcolor: bgColor || color || colors.darkNavy,
+            width: 48,
+            height: 48,
+            boxShadow: `0 4px 16px ${color || colors.darkNavy}44`
+          }}>
+            {icon}
+          </Avatar>
+        </Box>
+        <Typography variant="h4" sx={{ color: colors.darkNavy, fontWeight: 700 }}>
+          {value}
+        </Typography>
+        <Typography variant="body2" sx={{ color: colors.textLight, fontWeight: 500 }}>
+          {title}
+        </Typography>
+        {subtext && (
+          <Typography variant="caption" sx={{ color: colors.textLight, display: 'block', mt: 0.5 }}>
+            {subtext}
+          </Typography>
+        )}
+      </CardContent>
+    </Card>
+  </Grow>
+)
+
+// ============================================================
+// ✅ HELPER FUNCTIONS
+// ============================================================
 const getFullUrl = (url) => {
   if (!url) return ''
   if (url.startsWith('http://') || url.startsWith('https://')) {
@@ -106,6 +185,14 @@ const formatDateForInput = (date) => {
   }
 }
 
+const safeToFixed = (value, decimals = 2) => {
+  const num = parseFloat(value)
+  return isNaN(num) ? '0.00' : num.toFixed(decimals)
+}
+
+// ============================================================
+// ✅ MAIN COMPONENT
+// ============================================================
 const AMC = () => {
   const { user } = useSelector((state) => state.auth)
   
@@ -113,8 +200,8 @@ const AMC = () => {
     return <AccessDenied message="Hospital Administrators cannot access AMC Contracts." />
   }
   
-  const canCreate = user?.role === 'ENGINEER'
-  const canEdit = user?.role === 'ENGINEER'
+  const canCreate = user?.role === 'ENGINEER' || user?.role === 'SUPER_ADMIN'
+  const canEdit = user?.role === 'ENGINEER' || user?.role === 'SUPER_ADMIN'
   const canDelete = user?.role === 'SUPER_ADMIN'
   const canRenew = user?.role === 'SUPER_ADMIN'
   const canView = user?.role === 'SUPER_ADMIN' || user?.role === 'ENGINEER'
@@ -183,11 +270,11 @@ const AMC = () => {
 
   const handleOpenDialog = (contract = null) => {
     if (contract && !canEdit) {
-      toast.error('Only Engineers can edit AMC contracts')
+      toast.error('You do not have permission to edit AMC contracts')
       return
     }
     if (!contract && !canCreate) {
-      toast.error('Only Engineers can create AMC contracts')
+      toast.error('You do not have permission to create AMC contracts')
       return
     }
     
@@ -206,22 +293,6 @@ const AMC = () => {
         notes: contract.notes || '',
         documents: contract.documents || ''
       })
-      
-      console.log('📝 Editing contract data:', {
-        id: contract.id,
-        equipment_id: contract.equipment_id,
-        vendor_name: contract.vendor_name,
-        contract_number: contract.contract_number,
-        start_date: contract.start_date,
-        end_date: contract.end_date,
-        cost: contract.cost,
-        contact_person: contract.contact_person,
-        contact_phone: contract.contact_phone,
-        status: contract.status,
-        notes: contract.notes,
-        documents: contract.documents
-      })
-      
     } else {
       setEditingContract(null)
       setFormData({
@@ -265,7 +336,7 @@ const AMC = () => {
 
   const handleSubmit = async () => {
     if (!canCreate && !canEdit) {
-      toast.error('Only Engineers can create or edit AMC contracts')
+      toast.error('You do not have permission to create or edit AMC contracts')
       return
     }
     
@@ -422,11 +493,11 @@ const AMC = () => {
         const doc = new jsPDF()
         
         doc.setFontSize(18)
-        doc.setTextColor(colors.sidebar)
+        doc.setTextColor(colors.darkNavy)
         doc.text('AMC Contracts Report', 14, 20)
         
         doc.setFontSize(10)
-        doc.setTextColor('#666666')
+        doc.setTextColor(colors.textLight)
         doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 28)
         doc.text(`Total Contracts: ${filteredContracts.length}`, 14, 34)
         
@@ -444,8 +515,8 @@ const AMC = () => {
           body: tableData,
           startY: 40,
           styles: { fontSize: 8, cellPadding: 3 },
-          headStyles: { fillColor: colors.sidebar, textColor: '#FFFFFF', fontSize: 9, fontStyle: 'bold' },
-          alternateRowStyles: { fillColor: '#F5F7FA' },
+          headStyles: { fillColor: colors.darkNavy, textColor: colors.textWhite, fontSize: 9, fontStyle: 'bold' },
+          alternateRowStyles: { fillColor: colors.bgLight },
           margin: { left: 14, right: 14 }
         })
         
@@ -473,15 +544,15 @@ const AMC = () => {
   }
 
   const getExpiryStatus = (endDate) => {
-    if (!endDate) return { color: 'default', label: 'No Date' }
+    if (!endDate) return { color: colors.textLight, label: 'No Date' }
     const today = new Date()
     const end = new Date(endDate)
     const diffDays = Math.ceil((end - today) / (1000 * 60 * 60 * 24))
     
-    if (diffDays < 0) return { color: 'error', label: 'Expired' }
-    if (diffDays <= 7) return { color: 'error', label: `Expiring in ${diffDays}d` }
-    if (diffDays <= 30) return { color: 'warning', label: `Expiring in ${diffDays}d` }
-    return { color: 'success', label: 'Active' }
+    if (diffDays < 0) return { color: colors.error, label: 'Expired' }
+    if (diffDays <= 7) return { color: colors.error, label: `Expiring in ${diffDays}d` }
+    if (diffDays <= 30) return { color: colors.warning, label: `Expiring in ${diffDays}d` }
+    return { color: colors.success, label: 'Active' }
   }
 
   const totalContracts = contracts.length
@@ -499,17 +570,43 @@ const AMC = () => {
   })
 
   if (loading) {
-    return <LinearProgress sx={{ bgcolor: colors.borderColor, '& .MuiLinearProgress-bar': { bgcolor: colors.accentGold } }} />
+    return <LinearProgress sx={{ bgcolor: colors.bgGray, '& .MuiLinearProgress-bar': { bgcolor: colors.darkNavy } }} />
   }
 
   return (
-    <Box>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 }, bgcolor: colors.bgWhite, minHeight: '100vh' }}>
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Typography variant="h5" sx={{ fontWeight: 700, color: colors.sidebar }}>
+          <Typography 
+            variant="h5" 
+            sx={{ 
+              fontWeight: 700, 
+              color: colors.darkNavy,
+              '&::after': {
+                content: '""',
+                display: 'block',
+                width: '40px',
+                height: '3px',
+                background: `linear-gradient(90deg, ${colors.lightCyan}, ${colors.darkNavy})`,
+                borderRadius: '2px',
+                marginTop: '4px',
+              }
+            }}
+          >
             Annual Maintenance Contracts (AMC)
           </Typography>
+          <Chip 
+            icon={<Autorenew sx={{ fontSize: 16 }} />}
+            label={`${contracts.length} Contracts`}
+            size="small"
+            sx={{ 
+              bgcolor: colors.darkNavy, 
+              color: colors.textWhite,
+              fontWeight: 600,
+              '& .MuiChip-icon': { color: colors.lightCyan }
+            }}
+          />
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button
@@ -518,9 +615,9 @@ const AMC = () => {
             onClick={fetchContracts}
             size="small"
             sx={{ 
-              borderColor: colors.sidebar, 
-              color: colors.sidebar,
-              '&:hover': { borderColor: colors.accentGold, color: colors.accentGold }
+              borderColor: colors.borderDark, 
+              color: colors.darkNavy,
+              '&:hover': { borderColor: colors.lightCyan, color: colors.lightCyanDark, bgcolor: colors.lightCyanGlow }
             }}
           >
             Refresh
@@ -531,9 +628,14 @@ const AMC = () => {
               startIcon={<Add />}
               onClick={() => handleOpenDialog()}
               sx={{
-                bgcolor: colors.sidebar,
-                '&:hover': { bgcolor: colors.sidebarHover },
-                boxShadow: `0 4px 16px ${colors.sidebar}44`
+                bgcolor: colors.darkNavy,
+                '&:hover': { 
+                  bgcolor: colors.darkNavyHover,
+                  boxShadow: `0 4px 20px ${colors.lightCyanGlow}`
+                },
+                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+                borderRadius: 2,
+                textTransform: 'none',
               }}
             >
               Add AMC
@@ -542,66 +644,47 @@ const AMC = () => {
         </Box>
       </Box>
 
-      {/* Stats Cards - THEMED */}
+      {/* Stats Cards */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={6} sm={3}>
-          <Card sx={{ 
-            borderRadius: 2, 
-            border: `1px solid ${colors.borderColor}`,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.04)'
-          }}>
-            <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" sx={{ color: colors.sidebar, fontWeight: 700 }}>
-                {totalContracts}
-              </Typography>
-              <Typography variant="body2" sx={{ color: colors.lightText }}>Total Contracts</Typography>
-            </CardContent>
-          </Card>
+          <StatsCard 
+            title="Total Contracts" 
+            value={totalContracts} 
+            icon={<Autorenew sx={{ fontSize: 24, color: colors.textWhite }} />}
+            color={colors.darkNavy}
+            bgColor={colors.darkNavy}
+            subtext="All AMC contracts"
+          />
         </Grid>
         <Grid item xs={6} sm={3}>
-          <Card sx={{ 
-            borderRadius: 2, 
-            border: `1px solid ${colors.success}33`,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-            bgcolor: `${colors.success}08`
-          }}>
-            <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" sx={{ color: colors.success, fontWeight: 700 }}>
-                {activeContracts}
-              </Typography>
-              <Typography variant="body2" sx={{ color: colors.lightText }}>Active</Typography>
-            </CardContent>
-          </Card>
+          <StatsCard 
+            title="Active" 
+            value={activeContracts} 
+            icon={<CheckCircle sx={{ fontSize: 24, color: colors.textWhite }} />}
+            color={colors.success}
+            bgColor={colors.success}
+            subtext="Active contracts"
+          />
         </Grid>
         <Grid item xs={6} sm={3}>
-          <Card sx={{ 
-            borderRadius: 2, 
-            border: `1px solid ${colors.warning}33`,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-            bgcolor: `${colors.warning}08`
-          }}>
-            <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" sx={{ color: colors.warning, fontWeight: 700 }}>
-                {pendingContracts}
-              </Typography>
-              <Typography variant="body2" sx={{ color: colors.lightText }}>Pending</Typography>
-            </CardContent>
-          </Card>
+          <StatsCard 
+            title="Pending" 
+            value={pendingContracts} 
+            icon={<Schedule sx={{ fontSize: 24, color: colors.textWhite }} />}
+            color={colors.warning}
+            bgColor={colors.warning}
+            subtext="Pending contracts"
+          />
         </Grid>
         <Grid item xs={6} sm={3}>
-          <Card sx={{ 
-            borderRadius: 2, 
-            border: `1px solid ${colors.error}33`,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-            bgcolor: `${colors.error}08`
-          }}>
-            <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" sx={{ color: colors.error, fontWeight: 700 }}>
-                {expiredContracts}
-              </Typography>
-              <Typography variant="body2" sx={{ color: colors.lightText }}>Expired</Typography>
-            </CardContent>
-          </Card>
+          <StatsCard 
+            title="Expired" 
+            value={expiredContracts} 
+            icon={<Cancel sx={{ fontSize: 24, color: colors.textWhite }} />}
+            color={colors.error}
+            bgColor={colors.error}
+            subtext="Expired contracts"
+          />
         </Grid>
       </Grid>
 
@@ -611,7 +694,7 @@ const AMC = () => {
           severity="warning" 
           sx={{ 
             mb: 2, 
-            borderRadius: 2,
+            borderRadius: 3,
             border: `1px solid ${colors.warning}33`,
             '& .MuiAlert-icon': { color: colors.warning }
           }}
@@ -636,9 +719,10 @@ const AMC = () => {
       <Paper sx={{ 
         p: 2, 
         mb: 3, 
-        borderRadius: 2,
+        borderRadius: 3,
         border: `1px solid ${colors.borderColor}`,
-        boxShadow: '0 2px 12px rgba(0,0,0,0.04)'
+        boxShadow: `0 2px 8px ${colors.cardShadow}`,
+        bgcolor: colors.cardBg,
       }}>
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
           <TextField
@@ -650,27 +734,29 @@ const AMC = () => {
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <Search sx={{ color: colors.lightText }} />
+                  <Search sx={{ color: colors.textLight }} />
                 </InputAdornment>
               ),
               sx: {
                 '& .MuiOutlinedInput-root': {
-                  '&:hover fieldset': { borderColor: colors.sidebar },
-                  '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  '& fieldset': { borderColor: colors.borderDark },
+                  '&:hover fieldset': { borderColor: colors.lightCyan },
+                  '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                 }
               }
             }}
           />
           <FormControl size="small" sx={{ minWidth: 150 }}>
-            <InputLabel sx={{ color: colors.lightText }}>Status</InputLabel>
+            <InputLabel sx={{ color: colors.textLight }}>Status</InputLabel>
             <Select
               value={filters.status}
               onChange={(e) => setFilters({ ...filters, status: e.target.value })}
               label="Status"
               sx={{
                 '& .MuiOutlinedInput-root': {
-                  '&:hover fieldset': { borderColor: colors.sidebar },
-                  '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  '& fieldset': { borderColor: colors.borderDark },
+                  '&:hover fieldset': { borderColor: colors.lightCyan },
+                  '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                 }
               }}
             >
@@ -685,9 +771,9 @@ const AMC = () => {
             startIcon={<Download />}
             onClick={handleExportClick}
             sx={{ 
-              borderColor: colors.borderColor, 
-              color: colors.darkText,
-              '&:hover': { borderColor: colors.accentGold, color: colors.accentGold }
+              borderColor: colors.borderDark, 
+              color: colors.darkNavy,
+              '&:hover': { borderColor: colors.lightCyan, color: colors.lightCyanDark }
             }}
           >
             Export
@@ -695,74 +781,131 @@ const AMC = () => {
         </Box>
       </Paper>
 
-      {/* Export Menu - THEMED */}
+      {/* Export Menu */}
       <Menu
         anchorEl={exportAnchorEl}
         open={Boolean(exportAnchorEl)}
         onClose={handleExportClose}
-        PaperProps={{ sx: { p: 1, width: 200 } }}
+        PaperProps={{ 
+          sx: { 
+            p: 1, 
+            width: 200,
+            borderRadius: 3,
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: `0 4px 20px ${colors.cardShadow}`,
+          } 
+        }}
       >
-        <MenuItem onClick={exportToCSV} sx={{ '&:hover': { bgcolor: `${colors.accentGold}22` } }}>
-          <FileDownload sx={{ mr: 1, fontSize: 20, color: colors.sidebar }} /> Export CSV
+        <MenuItem onClick={exportToCSV} sx={{ '&:hover': { bgcolor: colors.lightCyanGlow } }}>
+          <FileDownload sx={{ mr: 1, fontSize: 20, color: colors.darkNavy }} /> Export CSV
         </MenuItem>
-        <MenuItem onClick={exportToExcel} sx={{ '&:hover': { bgcolor: `${colors.accentGold}22` } }}>
-          <FileDownload sx={{ mr: 1, fontSize: 20, color: colors.sidebar }} /> Export Excel
+        <MenuItem onClick={exportToExcel} sx={{ '&:hover': { bgcolor: colors.lightCyanGlow } }}>
+          <FileDownload sx={{ mr: 1, fontSize: 20, color: colors.darkNavy }} /> Export Excel
         </MenuItem>
-        <MenuItem onClick={exportToPDF} sx={{ '&:hover': { bgcolor: `${colors.accentGold}22` } }}>
-          <FileDownload sx={{ mr: 1, fontSize: 20, color: colors.sidebar }} /> Export PDF
+        <MenuItem onClick={exportToPDF} sx={{ '&:hover': { bgcolor: colors.lightCyanGlow } }}>
+          <FileDownload sx={{ mr: 1, fontSize: 20, color: colors.darkNavy }} /> Export PDF
         </MenuItem>
       </Menu>
 
-      {/* Table - THEMED */}
-      <TableContainer component={Paper} sx={{ borderRadius: 2, border: `1px solid ${colors.borderColor}` }}>
+      {/* Table */}
+      <TableContainer 
+        component={Paper} 
+        sx={{ 
+          borderRadius: 3, 
+          border: `1px solid ${colors.borderColor}`,
+          boxShadow: `0 2px 8px ${colors.cardShadow}`,
+          bgcolor: colors.cardBg,
+        }}
+      >
         <Table>
-          <TableHead sx={{ bgcolor: colors.sidebar }}>
+          <TableHead sx={{ bgcolor: colors.darkNavy }}>
             <TableRow>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Equipment</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Vendor</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Contract #</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Start Date</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>End Date</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Cost</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Status</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }} align="center">Actions</TableCell>
+              <TableCell sx={{ color: colors.textWhite, fontWeight: 600 }}>Equipment</TableCell>
+              <TableCell sx={{ color: colors.textWhite, fontWeight: 600 }}>Vendor</TableCell>
+              <TableCell sx={{ color: colors.textWhite, fontWeight: 600 }}>Contract #</TableCell>
+              <TableCell sx={{ color: colors.textWhite, fontWeight: 600 }}>Start Date</TableCell>
+              <TableCell sx={{ color: colors.textWhite, fontWeight: 600 }}>End Date</TableCell>
+              <TableCell sx={{ color: colors.textWhite, fontWeight: 600 }}>Cost</TableCell>
+              <TableCell sx={{ color: colors.textWhite, fontWeight: 600 }}>Status</TableCell>
+              <TableCell sx={{ color: colors.textWhite, fontWeight: 600 }} align="center">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {filteredContracts.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={8} align="center">
-                  <Typography variant="body1" sx={{ py: 3, color: colors.lightText }}>
-                    No AMC contracts found
-                  </Typography>
+                  <Box sx={{ py: 4 }}>
+                    <Autorenew sx={{ fontSize: 48, color: colors.textLight, mb: 1 }} />
+                    <Typography variant="body1" sx={{ color: colors.textLight }}>
+                      No AMC contracts found
+                    </Typography>
+                    {canCreate && (
+                      <Button
+                        variant="contained"
+                        startIcon={<Add />}
+                        onClick={() => handleOpenDialog()}
+                        sx={{
+                          mt: 2,
+                          bgcolor: colors.darkNavy,
+                          '&:hover': { 
+                            bgcolor: colors.darkNavyHover,
+                            boxShadow: `0 4px 16px ${colors.lightCyanGlow}`
+                          },
+                        }}
+                      >
+                        Create First AMC Contract
+                      </Button>
+                    )}
+                  </Box>
                 </TableCell>
               </TableRow>
             ) : (
               filteredContracts.map((contract) => {
                 const expiryStatus = getExpiryStatus(contract.end_date)
                 return (
-                  <TableRow key={contract.id} hover>
+                  <TableRow 
+                    key={contract.id} 
+                    hover
+                    sx={{
+                      '&:hover': { bgcolor: colors.bgLight },
+                      '&:last-child td': { borderBottom: 0 }
+                    }}
+                  >
                     <TableCell>
-                      <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkText }}>
+                      <Typography variant="body2" fontWeight={500} sx={{ color: colors.textPrimary }}>
                         {contract.equipment_name || 'N/A'}
                       </Typography>
                     </TableCell>
-                    <TableCell sx={{ color: colors.lightText }}>{contract.vendor_name}</TableCell>
-                    <TableCell sx={{ color: colors.lightText }}>
+                    <TableCell sx={{ color: colors.textLight }}>{contract.vendor_name}</TableCell>
+                    <TableCell sx={{ color: colors.textLight }}>
                       {contract.contract_number || 'N/A'}
                     </TableCell>
-                    <TableCell sx={{ color: colors.lightText }}>
+                    <TableCell sx={{ color: colors.textLight }}>
                       {contract.start_date ? new Date(contract.start_date).toLocaleDateString() : '-'}
                     </TableCell>
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                        <Typography sx={{ color: colors.darkText }}>
+                        <Typography sx={{ color: colors.textPrimary }}>
                           {contract.end_date ? new Date(contract.end_date).toLocaleDateString() : '-'}
                         </Typography>
+                        {contract.end_date && (
+                          <Chip 
+                            label={expiryStatus.label}
+                            size="small"
+                            sx={{
+                              bgcolor: expiryStatus.color,
+                              color: colors.textWhite,
+                              fontWeight: 500,
+                              height: 20,
+                              fontSize: '9px',
+                              '& .MuiChip-label': { px: 1 }
+                            }}
+                          />
+                        )}
                       </Box>
                     </TableCell>
-                    <TableCell sx={{ color: colors.darkText }}>
-                      {contract.cost ? `$${parseFloat(contract.cost).toFixed(2)}` : '-'}
+                    <TableCell sx={{ color: colors.textPrimary }}>
+                      {contract.cost ? `$${safeToFixed(contract.cost)}` : '-'}
                     </TableCell>
                     <TableCell>
                       <Chip 
@@ -771,60 +914,72 @@ const AMC = () => {
                         sx={{
                           bgcolor: contract.status === 'Active' ? colors.success :
                                    contract.status === 'Expired' ? colors.error :
-                                   contract.status === 'Pending' ? colors.warning : colors.lightText,
-                          color: 'white',
+                                   contract.status === 'Pending' ? colors.warning : colors.textLight,
+                          color: colors.textWhite,
                           fontWeight: 500,
                           height: 24,
-                          fontSize: '11px'
+                          fontSize: '11px',
+                          '& .MuiChip-label': { px: 1 }
                         }}
                       />
                     </TableCell>
                     <TableCell align="center">
-                      <Tooltip title="View Details">
-                        <IconButton 
-                          size="small" 
-                          onClick={() => handleView(contract)}
-                          sx={{ color: colors.sidebar, '&:hover': { color: colors.accentGold } }}
-                        >
-                          <Visibility fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      
-                      {canEdit && (
-                        <Tooltip title="Edit">
+                      <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+                        <Tooltip title="View Details">
                           <IconButton 
                             size="small" 
-                            onClick={() => handleOpenDialog(contract)}
-                            sx={{ color: colors.sidebar, '&:hover': { color: colors.accentGold } }}
+                            onClick={() => handleView(contract)}
+                            sx={{ 
+                              color: colors.darkNavy, 
+                              '&:hover': { color: colors.lightCyanDark } 
+                            }}
                           >
-                            <Edit fontSize="small" />
+                            <Visibility fontSize="small" />
                           </IconButton>
                         </Tooltip>
-                      )}
-                      
-                      {canRenew && contract.status === 'Active' && (
-                        <Tooltip title="Renew AMC">
-                          <IconButton 
-                            size="small" 
-                            onClick={() => handleRenew(contract)}
-                            sx={{ color: colors.warning, '&:hover': { color: colors.accentGold } }}
-                          >
-                            <Autorenew fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      
-                      {canDelete && (
-                        <Tooltip title="Delete">
-                          <IconButton 
-                            size="small" 
-                            color="error" 
-                            onClick={() => handleDelete(contract.id)}
-                          >
-                            <Delete fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
+                        
+                        {canEdit && (
+                          <Tooltip title="Edit">
+                            <IconButton 
+                              size="small" 
+                              onClick={() => handleOpenDialog(contract)}
+                              sx={{ 
+                                color: colors.darkNavy, 
+                                '&:hover': { color: colors.lightCyanDark } 
+                              }}
+                            >
+                              <Edit fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                        
+                        {canRenew && contract.status === 'Active' && (
+                          <Tooltip title="Renew AMC">
+                            <IconButton 
+                              size="small" 
+                              onClick={() => handleRenew(contract)}
+                              sx={{ 
+                                color: colors.warning, 
+                                '&:hover': { color: colors.lightCyanDark } 
+                              }}
+                            >
+                              <Autorenew fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                        
+                        {canDelete && (
+                          <Tooltip title="Delete">
+                            <IconButton 
+                              size="small" 
+                              color="error" 
+                              onClick={() => handleDelete(contract.id)}
+                            >
+                              <Delete fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </Box>
                     </TableCell>
                   </TableRow>
                 )
@@ -834,25 +989,43 @@ const AMC = () => {
         </Table>
       </TableContainer>
 
-      {/* Add/Edit Dialog - THEMED */}
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ bgcolor: colors.sidebar, color: 'white' }}>
+      {/* Add/Edit Dialog */}
+      <Dialog 
+        open={openDialog} 
+        onClose={handleCloseDialog} 
+        maxWidth="md" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+            bgcolor: colors.bgWhite,
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          bgcolor: colors.darkNavy, 
+          color: colors.textWhite,
+          borderRadius: '8px 8px 0 0',
+        }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Autorenew sx={{ color: colors.textWhite }} />
               <Typography variant="h6" fontWeight={600}>
                 {editingContract ? 'Edit AMC Contract' : 'Add New AMC Contract'}
               </Typography>
             </Box>
-            <IconButton onClick={handleCloseDialog} sx={{ color: 'white' }}>
+            <IconButton onClick={handleCloseDialog} sx={{ color: colors.textWhite }}>
               <Close />
             </IconButton>
           </Box>
         </DialogTitle>
-        <DialogContent dividers>
+        <DialogContent dividers sx={{ borderColor: colors.borderColor }}>
           <Grid container spacing={2} sx={{ mt: 0 }}>
             <Grid item xs={12}>
               <FormControl fullWidth>
-                <InputLabel sx={{ color: colors.lightText }}>Equipment</InputLabel>
+                <InputLabel sx={{ color: colors.textLight }}>Equipment</InputLabel>
                 <Select
                   name="equipment_id"
                   value={formData.equipment_id}
@@ -861,8 +1034,9 @@ const AMC = () => {
                   required
                   sx={{
                     '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.sidebar },
-                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                      '& fieldset': { borderColor: colors.borderDark },
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                     }
                   }}
                 >
@@ -885,8 +1059,9 @@ const AMC = () => {
                 required
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.sidebar },
-                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    '& fieldset': { borderColor: colors.borderDark },
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
@@ -900,8 +1075,9 @@ const AMC = () => {
                 onChange={handleFormChange}
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.sidebar },
-                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    '& fieldset': { borderColor: colors.borderDark },
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
@@ -917,8 +1093,9 @@ const AMC = () => {
                 InputLabelProps={{ shrink: true }}
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.sidebar },
-                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    '& fieldset': { borderColor: colors.borderDark },
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
@@ -934,8 +1111,9 @@ const AMC = () => {
                 InputLabelProps={{ shrink: true }}
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.sidebar },
-                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    '& fieldset': { borderColor: colors.borderDark },
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
@@ -951,15 +1129,16 @@ const AMC = () => {
                 InputProps={{ inputProps: { min: 0, step: 0.01 } }}
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.sidebar },
-                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    '& fieldset': { borderColor: colors.borderDark },
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
             </Grid>
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
-                <InputLabel sx={{ color: colors.lightText }}>Status</InputLabel>
+                <InputLabel sx={{ color: colors.textLight }}>Status</InputLabel>
                 <Select
                   name="status"
                   value={formData.status}
@@ -967,8 +1146,9 @@ const AMC = () => {
                   label="Status"
                   sx={{
                     '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.sidebar },
-                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                      '& fieldset': { borderColor: colors.borderDark },
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                     }
                   }}
                 >
@@ -987,8 +1167,9 @@ const AMC = () => {
                 onChange={handleFormChange}
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.sidebar },
-                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    '& fieldset': { borderColor: colors.borderDark },
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
@@ -1002,8 +1183,9 @@ const AMC = () => {
                 onChange={handleFormChange}
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.sidebar },
-                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    '& fieldset': { borderColor: colors.borderDark },
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
@@ -1020,15 +1202,16 @@ const AMC = () => {
                 placeholder="Additional notes about the contract"
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.sidebar },
-                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    '& fieldset': { borderColor: colors.borderDark },
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
             </Grid>
 
             <Grid item xs={12}>
-              <Typography variant="subtitle2" sx={{ color: colors.lightText }} gutterBottom>
+              <Typography variant="subtitle2" sx={{ color: colors.textLight }} gutterBottom>
                 <AttachFile sx={{ fontSize: 18, verticalAlign: 'middle', mr: 1 }} />
                 Contract Document
               </Typography>
@@ -1077,9 +1260,9 @@ const AMC = () => {
                     href={getFullUrl(formData.documents)} 
                     target="_blank"
                     sx={{ 
-                      borderColor: colors.sidebar,
-                      color: colors.sidebar,
-                      '&:hover': { borderColor: colors.accentGold, color: colors.accentGold }
+                      borderColor: colors.borderDark,
+                      color: colors.darkNavy,
+                      '&:hover': { borderColor: colors.lightCyan, color: colors.lightCyanDark }
                     }}
                   >
                     View Uploaded Document
@@ -1090,14 +1273,27 @@ const AMC = () => {
           </Grid>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={handleCloseDialog} sx={{ color: colors.lightText }}>Cancel</Button>
+          <Button 
+            onClick={handleCloseDialog} 
+            sx={{ 
+              color: colors.textLight,
+              '&:hover': { backgroundColor: 'rgba(103, 232, 249, 0.04)' }
+            }}
+          >
+            Cancel
+          </Button>
           <Button
             variant="contained"
             onClick={handleSubmit}
             sx={{
-              bgcolor: colors.sidebar,
-              '&:hover': { bgcolor: colors.sidebarHover },
-              boxShadow: `0 4px 16px ${colors.sidebar}44`
+              bgcolor: colors.darkNavy,
+              '&:hover': { 
+                bgcolor: colors.darkNavyHover,
+                boxShadow: `0 4px 20px ${colors.lightCyanGlow}`
+              },
+              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+              textTransform: 'none',
+              borderRadius: 2,
             }}
           >
             {editingContract ? 'Update' : 'Create'}
@@ -1105,26 +1301,43 @@ const AMC = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Renew Dialog - THEMED */}
-      <Dialog open={openRenewDialog} onClose={() => setOpenRenewDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ bgcolor: colors.warning, color: 'white' }}>
+      {/* Renew Dialog */}
+      <Dialog 
+        open={openRenewDialog} 
+        onClose={() => setOpenRenewDialog(false)} 
+        maxWidth="sm" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+            bgcolor: colors.bgWhite,
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          bgcolor: colors.warning, 
+          color: colors.textWhite,
+          borderRadius: '8px 8px 0 0',
+        }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Autorenew sx={{ color: 'white' }} />
+            <Autorenew sx={{ color: colors.textWhite }} />
             <Typography variant="h6" fontWeight={600}>
               Renew AMC Contract
             </Typography>
           </Box>
           <IconButton 
             onClick={() => setOpenRenewDialog(false)} 
-            sx={{ position: 'absolute', right: 8, top: 8, color: 'white' }}
+            sx={{ position: 'absolute', right: 8, top: 8, color: colors.textWhite }}
           >
             <Close />
           </IconButton>
         </DialogTitle>
-        <DialogContent dividers>
+        <DialogContent dividers sx={{ borderColor: colors.borderColor }}>
           <Grid container spacing={2} sx={{ mt: 0 }}>
             <Grid item xs={12}>
-              <Alert severity="info" sx={{ mb: 2, borderRadius: 2, border: `1px solid ${colors.info}33` }}>
+              <Alert severity="info" sx={{ mb: 2, borderRadius: 2, border: `1px solid rgba(59, 130, 246, 0.2)` }}>
                 <Typography variant="body2">
                   <strong>Renew Contract:</strong> Extend the AMC contract with a new end date and updated cost.
                 </Typography>
@@ -1141,8 +1354,9 @@ const AMC = () => {
                 required
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.sidebar },
-                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    '& fieldset': { borderColor: colors.borderDark },
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
@@ -1158,8 +1372,9 @@ const AMC = () => {
                 helperText="Enter the new contract cost"
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.sidebar },
-                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    '& fieldset': { borderColor: colors.borderDark },
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
@@ -1167,14 +1382,21 @@ const AMC = () => {
           </Grid>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={() => setOpenRenewDialog(false)} sx={{ color: colors.lightText }}>Cancel</Button>
+          <Button 
+            onClick={() => setOpenRenewDialog(false)} 
+            sx={{ color: colors.textLight }}
+          >
+            Cancel
+          </Button>
           <Button
             variant="contained"
             onClick={handleRenewSubmit}
             sx={{ 
               bgcolor: colors.warning, 
-              '&:hover': { bgcolor: '#E65100' },
-              boxShadow: `0 4px 16px ${colors.warning}44`
+              '&:hover': { bgcolor: '#D97706' },
+              boxShadow: `0 4px 16px ${colors.warning}44`,
+              textTransform: 'none',
+              borderRadius: 2,
             }}
             startIcon={<Autorenew />}
           >
@@ -1183,95 +1405,170 @@ const AMC = () => {
         </DialogActions>
       </Dialog>
 
-      {/* View Dialog - THEMED */}
-      <Dialog open={openViewDialog} onClose={handleCloseView} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ bgcolor: colors.sidebar, color: 'white' }}>
+      {/* View Dialog */}
+      <Dialog 
+        open={openViewDialog} 
+        onClose={handleCloseView} 
+        maxWidth="md" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+            bgcolor: colors.bgWhite,
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          bgcolor: colors.darkNavy, 
+          color: colors.textWhite,
+          borderRadius: '8px 8px 0 0',
+        }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6" fontWeight={600}>
               AMC Contract Details
             </Typography>
-            <IconButton onClick={handleCloseView} sx={{ color: 'white' }}>
+            <IconButton onClick={handleCloseView} sx={{ color: colors.textWhite }}>
               <Close />
             </IconButton>
           </Box>
         </DialogTitle>
-        <DialogContent dividers>
+        <DialogContent dividers sx={{ borderColor: colors.borderColor }}>
           {viewingContract && (
             <Grid container spacing={2}>
+              <Grid item xs={12}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                  <Avatar sx={{ bgcolor: colors.darkNavy, width: 56, height: 56 }}>
+                    <Autorenew sx={{ fontSize: 28, color: colors.textWhite }} />
+                  </Avatar>
+                  <Box>
+                    <Typography variant="h6" fontWeight={600} sx={{ color: colors.textPrimary }}>
+                      {viewingContract.contract_number || 'AMC Contract'}
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 1, mt: 0.5, flexWrap: 'wrap' }}>
+                      <Chip 
+                        label={viewingContract.status} 
+                        size="small"
+                        sx={{
+                          bgcolor: viewingContract.status === 'Active' ? colors.success :
+                                   viewingContract.status === 'Expired' ? colors.error :
+                                   viewingContract.status === 'Pending' ? colors.warning : colors.textLight,
+                          color: colors.textWhite,
+                          fontWeight: 500,
+                          height: 24,
+                          fontSize: '11px'
+                        }}
+                      />
+                      {viewingContract.end_date && (
+                        <Chip 
+                          label={getExpiryStatus(viewingContract.end_date).label}
+                          size="small"
+                          sx={{
+                            bgcolor: getExpiryStatus(viewingContract.end_date).color,
+                            color: colors.textWhite,
+                            fontWeight: 500,
+                            height: 24,
+                            fontSize: '11px'
+                          }}
+                        />
+                      )}
+                    </Box>
+                  </Box>
+                </Box>
+              </Grid>
+
+              <Grid item xs={12}>
+                <Divider sx={{ borderColor: colors.borderColor }} />
+              </Grid>
+
               <Grid item xs={12} md={6}>
-                <Typography variant="body2" sx={{ color: colors.lightText }}>Equipment</Typography>
-                <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkText }}>
+                <Typography variant="body2" sx={{ color: colors.textLight }}>Equipment</Typography>
+                <Typography variant="body1" fontWeight={500} sx={{ color: colors.textPrimary }}>
                   {viewingContract.equipment_name || 'N/A'}
                 </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
-                <Typography variant="body2" sx={{ color: colors.lightText }}>Vendor</Typography>
-                <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkText }}>
+                <Typography variant="body2" sx={{ color: colors.textLight }}>Vendor</Typography>
+                <Typography variant="body1" fontWeight={500} sx={{ color: colors.textPrimary }}>
                   {viewingContract.vendor_name}
                 </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
-                <Typography variant="body2" sx={{ color: colors.lightText }}>Contract Number</Typography>
-                <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkText }}>
+                <Typography variant="body2" sx={{ color: colors.textLight }}>Contract Number</Typography>
+                <Typography variant="body1" sx={{ color: colors.textPrimary }}>
                   {viewingContract.contract_number || 'N/A'}
                 </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
-                <Typography variant="body2" sx={{ color: colors.lightText }}>Status</Typography>
-                <Chip 
-                  label={viewingContract.status} 
-                  size="small"
-                  sx={{
-                    bgcolor: viewingContract.status === 'Active' ? colors.success :
-                             viewingContract.status === 'Expired' ? colors.error :
-                             viewingContract.status === 'Pending' ? colors.warning : colors.lightText,
-                    color: 'white',
-                    fontWeight: 500,
-                    height: 24,
-                    fontSize: '11px'
-                  }}
-                />
+                <Typography variant="body2" sx={{ color: colors.textLight }}>Cost</Typography>
+                <Typography variant="body1" fontWeight={600} sx={{ color: colors.lightCyanDark }}>
+                  {viewingContract.cost ? `$${safeToFixed(viewingContract.cost)}` : '-'}
+                </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
-                <Typography variant="body2" sx={{ color: colors.lightText }}>Start Date</Typography>
-                <Typography variant="body1" sx={{ color: colors.darkText }}>
+                <Typography variant="body2" sx={{ color: colors.textLight }}>
+                  <CalendarToday sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
+                  Start Date
+                </Typography>
+                <Typography variant="body1" sx={{ color: colors.textPrimary }}>
                   {viewingContract.start_date ? new Date(viewingContract.start_date).toLocaleDateString() : '-'}
                 </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
-                <Typography variant="body2" sx={{ color: colors.lightText }}>End Date</Typography>
-                <Typography variant="body1" sx={{ color: colors.darkText }}>
+                <Typography variant="body2" sx={{ color: colors.textLight }}>
+                  <CalendarToday sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
+                  End Date
+                </Typography>
+                <Typography variant="body1" sx={{ color: colors.textPrimary }}>
                   {viewingContract.end_date ? new Date(viewingContract.end_date).toLocaleDateString() : '-'}
                 </Typography>
               </Grid>
-              <Grid item xs={12} md={6}>
-                <Typography variant="body2" sx={{ color: colors.lightText }}>Cost</Typography>
-                <Typography variant="body1" sx={{ color: colors.darkText }}>
-                  {viewingContract.cost ? `$${parseFloat(viewingContract.cost).toFixed(2)}` : '-'}
-                </Typography>
+
+              <Grid item xs={12}>
+                <Divider sx={{ borderColor: colors.borderColor }} />
               </Grid>
+
               <Grid item xs={12} md={6}>
-                <Typography variant="body2" sx={{ color: colors.lightText }}>Contact Person</Typography>
-                <Typography variant="body1" sx={{ color: colors.darkText }}>
+                <Typography variant="body2" sx={{ color: colors.textLight }}>
+                  <Person sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
+                  Contact Person
+                </Typography>
+                <Typography variant="body1" sx={{ color: colors.textPrimary }}>
                   {viewingContract.contact_person || '-'}
                 </Typography>
               </Grid>
-              <Grid item xs={12}>
-                <Typography variant="body2" sx={{ color: colors.lightText }}>Contact Phone</Typography>
-                <Typography variant="body1" sx={{ color: colors.darkText }}>
+              <Grid item xs={12} md={6}>
+                <Typography variant="body2" sx={{ color: colors.textLight }}>
+                  <Phone sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
+                  Contact Phone
+                </Typography>
+                <Typography variant="body1" sx={{ color: colors.textPrimary }}>
                   {viewingContract.contact_phone || '-'}
                 </Typography>
               </Grid>
+
               {viewingContract.notes && (
                 <Grid item xs={12}>
-                  <Typography variant="body2" sx={{ color: colors.lightText }}>Notes</Typography>
-                  <Typography variant="body1" sx={{ color: colors.darkText }}>{viewingContract.notes}</Typography>
+                  <Typography variant="body2" sx={{ color: colors.textLight }}>Notes</Typography>
+                  <Paper sx={{ 
+                    p: 2, 
+                    bgcolor: colors.bgLight, 
+                    borderRadius: 2, 
+                    border: `1px solid ${colors.borderDark}`,
+                    mt: 0.5,
+                  }}>
+                    <Typography variant="body2" sx={{ color: colors.textPrimary }}>
+                      {viewingContract.notes}
+                    </Typography>
+                  </Paper>
                 </Grid>
               )}
 
               {viewingContract.documents && (
                 <Grid item xs={12}>
-                  <Typography variant="body2" sx={{ color: colors.lightText }}>
+                  <Divider sx={{ borderColor: colors.borderColor }} />
+                  <Typography variant="body2" sx={{ color: colors.textLight, mt: 2, mb: 1 }}>
                     <AttachFile sx={{ fontSize: 16, verticalAlign: 'middle', mr: 0.5 }} />
                     Contract Document
                   </Typography>
@@ -1282,10 +1579,9 @@ const AMC = () => {
                     href={getFullUrl(viewingContract.documents)} 
                     target="_blank"
                     sx={{ 
-                      mt: 0.5,
-                      borderColor: colors.sidebar,
-                      color: colors.sidebar,
-                      '&:hover': { borderColor: colors.accentGold, color: colors.accentGold }
+                      borderColor: colors.borderDark,
+                      color: colors.darkNavy,
+                      '&:hover': { borderColor: colors.lightCyan, color: colors.lightCyanDark }
                     }}
                   >
                     View Document
@@ -1296,7 +1592,15 @@ const AMC = () => {
           )}
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={handleCloseView} sx={{ color: colors.lightText }}>Close</Button>
+          <Button 
+            onClick={handleCloseView} 
+            sx={{ 
+              color: colors.textLight,
+              '&:hover': { backgroundColor: 'rgba(103, 232, 249, 0.04)' }
+            }}
+          >
+            Close
+          </Button>
           {viewingContract?.status === 'Active' && canRenew && (
             <Button
               variant="contained"
@@ -1307,8 +1611,10 @@ const AMC = () => {
               }}
               sx={{ 
                 bgcolor: colors.warning, 
-                '&:hover': { bgcolor: '#E65100' },
-                boxShadow: `0 4px 16px ${colors.warning}44`
+                '&:hover': { bgcolor: '#D97706' },
+                boxShadow: `0 4px 16px ${colors.warning}44`,
+                textTransform: 'none',
+                borderRadius: 2,
               }}
             >
               Renew Contract

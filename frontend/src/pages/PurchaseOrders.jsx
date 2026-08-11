@@ -1,5 +1,13 @@
 // src/pages/PurchaseOrders.jsx
-// ✅ DARK NAVY + LIGHT CYAN THEME - Matching Sidebar
+// ✅ COMPLETE PURCHASE ORDERS MANAGEMENT
+// ✅ WHITE BACKGROUND - Matching sidebar theme
+// ✅ DARK NAVY + LIGHT CYAN THEME
+// ✅ All CRUD operations working
+// ✅ Enhanced stats cards
+// ✅ Order cards with status
+// ✅ File upload for documents
+// ✅ Print functionality
+// ✅ Status workflow management
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -81,41 +89,31 @@ import AccessDenied from '../components/Auth/AccessDenied'
 import FileUpload from '../components/FileUpload'
 
 // ============================================================
-// ✅ DARK NAVY + LIGHT CYAN THEME COLORS
+// ✅ THEME COLORS - MATCHING SIDEBAR
 // ============================================================
 const colors = {
-  // Dark Navy Base
   darkNavy: '#0F172A',
   darkNavyLight: '#1E293B',
   darkNavyDark: '#0A0F1E',
   darkNavyHover: '#1E3A5F',
-  
-  // Light Cyan Accents
   lightCyan: '#67E8F9',
   lightCyanBright: '#A5F3FC',
   lightCyanDark: '#22D3EE',
   lightCyanGlow: 'rgba(103, 232, 249, 0.15)',
   lightCyanGlowStrong: 'rgba(103, 232, 249, 0.3)',
-  
-  // Gold accent (keeping PAEC branding)
   accentGold: '#C9A227',
   goldLight: '#E8C84A',
-  
-  // Text
-  text: '#FFFFFF',
-  secondaryText: '#94A3B8',
-  textLight: '#CBD5E1',
-  cyanText: '#67E8F9',
-  darkText: '#0F172A',
-  lightText: '#64748B',
-  
-  // Cards/Background
+  textPrimary: '#0F172A',
+  textSecondary: '#475569',
+  textLight: '#64748B',
+  textWhite: '#FFFFFF',
+  bgWhite: '#FFFFFF',
+  bgLight: '#F8FAFC',
+  bgGray: '#F1F5F9',
   cardBg: '#FFFFFF',
-  borderColor: 'rgba(103, 232, 249, 0.1)',
-  shadowColor: 'rgba(15, 23, 42, 0.08)',
-  mainBg: '#F1F5F9',
-  
-  // Status colors
+  cardShadow: 'rgba(15, 23, 42, 0.08)',
+  borderColor: 'rgba(103, 232, 249, 0.2)',
+  borderDark: '#E2E8F0',
   error: '#EF4444',
   success: '#22C55E',
   warning: '#F59E0B',
@@ -130,13 +128,14 @@ const StatCard = ({ title, value, icon, color, bgColor, subtext }) => (
     <Card sx={{ 
       borderRadius: 3, 
       border: `1px solid ${colors.borderColor}`,
-      boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+      boxShadow: `0 2px 8px ${colors.cardShadow}`,
       transition: 'all 0.3s ease',
       position: 'relative',
       overflow: 'hidden',
+      bgcolor: colors.cardBg,
       '&:hover': {
         transform: 'translateY(-4px)',
-        boxShadow: `0 8px 30px ${colors.lightCyanGlow}`,
+        boxShadow: `0 8px 30px ${colors.cardShadow}`,
         borderColor: colors.lightCyan,
       }
     }}>
@@ -159,45 +158,35 @@ const StatCard = ({ title, value, icon, color, bgColor, subtext }) => (
         <Typography variant="h4" sx={{ color: colors.darkNavy, fontWeight: 700 }}>
           {value}
         </Typography>
-        <Typography variant="body2" sx={{ color: colors.lightText, fontWeight: 500 }}>
+        <Typography variant="body2" sx={{ color: colors.textLight, fontWeight: 500 }}>
           {title}
         </Typography>
         {subtext && (
-          <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', mt: 0.5 }}>
+          <Typography variant="caption" sx={{ color: colors.textLight, display: 'block', mt: 0.5 }}>
             {subtext}
           </Typography>
         )}
-        <Box sx={{
-          position: 'absolute',
-          top: -50,
-          right: -50,
-          width: 100,
-          height: 100,
-          borderRadius: '50%',
-          background: `radial-gradient(circle, ${color || colors.darkNavy}08 0%, transparent 70%)`,
-          pointerEvents: 'none',
-        }} />
       </CardContent>
     </Card>
   </Grow>
 )
 
 // ============================================================
-// ✅ ENHANCED ORDER CARD - DARK NAVY + CYAN
+// ✅ ENHANCED ORDER CARD
 // ============================================================
 const OrderCard = ({ order, onView, onEdit, onDelete, onApprove, onReject, onPrint, canEdit, canDelete, canApprove }) => {
   const [isHovered, setIsHovered] = useState(false)
   
   const getStatusColor = (status) => {
     const statusColors = {
-      'Draft': colors.lightText,
+      'Draft': colors.textLight,
       'Pending Approval': colors.warning,
       'Approved': colors.success,
       'Ordered': colors.info,
       'Received': colors.success,
       'Cancelled': colors.error
     }
-    return statusColors[status] || colors.lightText
+    return statusColors[status] || colors.textLight
   }
 
   const getStatusIcon = (status) => {
@@ -222,7 +211,8 @@ const OrderCard = ({ order, onView, onEdit, onDelete, onApprove, onReject, onPri
           position: 'relative',
           overflow: 'hidden',
           transform: isHovered ? 'translateY(-8px)' : 'translateY(0)',
-          boxShadow: isHovered ? `0 12px 40px ${colors.lightCyanGlow}` : '0 2px 12px rgba(0,0,0,0.04)',
+          boxShadow: isHovered ? `0 12px 40px ${colors.cardShadow}` : `0 2px 8px ${colors.cardShadow}`,
+          bgcolor: colors.cardBg,
           '&:hover': {
             borderColor: colors.lightCyan,
           }
@@ -230,7 +220,7 @@ const OrderCard = ({ order, onView, onEdit, onDelete, onApprove, onReject, onPri
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        {/* Top Gradient Bar - Dark Navy to Cyan */}
+        {/* Top Gradient Bar */}
         <Box sx={{
           position: 'absolute',
           top: 0,
@@ -240,21 +230,8 @@ const OrderCard = ({ order, onView, onEdit, onDelete, onApprove, onReject, onPri
           background: `linear-gradient(90deg, ${getStatusColor(order.status)}, ${colors.lightCyan})`,
         }} />
         
-        {/* Decorative Background */}
-        <Box sx={{
-          position: 'absolute',
-          top: -30,
-          right: -30,
-          width: 80,
-          height: 80,
-          borderRadius: '50%',
-          background: `radial-gradient(circle, ${getStatusColor(order.status)}08 0%, transparent 70%)`,
-          pointerEvents: 'none',
-        }} />
-        
         <CardContent sx={{ p: 3, position: 'relative', zIndex: 1 }}>
           <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-            {/* Order Icon with Badge */}
             <Badge
               badgeContent={order.items?.length || 0}
               color="primary"
@@ -266,7 +243,7 @@ const OrderCard = ({ order, onView, onEdit, onDelete, onApprove, onReject, onPri
                   fontSize: '10px',
                   height: 20,
                   minWidth: 20,
-                  border: `2px solid ${colors.white}`,
+                  border: `2px solid ${colors.bgWhite}`,
                 }
               }}
             >
@@ -291,7 +268,7 @@ const OrderCard = ({ order, onView, onEdit, onDelete, onApprove, onReject, onPri
                 size="small"
                 sx={{
                   bgcolor: getStatusColor(order.status),
-                  color: 'white',
+                  color: colors.textWhite,
                   fontWeight: 600,
                   height: 22,
                   fontSize: '10px',
@@ -301,13 +278,12 @@ const OrderCard = ({ order, onView, onEdit, onDelete, onApprove, onReject, onPri
             </Box>
           </Box>
 
-          {/* Details Section */}
           <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            <Typography variant="body2" sx={{ color: colors.lightText }}>
+            <Typography variant="body2" sx={{ color: colors.textLight }}>
               <Business sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
               Vendor: <strong style={{ color: colors.darkNavy }}>{order.vendor_name}</strong>
             </Typography>
-            <Typography variant="body2" sx={{ color: colors.lightText }}>
+            <Typography variant="body2" sx={{ color: colors.textLight }}>
               <ShoppingCart sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
               Hospital: <span style={{ color: colors.darkNavy }}>{order.hospital_name}</span>
             </Typography>
@@ -315,7 +291,7 @@ const OrderCard = ({ order, onView, onEdit, onDelete, onApprove, onReject, onPri
               <Receipt sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
               Amount: <strong style={{ color: colors.lightCyanDark }}>${safeToFixed(order.total_amount)}</strong>
             </Typography>
-            <Typography variant="caption" sx={{ color: colors.lightText }}>
+            <Typography variant="caption" sx={{ color: colors.textLight }}>
               <Description sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
               Items: {order.items?.length || 0}
               {order.order_date && ` • Ordered: ${new Date(order.order_date).toLocaleDateString()}`}
@@ -323,7 +299,6 @@ const OrderCard = ({ order, onView, onEdit, onDelete, onApprove, onReject, onPri
             </Typography>
           </Box>
 
-          {/* Click Hint */}
           <Box sx={{ 
             mt: 1.5,
             display: 'flex',
@@ -332,10 +307,10 @@ const OrderCard = ({ order, onView, onEdit, onDelete, onApprove, onReject, onPri
             opacity: isHovered ? 1 : 0.4,
             transition: 'opacity 0.3s ease',
           }}>
-            <Typography variant="caption" sx={{ color: colors.lightText, fontSize: '10px', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+            <Typography variant="caption" sx={{ color: colors.textLight, fontSize: '10px', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
               Click to view details
             </Typography>
-            <ChevronRight sx={{ fontSize: 16, color: colors.lightText }} />
+            <ChevronRight sx={{ fontSize: 16, color: colors.textLight }} />
           </Box>
         </CardContent>
         
@@ -985,11 +960,11 @@ const PurchaseOrders = () => {
   const cancelledOrders = orders.filter(o => o.status === 'Cancelled').length
 
   if (loading) {
-    return <LinearProgress sx={{ bgcolor: colors.borderColor, '& .MuiLinearProgress-bar': { bgcolor: colors.lightCyan } }} />
+    return <LinearProgress sx={{ bgcolor: colors.bgGray, '& .MuiLinearProgress-bar': { bgcolor: colors.darkNavy } }} />
   }
 
   return (
-    <Box>
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 }, bgcolor: colors.bgWhite, minHeight: '100vh' }}>
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -1017,7 +992,7 @@ const PurchaseOrders = () => {
             size="small"
             sx={{ 
               bgcolor: colors.darkNavy, 
-              color: 'white',
+              color: colors.textWhite,
               fontWeight: 600,
               '& .MuiChip-icon': { color: colors.lightCyan }
             }}
@@ -1030,7 +1005,7 @@ const PurchaseOrders = () => {
             onClick={fetchOrders}
             size="small"
             sx={{ 
-              borderColor: colors.borderColor, 
+              borderColor: colors.borderDark, 
               color: colors.darkNavy,
               '&:hover': { 
                 borderColor: colors.lightCyan, 
@@ -1050,7 +1025,7 @@ const PurchaseOrders = () => {
                 bgcolor: colors.darkNavy,
                 '&:hover': { 
                   bgcolor: colors.darkNavyHover,
-                  boxShadow: `0 4px 20px ${colors.lightCyanGlowStrong}`
+                  boxShadow: `0 4px 20px ${colors.lightCyanGlow}`
                 },
                 boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
                 borderRadius: 2,
@@ -1063,13 +1038,13 @@ const PurchaseOrders = () => {
         </Box>
       </Box>
 
-      {/* Enhanced Stats Cards - DARK NAVY + CYAN */}
+      {/* Enhanced Stats Cards */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={6} sm={2.4}>
           <StatCard 
             title="Total Orders" 
             value={totalOrders} 
-            icon={<ShoppingCart sx={{ fontSize: 24, color: 'white' }} />}
+            icon={<ShoppingCart sx={{ fontSize: 24, color: colors.textWhite }} />}
             color={colors.darkNavy}
             bgColor={colors.darkNavy}
             subtext="All purchase orders"
@@ -1079,7 +1054,7 @@ const PurchaseOrders = () => {
           <StatCard 
             title="Draft" 
             value={draftOrders} 
-            icon={<Description sx={{ fontSize: 24, color: 'white' }} />}
+            icon={<Description sx={{ fontSize: 24, color: colors.textWhite }} />}
             color={colors.info}
             bgColor={colors.info}
             subtext="In progress"
@@ -1089,7 +1064,7 @@ const PurchaseOrders = () => {
           <StatCard 
             title="Pending Approval" 
             value={pendingOrders} 
-            icon={<Info sx={{ fontSize: 24, color: 'white' }} />}
+            icon={<Info sx={{ fontSize: 24, color: colors.textWhite }} />}
             color={colors.warning}
             bgColor={colors.warning}
             subtext="Awaiting review"
@@ -1099,7 +1074,7 @@ const PurchaseOrders = () => {
           <StatCard 
             title="Completed" 
             value={completedOrders} 
-            icon={<CheckCircle sx={{ fontSize: 24, color: 'white' }} />}
+            icon={<CheckCircle sx={{ fontSize: 24, color: colors.textWhite }} />}
             color={colors.success}
             bgColor={colors.success}
             subtext="Approved/Received"
@@ -1109,7 +1084,7 @@ const PurchaseOrders = () => {
           <StatCard 
             title="Cancelled" 
             value={cancelledOrders} 
-            icon={<Cancel sx={{ fontSize: 24, color: 'white' }} />}
+            icon={<Cancel sx={{ fontSize: 24, color: colors.textWhite }} />}
             color={colors.error}
             bgColor={colors.error}
             subtext="Cancelled orders"
@@ -1117,13 +1092,13 @@ const PurchaseOrders = () => {
         </Grid>
       </Grid>
 
-      {/* Search & Filter - CYAN THEMED */}
+      {/* Search & Filter */}
       <Paper sx={{ 
         p: 2, 
         mb: 3, 
-        borderRadius: 2,
+        borderRadius: 3,
         border: `1px solid ${colors.borderColor}`,
-        boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+        boxShadow: `0 2px 8px ${colors.cardShadow}`,
         bgcolor: colors.cardBg,
       }}>
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -1136,11 +1111,12 @@ const PurchaseOrders = () => {
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <Search sx={{ color: colors.lightText }} />
+                  <Search sx={{ color: colors.textLight }} />
                 </InputAdornment>
               ),
               sx: {
                 '& .MuiOutlinedInput-root': {
+                  '& fieldset': { borderColor: colors.borderDark },
                   '&:hover fieldset': { borderColor: colors.lightCyan },
                   '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                 }
@@ -1149,13 +1125,14 @@ const PurchaseOrders = () => {
           />
           
           <FormControl size="small" sx={{ minWidth: 150 }}>
-            <InputLabel sx={{ color: colors.lightText }}>Status</InputLabel>
+            <InputLabel sx={{ color: colors.textLight }}>Status</InputLabel>
             <Select
               value={filters.status}
               onChange={(e) => setFilters({ ...filters, status: e.target.value })}
               label="Status"
               sx={{
                 '& .MuiOutlinedInput-root': {
+                  '& fieldset': { borderColor: colors.borderDark },
                   '&:hover fieldset': { borderColor: colors.lightCyan },
                   '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                 }
@@ -1172,13 +1149,14 @@ const PurchaseOrders = () => {
           </FormControl>
 
           <FormControl size="small" sx={{ minWidth: 150 }}>
-            <InputLabel sx={{ color: colors.lightText }}>Hospital</InputLabel>
+            <InputLabel sx={{ color: colors.textLight }}>Hospital</InputLabel>
             <Select
               value={filters.hospital_id}
               onChange={(e) => setFilters({ ...filters, hospital_id: e.target.value })}
               label="Hospital"
               sx={{
                 '& .MuiOutlinedInput-root': {
+                  '& fieldset': { borderColor: colors.borderDark },
                   '&:hover fieldset': { borderColor: colors.lightCyan },
                   '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                 }
@@ -1193,7 +1171,7 @@ const PurchaseOrders = () => {
         </Box>
       </Paper>
 
-      {/* Enhanced Order Cards Grid */}
+      {/* Order Cards Grid */}
       <Grid container spacing={3}>
         {filteredOrders.map((order) => (
           <Grid item xs={12} sm={6} md={4} key={order.id}>
@@ -1213,19 +1191,20 @@ const PurchaseOrders = () => {
         ))}
       </Grid>
 
-      {/* Empty State - CYAN THEMED */}
+      {/* Empty State */}
       {filteredOrders.length === 0 && !loading && (
         <Paper sx={{ 
           p: 4, 
           textAlign: 'center', 
-          borderRadius: 2,
-          border: `1px solid ${colors.borderColor}`
+          borderRadius: 3,
+          border: `1px solid ${colors.borderColor}`,
+          bgcolor: colors.cardBg,
         }}>
-          <ShoppingCart sx={{ fontSize: 64, color: colors.lightText }} />
-          <Typography variant="h6" sx={{ color: colors.lightText, mt: 2 }}>
+          <ShoppingCart sx={{ fontSize: 64, color: colors.textLight }} />
+          <Typography variant="h6" sx={{ color: colors.textLight, mt: 2 }}>
             No purchase orders found
           </Typography>
-          <Typography variant="body2" sx={{ color: colors.lightText, mb: 2 }}>
+          <Typography variant="body2" sx={{ color: colors.textLight, mb: 2 }}>
             Try adjusting your search or filters
           </Typography>
           {canCreate && (
@@ -1250,7 +1229,7 @@ const PurchaseOrders = () => {
         </Paper>
       )}
 
-      {/* Add/Edit Dialog - DARK NAVY + CYAN */}
+      {/* Add/Edit Dialog */}
       <Dialog 
         open={openDialog} 
         onClose={handleCloseDialog} 
@@ -1261,32 +1240,33 @@ const PurchaseOrders = () => {
             borderRadius: 3,
             border: `1px solid ${colors.borderColor}`,
             boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+            bgcolor: colors.bgWhite,
           }
         }}
       >
         <DialogTitle sx={{ 
           bgcolor: colors.darkNavy, 
-          color: 'white',
+          color: colors.textWhite,
           borderRadius: '8px 8px 0 0',
         }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <ShoppingCart sx={{ color: 'white' }} />
+            <ShoppingCart sx={{ color: colors.textWhite }} />
             <Typography variant="h6" fontWeight={600}>
               {editingOrder ? 'Edit Purchase Order' : 'Create Purchase Order'}
             </Typography>
           </Box>
           <IconButton
             onClick={handleCloseDialog}
-            sx={{ position: 'absolute', right: 8, top: 8, color: 'white' }}
+            sx={{ position: 'absolute', right: 8, top: 8, color: colors.textWhite }}
           >
             <Close />
           </IconButton>
         </DialogTitle>
-        <DialogContent dividers>
+        <DialogContent dividers sx={{ borderColor: colors.borderColor }}>
           <Grid container spacing={2} sx={{ mt: 0 }}>
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
-                <InputLabel sx={{ color: colors.lightText }}>Hospital</InputLabel>
+                <InputLabel sx={{ color: colors.textLight }}>Hospital</InputLabel>
                 <Select
                   name="hospital_id"
                   value={formData.hospital_id}
@@ -1295,6 +1275,7 @@ const PurchaseOrders = () => {
                   required
                   sx={{
                     '& .MuiOutlinedInput-root': {
+                      '& fieldset': { borderColor: colors.borderDark },
                       '&:hover fieldset': { borderColor: colors.lightCyan },
                       '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                     }
@@ -1318,6 +1299,7 @@ const PurchaseOrders = () => {
                 disabled={editingOrder}
                 sx={{
                   '& .MuiOutlinedInput-root': {
+                    '& fieldset': { borderColor: colors.borderDark },
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
@@ -1327,7 +1309,7 @@ const PurchaseOrders = () => {
 
             <Grid item xs={12}>
               <Divider sx={{ my: 1, borderColor: colors.borderColor }}>
-                <Typography variant="caption" sx={{ color: colors.lightText }}>
+                <Typography variant="caption" sx={{ color: colors.textLight }}>
                   <Business sx={{ fontSize: 16, mr: 1 }} />
                   Vendor Details
                 </Typography>
@@ -1343,6 +1325,7 @@ const PurchaseOrders = () => {
                 required
                 sx={{
                   '& .MuiOutlinedInput-root': {
+                    '& fieldset': { borderColor: colors.borderDark },
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
@@ -1358,6 +1341,7 @@ const PurchaseOrders = () => {
                 onChange={handleFormChange}
                 sx={{
                   '& .MuiOutlinedInput-root': {
+                    '& fieldset': { borderColor: colors.borderDark },
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
@@ -1374,6 +1358,7 @@ const PurchaseOrders = () => {
                 onChange={handleFormChange}
                 sx={{
                   '& .MuiOutlinedInput-root': {
+                    '& fieldset': { borderColor: colors.borderDark },
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
@@ -1389,6 +1374,7 @@ const PurchaseOrders = () => {
                 onChange={handleFormChange}
                 sx={{
                   '& .MuiOutlinedInput-root': {
+                    '& fieldset': { borderColor: colors.borderDark },
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
@@ -1406,6 +1392,7 @@ const PurchaseOrders = () => {
                 rows={2}
                 sx={{
                   '& .MuiOutlinedInput-root': {
+                    '& fieldset': { borderColor: colors.borderDark },
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
@@ -1415,7 +1402,7 @@ const PurchaseOrders = () => {
 
             <Grid item xs={12}>
               <Divider sx={{ my: 1, borderColor: colors.borderColor }}>
-                <Typography variant="caption" sx={{ color: colors.lightText }}>
+                <Typography variant="caption" sx={{ color: colors.textLight }}>
                   <Receipt sx={{ fontSize: 16, mr: 1 }} />
                   Order Details
                 </Typography>
@@ -1432,6 +1419,7 @@ const PurchaseOrders = () => {
                 InputLabelProps={{ shrink: true }}
                 sx={{
                   '& .MuiOutlinedInput-root': {
+                    '& fieldset': { borderColor: colors.borderDark },
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
@@ -1449,6 +1437,7 @@ const PurchaseOrders = () => {
                 InputLabelProps={{ shrink: true }}
                 sx={{
                   '& .MuiOutlinedInput-root': {
+                    '& fieldset': { borderColor: colors.borderDark },
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
@@ -1457,7 +1446,7 @@ const PurchaseOrders = () => {
             </Grid>
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
-                <InputLabel sx={{ color: colors.lightText }}>Status</InputLabel>
+                <InputLabel sx={{ color: colors.textLight }}>Status</InputLabel>
                 <Select
                   name="status"
                   value={formData.status}
@@ -1465,6 +1454,7 @@ const PurchaseOrders = () => {
                   label="Status"
                   sx={{
                     '& .MuiOutlinedInput-root': {
+                      '& fieldset': { borderColor: colors.borderDark },
                       '&:hover fieldset': { borderColor: colors.lightCyan },
                       '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                     }
@@ -1489,6 +1479,7 @@ const PurchaseOrders = () => {
                 placeholder="Name of approver"
                 sx={{
                   '& .MuiOutlinedInput-root': {
+                    '& fieldset': { borderColor: colors.borderDark },
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
@@ -1498,7 +1489,7 @@ const PurchaseOrders = () => {
 
             <Grid item xs={12}>
               <Divider sx={{ my: 1, borderColor: colors.borderColor }}>
-                <Typography variant="caption" sx={{ color: colors.lightText }}>
+                <Typography variant="caption" sx={{ color: colors.textLight }}>
                   <ShoppingCart sx={{ fontSize: 16, mr: 1 }} />
                   Order Items
                 </Typography>
@@ -1517,6 +1508,7 @@ const PurchaseOrders = () => {
                         fullWidth
                         sx={{
                           '& .MuiOutlinedInput-root': {
+                            '& fieldset': { borderColor: colors.borderDark },
                             '&:hover fieldset': { borderColor: colors.lightCyan },
                             '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                           }
@@ -1534,6 +1526,7 @@ const PurchaseOrders = () => {
                         InputProps={{ inputProps: { min: 1, step: 1 } }}
                         sx={{
                           '& .MuiOutlinedInput-root': {
+                            '& fieldset': { borderColor: colors.borderDark },
                             '&:hover fieldset': { borderColor: colors.lightCyan },
                             '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                           }
@@ -1551,6 +1544,7 @@ const PurchaseOrders = () => {
                         InputProps={{ inputProps: { min: 0, step: 0.01 } }}
                         sx={{
                           '& .MuiOutlinedInput-root': {
+                            '& fieldset': { borderColor: colors.borderDark },
                             '&:hover fieldset': { borderColor: colors.lightCyan },
                             '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                           }
@@ -1565,8 +1559,9 @@ const PurchaseOrders = () => {
                         fullWidth
                         disabled
                         sx={{ 
-                          '& .MuiInputBase-root': { bgcolor: colors.mainBg },
+                          '& .MuiInputBase-root': { bgcolor: colors.bgGray },
                           '& .MuiOutlinedInput-root': {
+                            '& fieldset': { borderColor: colors.borderDark },
                             '&:hover fieldset': { borderColor: colors.lightCyan },
                             '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                           }
@@ -1617,6 +1612,7 @@ const PurchaseOrders = () => {
                 placeholder="Additional notes or special instructions..."
                 sx={{
                   '& .MuiOutlinedInput-root': {
+                    '& fieldset': { borderColor: colors.borderDark },
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
@@ -1625,7 +1621,7 @@ const PurchaseOrders = () => {
             </Grid>
 
             <Grid item xs={12}>
-              <Typography variant="subtitle2" sx={{ color: colors.lightText }} gutterBottom>
+              <Typography variant="subtitle2" sx={{ color: colors.textLight }} gutterBottom>
                 <AttachFile sx={{ fontSize: 18, verticalAlign: 'middle', mr: 1 }} />
                 Documents (Quotation, Invoice, etc.)
               </Typography>
@@ -1668,7 +1664,7 @@ const PurchaseOrders = () => {
               
               {formData.documents && formData.documents.split(',').filter(Boolean).length > 0 && (
                 <Box sx={{ mt: 1 }}>
-                  <Typography variant="caption" sx={{ color: colors.lightText }}>
+                  <Typography variant="caption" sx={{ color: colors.textLight }}>
                     {formData.documents.split(',').filter(Boolean).length} document(s) attached
                   </Typography>
                 </Box>
@@ -1696,7 +1692,7 @@ const PurchaseOrders = () => {
               bgcolor: colors.darkNavy,
               '&:hover': { 
                 bgcolor: colors.darkNavyHover,
-                boxShadow: `0 4px 20px ${colors.lightCyanGlowStrong}`
+                boxShadow: `0 4px 20px ${colors.lightCyanGlow}`
               },
               boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
               textTransform: 'none',
@@ -1708,7 +1704,7 @@ const PurchaseOrders = () => {
         </DialogActions>
       </Dialog>
 
-      {/* View Dialog - DARK NAVY + CYAN */}
+      {/* View Dialog */}
       <Dialog 
         open={openViewDialog} 
         onClose={handleCloseView} 
@@ -1719,24 +1715,25 @@ const PurchaseOrders = () => {
             borderRadius: 3,
             border: `1px solid ${colors.borderColor}`,
             boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+            bgcolor: colors.bgWhite,
           }
         }}
       >
         <DialogTitle sx={{ 
           bgcolor: colors.darkNavy, 
-          color: 'white',
+          color: colors.textWhite,
           borderRadius: '8px 8px 0 0',
         }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6" fontWeight={600}>
               Purchase Order Details
             </Typography>
-            <IconButton onClick={handleCloseView} sx={{ color: 'white' }}>
+            <IconButton onClick={handleCloseView} sx={{ color: colors.textWhite }}>
               <Close />
             </IconButton>
           </Box>
         </DialogTitle>
-        <DialogContent dividers>
+        <DialogContent dividers sx={{ borderColor: colors.borderColor }}>
           {viewingOrder && (
             <Grid container spacing={2}>
               <Grid item xs={12}>
@@ -1749,10 +1746,10 @@ const PurchaseOrders = () => {
                     sx={{
                       bgcolor: viewingOrder.status === 'Approved' || viewingOrder.status === 'Received' ? colors.success :
                                viewingOrder.status === 'Pending Approval' ? colors.warning :
-                               viewingOrder.status === 'Draft' ? colors.lightText :
+                               viewingOrder.status === 'Draft' ? colors.textLight :
                                viewingOrder.status === 'Ordered' ? colors.info :
-                               viewingOrder.status === 'Cancelled' ? colors.error : colors.lightText,
-                      color: 'white',
+                               viewingOrder.status === 'Cancelled' ? colors.error : colors.textLight,
+                      color: colors.textWhite,
                       fontWeight: 500
                     }}
                   />
@@ -1772,7 +1769,7 @@ const PurchaseOrders = () => {
                       <StepLabel 
                         StepIconComponent={({ active, completed }) => {
                           const stepColors = {
-                            'Draft': colors.lightText,
+                            'Draft': colors.textLight,
                             'Pending Approval': colors.warning,
                             'Approved': colors.success,
                             'Ordered': colors.info,
@@ -1784,7 +1781,7 @@ const PurchaseOrders = () => {
                               width: 24, 
                               height: 24,
                               fontSize: 14,
-                              color: 'white'
+                              color: colors.textWhite
                             }}>
                               {index + 1}
                             </Avatar>
@@ -1794,7 +1791,7 @@ const PurchaseOrders = () => {
                         {step}
                       </StepLabel>
                       <StepContent>
-                        <Typography variant="caption" sx={{ color: colors.lightText }}>
+                        <Typography variant="caption" sx={{ color: colors.textLight }}>
                           {step === viewingOrder.status ? 'Current status' : 
                            getCurrentStep(viewingOrder.status) > index ? 'Completed' : 'Pending'}
                         </Typography>
@@ -1809,20 +1806,20 @@ const PurchaseOrders = () => {
               </Grid>
 
               <Grid item xs={12} md={6}>
-                <Typography variant="body2" sx={{ color: colors.lightText }}>Hospital</Typography>
+                <Typography variant="body2" sx={{ color: colors.textLight }}>Hospital</Typography>
                 <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy }}>
                   {viewingOrder.hospital_name}
                 </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
-                <Typography variant="body2" sx={{ color: colors.lightText }}>Vendor</Typography>
+                <Typography variant="body2" sx={{ color: colors.textLight }}>Vendor</Typography>
                 <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy }}>
                   {viewingOrder.vendor_name}
                 </Typography>
               </Grid>
               {viewingOrder.vendor_contact && (
                 <Grid item xs={12} md={6}>
-                  <Typography variant="body2" sx={{ color: colors.lightText }}>Vendor Contact</Typography>
+                  <Typography variant="body2" sx={{ color: colors.textLight }}>Vendor Contact</Typography>
                   <Typography variant="body1" sx={{ color: colors.darkNavy }}>
                     {viewingOrder.vendor_contact}
                   </Typography>
@@ -1830,7 +1827,7 @@ const PurchaseOrders = () => {
               )}
               {viewingOrder.vendor_email && (
                 <Grid item xs={12} md={6}>
-                  <Typography variant="body2" sx={{ color: colors.lightText }}>Vendor Email</Typography>
+                  <Typography variant="body2" sx={{ color: colors.textLight }}>Vendor Email</Typography>
                   <Typography variant="body1" sx={{ color: colors.darkNavy }}>
                     {viewingOrder.vendor_email}
                   </Typography>
@@ -1838,7 +1835,7 @@ const PurchaseOrders = () => {
               )}
               {viewingOrder.vendor_address && (
                 <Grid item xs={12}>
-                  <Typography variant="body2" sx={{ color: colors.lightText }}>Vendor Address</Typography>
+                  <Typography variant="body2" sx={{ color: colors.textLight }}>Vendor Address</Typography>
                   <Typography variant="body1" sx={{ color: colors.darkNavy }}>
                     {viewingOrder.vendor_address}
                   </Typography>
@@ -1850,19 +1847,19 @@ const PurchaseOrders = () => {
               </Grid>
 
               <Grid item xs={12} md={4}>
-                <Typography variant="body2" sx={{ color: colors.lightText }}>Order Date</Typography>
+                <Typography variant="body2" sx={{ color: colors.textLight }}>Order Date</Typography>
                 <Typography variant="body1" sx={{ color: colors.darkNavy }}>
                   {viewingOrder.order_date ? new Date(viewingOrder.order_date).toLocaleDateString() : '-'}
                 </Typography>
               </Grid>
               <Grid item xs={12} md={4}>
-                <Typography variant="body2" sx={{ color: colors.lightText }}>Delivery Date</Typography>
+                <Typography variant="body2" sx={{ color: colors.textLight }}>Delivery Date</Typography>
                 <Typography variant="body1" sx={{ color: colors.darkNavy }}>
                   {viewingOrder.delivery_date ? new Date(viewingOrder.delivery_date).toLocaleDateString() : '-'}
                 </Typography>
               </Grid>
               <Grid item xs={12} md={4}>
-                <Typography variant="body2" sx={{ color: colors.lightText }}>Total Amount</Typography>
+                <Typography variant="body2" sx={{ color: colors.textLight }}>Total Amount</Typography>
                 <Typography variant="body1" fontWeight={600} sx={{ color: colors.lightCyanDark }}>
                   {viewingOrder.total_amount ? `$${parseFloat(viewingOrder.total_amount).toFixed(2)}` : '-'}
                 </Typography>
@@ -1879,7 +1876,7 @@ const PurchaseOrders = () => {
                   <Grid item xs={12}>
                     <TableContainer component={Paper} variant="outlined" sx={{ borderColor: colors.borderColor }}>
                       <Table size="small">
-                        <TableHead sx={{ bgcolor: colors.mainBg }}>
+                        <TableHead sx={{ bgcolor: colors.bgGray }}>
                           <TableRow>
                             <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }}>#</TableCell>
                             <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }}>Description</TableCell>
@@ -1908,7 +1905,7 @@ const PurchaseOrders = () => {
               {viewingOrder.notes && (
                 <Grid item xs={12}>
                   <Divider sx={{ borderColor: colors.borderColor }} />
-                  <Typography variant="body2" sx={{ color: colors.lightText, mt: 2 }}>Notes</Typography>
+                  <Typography variant="body2" sx={{ color: colors.textLight, mt: 2 }}>Notes</Typography>
                   <Typography variant="body1" sx={{ color: colors.darkNavy }}>{viewingOrder.notes}</Typography>
                 </Grid>
               )}
@@ -1916,7 +1913,7 @@ const PurchaseOrders = () => {
               {viewingOrder.documents && viewingOrder.documents.split(',').filter(Boolean).length > 0 && (
                 <Grid item xs={12}>
                   <Divider sx={{ borderColor: colors.borderColor }} />
-                  <Typography variant="body2" sx={{ color: colors.lightText, mt: 2, mb: 1 }}>
+                  <Typography variant="body2" sx={{ color: colors.textLight, mt: 2, mb: 1 }}>
                     <AttachFile sx={{ fontSize: 16, verticalAlign: 'middle' }} />
                     Attached Documents ({viewingOrder.documents.split(',').filter(Boolean).length})
                   </Typography>
@@ -2022,7 +2019,7 @@ const PurchaseOrders = () => {
                         startIcon={<LocalShipping />}
                         sx={{ 
                           bgcolor: colors.info,
-                          '&:hover': { bgcolor: '#0D47A1' },
+                          '&:hover': { bgcolor: '#1D4ED8' },
                           boxShadow: `0 4px 16px ${colors.info}44`,
                           textTransform: 'none',
                           borderRadius: 2,

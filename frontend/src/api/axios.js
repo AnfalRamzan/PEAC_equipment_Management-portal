@@ -1,4 +1,6 @@
 // frontend/src/api/axios.js
+// ✅ IMPROVED VERSION
+
 import axios from 'axios';
 import { store } from '../redux/store';
 import { logout } from '../redux/slices/authSlice';
@@ -7,10 +9,18 @@ import { logout } from '../redux/slices/authSlice';
 const getApiUrl = () => {
     // For production (Vercel)
     if (import.meta.env.PROD) {
-        return '/api';  // ✅ Keep this as '/api'
+        return '/api';
     }
-    // For local development
-    return import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+    
+    // For local development - use environment variable or fallback
+    const apiUrl = import.meta.env.VITE_API_URL;
+    if (apiUrl) {
+        return apiUrl;
+    }
+    
+    // ✅ Auto-detect port from window.location
+    const port = window.location.port || '5000';
+    return `http://localhost:${port}/api`;
 };
 
 const api = axios.create({
@@ -20,6 +30,9 @@ const api = axios.create({
         'Content-Type': 'application/json'
     }
 });
+
+// ✅ Log the API URL on startup
+console.log('🔗 API Base URL:', getApiUrl());
 
 // Request Interceptor
 api.interceptors.request.use(

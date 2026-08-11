@@ -1,3 +1,6 @@
+// backend/server.js
+// ✅ COMPLETE FIXED VERSION - Profile Picture Upload with Vercel Blob
+
 const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
@@ -41,8 +44,9 @@ app.use(cors({
 
 app.options('*', cors());
 
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+// ✅ Increase limits for large file uploads
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 
 // ============================================================
 // ✅ ROOT ROUTE
@@ -70,7 +74,8 @@ app.get('/', (req, res) => {
             upload: '/api/upload',
             search: '/api/search',
             websocket: '/api/websocket/status',
-            serviceDocumentation: '/api/service-documentation'
+            serviceDocumentation: '/api/service-documentation',
+            training: '/api/training'
         },
         docs: 'https://github.com/your-repo',
         timestamp: new Date().toISOString()
@@ -81,7 +86,6 @@ app.get('/', (req, res) => {
 // ✅ STATIC FILE SERVE (for local development - optional)
 // ============================================================
 try {
-    // Only serve static files if uploads directory exists (local development)
     const uploadsPath = path.join(__dirname, 'uploads');
     if (fs.existsSync(uploadsPath)) {
         app.use('/uploads', express.static(uploadsPath));
@@ -112,10 +116,8 @@ const formatDateForMySQL = (date) => {
     if (date === '' || date === '0000-00-00') return null;
     if (date === 'Invalid Date') return null;
     
-    // If it's already YYYY-MM-DD format
     if (date.match(/^\d{4}-\d{2}-\d{2}$/)) return date;
     
-    // Try to parse and format
     try {
         const d = new Date(date);
         if (isNaN(d.getTime())) return null;
@@ -374,34 +376,10 @@ const fileFilter = (req, file, cb) => {
 };
 
 // ============================================================
-// ✅ PROFILE PICTURE UPLOAD (Local - for compatibility)
+// ✅ PROFILE PICTURE UPLOAD - ✅ FIXED: Use Vercel Blob
 // ============================================================
-const profileStorage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        try {
-            const uploadPath = path.join(__dirname, 'uploads', 'profile');
-            if (!fs.existsSync(uploadPath)) {
-                try {
-                    fs.mkdirSync(uploadPath, { recursive: true });
-                } catch (mkdirError) {
-                    console.log('⚠️ Cannot create profile directory on Vercel');
-                }
-            }
-            cb(null, uploadPath);
-        } catch (error) {
-            cb(null, '/tmp');
-        }
-    },
-    filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        const ext = path.extname(file.originalname);
-        const filename = 'profile-' + req.user.id + '-' + uniqueSuffix + ext;
-        cb(null, filename);
-    }
-});
-
 const profileUpload = multer({
-    storage: profileStorage,
+    storage: multer.memoryStorage(),  // ✅ Use memory storage for Vercel
     limits: { fileSize: 5 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
         const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
@@ -420,7 +398,7 @@ const storage = multer.memoryStorage();
 
 const uploadMulter = multer({
     storage: storage,
-    limits: { fileSize: 100 * 1024 * 1024 },
+    limits: { fileSize: 100 * 1024 * 1024 },  // ✅ 100MB
     fileFilter: fileFilter
 });
 
@@ -624,10 +602,6 @@ app.delete('/api/upload', authenticate, async (req, res) => {
 
 app.get('/api/uploads', authenticate, async (req, res) => {
     try {
-        const { type, directory } = req.query;
-        
-        // For Vercel Blob, we can't list files directly
-        // Return empty array for now - files are accessible via their URLs
         res.json({
             success: true,
             files: []
@@ -642,7 +616,7 @@ app.get('/api/uploads', authenticate, async (req, res) => {
 });
 
 // ============================================================
-// ✅ PROFILE PICTURE UPLOAD ROUTES
+// ✅ PROFILE PICTURE UPLOAD ROUTES - ✅ FIXED: Vercel Blob
 // ============================================================
 app.post('/api/users/profile-picture', authenticate, profileUpload.single('profileImage'), async (req, res) => {
     try {
@@ -653,30 +627,25 @@ app.post('/api/users/profile-picture', authenticate, profileUpload.single('profi
             });
         }
 
-        const users = await query('SELECT profile_image FROM users WHERE id = ?', [req.user.id]);
-        if (users.length > 0 && users[0].profile_image) {
-            try {
-                const oldImagePath = path.join(__dirname, users[0].profile_image);
-                if (fs.existsSync(oldImagePath)) {
-                    fs.unlinkSync(oldImagePath);
-                    console.log('🗑️ Old profile picture deleted');
-                }
-            } catch (error) {
-                console.log('⚠️ Could not delete old profile picture on Vercel');
-            }
-        }
+        // ✅ Upload to Vercel Blob
+        const filename = `profile-${req.user.id}-${Date.now()}.jpg`;
+        const blob = await put(`uploads/profile/${filename}`, req.file.buffer, {
+            access: 'public',
+            token: process.env.BLOB_READ_WRITE_TOKEN,
+        });
 
-        const profileImageUrl = `/uploads/profile/${req.file.filename}`;
-        
+        console.log('✅ Profile picture uploaded to Vercel Blob:', blob.url);
+
+        // ✅ Update user in database
         await query(
             'UPDATE users SET profile_image = ? WHERE id = ?',
-            [profileImageUrl, req.user.id]
+            [blob.url, req.user.id]
         );
 
         res.json({
             success: true,
             message: 'Profile picture updated successfully',
-            profileImage: profileImageUrl
+            profileImage: blob.url
         });
     } catch (error) {
         console.error('❌ Profile picture upload error:', error);
@@ -693,13 +662,13 @@ app.delete('/api/users/profile-picture', authenticate, async (req, res) => {
         
         if (users.length > 0 && users[0].profile_image) {
             try {
-                const imagePath = path.join(__dirname, users[0].profile_image);
-                if (fs.existsSync(imagePath)) {
-                    fs.unlinkSync(imagePath);
-                    console.log('🗑️ Profile picture deleted');
-                }
+                // ✅ Delete from Vercel Blob
+                await del(users[0].profile_image, {
+                    token: process.env.BLOB_READ_WRITE_TOKEN,
+                });
+                console.log('🗑️ Profile picture deleted from Vercel Blob');
             } catch (error) {
-                console.log('⚠️ Could not delete profile picture on Vercel');
+                console.log('⚠️ Could not delete profile picture from Vercel Blob:', error.message);
             }
             
             await query(
@@ -2172,8 +2141,6 @@ app.put('/api/errors/:id', authenticate, async (req, res) => {
     }
 });
 
-// ✅ REMOVED: PATCH /api/errors/:id/status endpoint completely
-
 app.delete('/api/errors/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     try {
         const { id } = req.params;
@@ -2194,40 +2161,10 @@ app.delete('/api/errors/:id', authenticate, authorize('SUPER_ADMIN'), async (req
 });
 
 // ============================================================
-// ✅ ERROR FILE UPLOAD
+// ✅ ERROR FILE UPLOAD - ✅ FIXED: Use Vercel Blob
 // ============================================================
-const errorStorage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        try {
-            let uploadPath = path.join(__dirname, 'uploads', 'errors');
-            if (file.mimetype.startsWith('image/')) {
-                uploadPath = path.join(uploadPath, 'images');
-            } else if (file.mimetype.startsWith('video/')) {
-                uploadPath = path.join(uploadPath, 'videos');
-            } else {
-                uploadPath = path.join(uploadPath, 'documents');
-            }
-            if (!fs.existsSync(uploadPath)) {
-                try {
-                    fs.mkdirSync(uploadPath, { recursive: true });
-                } catch (mkdirError) {
-                    console.log('⚠️ Cannot create error directory on Vercel');
-                }
-            }
-            cb(null, uploadPath);
-        } catch (error) {
-            cb(null, '/tmp');
-        }
-    },
-    filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        const ext = path.extname(file.originalname);
-        cb(null, 'error-' + uniqueSuffix + ext);
-    }
-});
-
 const errorUpload = multer({
-    storage: errorStorage,
+    storage: multer.memoryStorage(),
     limits: { fileSize: 50 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
         const allowedTypes = ['image/', 'video/', 'application/pdf'];
@@ -2248,12 +2185,19 @@ app.post('/api/errors/upload', authenticate, errorUpload.single('file'), async (
             });
         }
 
-        const fileUrl = `/uploads/errors/${req.file.filename}`;
-        
+        // ✅ Upload to Vercel Blob
+        const filename = `error-${Date.now()}-${req.file.originalname}`;
+        const blob = await put(`uploads/errors/${filename}`, req.file.buffer, {
+            access: 'public',
+            token: process.env.BLOB_READ_WRITE_TOKEN,
+        });
+
+        console.log('✅ Error file uploaded to Vercel Blob:', blob.url);
+
         res.json({
             success: true,
             message: 'File uploaded successfully',
-            fileUrl: fileUrl,
+            fileUrl: blob.url,
             fileName: req.file.originalname,
             fileSize: req.file.size,
             fileType: req.file.mimetype
@@ -2268,7 +2212,7 @@ app.post('/api/errors/upload', authenticate, errorUpload.single('file'), async (
 });
 
 // ============================================================
-// ✅ REPAIRS ROUTES - COMPLETE UPDATE WITH ALL CHANGES
+// ✅ REPAIRS ROUTES
 // ============================================================
 app.get('/api/repairs', authenticate, async (req, res) => {
     try {
@@ -2342,7 +2286,6 @@ app.get('/api/repairs/:id', authenticate, async (req, res) => {
     }
 });
 
-// ✅ POST /api/repairs - Allow SUPER_ADMIN & ENGINEER
 app.post('/api/repairs', authenticate, async (req, res) => {
     try {
         const { 
@@ -2360,7 +2303,6 @@ app.post('/api/repairs', authenticate, async (req, res) => {
         console.log('👤 User:', req.user.email, 'Role:', req.user.role_name);
         console.log('📦 Payload:', req.body);
 
-        // ✅ Check permission - Allow SUPER_ADMIN and ENGINEER
         const isSuperAdmin = req.user.role_name === 'SUPER_ADMIN';
         const isEngineer = req.user.role_name === 'ENGINEER';
 
@@ -2378,7 +2320,6 @@ app.post('/api/repairs', authenticate, async (req, res) => {
             });
         }
 
-        // Check if error exists
         const errorCheck = await query(
             'SELECT id, equipment_id, error_title FROM error_logs WHERE id = ?',
             [error_log_id]
@@ -2391,7 +2332,6 @@ app.post('/api/repairs', authenticate, async (req, res) => {
             });
         }
 
-        // Check if equipment exists
         const equipmentCheck = await query(
             'SELECT id, name, hospital_id FROM equipment WHERE id = ?',
             [errorCheck[0].equipment_id]
@@ -2404,7 +2344,6 @@ app.post('/api/repairs', authenticate, async (req, res) => {
             });
         }
 
-        // ✅ Validate engineer_name
         const finalEngineerName = engineer_name || req.user.full_name || '';
         if (!finalEngineerName.trim()) {
             return res.status(400).json({ 
@@ -2413,10 +2352,8 @@ app.post('/api/repairs', authenticate, async (req, res) => {
             });
         }
 
-        // ✅ Convert spare_part_used from 'Yes'/'No' to 1/0
         const spareUsed = spare_part_used === 'Yes' ? 1 : 0;
 
-        // ✅ INSERT repair (NO status column, WITH attachments)
         const result = await query(
             `INSERT INTO repairs 
              (error_log_id, engineer_id, engineer_name, root_cause, problem_analysis, 
@@ -2442,7 +2379,6 @@ app.post('/api/repairs', authenticate, async (req, res) => {
 
         console.log('✅ Repair created. ID:', result.insertId);
 
-        // ✅ Insert spare parts if any
         if (spare_parts && Array.isArray(spare_parts) && spare_parts.length > 0) {
             for (const part of spare_parts) {
                 await query(
@@ -2464,7 +2400,6 @@ app.post('/api/repairs', authenticate, async (req, res) => {
             console.log(`✅ Added ${spare_parts.length} spare parts`);
         }
 
-        // ✅ Update error status to 'In Progress'
         try {
             await query(
                 `UPDATE error_logs SET status = 'In Progress' WHERE id = ?`,
@@ -2475,7 +2410,6 @@ app.post('/api/repairs', authenticate, async (req, res) => {
             console.log('⚠️ Could not update error status:', updateError.message);
         }
 
-        // ✅ Send notification
         await createNotification(
             1,
             'New Repair Created',
@@ -2513,7 +2447,6 @@ app.post('/api/repairs', authenticate, async (req, res) => {
     }
 });
 
-// ✅ PUT /api/repairs/:id - Only SUPER_ADMIN can update
 app.put('/api/repairs/:id', authenticate, async (req, res) => {
     try {
         const { id } = req.params;
@@ -2528,7 +2461,6 @@ app.put('/api/repairs/:id', authenticate, async (req, res) => {
         console.log('🔄 Updating repair:', id);
         console.log('👤 User:', req.user.email, 'Role:', req.user.role_name);
 
-        // ✅ Only SUPER_ADMIN can update repairs
         if (req.user.role_name !== 'SUPER_ADMIN') {
             return res.status(403).json({ 
                 success: false, 
@@ -2569,7 +2501,6 @@ app.put('/api/repairs/:id', authenticate, async (req, res) => {
             ]
         );
 
-        // Auto-save to knowledge base when repair has complete info
         const hasRootCause = root_cause && root_cause.trim() !== '';
         const hasSolution = solution_description && solution_description.trim() !== '';
         const hasProcedure = repair_procedure && repair_procedure.trim() !== '';
@@ -2622,7 +2553,6 @@ app.put('/api/repairs/:id', authenticate, async (req, res) => {
     }
 });
 
-// ✅ DELETE /api/repairs/:id - Only SUPER_ADMIN
 app.delete('/api/repairs/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     try {
         const { id } = req.params;
@@ -2654,7 +2584,7 @@ app.delete('/api/repairs/:id', authenticate, authorize('SUPER_ADMIN'), async (re
 });
 
 // ============================================================
-// ✅ SPARE PARTS ROUTES - UPDATED to use engineer_name
+// ✅ SPARE PARTS ROUTES
 // ============================================================
 app.get('/api/spare-parts', authenticate, async (req, res) => {
     try {
@@ -3388,7 +3318,7 @@ app.delete('/api/knowledge-base/:id', authenticate, async (req, res) => {
 });
 
 // ============================================================
-// ✅ SEARCH ROUTES - UPDATED to use engineer_name
+// ✅ SEARCH ROUTES
 // ============================================================
 app.get('/api/search', authenticate, async (req, res) => {
     try {
@@ -3605,7 +3535,7 @@ app.get('/api/search', authenticate, async (req, res) => {
 });
 
 // ============================================================
-// ✅ MAINTENANCE ROUTES - FIXED (NO assigned_to, using engineer_name)
+// ✅ MAINTENANCE ROUTES
 // ============================================================
 app.get('/api/maintenance', authenticate, async (req, res) => {
     try {
@@ -3665,7 +3595,6 @@ app.get('/api/maintenance/:id', authenticate, async (req, res) => {
     }
 });
 
-// ✅ POST /api/maintenance - Allow SUPER_ADMIN & ENGINEER
 app.post('/api/maintenance', authenticate, async (req, res) => {
     try {
         const { 
@@ -3679,7 +3608,6 @@ app.post('/api/maintenance', authenticate, async (req, res) => {
         console.log('📅 Creating maintenance schedule for equipment:', equipment_id);
         console.log('👷 Engineer name:', engineer_name);
 
-        // ✅ Check permission - Allow SUPER_ADMIN and ENGINEER
         const isSuperAdmin = req.user.role_name === 'SUPER_ADMIN';
         const isEngineer = req.user.role_name === 'ENGINEER';
 
@@ -3738,7 +3666,6 @@ app.post('/api/maintenance', authenticate, async (req, res) => {
     }
 });
 
-// ✅ PUT /api/maintenance/:id - Only SUPER_ADMIN
 app.put('/api/maintenance/:id', authenticate, async (req, res) => {
     try {
         const { id } = req.params;
@@ -3753,7 +3680,6 @@ app.put('/api/maintenance/:id', authenticate, async (req, res) => {
         console.log('🔄 Updating maintenance schedule. ID:', id);
         console.log('📦 Payload:', req.body);
 
-        // ✅ Check if user is SUPER_ADMIN
         if (req.user.role_name !== 'SUPER_ADMIN') {
             return res.status(403).json({ 
                 success: false, 
@@ -3761,7 +3687,6 @@ app.put('/api/maintenance/:id', authenticate, async (req, res) => {
             });
         }
 
-        // ✅ Check if schedule exists
         const existing = await query('SELECT * FROM maintenance_schedule WHERE id = ?', [id]);
         if (existing.length === 0) {
             return res.status(404).json({ 
@@ -3770,7 +3695,6 @@ app.put('/api/maintenance/:id', authenticate, async (req, res) => {
             });
         }
 
-        // ✅ Valid statuses
         const validStatuses = ['Scheduled', 'In Progress', 'Completed', 'Overdue', 'Cancelled'];
         const finalStatus = validStatuses.includes(status) ? status : existing[0].status;
 
@@ -3821,7 +3745,6 @@ app.put('/api/maintenance/:id', authenticate, async (req, res) => {
     }
 });
 
-// ✅ DELETE /api/maintenance/:id - Only SUPER_ADMIN
 app.delete('/api/maintenance/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     try {
         const { id } = req.params;
@@ -3852,7 +3775,7 @@ app.delete('/api/maintenance/:id', authenticate, authorize('SUPER_ADMIN'), async
 });
 
 // ============================================================
-// ✅ DASHBOARD ROUTES - Updated to remove status references
+// ✅ DASHBOARD ROUTES
 // ============================================================
 app.get('/api/dashboard/stats', authenticate, async (req, res) => {
     try {
@@ -3972,6 +3895,13 @@ app.get('/api/dashboard/stats', authenticate, async (req, res) => {
 const serviceDocumentationRoutes = require('./routes/serviceDocumentation');
 app.use('/api/service-documentation', serviceDocumentationRoutes);
 console.log('📄 Service Documentation routes registered');
+
+// ============================================================
+// ✅ TRAINING ROUTES
+// ============================================================
+const trainingRoutes = require('./routes/training');
+app.use('/api/training', trainingRoutes);
+console.log('📚 Training routes registered');
 
 // ============================================================
 // ✅ AMC ROUTES
@@ -4864,6 +4794,7 @@ if (require.main === module) {
         console.log(`📁 Static files served at: http://localhost:${PORT}/uploads/`);
         console.log(`📚 Knowledge Base API: http://localhost:${PORT}/api/knowledge-base`);
         console.log(`📄 Service Documentation API: http://localhost:${PORT}/api/service-documentation`);
+        console.log(`📚 Training API: http://localhost:${PORT}/api/training`);
         console.log('========================================');
         console.log('🔌 WebSocket server initializing...');
     });

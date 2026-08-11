@@ -1,5 +1,6 @@
 // src/components/Layout/MainLayout.jsx
-// ✅ DARK NAVY + LIGHT CYAN THEME - PREMIUM GLASS EFFECT
+// ✅ DARK NAVY + LIGHT CYAN THEME - PREMIUM GLITTER EFFECT SIDEBAR
+// ✅ Balanced spacing, NO SCROLL, Click highlights prominently
 
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -44,6 +45,7 @@ import {
   Inventory,
   Gavel,
   EmojiObjects,
+  School,
 } from '@mui/icons-material';
 import { useNavigate, Outlet } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -60,35 +62,29 @@ const drawerWidth = 250;
 // ✅ DARK NAVY + LIGHT CYAN THEME COLORS
 // ============================================================
 const colors = {
-  // Dark Navy Base
   darkNavy: '#0F172A',
   darkNavyLight: '#1E293B',
   darkNavyDark: '#0A0F1E',
   darkNavyHover: '#1E3A5F',
   
-  // Light Cyan Accents
   lightCyan: '#67E8F9',
   lightCyanBright: '#A5F3FC',
   lightCyanDark: '#22D3EE',
   lightCyanGlow: 'rgba(103, 232, 249, 0.15)',
   lightCyanGlowStrong: 'rgba(103, 232, 249, 0.3)',
   
-  // Sidebar - Glass effect with Dark Navy
   sidebar: 'rgba(15, 23, 42, 0.92)',
   sidebarHover: 'rgba(30, 58, 95, 0.7)',
   active: 'rgba(30, 58, 95, 0.8)',
   
-  // Text - Cyan tinted for better readability
   text: '#FFFFFF',
   secondaryText: '#94A3B8',
   textLight: '#CBD5E1',
   cyanText: '#67E8F9',
   
-  // Gold accent (keeping PAEC branding)
   accentGold: '#C9A227',
   goldLight: '#E8C84A',
   
-  // Other
   mainBg: '#F1F5F9',
   white: '#FFFFFF',
   darkText: '#0F172A',
@@ -98,7 +94,6 @@ const colors = {
   warning: '#F59E0B',
   info: '#3B82F6',
   
-  // Glass effects
   glassBorder: 'rgba(103, 232, 249, 0.1)',
   glassBg: 'rgba(15, 23, 42, 0.7)',
   glassShine: 'rgba(103, 232, 249, 0.03)',
@@ -107,7 +102,7 @@ const colors = {
 };
 
 // ============================================================
-// ✅ CSS ANIMATIONS WITH CYAN GLOW
+// ✅ PREMIUM GLITTER & SHINE ANIMATIONS
 // ============================================================
 const badgeStyles = `
 @keyframes badgePulse {
@@ -169,12 +164,184 @@ const badgeStyles = `
     100% { border-color: rgba(103, 232, 249, 0.1); }
 }
 
+@keyframes glitterShine {
+    0% {
+        background-position: -300% center;
+        opacity: 0;
+    }
+    10% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.8;
+    }
+    90% {
+        opacity: 1;
+    }
+    100% {
+        background-position: 300% center;
+        opacity: 0;
+    }
+}
+
+@keyframes shimmerFloat {
+    0% {
+        transform: translateX(-100%) rotate(-5deg);
+        opacity: 0;
+    }
+    20% {
+        opacity: 0.6;
+    }
+    50% {
+        opacity: 1;
+    }
+    80% {
+        opacity: 0.6;
+    }
+    100% {
+        transform: translateX(200%) rotate(-5deg);
+        opacity: 0;
+    }
+}
+
+@keyframes sparkle {
+    0% {
+        transform: scale(0) rotate(0deg);
+        opacity: 0;
+    }
+    30% {
+        transform: scale(1.2) rotate(30deg);
+        opacity: 1;
+    }
+    60% {
+        transform: scale(0.8) rotate(60deg);
+        opacity: 0.8;
+    }
+    100% {
+        transform: scale(0) rotate(90deg);
+        opacity: 0;
+    }
+}
+
+@keyframes goldSparkle {
+    0% {
+        transform: scale(0) rotate(0deg);
+        opacity: 0;
+        box-shadow: 0 0 0px rgba(201, 162, 39, 0);
+    }
+    50% {
+        transform: scale(1.5) rotate(180deg);
+        opacity: 1;
+        box-shadow: 0 0 30px rgba(201, 162, 39, 0.6);
+    }
+    100% {
+        transform: scale(0) rotate(360deg);
+        opacity: 0;
+        box-shadow: 0 0 0px rgba(201, 162, 39, 0);
+    }
+}
+
+@keyframes cyanSparkle {
+    0% {
+        transform: scale(0) rotate(0deg);
+        opacity: 0;
+        box-shadow: 0 0 0px rgba(103, 232, 249, 0);
+    }
+    50% {
+        transform: scale(1.5) rotate(180deg);
+        opacity: 1;
+        box-shadow: 0 0 30px rgba(103, 232, 249, 0.6);
+    }
+    100% {
+        transform: scale(0) rotate(360deg);
+        opacity: 0;
+        box-shadow: 0 0 0px rgba(103, 232, 249, 0);
+    }
+}
+
+@keyframes sidebarGlow {
+    0% {
+        box-shadow: 
+            0 0 40px rgba(103, 232, 249, 0.02),
+            inset 0 0 80px rgba(103, 232, 249, 0.01);
+    }
+    50% {
+        box-shadow: 
+            0 0 60px rgba(103, 232, 249, 0.06),
+            inset 0 0 100px rgba(103, 232, 249, 0.03);
+    }
+    100% {
+        box-shadow: 
+            0 0 40px rgba(103, 232, 249, 0.02),
+            inset 0 0 80px rgba(103, 232, 249, 0.01);
+    }
+}
+
+@keyframes menuItemGlow {
+    0% {
+        border-color: rgba(103, 232, 249, 0.1);
+        box-shadow: 0 0 20px rgba(103, 232, 249, 0);
+    }
+    50% {
+        border-color: rgba(103, 232, 249, 0.3);
+        box-shadow: 0 0 30px rgba(103, 232, 249, 0.05);
+    }
+    100% {
+        border-color: rgba(103, 232, 249, 0.1);
+        box-shadow: 0 0 20px rgba(103, 232, 249, 0);
+    }
+}
+
+@keyframes selectedPulse {
+    0% {
+        box-shadow: 0 0 20px rgba(103, 232, 249, 0.2);
+    }
+    50% {
+        box-shadow: 0 0 40px rgba(103, 232, 249, 0.5);
+    }
+    100% {
+        box-shadow: 0 0 20px rgba(103, 232, 249, 0.2);
+    }
+}
+
 .bell-ring {
     animation: bellRing 0.6s ease-in-out 3;
 }
 
 .gradient-shine {
     animation: gradientShine 3s ease-in-out infinite;
+}
+
+.glitter-shine {
+    animation: glitterShine 4s ease-in-out infinite;
+}
+
+.shimmer-float {
+    animation: shimmerFloat 3s ease-in-out infinite;
+}
+
+.sparkle-effect {
+    animation: sparkle 2s ease-in-out infinite;
+}
+
+.gold-sparkle {
+    animation: goldSparkle 3s ease-in-out infinite;
+}
+
+.cyan-sparkle {
+    animation: cyanSparkle 2.5s ease-in-out infinite;
+}
+
+.sidebar-glow {
+    animation: sidebarGlow 4s ease-in-out infinite;
+}
+
+.menu-item-glow {
+    animation: menuItemGlow 3s ease-in-out infinite;
+}
+
+.selected-pulse {
+    animation: selectedPulse 2s ease-in-out infinite;
 }
 `;
 
@@ -240,7 +407,7 @@ const sendBrowserNotification = (title, message, options = {}) => {
 };
 
 // ============================================================
-// ✅ MENU ITEMS
+// ✅ MENU ITEMS - ALL ITEMS INCLUDING PROCUREMENT
 // ============================================================
 const menuItems = [
   { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
@@ -250,12 +417,13 @@ const menuItems = [
   { text: 'Repairs', icon: <Build />, path: '/repairs' },
   { text: 'Knowledge Base', icon: <EmojiObjects />, path: '/knowledge-base' },
   { text: 'Reports', icon: <Assessment />, path: '/reports' },
+  { text: 'Training', icon: <School />, path: '/training' },
   { text: 'Maintenance', icon: <Handyman />, path: '/maintenance' },
   { text: 'Spare Parts', icon: <Inventory />, path: '/spare-parts' },
-  { text: 'Service Documentation', icon: <Description />, path: '/service-documentation' },
+  { text: 'Service Doc.', icon: <Description />, path: '/service-documentation' },
   { text: 'AMC Contracts', icon: <Gavel />, path: '/amc' },
   { text: 'Purchase Orders', icon: <ShoppingCart />, path: '/purchase-orders' },
-  { text: 'Equipment Procurement', icon: <LocalShipping />, path: '/procurement' },
+  { text: 'Procurement', icon: <LocalShipping />, path: '/procurement' },
 ];
 
 // ============================================================
@@ -307,7 +475,7 @@ const MainLayout = () => {
     if (userRole === 'ENGINEER' || userRole === 'SUPER_ADMIN') {
       return menuItems;
     }
-    return [];
+    return menuItems;
   };
 
   const filteredMenuItems = getFilteredMenuItems();
@@ -436,7 +604,7 @@ const MainLayout = () => {
   };
 
   // ============================================================
-  // ✅ DRAWER CONTENT - DARK NAVY + LIGHT CYAN
+  // ✨ SIDEBAR - BALANCED SPACING, NO SCROLL, PROMINENT CLICK
   // ============================================================
   const drawer = (
     <Box
@@ -445,22 +613,175 @@ const MainLayout = () => {
         display: 'flex',
         flexDirection: 'column',
         bgcolor: 'transparent',
-        backdropFilter: 'blur(16px) saturate(200%)',
-        WebkitBackdropFilter: 'blur(16px) saturate(200%)',
-        background: `linear-gradient(180deg, 
-          rgba(15, 23, 42, 0.95) 0%,
-          rgba(30, 58, 95, 0.88) 30%,
-          rgba(10, 15, 30, 0.96) 60%,
-          rgba(15, 23, 42, 0.95) 100%)`,
+        backdropFilter: 'blur(20px) saturate(200%)',
+        WebkitBackdropFilter: 'blur(20px) saturate(200%)',
+        background: `
+          linear-gradient(180deg, 
+            rgba(15, 23, 42, 0.95) 0%,
+            rgba(30, 58, 95, 0.88) 25%,
+            rgba(10, 15, 30, 0.96) 50%,
+            rgba(30, 58, 95, 0.88) 75%,
+            rgba(15, 23, 42, 0.95) 100%
+          )
+        `,
         overflow: 'hidden',
         width: '100%',
         borderRight: `1px solid rgba(103, 232, 249, 0.12)`,
         boxShadow: `
-          4px 0 50px rgba(0, 0, 0, 0.7), 
-          inset 0 0 120px rgba(103, 232, 249, 0.02),
-          inset 0 0 200px rgba(0, 0, 0, 0.3)
+          4px 0 80px rgba(0, 0, 0, 0.8), 
+          inset 0 0 150px rgba(103, 232, 249, 0.03),
+          inset 0 0 200px rgba(0, 0, 0, 0.3),
+          0 0 60px rgba(103, 232, 249, 0.02)
         `,
         position: 'relative',
+        transition: 'all 0.3s ease',
+        '&:hover': {
+          boxShadow: `
+            4px 0 100px rgba(0, 0, 0, 0.9), 
+            inset 0 0 200px rgba(103, 232, 249, 0.05),
+            0 0 80px rgba(103, 232, 249, 0.04),
+            4px 0 60px rgba(103, 232, 249, 0.03)
+          `,
+        },
+        '& .glitter-overlay': {
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: `
+            linear-gradient(105deg,
+              transparent 30%,
+              rgba(103, 232, 249, 0.02) 35%,
+              rgba(103, 232, 249, 0.04) 40%,
+              rgba(201, 162, 39, 0.02) 42%,
+              rgba(103, 232, 249, 0.05) 45%,
+              rgba(103, 232, 249, 0.02) 48%,
+              rgba(201, 162, 39, 0.02) 50%,
+              rgba(103, 232, 249, 0.04) 52%,
+              rgba(103, 232, 249, 0.02) 55%,
+              transparent 60%
+            )
+          `,
+          backgroundSize: '300% 100%',
+          animation: 'glitterShine 6s ease-in-out infinite',
+          pointerEvents: 'none',
+          zIndex: 1,
+        },
+        '& .shimmer-overlay': {
+          position: 'absolute',
+          top: '-50%',
+          left: '-50%',
+          width: '200%',
+          height: '200%',
+          background: `
+            radial-gradient(
+              ellipse at 30% 50%,
+              rgba(103, 232, 249, 0.04) 0%,
+              transparent 50%
+            ),
+            radial-gradient(
+              ellipse at 70% 80%,
+              rgba(201, 162, 39, 0.02) 0%,
+              transparent 40%
+            ),
+            radial-gradient(
+              ellipse at 50% 20%,
+              rgba(103, 232, 249, 0.03) 0%,
+              transparent 30%
+            )
+          `,
+          animation: 'shimmerFloat 8s ease-in-out infinite',
+          pointerEvents: 'none',
+          zIndex: 1,
+        },
+        '& .sparkle-1': {
+          position: 'absolute',
+          top: '15%',
+          right: '10%',
+          width: '4px',
+          height: '4px',
+          background: colors.lightCyan,
+          borderRadius: '50%',
+          boxShadow: `0 0 20px ${colors.lightCyan}, 0 0 40px ${colors.lightCyan}`,
+          animation: 'cyanSparkle 3.5s ease-in-out infinite',
+          pointerEvents: 'none',
+          zIndex: 2,
+        },
+        '& .sparkle-2': {
+          position: 'absolute',
+          top: '40%',
+          right: '5%',
+          width: '3px',
+          height: '3px',
+          background: colors.accentGold,
+          borderRadius: '50%',
+          boxShadow: `0 0 20px ${colors.accentGold}, 0 0 40px ${colors.accentGold}`,
+          animation: 'goldSparkle 4.2s ease-in-out infinite 1s',
+          pointerEvents: 'none',
+          zIndex: 2,
+        },
+        '& .sparkle-3': {
+          position: 'absolute',
+          bottom: '30%',
+          right: '8%',
+          width: '3px',
+          height: '3px',
+          background: colors.lightCyan,
+          borderRadius: '50%',
+          boxShadow: `0 0 20px ${colors.lightCyan}, 0 0 40px ${colors.lightCyan}`,
+          animation: 'cyanSparkle 2.8s ease-in-out infinite 2s',
+          pointerEvents: 'none',
+          zIndex: 2,
+        },
+        '& .sparkle-4': {
+          position: 'absolute',
+          bottom: '55%',
+          right: '15%',
+          width: '2px',
+          height: '2px',
+          background: colors.accentGold,
+          borderRadius: '50%',
+          boxShadow: `0 0 15px ${colors.accentGold}, 0 0 30px ${colors.accentGold}`,
+          animation: 'goldSparkle 3.8s ease-in-out infinite 0.5s',
+          pointerEvents: 'none',
+          zIndex: 2,
+        },
+        '& .sparkle-5': {
+          position: 'absolute',
+          top: '70%',
+          right: '12%',
+          width: '3px',
+          height: '3px',
+          background: colors.lightCyanBright,
+          borderRadius: '50%',
+          boxShadow: `0 0 20px ${colors.lightCyanBright}, 0 0 40px ${colors.lightCyanBright}`,
+          animation: 'cyanSparkle 3.2s ease-in-out infinite 1.5s',
+          pointerEvents: 'none',
+          zIndex: 2,
+        },
+        '& .glow-border': {
+          position: 'absolute',
+          top: 0,
+          right: 0,
+          width: '3px',
+          height: '100%',
+          background: `
+            linear-gradient(180deg,
+              transparent 0%,
+              rgba(103, 232, 249, 0.3) 15%,
+              rgba(201, 162, 39, 0.2) 30%,
+              rgba(103, 232, 249, 0.4) 50%,
+              rgba(201, 162, 39, 0.2) 70%,
+              rgba(103, 232, 249, 0.3) 85%,
+              transparent 100%
+            )
+          `,
+          boxShadow: '0 0 40px rgba(103, 232, 249, 0.1)',
+          animation: 'menuItemGlow 4s ease-in-out infinite',
+          pointerEvents: 'none',
+          zIndex: 2,
+        },
         '&::before': {
           content: '""',
           position: 'absolute',
@@ -468,23 +789,30 @@ const MainLayout = () => {
           left: 0,
           right: 0,
           bottom: 0,
-          background: `radial-gradient(circle at 50% 0%, rgba(103, 232, 249, 0.05) 0%, transparent 60%)`,
+          background: `
+            radial-gradient(circle at 50% 0%, rgba(103, 232, 249, 0.06) 0%, transparent 50%),
+            radial-gradient(circle at 100% 50%, rgba(201, 162, 39, 0.03) 0%, transparent 40%)
+          `,
           pointerEvents: 'none',
+          zIndex: 0,
         },
         '&::after': {
           content: '""',
           position: 'absolute',
           top: 0,
           right: 0,
-          width: '2px',
+          width: '1px',
           height: '100%',
           background: `linear-gradient(180deg, 
             transparent, 
-            rgba(103, 232, 249, 0.25), 
-            rgba(201, 162, 39, 0.1), 
-            transparent)`,
+            rgba(103, 232, 249, 0.15), 
+            rgba(201, 162, 39, 0.08), 
+            rgba(103, 232, 249, 0.15), 
+            transparent
+          )`,
           animation: 'glowPulse 3s ease-in-out infinite',
           pointerEvents: 'none',
+          zIndex: 2,
         },
         '& .glass-shimmer': {
           position: 'absolute',
@@ -492,44 +820,86 @@ const MainLayout = () => {
           left: 0,
           right: 0,
           bottom: 0,
-          background: `linear-gradient(135deg, 
-            transparent 25%, 
-            rgba(103, 232, 249, 0.03) 50%, 
-            transparent 75%)`,
+          background: `
+            linear-gradient(135deg,
+              transparent 0%,
+              rgba(103, 232, 249, 0.02) 20%,
+              rgba(103, 232, 249, 0.04) 40%,
+              rgba(201, 162, 39, 0.02) 50%,
+              rgba(103, 232, 249, 0.04) 60%,
+              rgba(103, 232, 249, 0.02) 80%,
+              transparent 100%
+            )
+          `,
           backgroundSize: '200% 200%',
           animation: 'glassShimmer 8s ease-in-out infinite',
           pointerEvents: 'none',
+          zIndex: 0,
         },
         '& .cyan-glow': {
           position: 'absolute',
-          top: '40%',
-          left: '30%',
-          width: '60%',
-          height: '60%',
-          background: `radial-gradient(circle, rgba(103, 232, 249, 0.04) 0%, transparent 70%)`,
+          top: '30%',
+          left: '20%',
+          width: '70%',
+          height: '50%',
+          background: `
+            radial-gradient(
+              ellipse at center,
+              rgba(103, 232, 249, 0.05) 0%,
+              transparent 60%
+            )
+          `,
+          pointerEvents: 'none',
+          borderRadius: '50%',
+          filter: 'blur(100px)',
+          zIndex: 0,
+        },
+        '& .gold-glow': {
+          position: 'absolute',
+          bottom: '20%',
+          right: '10%',
+          width: '40%',
+          height: '30%',
+          background: `
+            radial-gradient(
+              ellipse at center,
+              rgba(201, 162, 39, 0.03) 0%,
+              transparent 60%
+            )
+          `,
           pointerEvents: 'none',
           borderRadius: '50%',
           filter: 'blur(80px)',
+          zIndex: 0,
         },
       }}
     >
-      {/* Overlays */}
+      <Box className="glitter-overlay" />
+      <Box className="shimmer-overlay" />
+      <Box className="sparkle-1" />
+      <Box className="sparkle-2" />
+      <Box className="sparkle-3" />
+      <Box className="sparkle-4" />
+      <Box className="sparkle-5" />
+      <Box className="glow-border" />
       <Box className="glass-shimmer" />
       <Box className="cyan-glow" />
+      <Box className="gold-glow" />
 
-      {/* Logo Section - Cyan accent */}
+      {/* Logo Section */}
       <Box
         sx={{
-          p: { xs: 1, sm: 1.5 },
+          p: { xs: 0.6, sm: 0.8 },
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
           borderBottom: `1px solid rgba(103, 232, 249, 0.08)`,
           flexShrink: 0,
-          minHeight: { xs: 80, sm: 100 },
+          minHeight: { xs: 65, sm: 75 },
           position: 'relative',
           background: 'rgba(15, 23, 42, 0.6)',
           backdropFilter: 'blur(10px)',
+          zIndex: 3,
           '&::after': {
             content: '""',
             position: 'absolute',
@@ -541,7 +911,8 @@ const MainLayout = () => {
               transparent, 
               rgba(103, 232, 249, 0.3), 
               rgba(201, 162, 39, 0.15), 
-              transparent)`,
+              transparent
+            )`,
           },
         }}
       >
@@ -550,11 +921,12 @@ const MainLayout = () => {
             src="/logoo.png"
             alt="PAEC Logo"
             style={{
-              width: isMobile ? 85 : 110,
-              height: isMobile ? 85 : 110,
+              width: isMobile ? 55 : 70,
+              height: isMobile ? 55 : 70,
               objectFit: 'contain',
               backgroundColor: 'transparent',
-              filter: 'brightness(1.2) drop-shadow(0 0 40px rgba(103, 232, 249, 0.2))',
+              filter: 'brightness(1.2) drop-shadow(0 0 40px rgba(103, 232, 249, 0.2)) drop-shadow(0 0 80px rgba(103, 232, 249, 0.1))',
+              transition: 'all 0.3s ease',
             }}
             onError={(e) => {
               e.target.src = '/logo.png';
@@ -563,12 +935,19 @@ const MainLayout = () => {
           <Box
             sx={{
               position: 'absolute',
-              top: -30,
-              left: -30,
-              right: -30,
-              bottom: -30,
+              top: -25,
+              left: -25,
+              right: -25,
+              bottom: -25,
               borderRadius: '50%',
-              background: `radial-gradient(circle, rgba(103, 232, 249, 0.06) 0%, transparent 70%)`,
+              background: `
+                radial-gradient(
+                  circle at center,
+                  rgba(103, 232, 249, 0.05) 0%,
+                  rgba(201, 162, 39, 0.02) 30%,
+                  transparent 70%
+                )
+              `,
               animation: 'glowPulse 4s ease-in-out infinite',
               pointerEvents: 'none',
             }}
@@ -576,20 +955,30 @@ const MainLayout = () => {
         </Box>
       </Box>
 
-      {/* ✅ MENU - DARK NAVY + LIGHT CYAN */}
+      {/* ✅ MENU - BALANCED SPACING, NO SCROLL, PROMINENT ON CLICK */}
       <Box
         sx={{
           flex: 1,
           overflow: 'hidden',
-          py: { xs: 0.3, sm: 0.5 },
-          px: { xs: 0.3, sm: 0.5 },
+          py: { xs: 0.2, sm: 0.3 },
+          px: { xs: 0.2, sm: 0.3 },
           display: 'flex',
           flexDirection: 'column',
           background: 'rgba(15, 23, 42, 0.3)',
           backdropFilter: 'blur(5px)',
+          position: 'relative',
+          zIndex: 3,
         }}
       >
-        <List sx={{ p: 0, m: 0 }}>
+        <List 
+          sx={{ 
+            p: 0, 
+            m: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '2px',
+          }}
+        >
           {filteredMenuItems.map((item) => (
             <ListItem
               button
@@ -600,89 +989,102 @@ const MainLayout = () => {
               }}
               sx={{
                 mx: { xs: 0.3, sm: 0.4 },
-                mb: 0.15,
-                borderRadius: 2,
+                mb: 0,
+                borderRadius: 1.5,
                 color: colors.secondaryText,
-                py: { xs: 0.5, sm: 0.6 },
-                px: { xs: 1, sm: 1.5 },
-                minHeight: { xs: 36, sm: 40 },
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                py: { xs: 0.35, sm: 0.4 },
+                px: { xs: 1, sm: 1.2 },
+                minHeight: { xs: 30, sm: 34 },
+                transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
                 position: 'relative',
                 overflow: 'hidden',
+                // ✅ Hover effect
                 '&:hover': {
                   bgcolor: 'rgba(30, 58, 95, 0.6)',
                   backdropFilter: 'blur(15px)',
                   color: '#FFFFFF',
                   transform: 'translateX(4px) scale(1.02)',
-                  boxShadow: '0 4px 25px rgba(0,0,0,0.3)',
-                  '&::before': {
-                    content: '""',
-                    position: 'absolute',
-                    left: 0,
-                    top: '15%',
-                    height: '70%',
-                    width: '3px',
-                    background: colors.lightCyan,
-                    boxShadow: `0 0 30px ${colors.lightCyanGlowStrong}`,
-                    borderRadius: '0 2px 2px 0',
-                  },
+                  boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
                   '& .MuiListItemIcon-root': {
                     color: colors.lightCyan,
                     transform: 'scale(1.1)',
-                    filter: `drop-shadow(0 0 15px ${colors.lightCyanGlow})`,
+                    filter: `drop-shadow(0 0 20px ${colors.lightCyanGlow})`,
+                  },
+                  '& .MuiTypography-root': {
+                    fontWeight: 700,
                   },
                 },
+                // ✅ Selected state - PROMINENT
                 '&.Mui-selected': {
                   color: '#FFFFFF',
-                  background: `linear-gradient(135deg, 
-                    rgba(30, 58, 95, 0.7) 0%, 
-                    rgba(103, 232, 249, 0.08) 35%, 
-                    rgba(15, 23, 42, 0.8) 70%, 
-                    rgba(30, 58, 95, 0.6) 100%)`,
+                  background: `
+                    linear-gradient(135deg, 
+                      rgba(30, 58, 95, 0.85) 0%, 
+                      rgba(103, 232, 249, 0.15) 25%,
+                      rgba(30, 58, 95, 0.75) 50%,
+                      rgba(201, 162, 39, 0.08) 75%,
+                      rgba(30, 58, 95, 0.85) 100%
+                    )
+                  `,
                   backgroundSize: '200% 200%',
                   animation: 'gradientShine 3s ease-in-out infinite',
-                  backdropFilter: 'blur(20px)',
+                  backdropFilter: 'blur(25px)',
                   boxShadow: `
-                    inset 0 0 50px rgba(103, 232, 249, 0.03),
-                    0 4px 25px rgba(0,0,0,0.3),
-                    0 0 40px rgba(103, 232, 249, 0.04)
+                    inset 0 0 60px rgba(103, 232, 249, 0.06),
+                    0 4px 25px rgba(0,0,0,0.4),
+                    0 0 50px rgba(103, 232, 249, 0.06),
+                    inset 0 0 80px rgba(103, 232, 249, 0.03)
                   `,
-                  transform: 'scale(1.02)',
-                  border: `1px solid rgba(103, 232, 249, 0.15)`,
+                  transform: 'scale(1.03)',
+                  border: `1.5px solid rgba(103, 232, 249, 0.25)`,
+                  borderRadius: 2,
+                  // ✅ Glow border on selected
                   '&::before': {
                     content: '""',
                     position: 'absolute',
-                    left: 0,
-                    top: '15%',
-                    height: '70%',
-                    width: '3px',
-                    background: colors.lightCyan,
-                    boxShadow: `0 0 40px ${colors.lightCyanGlowStrong}`,
-                    borderRadius: '0 2px 2px 0',
-                  },
-                  '&::after': {
-                    content: '""',
-                    position: 'absolute',
-                    inset: 0,
+                    inset: -1,
                     borderRadius: 2,
-                    background: `radial-gradient(circle at 50% 50%, rgba(103, 232, 249, 0.03) 0%, transparent 70%)`,
+                    padding: '1.5px',
+                    background: `linear-gradient(135deg, ${colors.lightCyan}, ${colors.accentGold}, ${colors.lightCyan})`,
+                    backgroundSize: '300% 300%',
+                    animation: 'gradientShine 3s ease-in-out infinite',
+                    WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+                    WebkitMaskComposite: 'xor',
+                    maskComposite: 'exclude',
                     pointerEvents: 'none',
+                    zIndex: 0,
                   },
                   '& .MuiListItemIcon-root': {
                     color: colors.lightCyan,
                     animation: 'iconFloat 3s ease-in-out infinite',
-                    filter: `drop-shadow(0 0 20px ${colors.lightCyanGlow})`,
+                    filter: `drop-shadow(0 0 30px ${colors.lightCyanGlow}) drop-shadow(0 0 60px ${colors.lightCyan})`,
                   },
                   '& .MuiTypography-root': {
-                    fontWeight: 600,
-                    textShadow: `0 0 30px rgba(103, 232, 249, 0.1)`,
+                    fontWeight: 800,
+                    fontSize: { xs: '11px', sm: '12px', md: '13px' },
+                    textShadow: `
+                      0 0 30px rgba(103, 232, 249, 0.2), 
+                      0 0 60px rgba(103, 232, 249, 0.08)
+                    `,
+                    letterSpacing: '0.5px',
                   },
                   '&:hover': {
-                    background: `linear-gradient(135deg, 
-                      rgba(30, 58, 95, 0.8) 0%, 
-                      rgba(103, 232, 249, 0.12) 35%, 
-                      rgba(15, 23, 42, 0.9) 70%, 
-                      rgba(30, 58, 95, 0.7) 100%)`,
+                    background: `
+                      linear-gradient(135deg, 
+                        rgba(30, 58, 95, 0.9) 0%, 
+                        rgba(103, 232, 249, 0.2) 25%,
+                        rgba(30, 58, 95, 0.8) 50%,
+                        rgba(201, 162, 39, 0.1) 75%,
+                        rgba(30, 58, 95, 0.9) 100%
+                      )
+                    `,
+                    transform: 'scale(1.05)',
+                    boxShadow: `
+                      inset 0 0 80px rgba(103, 232, 249, 0.08),
+                      0 4px 30px rgba(0,0,0,0.5),
+                      0 0 60px rgba(103, 232, 249, 0.08),
+                      inset 0 0 100px rgba(103, 232, 249, 0.04)
+                    `,
                   },
                 },
               }}
@@ -690,19 +1092,21 @@ const MainLayout = () => {
             >
               <ListItemIcon
                 sx={{
-                  color: colors.secondaryText,
-                  minWidth: { xs: 32, sm: 36 },
-                  transition: 'all 0.3s ease',
+                  color: window.location.pathname === item.path ? colors.lightCyan : colors.secondaryText,
+                  minWidth: { xs: 28, sm: 32 },
+                  transition: 'all 0.25s ease',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
+                  position: 'relative',
+                  zIndex: 1,
                 }}
               >
                 {React.isValidElement(item.icon) ? (
                   React.cloneElement(item.icon, {
                     sx: {
-                      fontSize: { xs: 18, sm: 20 },
-                      transition: 'all 0.3s ease',
+                      fontSize: { xs: 17, sm: 19 },
+                      transition: 'all 0.25s ease',
                       ...(item.icon.props.sx || {}),
                     }
                   })
@@ -713,33 +1117,63 @@ const MainLayout = () => {
               <ListItemText
                 primary={item.text}
                 primaryTypographyProps={{
-                  fontSize: { xs: '12px', sm: '13px', md: '14px' },
-                  fontWeight: 500,
+                  fontSize: { xs: '10.5px', sm: '11.5px', md: '12.5px' },
+                  fontWeight: window.location.pathname === item.path ? 800 : 600,
                   noWrap: true,
-                  letterSpacing: '0.3px',
-                  transition: 'all 0.3s ease',
+                  letterSpacing: window.location.pathname === item.path ? '0.5px' : '0.3px',
+                  transition: 'all 0.25s ease',
                 }}
-                sx={{ margin: 0, flex: 1, minWidth: 0 }}
+                sx={{ 
+                  margin: 0, 
+                  flex: 1, 
+                  minWidth: 0,
+                  position: 'relative',
+                  zIndex: 1,
+                }}
               />
               {window.location.pathname === item.path && (
-                <Box
-                  sx={{
-                    width: 7,
-                    height: 7,
-                    borderRadius: '50%',
-                    bgcolor: colors.lightCyan,
-                    flexShrink: 0,
-                    ml: 0.5,
-                    boxShadow: `0 0 35px ${colors.lightCyanGlowStrong}`,
-                    animation: 'cyanGlowPulse 2s ease-in-out infinite',
-                  }}
-                />
+                <>
+                  <Box
+                    sx={{
+                      width: 8,
+                      height: 8,
+                      borderRadius: '50%',
+                      bgcolor: colors.lightCyan,
+                      flexShrink: 0,
+                      ml: 0.5,
+                      boxShadow: `
+                        0 0 30px ${colors.lightCyanGlowStrong}, 
+                        0 0 60px ${colors.lightCyan},
+                        0 0 90px ${colors.lightCyan}
+                      `,
+                      animation: 'cyanGlowPulse 1.5s ease-in-out infinite',
+                      position: 'relative',
+                      zIndex: 2,
+                    }}
+                  />
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      right: -2,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      width: 3,
+                      height: '60%',
+                      bgcolor: colors.lightCyan,
+                      borderRadius: '0 4px 4px 0',
+                      boxShadow: `
+                        0 0 30px ${colors.lightCyanGlowStrong},
+                        0 0 60px ${colors.lightCyan}
+                      `,
+                      animation: 'cyanGlowPulse 1.5s ease-in-out infinite',
+                      zIndex: 3,
+                    }}
+                  />
+                </>
               )}
             </ListItem>
           ))}
         </List>
-        
-        <Box sx={{ flex: 1 }} />
       </Box>
     </Box>
   );
