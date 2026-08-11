@@ -1,12 +1,4 @@
-// src/pages/Reports.jsx - FIXED WITH REAL API DATA FETCH
-
-// ============================================================
-// ✅ IMPORTANT: This is the FIXED version with:
-// 1. Real API data fetching (not mock data)
-// 2. Proper refresh functionality (clears old data before fetching)
-// 3. Loading states that actually work
-// 4. Error handling with retry
-// ============================================================
+// src/pages/Reports.jsx - PAEC THEME
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import {
@@ -107,11 +99,35 @@ import AccessDenied from '../components/Auth/AccessDenied'
 import api from '../api/axios'
 
 // ============================================================
+// ✅ PAEC THEME COLORS
+// ============================================================
+const colors = {
+  sidebar: '#01411C',
+  sidebarHover: '#0B542B',
+  active: '#0E6335',
+  accentGold: '#C9A227',
+  goldLight: '#E8C84A',
+  text: '#FFFFFF',
+  secondaryText: '#B8C8BE',
+  mainBg: '#F0F2F5',
+  white: '#FFFFFF',
+  darkText: '#1A2A3A',
+  lightText: '#5A7A8A',
+  error: '#D32F2F',
+  success: '#2E7D32',
+  warning: '#ED6C02',
+  info: '#0B5FA5',
+  borderColor: 'rgba(1, 65, 28, 0.08)',
+  shadowColor: 'rgba(1, 65, 28, 0.08)',
+  cardBg: '#FFFFFF',
+}
+
+// ============================================================
 // ✅ HELPER FUNCTIONS
 // ============================================================
 
 const getStatusColor = (status) => {
-  const colors = {
+  const colorsMap = {
     'Pending': 'warning',
     'In Progress': 'info',
     'Completed': 'success',
@@ -133,7 +149,7 @@ const getStatusColor = (status) => {
     'Medium': 'info',
     'Low': 'success'
   }
-  return colors[status] || 'default'
+  return colorsMap[status] || 'default'
 }
 
 const formatDate = (date) => {
@@ -227,7 +243,7 @@ const exportToExcel = async (data, filename = 'report') => {
       <x:Name>Report</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
       </x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
       <style>
-        th { background: #0B5FA5; color: white; font-weight: bold; }
+        th { background: #01411C; color: white; font-weight: bold; }
         td, th { padding: 8px 12px; border: 1px solid #ccc; }
       </style>
       </head><body>
@@ -288,9 +304,9 @@ const exportToPDF = async (data, filename = 'report') => {
         <title>${filename}</title>
         <style>
           body { font-family: Arial, sans-serif; padding: 20px; }
-          h1 { color: #0B5FA5; }
+          h1 { color: #01411C; }
           table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-          th { background: #0B5FA5; color: white; padding: 10px; text-align: left; }
+          th { background: #01411C; color: white; padding: 10px; text-align: left; }
           td { padding: 8px 10px; border: 1px solid #ddd; }
           tr:nth-child(even) { background: #f5f5f5; }
           .footer { margin-top: 30px; font-size: 12px; color: #666; text-align: center; }
@@ -355,9 +371,11 @@ const StatsCard = ({ title, value, color, bgColor, icon, loading }) => {
         borderRadius: 2,
         bgcolor: bgColor || 'white',
         transition: 'transform 0.2s',
+        border: `1px solid ${colors.borderColor}`,
         '&:hover': {
           transform: 'translateY(-4px)',
-          boxShadow: 4
+          boxShadow: `0 8px 30px ${colors.shadowColor}`,
+          borderColor: colors.accentGold,
         },
         height: '100%'
       }}>
@@ -373,7 +391,7 @@ const StatsCard = ({ title, value, color, bgColor, icon, loading }) => {
               <Typography 
                 variant="h4" 
                 sx={{ 
-                  color: color || '#0B5FA5', 
+                  color: color || colors.sidebar, 
                   fontWeight: 700,
                   fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' }
                 }}
@@ -381,7 +399,7 @@ const StatsCard = ({ title, value, color, bgColor, icon, loading }) => {
                 {value || 0}
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5 }}>
-                {icon && <Box sx={{ fontSize: 16, color: color || '#0B5FA5' }}>{icon}</Box>}
+                {icon && <Box sx={{ fontSize: 16, color: color || colors.sidebar }}>{icon}</Box>}
                 <Typography 
                   variant="body2" 
                   color="textSecondary"
@@ -422,14 +440,14 @@ const FilterMenu = ({
 }) => {
   const filterContent = (
     <Box sx={{ p: isMobile ? 2 : 0 }}>
-      <Typography variant="subtitle1" fontWeight={700} gutterBottom sx={{ color: '#0B5FA5' }}>
+      <Typography variant="subtitle1" fontWeight={700} gutterBottom sx={{ color: colors.sidebar }}>
         Filter Reports
       </Typography>
       
-      <Divider sx={{ mb: 2 }} />
+      <Divider sx={{ mb: 2, borderColor: colors.borderColor }} />
 
       <Box sx={{ mb: 2 }}>
-        <FormLabel component="legend" sx={{ fontWeight: 600, fontSize: '0.875rem', mb: 1 }}>
+        <FormLabel component="legend" sx={{ fontWeight: 600, fontSize: '0.875rem', mb: 1, color: colors.lightText }}>
           Report Period
         </FormLabel>
         <RadioGroup
@@ -442,10 +460,10 @@ const FilterMenu = ({
             <FormControlLabel
               key={option.value}
               value={option.value}
-              control={<Radio size="small" />}
+              control={<Radio size="small" sx={{ color: colors.sidebar, '&.Mui-checked': { color: colors.sidebar } }} />}
               label={
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <Typography variant="caption">{option.label}</Typography>
+                  <Typography variant="caption" sx={{ color: colors.lightText }}>{option.label}</Typography>
                 </Box>
               }
               sx={{ 
@@ -457,20 +475,26 @@ const FilterMenu = ({
         </RadioGroup>
       </Box>
 
-      <Divider sx={{ mb: 2 }} />
+      <Divider sx={{ mb: 2, borderColor: colors.borderColor }} />
 
       <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-        <InputLabel>Report Type</InputLabel>
+        <InputLabel sx={{ color: colors.lightText }}>Report Type</InputLabel>
         <Select
           name="reportType"
           value={selectedReportType}
           onChange={(e) => onReportTypeChange(e.target.value)}
           label="Report Type"
+          sx={{
+            '& .MuiOutlinedInput-root': {
+              '&:hover fieldset': { borderColor: colors.sidebar },
+              '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+            }
+          }}
         >
           {reportTypes.map((type) => (
             <MenuItem key={type.value} value={type.value}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Typography variant="body2">{type.label}</Typography>
+                <Typography variant="body2" sx={{ color: colors.darkText }}>{type.label}</Typography>
               </Box>
             </MenuItem>
           ))}
@@ -488,6 +512,12 @@ const FilterMenu = ({
             onChange={onFilterChange}
             InputLabelProps={{ shrink: true }}
             size="small"
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                '&:hover fieldset': { borderColor: colors.sidebar },
+                '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+              }
+            }}
           />
         </Grid>
         <Grid item xs={6}>
@@ -500,18 +530,30 @@ const FilterMenu = ({
             onChange={onFilterChange}
             InputLabelProps={{ shrink: true }}
             size="small"
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                '&:hover fieldset': { borderColor: colors.sidebar },
+                '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+              }
+            }}
           />
         </Grid>
       </Grid>
 
       {additionalFilters.map((filter, index) => (
         <FormControl fullWidth size="small" sx={{ mb: 2 }} key={index}>
-          <InputLabel>{filter.label}</InputLabel>
+          <InputLabel sx={{ color: colors.lightText }}>{filter.label}</InputLabel>
           <Select
             name={filter.name}
             value={filters[filter.name] || ''}
             onChange={onFilterChange}
             label={filter.label}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                '&:hover fieldset': { borderColor: colors.sidebar },
+                '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+              }
+            }}
           >
             <MenuItem value="">All</MenuItem>
             {filter.options.map((option) => (
@@ -524,12 +566,18 @@ const FilterMenu = ({
       ))}
 
       <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-        <InputLabel>Status</InputLabel>
+        <InputLabel sx={{ color: colors.lightText }}>Status</InputLabel>
         <Select
           name="status"
           value={filters.status || ''}
           onChange={onFilterChange}
           label="Status"
+          sx={{
+            '& .MuiOutlinedInput-root': {
+              '&:hover fieldset': { borderColor: colors.sidebar },
+              '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+            }
+          }}
         >
           <MenuItem value="">All</MenuItem>
           <MenuItem value="Pending">Pending</MenuItem>
@@ -540,14 +588,14 @@ const FilterMenu = ({
         </Select>
       </FormControl>
 
-      <Divider sx={{ my: 2 }} />
+      <Divider sx={{ my: 2, borderColor: colors.borderColor }} />
 
       <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
         <Button 
           variant="contained" 
           onClick={onApply} 
           fullWidth={isMobile}
-          sx={{ flex: isMobile ? 1 : 1, bgcolor: '#0B5FA5' }}
+          sx={{ flex: isMobile ? 1 : 1, bgcolor: colors.sidebar, '&:hover': { bgcolor: colors.sidebarHover } }}
           size="small"
         >
           Apply Filters
@@ -556,7 +604,7 @@ const FilterMenu = ({
           variant="outlined" 
           onClick={onClear} 
           fullWidth={isMobile}
-          sx={{ flex: isMobile ? 1 : 1 }}
+          sx={{ flex: isMobile ? 1 : 1, borderColor: colors.sidebar, color: colors.sidebar, '&:hover': { borderColor: colors.accentGold, color: colors.accentGold } }}
           size="small"
         >
           Clear All
@@ -577,7 +625,8 @@ const FilterMenu = ({
             borderTopLeftRadius: 16,
             borderTopRightRadius: 16,
             maxHeight: '90vh',
-            p: 2
+            p: 2,
+            bgcolor: colors.white
           }
         }}
       >
@@ -596,7 +645,9 @@ const FilterMenu = ({
           p: 2, 
           width: 380, 
           maxHeight: '80vh',
-          borderRadius: 2
+          borderRadius: 2,
+          bgcolor: colors.white,
+          border: `1px solid ${colors.borderColor}`
         } 
       }}
       transformOrigin={{ horizontal: 'right', vertical: 'top' }}
@@ -645,11 +696,11 @@ const EngineerReports = () => {
   ]
 
   const engineerReportTypes = [
-    { value: 'my-errors', label: 'My Error Reports', color: '#dc3545' },
-    { value: 'my-repairs', label: 'My Repair Reports', color: '#28a745' },
-    { value: 'my-equipment', label: 'My Equipment Reports', color: '#0B5FA5' },
+    { value: 'my-errors', label: 'My Error Reports', color: colors.error },
+    { value: 'my-repairs', label: 'My Repair Reports', color: colors.success },
+    { value: 'my-equipment', label: 'My Equipment Reports', color: colors.sidebar },
     { value: 'my-performance', label: 'My Performance', color: '#6f42c1' },
-    { value: 'my-pending-tasks', label: 'My Pending Tasks', color: '#ff9800' }
+    { value: 'my-pending-tasks', label: 'My Pending Tasks', color: colors.warning }
   ]
 
   const additionalFilters = [
@@ -680,12 +731,10 @@ const EngineerReports = () => {
       let endpoint = ''
       let response = null
       
-      // ✅ Map report type to API endpoint
       switch(reportType) {
         case 'my-errors':
           endpoint = '/errors'
           response = await api.get(endpoint)
-          // Filter errors reported by current user
           const allErrors = response.data.errors || []
           const myErrors = allErrors.filter(e => e.reported_by === user?.id)
           setReportData({
@@ -702,7 +751,6 @@ const EngineerReports = () => {
         case 'my-repairs':
           endpoint = '/repairs'
           response = await api.get(endpoint)
-          // Filter repairs assigned to current user
           const allRepairs = response.data.repairs || []
           const myRepairs = allRepairs.filter(r => r.engineer_id === user?.id)
           setReportData({
@@ -719,7 +767,6 @@ const EngineerReports = () => {
         case 'my-equipment':
           endpoint = '/equipment'
           response = await api.get(endpoint)
-          // Filter equipment by hospital (for engineer's hospital)
           const allEquipment = response.data.equipment || []
           const myEquipment = allEquipment.filter(e => e.hospital_id === user?.hospital_id)
           setReportData({
@@ -734,7 +781,6 @@ const EngineerReports = () => {
           break
           
         case 'my-performance':
-          // Get errors and repairs for performance metrics
           const [errorsRes, repairsRes] = await Promise.all([
             api.get('/errors'),
             api.get('/repairs')
@@ -770,7 +816,6 @@ const EngineerReports = () => {
           break
           
         case 'my-pending-tasks':
-          // Get pending errors and repairs
           const [pendingErrorsRes, pendingRepairsRes] = await Promise.all([
             api.get('/errors?status=Pending,In Progress'),
             api.get('/repairs?status=Pending,In Progress')
@@ -779,7 +824,6 @@ const EngineerReports = () => {
           const pendingErrors = pendingErrorsRes.data.errors?.filter(e => e.reported_by === user?.id) || []
           const pendingRepairsTasks = pendingRepairsRes.data.repairs?.filter(r => r.engineer_id === user?.id) || []
           
-          // Format as tasks
           const tasks = [
             ...pendingErrors.map(e => ({
               task_type: 'error',
@@ -827,16 +871,10 @@ const EngineerReports = () => {
     }
   }, [selectedReport, period, filters, user])
 
-  // ============================================================
-  // ✅ INITIAL LOAD
-  // ============================================================
   useEffect(() => {
     generateReport('my-errors')
   }, [])
 
-  // ============================================================
-  // ✅ HANDLERS
-  // ============================================================
   const handleView = (item) => {
     setSelectedItem(item)
     setOpenViewDialog(true)
@@ -851,7 +889,6 @@ const EngineerReports = () => {
     if (!selectedItem || !selectedReport) return
     
     try {
-      // Determine which API endpoint to use
       let endpoint = ''
       if (selectedReport === 'my-errors') {
         endpoint = `/errors/${selectedItem.id}`
@@ -867,7 +904,6 @@ const EngineerReports = () => {
       await api.delete(endpoint)
       toast.success(`✅ "${selectedItem.error_title || selectedItem.title || 'Report'}" deleted successfully!`)
       
-      // Refresh the report
       generateReport(selectedReport)
       setOpenDeleteDialog(false)
       setSelectedItem(null)
@@ -914,9 +950,6 @@ const EngineerReports = () => {
     setExportAnchorEl(null)
   }
 
-  // ============================================================
-  // ✅ FILTER DATA
-  // ============================================================
   const getFilteredData = useMemo(() => {
     const data = reportData?.data || []
     
@@ -1023,9 +1056,6 @@ const EngineerReports = () => {
     setShowFilters(!showFilters)
   }
 
-  // ============================================================
-  // ✅ RENDER
-  // ============================================================
   return (
     <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       {/* HEADER */}
@@ -1040,7 +1070,7 @@ const EngineerReports = () => {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
           <Typography variant="h5" sx={{ 
             fontWeight: 700, 
-            color: '#2C3E50',
+            color: colors.sidebar,
             fontSize: { xs: '1.25rem', sm: '1.5rem', md: '1.75rem' }
           }}>
             My Reports
@@ -1049,15 +1079,15 @@ const EngineerReports = () => {
             <Chip 
               label={`Search: "${searchTerm}"`} 
               size="small" 
-              color="primary"
               onDelete={() => setSearchTerm('')}
+              sx={{ bgcolor: colors.sidebar, color: 'white', '& .MuiChip-deleteIcon': { color: 'white' } }}
             />
           )}
           {filters.status && (
             <Chip 
               label={`Status: ${filters.status}`} 
               size="small" 
-              color="warning"
+              sx={{ bgcolor: colors.warning, color: 'white' }}
               onDelete={() => setFilters({ ...filters, status: '' })}
             />
           )}
@@ -1074,7 +1104,7 @@ const EngineerReports = () => {
             onClick={handleRefresh}
             disabled={loading}
             size={isMobile ? 'small' : 'medium'}
-            sx={{ flex: { xs: '1 1 auto', sm: 'none' } }}
+            sx={{ flex: { xs: '1 1 auto', sm: 'none' }, borderColor: colors.sidebar, color: colors.sidebar, '&:hover': { borderColor: colors.accentGold, color: colors.accentGold } }}
             startIcon={loading ? <Refresh sx={{ animation: 'spin 1s linear infinite' }} /> : <Refresh />}
           >
             {loading ? 'Loading...' : 'Refresh'}
@@ -1086,8 +1116,9 @@ const EngineerReports = () => {
             size={isMobile ? 'small' : 'medium'}
             sx={{ 
               flex: { xs: '1 1 auto', sm: 'none' },
-              bgcolor: '#0B5FA5',
-              '&:hover': { bgcolor: '#094a80' }
+              bgcolor: colors.sidebar,
+              '&:hover': { bgcolor: colors.sidebarHover },
+              boxShadow: `0 4px 16px ${colors.sidebar}44`
             }}
           >
             Export
@@ -1095,16 +1126,16 @@ const EngineerReports = () => {
         </Box>
       </Box>
 
-      {/* ✅ LOADING INDICATOR */}
-      {loading && <LinearProgress sx={{ mb: 2, borderRadius: 2 }} />}
+      {/* LOADING INDICATOR */}
+      {loading && <LinearProgress sx={{ mb: 2, borderRadius: 2, bgcolor: colors.borderColor, '& .MuiLinearProgress-bar': { bgcolor: colors.accentGold } }} />}
 
-      {/* ✅ ERROR DISPLAY */}
+      {/* ERROR DISPLAY */}
       {error && (
         <Alert 
           severity="error" 
-          sx={{ mb: 2 }}
+          sx={{ mb: 2, borderRadius: 2 }}
           action={
-            <Button color="inherit" size="small" onClick={() => generateReport(selectedReport)}>
+            <Button color="inherit" size="small" onClick={() => generateReport(selectedReport)} sx={{ color: colors.sidebar }}>
               Retry
             </Button>
           }
@@ -1122,23 +1153,24 @@ const EngineerReports = () => {
           sx: {
             p: 1,
             width: 200,
-            borderRadius: 2
+            borderRadius: 2,
+            border: `1px solid ${colors.borderColor}`
           }
         }}
         transformOrigin={{ horizontal: 'right', vertical: 'top' }}
         anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
       >
         <MenuItem onClick={() => handleExport('CSV')} sx={{ gap: 1 }}>
-          <TableChart fontSize="small" sx={{ color: '#0B5FA5' }} />
-          <Typography variant="body2">Export as CSV</Typography>
+          <TableChart fontSize="small" sx={{ color: colors.sidebar }} />
+          <Typography variant="body2" sx={{ color: colors.darkText }}>Export as CSV</Typography>
         </MenuItem>
         <MenuItem onClick={() => handleExport('Excel')} sx={{ gap: 1 }}>
-          <TableChart fontSize="small" sx={{ color: '#28a745' }} />
-          <Typography variant="body2">Export as Excel</Typography>
+          <TableChart fontSize="small" sx={{ color: colors.success }} />
+          <Typography variant="body2" sx={{ color: colors.darkText }}>Export as Excel</Typography>
         </MenuItem>
         <MenuItem onClick={() => handleExport('PDF')} sx={{ gap: 1 }}>
-          <PictureAsPdf fontSize="small" sx={{ color: '#dc3545' }} />
-          <Typography variant="body2">Export as PDF</Typography>
+          <PictureAsPdf fontSize="small" sx={{ color: colors.error }} />
+          <Typography variant="body2" sx={{ color: colors.darkText }}>Export as PDF</Typography>
         </MenuItem>
       </Menu>
 
@@ -1148,7 +1180,7 @@ const EngineerReports = () => {
           <StatsCard 
             title="Total Records" 
             value={totalRecords} 
-            color="#0B5FA5"
+            color={colors.sidebar}
             loading={loading}
           />
         </Grid>
@@ -1156,8 +1188,8 @@ const EngineerReports = () => {
           <StatsCard 
             title="Completed" 
             value={completedCount} 
-            color="#28a745"
-            bgColor="#e8f5e9"
+            color={colors.success}
+            bgColor={colors.success + '10'}
             icon={<CheckCircle fontSize="small" />}
             loading={loading}
           />
@@ -1166,8 +1198,8 @@ const EngineerReports = () => {
           <StatsCard 
             title="Pending" 
             value={pendingCount} 
-            color="#ff9800"
-            bgColor="#fff3e0"
+            color={colors.warning}
+            bgColor={colors.warning + '10'}
             icon={<Schedule fontSize="small" />}
             loading={loading}
           />
@@ -1176,8 +1208,8 @@ const EngineerReports = () => {
           <StatsCard 
             title="Critical" 
             value={criticalCount} 
-            color="#dc3545"
-            bgColor="#ffebee"
+            color={colors.error}
+            bgColor={colors.error + '10'}
             icon={<ErrorOutline fontSize="small" />}
             loading={loading}
           />
@@ -1185,7 +1217,7 @@ const EngineerReports = () => {
       </Grid>
 
       {/* SEARCH & FILTER */}
-      <Paper sx={{ p: { xs: 1.5, sm: 2 }, mb: 3, borderRadius: 2 }}>
+      <Paper sx={{ p: { xs: 1.5, sm: 2 }, mb: 3, borderRadius: 2, border: `1px solid ${colors.borderColor}` }}>
         <Box sx={{ 
           display: 'flex', 
           flexDirection: { xs: 'column', sm: 'row' },
@@ -1201,16 +1233,22 @@ const EngineerReports = () => {
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <Search />
+                  <Search sx={{ color: colors.lightText }} />
                 </InputAdornment>
               ),
               endAdornment: searchTerm && (
                 <InputAdornment position="end">
-                  <IconButton size="small" onClick={() => setSearchTerm('')}>
+                  <IconButton size="small" onClick={() => setSearchTerm('')} sx={{ color: colors.lightText, '&:hover': { color: colors.error } }}>
                     <Clear fontSize="small" />
                   </IconButton>
                 </InputAdornment>
-              )
+              ),
+              sx: {
+                '& .MuiOutlinedInput-root': {
+                  '&:hover fieldset': { borderColor: colors.sidebar },
+                  '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                }
+              }
             }}
           />
           
@@ -1221,6 +1259,7 @@ const EngineerReports = () => {
               endIcon={showFilters ? <KeyboardArrowUp /> : <KeyboardArrowDown />}
               fullWidth
               size="small"
+              sx={{ borderColor: colors.sidebar, color: colors.sidebar, '&:hover': { borderColor: colors.accentGold, color: colors.accentGold } }}
             >
               {showFilters ? 'Hide Filters' : 'Show Filters'}
             </Button>
@@ -1229,7 +1268,7 @@ const EngineerReports = () => {
           {!isMobile && (
             <>
               <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 150 } }}>
-                <InputLabel>Report Type</InputLabel>
+                <InputLabel sx={{ color: colors.lightText }}>Report Type</InputLabel>
                 <Select
                   value={selectedReport}
                   onChange={(e) => {
@@ -1237,6 +1276,12 @@ const EngineerReports = () => {
                     generateReport(e.target.value)
                   }}
                   label="Report Type"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: colors.sidebar },
+                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    }
+                  }}
                 >
                   {engineerReportTypes.map((type) => (
                     <MenuItem key={type.value} value={type.value}>
@@ -1246,7 +1291,7 @@ const EngineerReports = () => {
                 </Select>
               </FormControl>
               <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 120 } }}>
-                <InputLabel>Period</InputLabel>
+                <InputLabel sx={{ color: colors.lightText }}>Period</InputLabel>
                 <Select
                   value={period}
                   onChange={(e) => {
@@ -1254,6 +1299,12 @@ const EngineerReports = () => {
                     setFilters({ ...filters, period: e.target.value })
                   }}
                   label="Period"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: colors.sidebar },
+                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    }
+                  }}
                 >
                   {periodOptions.map((option) => (
                     <MenuItem key={option.value} value={option.value}>
@@ -1265,6 +1316,7 @@ const EngineerReports = () => {
               <Button 
                 variant="outlined" 
                 onClick={handleFilterClick}
+                sx={{ borderColor: colors.sidebar, color: colors.sidebar, '&:hover': { borderColor: colors.accentGold, color: colors.accentGold } }}
               >
                 Filter
               </Button>
@@ -1272,7 +1324,7 @@ const EngineerReports = () => {
                 variant="contained" 
                 onClick={() => generateReport(selectedReport)} 
                 disabled={loading} 
-                sx={{ bgcolor: '#0B5FA5' }}
+                sx={{ bgcolor: colors.sidebar, '&:hover': { bgcolor: colors.sidebarHover } }}
               >
                 {loading ? 'Generating...' : 'Generate Report'}
               </Button>
@@ -1284,7 +1336,7 @@ const EngineerReports = () => {
           <Collapse in={showFilters} timeout="auto" unmountOnExit>
             <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
               <FormControl size="small" fullWidth>
-                <InputLabel>Report Type</InputLabel>
+                <InputLabel sx={{ color: colors.lightText }}>Report Type</InputLabel>
                 <Select
                   value={selectedReport}
                   onChange={(e) => {
@@ -1292,6 +1344,12 @@ const EngineerReports = () => {
                     generateReport(e.target.value)
                   }}
                   label="Report Type"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: colors.sidebar },
+                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    }
+                  }}
                 >
                   {engineerReportTypes.map((type) => (
                     <MenuItem key={type.value} value={type.value}>
@@ -1301,7 +1359,7 @@ const EngineerReports = () => {
                 </Select>
               </FormControl>
               <FormControl size="small" fullWidth>
-                <InputLabel>Period</InputLabel>
+                <InputLabel sx={{ color: colors.lightText }}>Period</InputLabel>
                 <Select
                   value={period}
                   onChange={(e) => {
@@ -1309,6 +1367,12 @@ const EngineerReports = () => {
                     setFilters({ ...filters, period: e.target.value })
                   }}
                   label="Period"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: colors.sidebar },
+                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    }
+                  }}
                 >
                   {periodOptions.map((option) => (
                     <MenuItem key={option.value} value={option.value}>
@@ -1323,6 +1387,7 @@ const EngineerReports = () => {
                   onClick={handleFilterClick}
                   fullWidth
                   size="small"
+                  sx={{ borderColor: colors.sidebar, color: colors.sidebar, '&:hover': { borderColor: colors.accentGold, color: colors.accentGold } }}
                 >
                   Filter
                 </Button>
@@ -1330,7 +1395,7 @@ const EngineerReports = () => {
                   variant="contained" 
                   onClick={() => generateReport(selectedReport)} 
                   disabled={loading} 
-                  sx={{ bgcolor: '#0B5FA5' }}
+                  sx={{ bgcolor: colors.sidebar, '&:hover': { bgcolor: colors.sidebarHover } }}
                   fullWidth
                   size="small"
                 >
@@ -1364,10 +1429,10 @@ const EngineerReports = () => {
       />
 
       {/* TABLE */}
-      <Paper sx={{ borderRadius: 2, overflow: 'hidden' }}>
+      <Paper sx={{ borderRadius: 2, overflow: 'hidden', border: `1px solid ${colors.borderColor}` }}>
         <TableContainer>
           <Table>
-            <TableHead sx={{ bgcolor: '#0B5FA5' }}>
+            <TableHead sx={{ bgcolor: colors.sidebar }}>
               <TableRow>
                 <TableCell sx={{ color: 'white', fontWeight: 600, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>Title</TableCell>
                 <TableCell sx={{ color: 'white', fontWeight: 600, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>Equipment</TableCell>
@@ -1380,15 +1445,15 @@ const EngineerReports = () => {
               {loading ? (
                 <TableRow>
                   <TableCell colSpan={5} align="center">
-                    <LinearProgress sx={{ my: 2 }} />
+                    <LinearProgress sx={{ my: 2, bgcolor: colors.borderColor, '& .MuiLinearProgress-bar': { bgcolor: colors.accentGold } }} />
                   </TableCell>
                 </TableRow>
               ) : filteredData.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} align="center">
                     <Box sx={{ py: 4 }}>
-                      <Search sx={{ fontSize: 48, color: '#6c757d', mb: 1 }} />
-                      <Typography variant="body1" color="textSecondary">
+                      <Search sx={{ fontSize: 48, color: colors.lightText, mb: 1 }} />
+                      <Typography variant="body1" color="textSecondary" sx={{ color: colors.lightText }}>
                         {searchTerm || filters.status || filters.severity 
                           ? 'No results found matching your search/filters' 
                           : 'No reports found. Click "Generate Report" to create a report.'}
@@ -1398,7 +1463,7 @@ const EngineerReports = () => {
                           variant="outlined" 
                           size="small" 
                           onClick={clearFilters}
-                          sx={{ mt: 1 }}
+                          sx={{ borderColor: colors.sidebar, color: colors.sidebar, '&:hover': { borderColor: colors.accentGold, color: colors.accentGold }, mt: 1 }}
                         >
                           Clear Filters
                         </Button>
@@ -1408,23 +1473,23 @@ const EngineerReports = () => {
                 </TableRow>
               ) : (
                 filteredData.map((item, index) => (
-                  <TableRow key={index} hover>
+                  <TableRow key={index} hover sx={{ '&:hover': { bgcolor: `${colors.sidebar}06` } }}>
                     <TableCell>
-                      <Typography variant="body2" fontWeight={500} sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+                      <Typography variant="body2" fontWeight={500} sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' }, color: colors.darkText }}>
                         {item.error_title || item.title || item.name || 'N/A'}
                       </Typography>
                       {item.error_code && (
-                        <Typography variant="caption" color="textSecondary" sx={{ display: { xs: 'block', sm: 'inline' } }}>
+                        <Typography variant="caption" color="textSecondary" sx={{ display: { xs: 'block', sm: 'inline' }, color: colors.lightText }}>
                           Code: {item.error_code}
                         </Typography>
                       )}
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+                      <Typography variant="body2" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' }, color: colors.lightText }}>
                         {item.equipment_name || item.name || 'N/A'}
                       </Typography>
                       {item.model && (
-                        <Typography variant="caption" display="block" color="textSecondary" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' } }}>
+                        <Typography variant="caption" display="block" color="textSecondary" sx={{ fontSize: { xs: '0.6rem', sm: '0.7rem' }, color: colors.lightText }}>
                           {item.model}
                         </Typography>
                       )}
@@ -1434,11 +1499,11 @@ const EngineerReports = () => {
                         variant="body2" 
                         sx={{ 
                           fontSize: { xs: '0.75rem', sm: '0.875rem' },
-                          color: item.status === 'Critical' || item.status === 'Error' ? '#dc3545' :
-                                 item.status === 'Pending' ? '#ff9800' :
-                                 item.status === 'Completed' || item.status === 'Resolved' ? '#28a745' :
-                                 item.status === 'In Progress' ? '#0B5FA5' :
-                                 '#6c757d'
+                          color: item.status === 'Critical' || item.status === 'Error' ? colors.error :
+                                 item.status === 'Pending' ? colors.warning :
+                                 item.status === 'Completed' || item.status === 'Resolved' ? colors.success :
+                                 item.status === 'In Progress' ? colors.sidebar :
+                                 colors.lightText
                         }}
                       >
                         {item.status || 'N/A'}
@@ -1449,10 +1514,10 @@ const EngineerReports = () => {
                           display="block" 
                           sx={{ 
                             fontSize: { xs: '0.6rem', sm: '0.7rem' },
-                            color: item.severity === 'Critical' ? '#dc3545' :
-                                   item.severity === 'High' ? '#ff9800' :
-                                   item.severity === 'Medium' ? '#0B5FA5' :
-                                   '#28a745'
+                            color: item.severity === 'Critical' ? colors.error :
+                                   item.severity === 'High' ? colors.warning :
+                                   item.severity === 'Medium' ? colors.sidebar :
+                                   colors.success
                           }}
                         >
                           {item.severity}
@@ -1460,7 +1525,7 @@ const EngineerReports = () => {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2" sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>
+                      <Typography variant="body2" sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' }, color: colors.lightText }}>
                         {formatDate(item.created_at || item.repair_date)}
                       </Typography>
                     </TableCell>
@@ -1470,6 +1535,7 @@ const EngineerReports = () => {
                           size="small" 
                           color="primary" 
                           onClick={() => handleView(item)}
+                          sx={{ color: colors.sidebar, '&:hover': { color: colors.accentGold } }}
                         >
                           <Visibility fontSize={isMobile ? 'small' : 'medium'} />
                         </IconButton>
@@ -1502,7 +1568,7 @@ const EngineerReports = () => {
         fullWidth
         fullScreen={isMobile}
       >
-        <DialogTitle sx={{ bgcolor: '#0B5FA5', color: 'white' }}>
+        <DialogTitle sx={{ bgcolor: colors.sidebar, color: 'white' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6" fontWeight={600}>
               Report Details
@@ -1512,66 +1578,66 @@ const EngineerReports = () => {
             </IconButton>
           </Box>
         </DialogTitle>
-        <DialogContent dividers sx={{ p: 3 }}>
+        <DialogContent dividers sx={{ p: 3, bgcolor: colors.white }}>
           {selectedItem && (
             <Grid container spacing={3}>
               <Grid item xs={12}>
-                <Paper sx={{ p: 2, bgcolor: '#f0f7ff', borderRadius: 2, border: '1px solid #0B5FA5' }}>
-                  <Typography variant="h6" sx={{ color: '#0B5FA5', fontWeight: 600 }}>
+                <Paper sx={{ p: 2, bgcolor: `${colors.sidebar}08`, borderRadius: 2, border: `1px solid ${colors.accentGold}` }}>
+                  <Typography variant="h6" sx={{ color: colors.sidebar, fontWeight: 600 }}>
                     {selectedItem.error_title || selectedItem.title || selectedItem.name || 'Report'}
                   </Typography>
                   {selectedItem.error_code && (
                     <Chip 
                       label={`Error Code: ${selectedItem.error_code}`} 
                       size="small" 
-                      sx={{ mt: 1, bgcolor: '#0B5FA5', color: 'white' }}
+                      sx={{ mt: 1, bgcolor: colors.sidebar, color: 'white' }}
                     />
                   )}
                 </Paper>
               </Grid>
 
               <Grid item xs={12} md={6}>
-                <Typography variant="subtitle2" sx={{ color: '#6c757d', mb: 1, fontWeight: 600 }}>
+                <Typography variant="subtitle2" sx={{ color: colors.lightText, mb: 1, fontWeight: 600 }}>
                   Equipment Information
                 </Typography>
-                <Paper sx={{ p: 2, bgcolor: '#fafafa', borderRadius: 2 }}>
+                <Paper sx={{ p: 2, bgcolor: colors.mainBg, borderRadius: 2, border: `1px solid ${colors.borderColor}` }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
-                    <Typography variant="body2" color="textSecondary">Equipment Name</Typography>
-                    <Typography variant="body2" fontWeight={500}>
+                    <Typography variant="body2" sx={{ color: colors.lightText }}>Equipment Name</Typography>
+                    <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkText }}>
                       {selectedItem.equipment_name || selectedItem.name || 'N/A'}
                     </Typography>
                   </Box>
                   {selectedItem.model && (
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
-                      <Typography variant="body2" color="textSecondary">Model</Typography>
-                      <Typography variant="body2" fontWeight={500}>{selectedItem.model}</Typography>
+                      <Typography variant="body2" sx={{ color: colors.lightText }}>Model</Typography>
+                      <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkText }}>{selectedItem.model}</Typography>
                     </Box>
                   )}
                   {selectedItem.manufacturer && (
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
-                      <Typography variant="body2" color="textSecondary">Manufacturer</Typography>
-                      <Typography variant="body2" fontWeight={500}>{selectedItem.manufacturer}</Typography>
+                      <Typography variant="body2" sx={{ color: colors.lightText }}>Manufacturer</Typography>
+                      <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkText }}>{selectedItem.manufacturer}</Typography>
                     </Box>
                   )}
                 </Paper>
               </Grid>
 
               <Grid item xs={12} md={6}>
-                <Typography variant="subtitle2" sx={{ color: '#6c757d', mb: 1, fontWeight: 600 }}>
+                <Typography variant="subtitle2" sx={{ color: colors.lightText, mb: 1, fontWeight: 600 }}>
                   Status Information
                 </Typography>
-                <Paper sx={{ p: 2, bgcolor: '#fafafa', borderRadius: 2 }}>
+                <Paper sx={{ p: 2, bgcolor: colors.mainBg, borderRadius: 2, border: `1px solid ${colors.borderColor}` }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
-                    <Typography variant="body2" color="textSecondary">Status</Typography>
+                    <Typography variant="body2" sx={{ color: colors.lightText }}>Status</Typography>
                     <Typography 
                       variant="body2" 
                       fontWeight={500}
                       sx={{
-                        color: selectedItem?.status === 'Critical' || selectedItem?.status === 'Error' ? '#dc3545' :
-                               selectedItem?.status === 'Pending' ? '#ff9800' :
-                               selectedItem?.status === 'Completed' || selectedItem?.status === 'Resolved' ? '#28a745' :
-                               selectedItem?.status === 'In Progress' ? '#0B5FA5' :
-                               '#6c757d'
+                        color: selectedItem?.status === 'Critical' || selectedItem?.status === 'Error' ? colors.error :
+                               selectedItem?.status === 'Pending' ? colors.warning :
+                               selectedItem?.status === 'Completed' || selectedItem?.status === 'Resolved' ? colors.success :
+                               selectedItem?.status === 'In Progress' ? colors.sidebar :
+                               colors.lightText
                       }}
                     >
                       {selectedItem.status || 'N/A'}
@@ -1579,15 +1645,15 @@ const EngineerReports = () => {
                   </Box>
                   {selectedItem.severity && (
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
-                      <Typography variant="body2" color="textSecondary">Severity</Typography>
+                      <Typography variant="body2" sx={{ color: colors.lightText }}>Severity</Typography>
                       <Typography 
                         variant="body2" 
                         fontWeight={500}
                         sx={{
-                          color: selectedItem.severity === 'Critical' ? '#dc3545' :
-                                 selectedItem.severity === 'High' ? '#ff9800' :
-                                 selectedItem.severity === 'Medium' ? '#0B5FA5' :
-                                 '#28a745'
+                          color: selectedItem.severity === 'Critical' ? colors.error :
+                                 selectedItem.severity === 'High' ? colors.warning :
+                                 selectedItem.severity === 'Medium' ? colors.sidebar :
+                                 colors.success
                         }}
                       >
                         {selectedItem.severity}
@@ -1598,23 +1664,22 @@ const EngineerReports = () => {
               </Grid>
 
               <Grid item xs={12}>
-                <Typography variant="subtitle2" sx={{ color: '#6c757d', mb: 1, fontWeight: 600 }}>
+                <Typography variant="subtitle2" sx={{ color: colors.lightText, mb: 1, fontWeight: 600 }}>
                   Date & Time
                 </Typography>
-                <Paper sx={{ p: 2, bgcolor: '#fafafa', borderRadius: 2 }}>
+                <Paper sx={{ p: 2, bgcolor: colors.mainBg, borderRadius: 2, border: `1px solid ${colors.borderColor}` }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
-                    <Typography variant="body2" color="textSecondary">Created Date</Typography>
-                    <Typography variant="body2" fontWeight={500}>
+                    <Typography variant="body2" sx={{ color: colors.lightText }}>Created Date</Typography>
+                    <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkText }}>
                       {formatDateTime(selectedItem.created_at || selectedItem.repair_date || selectedItem.date)}
                     </Typography>
                   </Box>
                 </Paper>
               </Grid>
 
-              {/* Export Options */}
               <Grid item xs={12}>
-                <Divider sx={{ my: 1 }} />
-                <Typography variant="subtitle2" sx={{ color: '#6c757d', mb: 1, fontWeight: 600 }}>
+                <Divider sx={{ my: 1, borderColor: colors.borderColor }} />
+                <Typography variant="subtitle2" sx={{ color: colors.lightText, mb: 1, fontWeight: 600 }}>
                   Export Options
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
@@ -1624,7 +1689,7 @@ const EngineerReports = () => {
                       const dataToExport = [selectedItem]
                       exportToPDF(dataToExport, `${selectedReport}_${selectedItem.id}`)
                     }} 
-                    sx={{ bgcolor: '#dc3545', '&:hover': { bgcolor: '#c82333' } }}
+                    sx={{ bgcolor: colors.error, '&:hover': { bgcolor: '#c82333' } }}
                   >
                     Export as PDF
                   </Button>
@@ -1637,7 +1702,7 @@ const EngineerReports = () => {
           <Button 
             onClick={() => setOpenViewDialog(false)} 
             variant="contained" 
-            sx={{ bgcolor: '#0B5FA5' }}
+            sx={{ bgcolor: colors.sidebar, '&:hover': { bgcolor: colors.sidebarHover } }}
           >
             Close
           </Button>
@@ -1651,30 +1716,30 @@ const EngineerReports = () => {
         maxWidth="xs"
         fullWidth
       >
-        <DialogTitle sx={{ bgcolor: '#dc3545', color: 'white' }}>
+        <DialogTitle sx={{ bgcolor: colors.error, color: 'white' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Delete />
             <Typography variant="h6" fontWeight={600}>Confirm Delete</Typography>
           </Box>
         </DialogTitle>
         <DialogContent sx={{ mt: 2 }}>
-          <Alert severity="warning" sx={{ mb: 2 }}>
+          <Alert severity="warning" sx={{ mb: 2, borderRadius: 2 }}>
             Are you sure you want to delete this report?
           </Alert>
           {selectedItem && (
-            <Box sx={{ p: 1, bgcolor: '#f5f5f5', borderRadius: 1 }}>
-              <Typography variant="body2">
+            <Box sx={{ p: 1, bgcolor: colors.mainBg, borderRadius: 1, border: `1px solid ${colors.borderColor}` }}>
+              <Typography variant="body2" sx={{ color: colors.darkText }}>
                 <strong>Title:</strong> {selectedItem.error_title || selectedItem.title || selectedItem.name || 'N/A'}
               </Typography>
-              <Typography variant="body2">
+              <Typography variant="body2" sx={{ color: colors.darkText }}>
                 <strong>Equipment:</strong> {selectedItem.equipment_name || selectedItem.name || 'N/A'}
               </Typography>
-              <Typography variant="body2">
+              <Typography variant="body2" sx={{ color: colors.darkText }}>
                 <strong>Status:</strong> {selectedItem.status || 'N/A'}
               </Typography>
             </Box>
           )}
-          <Typography variant="caption" color="textSecondary" sx={{ mt: 1, display: 'block' }}>
+          <Typography variant="caption" sx={{ color: colors.lightText, mt: 1, display: 'block' }}>
             This action cannot be undone.
           </Typography>
         </DialogContent>
@@ -1682,6 +1747,7 @@ const EngineerReports = () => {
           <Button 
             onClick={() => setOpenDeleteDialog(false)} 
             variant="outlined"
+            sx={{ borderColor: colors.sidebar, color: colors.sidebar, '&:hover': { borderColor: colors.accentGold, color: colors.accentGold } }}
           >
             Cancel
           </Button>
@@ -1695,7 +1761,7 @@ const EngineerReports = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Snackbar for errors */}
+      {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={4000}
@@ -1802,7 +1868,6 @@ const AdminReports = () => {
       let response = null
       let data = []
       
-      // ✅ Map report type to API endpoint with appropriate parameters
       switch(reportTypeVal) {
         case 'monthly':
         case 'weekly':
@@ -1824,7 +1889,6 @@ const AdminReports = () => {
         case 'hospital':
           endpoint = '/hospitals'
           response = await api.get(endpoint)
-          // Get hospital stats
           const hospitals = response.data.hospitals || []
           const hospitalStats = await Promise.all(hospitals.map(async (h) => {
             const equipRes = await api.get(`/equipment?hospital_id=${h.id}`)
@@ -1850,7 +1914,6 @@ const AdminReports = () => {
             }
           })
           const equipmentList = response.data.equipment || []
-          // Get error counts for each equipment
           const equipmentWithErrors = await Promise.all(equipmentList.map(async (e) => {
             const errorRes = await api.get(`/errors/equipment/${e.id}`)
             return {
@@ -1932,16 +1995,10 @@ const AdminReports = () => {
     }
   }, [reportType, period, filters])
 
-  // ============================================================
-  // ✅ INITIAL LOAD
-  // ============================================================
   useEffect(() => {
     generateReport('monthly', 'monthly')
   }, [])
 
-  // ============================================================
-  // ✅ HANDLERS
-  // ============================================================
   const handleView = (item) => {
     setSelectedItem(item)
     setOpenViewDialog(true)
@@ -1956,7 +2013,6 @@ const AdminReports = () => {
     if (!selectedItem) return
     
     try {
-      // Determine which API endpoint to use based on report type
       let endpoint = ''
       if (reportType === 'monthly' || reportType === 'weekly' || reportType === 'daily' || reportType === 'yearly') {
         endpoint = `/errors/${selectedItem.id}`
@@ -1976,7 +2032,6 @@ const AdminReports = () => {
       await api.delete(endpoint)
       toast.success(`✅ "${selectedItem.name || selectedItem.title || selectedItem.error_title || 'Report'}" deleted successfully!`)
       
-      // Refresh the report
       generateReport(reportType, period)
       setOpenDeleteDialog(false)
       setSelectedItem(null)
@@ -2029,9 +2084,6 @@ const AdminReports = () => {
     toast.info('🔄 Refreshing report data...')
   }
 
-  // ============================================================
-  // ✅ FILTER DATA
-  // ============================================================
   const getFilteredData = useMemo(() => {
     const data = reportData?.data || []
     
@@ -2131,9 +2183,6 @@ const AdminReports = () => {
     setShowFilters(!showFilters)
   }
 
-  // ============================================================
-  // ✅ RENDER
-  // ============================================================
   return (
     <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
       {/* HEADER */}
@@ -2148,7 +2197,7 @@ const AdminReports = () => {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
           <Typography variant="h5" sx={{ 
             fontWeight: 700, 
-            color: '#2C3E50',
+            color: colors.sidebar,
             fontSize: { xs: '1.25rem', sm: '1.5rem', md: '1.75rem' }
           }}>
             Reports & Analytics
@@ -2157,8 +2206,8 @@ const AdminReports = () => {
             <Chip 
               label={`Search: "${searchTerm}"`} 
               size="small" 
-              color="primary"
               onDelete={() => setSearchTerm('')}
+              sx={{ bgcolor: colors.sidebar, color: 'white', '& .MuiChip-deleteIcon': { color: 'white' } }}
             />
           )}
         </Box>
@@ -2174,7 +2223,7 @@ const AdminReports = () => {
             onClick={handleRefresh}
             disabled={loading}
             size={isMobile ? 'small' : 'medium'}
-            sx={{ flex: { xs: '1 1 auto', sm: 'none' } }}
+            sx={{ flex: { xs: '1 1 auto', sm: 'none' }, borderColor: colors.sidebar, color: colors.sidebar, '&:hover': { borderColor: colors.accentGold, color: colors.accentGold } }}
             startIcon={loading ? <Refresh sx={{ animation: 'spin 1s linear infinite' }} /> : <Refresh />}
           >
             {loading ? 'Loading...' : 'Refresh'}
@@ -2186,8 +2235,9 @@ const AdminReports = () => {
             size={isMobile ? 'small' : 'medium'}
             sx={{ 
               flex: { xs: '1 1 auto', sm: 'none' },
-              bgcolor: '#0B5FA5',
-              '&:hover': { bgcolor: '#094a80' }
+              bgcolor: colors.sidebar,
+              '&:hover': { bgcolor: colors.sidebarHover },
+              boxShadow: `0 4px 16px ${colors.sidebar}44`
             }}
           >
             Export
@@ -2195,16 +2245,16 @@ const AdminReports = () => {
         </Box>
       </Box>
 
-      {/* ✅ LOADING INDICATOR */}
-      {loading && <LinearProgress sx={{ mb: 2, borderRadius: 2 }} />}
+      {/* LOADING INDICATOR */}
+      {loading && <LinearProgress sx={{ mb: 2, borderRadius: 2, bgcolor: colors.borderColor, '& .MuiLinearProgress-bar': { bgcolor: colors.accentGold } }} />}
 
-      {/* ✅ ERROR DISPLAY */}
+      {/* ERROR DISPLAY */}
       {error && (
         <Alert 
           severity="error" 
-          sx={{ mb: 2 }}
+          sx={{ mb: 2, borderRadius: 2 }}
           action={
-            <Button color="inherit" size="small" onClick={() => generateReport(reportType, period)}>
+            <Button color="inherit" size="small" onClick={() => generateReport(reportType, period)} sx={{ color: colors.sidebar }}>
               Retry
             </Button>
           }
@@ -2222,23 +2272,24 @@ const AdminReports = () => {
           sx: {
             p: 1,
             width: 200,
-            borderRadius: 2
+            borderRadius: 2,
+            border: `1px solid ${colors.borderColor}`
           }
         }}
         transformOrigin={{ horizontal: 'right', vertical: 'top' }}
         anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
       >
         <MenuItem onClick={() => handleExport('CSV')} sx={{ gap: 1 }}>
-          <TableChart fontSize="small" sx={{ color: '#0B5FA5' }} />
-          <Typography variant="body2">Export as CSV</Typography>
+          <TableChart fontSize="small" sx={{ color: colors.sidebar }} />
+          <Typography variant="body2" sx={{ color: colors.darkText }}>Export as CSV</Typography>
         </MenuItem>
         <MenuItem onClick={() => handleExport('Excel')} sx={{ gap: 1 }}>
-          <TableChart fontSize="small" sx={{ color: '#28a745' }} />
-          <Typography variant="body2">Export as Excel</Typography>
+          <TableChart fontSize="small" sx={{ color: colors.success }} />
+          <Typography variant="body2" sx={{ color: colors.darkText }}>Export as Excel</Typography>
         </MenuItem>
         <MenuItem onClick={() => handleExport('PDF')} sx={{ gap: 1 }}>
-          <PictureAsPdf fontSize="small" sx={{ color: '#dc3545' }} />
-          <Typography variant="body2">Export as PDF</Typography>
+          <PictureAsPdf fontSize="small" sx={{ color: colors.error }} />
+          <Typography variant="body2" sx={{ color: colors.darkText }}>Export as PDF</Typography>
         </MenuItem>
       </Menu>
 
@@ -2248,7 +2299,7 @@ const AdminReports = () => {
           <StatsCard 
             title="Total Reports" 
             value={filteredData.length} 
-            color="#0B5FA5"
+            color={colors.sidebar}
             loading={loading}
           />
         </Grid>
@@ -2256,8 +2307,8 @@ const AdminReports = () => {
           <StatsCard 
             title="Completed" 
             value={filteredData.filter(d => d.status === 'Completed' || d.status === 'Resolved').length} 
-            color="#28a745"
-            bgColor="#e8f5e9"
+            color={colors.success}
+            bgColor={colors.success + '10'}
             icon={<CheckCircle fontSize="small" />}
             loading={loading}
           />
@@ -2266,8 +2317,8 @@ const AdminReports = () => {
           <StatsCard 
             title="Pending" 
             value={filteredData.filter(d => d.status === 'Pending' || d.status === 'In Progress').length} 
-            color="#ff9800"
-            bgColor="#fff3e0"
+            color={colors.warning}
+            bgColor={colors.warning + '10'}
             icon={<Schedule fontSize="small" />}
             loading={loading}
           />
@@ -2285,7 +2336,7 @@ const AdminReports = () => {
       </Grid>
 
       {/* SEARCH & FILTER */}
-      <Paper sx={{ p: { xs: 1.5, sm: 2 }, mb: 3, borderRadius: 2 }}>
+      <Paper sx={{ p: { xs: 1.5, sm: 2 }, mb: 3, borderRadius: 2, border: `1px solid ${colors.borderColor}` }}>
         <Box sx={{ 
           display: 'flex', 
           flexDirection: { xs: 'column', sm: 'row' },
@@ -2301,16 +2352,22 @@ const AdminReports = () => {
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <Search />
+                  <Search sx={{ color: colors.lightText }} />
                 </InputAdornment>
               ),
               endAdornment: searchTerm && (
                 <InputAdornment position="end">
-                  <IconButton size="small" onClick={() => setSearchTerm('')}>
+                  <IconButton size="small" onClick={() => setSearchTerm('')} sx={{ color: colors.lightText, '&:hover': { color: colors.error } }}>
                     <Clear fontSize="small" />
                   </IconButton>
                 </InputAdornment>
-              )
+              ),
+              sx: {
+                '& .MuiOutlinedInput-root': {
+                  '&:hover fieldset': { borderColor: colors.sidebar },
+                  '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                }
+              }
             }}
           />
           
@@ -2321,6 +2378,7 @@ const AdminReports = () => {
               endIcon={showFilters ? <KeyboardArrowUp /> : <KeyboardArrowDown />}
               fullWidth
               size="small"
+              sx={{ borderColor: colors.sidebar, color: colors.sidebar, '&:hover': { borderColor: colors.accentGold, color: colors.accentGold } }}
             >
               {showFilters ? 'Hide Filters' : 'Show Filters'}
             </Button>
@@ -2329,7 +2387,7 @@ const AdminReports = () => {
           {!isMobile && (
             <>
               <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 150 } }}>
-                <InputLabel>Report Type</InputLabel>
+                <InputLabel sx={{ color: colors.lightText }}>Report Type</InputLabel>
                 <Select
                   value={reportType}
                   onChange={(e) => {
@@ -2337,6 +2395,12 @@ const AdminReports = () => {
                     generateReport(e.target.value, period)
                   }}
                   label="Report Type"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: colors.sidebar },
+                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    }
+                  }}
                 >
                   {adminReportTypes.map((type) => (
                     <MenuItem key={type.value} value={type.value}>
@@ -2346,7 +2410,7 @@ const AdminReports = () => {
                 </Select>
               </FormControl>
               <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 120 } }}>
-                <InputLabel>Period</InputLabel>
+                <InputLabel sx={{ color: colors.lightText }}>Period</InputLabel>
                 <Select
                   value={period}
                   onChange={(e) => {
@@ -2354,6 +2418,12 @@ const AdminReports = () => {
                     setFilters({ ...filters, period: e.target.value })
                   }}
                   label="Period"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: colors.sidebar },
+                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    }
+                  }}
                 >
                   {periodOptions.map((option) => (
                     <MenuItem key={option.value} value={option.value}>
@@ -2365,6 +2435,7 @@ const AdminReports = () => {
               <Button 
                 variant="outlined" 
                 onClick={handleFilterClick}
+                sx={{ borderColor: colors.sidebar, color: colors.sidebar, '&:hover': { borderColor: colors.accentGold, color: colors.accentGold } }}
               >
                 Filter
               </Button>
@@ -2372,7 +2443,7 @@ const AdminReports = () => {
                 variant="contained" 
                 onClick={() => generateReport(reportType, period)} 
                 disabled={loading} 
-                sx={{ bgcolor: '#0B5FA5' }}
+                sx={{ bgcolor: colors.sidebar, '&:hover': { bgcolor: colors.sidebarHover } }}
               >
                 {loading ? 'Generating...' : 'Generate Report'}
               </Button>
@@ -2384,7 +2455,7 @@ const AdminReports = () => {
           <Collapse in={showFilters} timeout="auto" unmountOnExit>
             <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
               <FormControl size="small" fullWidth>
-                <InputLabel>Report Type</InputLabel>
+                <InputLabel sx={{ color: colors.lightText }}>Report Type</InputLabel>
                 <Select
                   value={reportType}
                   onChange={(e) => {
@@ -2392,6 +2463,12 @@ const AdminReports = () => {
                     generateReport(e.target.value, period)
                   }}
                   label="Report Type"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: colors.sidebar },
+                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    }
+                  }}
                 >
                   {adminReportTypes.map((type) => (
                     <MenuItem key={type.value} value={type.value}>
@@ -2401,7 +2478,7 @@ const AdminReports = () => {
                 </Select>
               </FormControl>
               <FormControl size="small" fullWidth>
-                <InputLabel>Period</InputLabel>
+                <InputLabel sx={{ color: colors.lightText }}>Period</InputLabel>
                 <Select
                   value={period}
                   onChange={(e) => {
@@ -2409,6 +2486,12 @@ const AdminReports = () => {
                     setFilters({ ...filters, period: e.target.value })
                   }}
                   label="Period"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: colors.sidebar },
+                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    }
+                  }}
                 >
                   {periodOptions.map((option) => (
                     <MenuItem key={option.value} value={option.value}>
@@ -2423,6 +2506,7 @@ const AdminReports = () => {
                   onClick={handleFilterClick}
                   fullWidth
                   size="small"
+                  sx={{ borderColor: colors.sidebar, color: colors.sidebar, '&:hover': { borderColor: colors.accentGold, color: colors.accentGold } }}
                 >
                   Filter
                 </Button>
@@ -2430,7 +2514,7 @@ const AdminReports = () => {
                   variant="contained" 
                   onClick={() => generateReport(reportType, period)} 
                   disabled={loading} 
-                  sx={{ bgcolor: '#0B5FA5' }}
+                  sx={{ bgcolor: colors.sidebar, '&:hover': { bgcolor: colors.sidebarHover } }}
                   fullWidth
                   size="small"
                 >
@@ -2464,10 +2548,10 @@ const AdminReports = () => {
       />
 
       {/* TABLE */}
-      <Paper sx={{ borderRadius: 2, overflow: 'hidden' }}>
+      <Paper sx={{ borderRadius: 2, overflow: 'hidden', border: `1px solid ${colors.borderColor}` }}>
         <TableContainer>
           <Table>
-            <TableHead sx={{ bgcolor: '#0B5FA5' }}>
+            <TableHead sx={{ bgcolor: colors.sidebar }}>
               <TableRow>
                 <TableCell sx={{ color: 'white', fontWeight: 600, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>Title</TableCell>
                 <TableCell sx={{ color: 'white', fontWeight: 600, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>Type</TableCell>
@@ -2481,15 +2565,15 @@ const AdminReports = () => {
               {loading ? (
                 <TableRow>
                   <TableCell colSpan={6} align="center">
-                    <LinearProgress sx={{ my: 2 }} />
+                    <LinearProgress sx={{ my: 2, bgcolor: colors.borderColor, '& .MuiLinearProgress-bar': { bgcolor: colors.accentGold } }} />
                   </TableCell>
                 </TableRow>
               ) : filteredData.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} align="center">
                     <Box sx={{ py: 4 }}>
-                      <Search sx={{ fontSize: 48, color: '#6c757d', mb: 1 }} />
-                      <Typography variant="body1" color="textSecondary">
+                      <Search sx={{ fontSize: 48, color: colors.lightText, mb: 1 }} />
+                      <Typography variant="body1" color="textSecondary" sx={{ color: colors.lightText }}>
                         {searchTerm || filters.status || filters.hospital 
                           ? 'No results found matching your search/filters' 
                           : 'No reports found. Click "Generate Report" to create a report.'}
@@ -2499,7 +2583,7 @@ const AdminReports = () => {
                           variant="outlined" 
                           size="small" 
                           onClick={clearFilters}
-                          sx={{ mt: 1 }}
+                          sx={{ borderColor: colors.sidebar, color: colors.sidebar, '&:hover': { borderColor: colors.accentGold, color: colors.accentGold }, mt: 1 }}
                         >
                           Clear Filters
                         </Button>
@@ -2509,14 +2593,14 @@ const AdminReports = () => {
                 </TableRow>
               ) : (
                 filteredData.map((item, index) => (
-                  <TableRow key={index} hover>
+                  <TableRow key={index} hover sx={{ '&:hover': { bgcolor: `${colors.sidebar}06` } }}>
                     <TableCell>
-                      <Typography variant="body2" fontWeight={500} sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+                      <Typography variant="body2" fontWeight={500} sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' }, color: colors.darkText }}>
                         {item.title || item.name || item.error_title || item.equipment_name || 'N/A'}
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+                      <Typography variant="body2" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' }, color: colors.lightText }}>
                         {item.type || item.category || 'Report'}
                       </Typography>
                     </TableCell>
@@ -2525,23 +2609,23 @@ const AdminReports = () => {
                         variant="body2" 
                         sx={{ 
                           fontSize: { xs: '0.75rem', sm: '0.875rem' },
-                          color: item.status === 'Critical' || item.status === 'Error' ? '#dc3545' :
-                                 item.status === 'Pending' ? '#ff9800' :
-                                 item.status === 'Completed' || item.status === 'Resolved' ? '#28a745' :
-                                 item.status === 'In Progress' ? '#0B5FA5' :
-                                 '#6c757d'
+                          color: item.status === 'Critical' || item.status === 'Error' ? colors.error :
+                                 item.status === 'Pending' ? colors.warning :
+                                 item.status === 'Completed' || item.status === 'Resolved' ? colors.success :
+                                 item.status === 'In Progress' ? colors.sidebar :
+                                 colors.lightText
                         }}
                       >
                         {item.status || 'N/A'}
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2" sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>
+                      <Typography variant="body2" sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' }, color: colors.lightText }}>
                         {formatDate(item.created_at || item.date || item.repair_date)}
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2" sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>
+                      <Typography variant="body2" sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' }, color: colors.lightText }}>
                         {item.hospital_name || item.hospital || 'N/A'}
                       </Typography>
                     </TableCell>
@@ -2551,6 +2635,7 @@ const AdminReports = () => {
                           size="small" 
                           color="primary" 
                           onClick={() => handleView(item)}
+                          sx={{ color: colors.sidebar, '&:hover': { color: colors.accentGold } }}
                         >
                           <Visibility fontSize={isMobile ? 'small' : 'medium'} />
                         </IconButton>
@@ -2583,7 +2668,7 @@ const AdminReports = () => {
         fullWidth
         fullScreen={isMobile}
       >
-        <DialogTitle sx={{ bgcolor: '#0B5FA5', color: 'white' }}>
+        <DialogTitle sx={{ bgcolor: colors.sidebar, color: 'white' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6" fontWeight={600}>
               Report Details
@@ -2593,41 +2678,41 @@ const AdminReports = () => {
             </IconButton>
           </Box>
         </DialogTitle>
-        <DialogContent dividers sx={{ p: 3 }}>
+        <DialogContent dividers sx={{ p: 3, bgcolor: colors.white }}>
           {selectedItem && (
             <Grid container spacing={3}>
               <Grid item xs={12}>
-                <Paper sx={{ p: 2, bgcolor: '#f0f7ff', borderRadius: 2, border: '1px solid #0B5FA5' }}>
-                  <Typography variant="h6" sx={{ color: '#0B5FA5', fontWeight: 600 }}>
+                <Paper sx={{ p: 2, bgcolor: `${colors.sidebar}08`, borderRadius: 2, border: `1px solid ${colors.accentGold}` }}>
+                  <Typography variant="h6" sx={{ color: colors.sidebar, fontWeight: 600 }}>
                     {selectedItem.title || selectedItem.name || selectedItem.error_title || 'Report'}
                   </Typography>
                   <Chip 
                     label={selectedItem.type || selectedItem.category || 'Report'} 
                     size="small" 
-                    sx={{ mt: 1, bgcolor: '#0B5FA5', color: 'white' }}
+                    sx={{ mt: 1, bgcolor: colors.sidebar, color: 'white' }}
                   />
                 </Paper>
               </Grid>
 
               <Grid item xs={12} md={6}>
-                <Typography variant="subtitle2" sx={{ color: '#6c757d', mb: 1, fontWeight: 600 }}>
+                <Typography variant="subtitle2" sx={{ color: colors.lightText, mb: 1, fontWeight: 600 }}>
                   Report Information
                 </Typography>
-                <Paper sx={{ p: 2, bgcolor: '#fafafa', borderRadius: 2 }}>
+                <Paper sx={{ p: 2, bgcolor: colors.mainBg, borderRadius: 2, border: `1px solid ${colors.borderColor}` }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
-                    <Typography variant="body2" color="textSecondary">Report Type</Typography>
-                    <Typography variant="body2" fontWeight={500}>{selectedItem.type || selectedItem.category || 'N/A'}</Typography>
+                    <Typography variant="body2" sx={{ color: colors.lightText }}>Report Type</Typography>
+                    <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkText }}>{selectedItem.type || selectedItem.category || 'N/A'}</Typography>
                   </Box>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
-                    <Typography variant="body2" color="textSecondary">Status</Typography>
+                    <Typography variant="body2" sx={{ color: colors.lightText }}>Status</Typography>
                     <Typography 
                       variant="body2" 
                       fontWeight={500}
                       sx={{
-                        color: selectedItem.status === 'Completed' ? '#28a745' :
-                               selectedItem.status === 'Pending' ? '#ff9800' :
-                               selectedItem.status === 'In Progress' ? '#0B5FA5' :
-                               '#6c757d'
+                        color: selectedItem.status === 'Completed' ? colors.success :
+                               selectedItem.status === 'Pending' ? colors.warning :
+                               selectedItem.status === 'In Progress' ? colors.sidebar :
+                               colors.lightText
                       }}
                     >
                       {selectedItem.status || 'N/A'}
@@ -2637,38 +2722,38 @@ const AdminReports = () => {
               </Grid>
 
               <Grid item xs={12} md={6}>
-                <Typography variant="subtitle2" sx={{ color: '#6c757d', mb: 1, fontWeight: 600 }}>
+                <Typography variant="subtitle2" sx={{ color: colors.lightText, mb: 1, fontWeight: 600 }}>
                   Location Information
                 </Typography>
-                <Paper sx={{ p: 2, bgcolor: '#fafafa', borderRadius: 2 }}>
+                <Paper sx={{ p: 2, bgcolor: colors.mainBg, borderRadius: 2, border: `1px solid ${colors.borderColor}` }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
-                    <Typography variant="body2" color="textSecondary">Hospital</Typography>
-                    <Typography variant="body2" fontWeight={500}>{selectedItem.hospital_name || selectedItem.hospital || 'N/A'}</Typography>
+                    <Typography variant="body2" sx={{ color: colors.lightText }}>Hospital</Typography>
+                    <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkText }}>{selectedItem.hospital_name || selectedItem.hospital || 'N/A'}</Typography>
                   </Box>
                   {selectedItem.department && (
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
-                      <Typography variant="body2" color="textSecondary">Department</Typography>
-                      <Typography variant="body2" fontWeight={500}>{selectedItem.department}</Typography>
+                      <Typography variant="body2" sx={{ color: colors.lightText }}>Department</Typography>
+                      <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkText }}>{selectedItem.department}</Typography>
                     </Box>
                   )}
                 </Paper>
               </Grid>
 
               <Grid item xs={12}>
-                <Typography variant="subtitle2" sx={{ color: '#6c757d', mb: 1, fontWeight: 600 }}>
+                <Typography variant="subtitle2" sx={{ color: colors.lightText, mb: 1, fontWeight: 600 }}>
                   Date & Time
                 </Typography>
-                <Paper sx={{ p: 2, bgcolor: '#fafafa', borderRadius: 2 }}>
+                <Paper sx={{ p: 2, bgcolor: colors.mainBg, borderRadius: 2, border: `1px solid ${colors.borderColor}` }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
-                    <Typography variant="body2" color="textSecondary">Report Date</Typography>
-                    <Typography variant="body2" fontWeight={500}>
+                    <Typography variant="body2" sx={{ color: colors.lightText }}>Report Date</Typography>
+                    <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkText }}>
                       {formatDateTime(selectedItem.created_at || selectedItem.date || selectedItem.repair_date)}
                     </Typography>
                   </Box>
                   {selectedItem.generated_at && (
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
-                      <Typography variant="body2" color="textSecondary">Generated At</Typography>
-                      <Typography variant="body2" fontWeight={500}>
+                      <Typography variant="body2" sx={{ color: colors.lightText }}>Generated At</Typography>
+                      <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkText }}>
                         {formatDateTime(selectedItem.generated_at)}
                       </Typography>
                     </Box>
@@ -2676,10 +2761,9 @@ const AdminReports = () => {
                 </Paper>
               </Grid>
 
-              {/* Export Options */}
               <Grid item xs={12}>
-                <Divider sx={{ my: 1 }} />
-                <Typography variant="subtitle2" sx={{ color: '#6c757d', mb: 1, fontWeight: 600 }}>
+                <Divider sx={{ my: 1, borderColor: colors.borderColor }} />
+                <Typography variant="subtitle2" sx={{ color: colors.lightText, mb: 1, fontWeight: 600 }}>
                   Export Options
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
@@ -2689,7 +2773,7 @@ const AdminReports = () => {
                       const dataToExport = [selectedItem]
                       exportToPDF(dataToExport, `${reportType}_${selectedItem.id || 'item'}`)
                     }} 
-                    sx={{ bgcolor: '#dc3545', '&:hover': { bgcolor: '#c82333' } }}
+                    sx={{ bgcolor: colors.error, '&:hover': { bgcolor: '#c82333' } }}
                   >
                     Export as PDF
                   </Button>
@@ -2702,7 +2786,7 @@ const AdminReports = () => {
           <Button 
             onClick={() => setOpenViewDialog(false)} 
             variant="contained" 
-            sx={{ bgcolor: '#0B5FA5' }}
+            sx={{ bgcolor: colors.sidebar, '&:hover': { bgcolor: colors.sidebarHover } }}
           >
             Close
           </Button>
@@ -2716,30 +2800,30 @@ const AdminReports = () => {
         maxWidth="xs"
         fullWidth
       >
-        <DialogTitle sx={{ bgcolor: '#dc3545', color: 'white' }}>
+        <DialogTitle sx={{ bgcolor: colors.error, color: 'white' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Delete />
             <Typography variant="h6" fontWeight={600}>Confirm Delete</Typography>
           </Box>
         </DialogTitle>
         <DialogContent sx={{ mt: 2 }}>
-          <Alert severity="warning" sx={{ mb: 2 }}>
+          <Alert severity="warning" sx={{ mb: 2, borderRadius: 2 }}>
             Are you sure you want to delete this report?
           </Alert>
           {selectedItem && (
-            <Box sx={{ p: 1, bgcolor: '#f5f5f5', borderRadius: 1 }}>
-              <Typography variant="body2">
+            <Box sx={{ p: 1, bgcolor: colors.mainBg, borderRadius: 1, border: `1px solid ${colors.borderColor}` }}>
+              <Typography variant="body2" sx={{ color: colors.darkText }}>
                 <strong>Title:</strong> {selectedItem.title || selectedItem.name || selectedItem.error_title || 'N/A'}
               </Typography>
-              <Typography variant="body2">
+              <Typography variant="body2" sx={{ color: colors.darkText }}>
                 <strong>Type:</strong> {selectedItem.type || selectedItem.category || 'N/A'}
               </Typography>
-              <Typography variant="body2">
+              <Typography variant="body2" sx={{ color: colors.darkText }}>
                 <strong>Status:</strong> {selectedItem.status || 'N/A'}
               </Typography>
             </Box>
           )}
-          <Typography variant="caption" color="textSecondary" sx={{ mt: 1, display: 'block' }}>
+          <Typography variant="caption" sx={{ color: colors.lightText, mt: 1, display: 'block' }}>
             This action cannot be undone.
           </Typography>
         </DialogContent>
@@ -2747,6 +2831,7 @@ const AdminReports = () => {
           <Button 
             onClick={() => setOpenDeleteDialog(false)} 
             variant="outlined"
+            sx={{ borderColor: colors.sidebar, color: colors.sidebar, '&:hover': { borderColor: colors.accentGold, color: colors.accentGold } }}
           >
             Cancel
           </Button>
@@ -2760,7 +2845,7 @@ const AdminReports = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Snackbar for errors */}
+      {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={4000}

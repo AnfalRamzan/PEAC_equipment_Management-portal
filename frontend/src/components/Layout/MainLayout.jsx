@@ -1,6 +1,5 @@
 // src/components/Layout/MainLayout.jsx
-// ✅ REMOVED: "Engineer Mode" chip from footer
-// ✅ REMOVED: Equipment Categories from menu
+// ✅ LARGER TEXT - NO SCROLL
 
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -24,7 +23,6 @@ import {
   useMediaQuery,
   Snackbar,
   Alert,
-  Chip,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -40,27 +38,46 @@ import {
   Build,
   Handyman,
   Description,
-  CalendarToday,
   ShoppingCart,
   LocalShipping,
   Assessment,
   Inventory,
-  People,
   Gavel,
   EmojiObjects,
-  Category,
-  Engineering as EngineeringIcon,
 } from '@mui/icons-material';
 import { useNavigate, Outlet } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { logout, updateUser, updateProfileImage, refreshUser } from '../../redux/slices/authSlice';
+import { logout, updateProfileImage, refreshUser } from '../../redux/slices/authSlice';
 import { fetchUnreadCount, fetchNotifications } from '../../redux/slices/notificationSlice';
 import NotificationsDropdown from '../Notifications/NotificationsDropdown';
 import GlobalSearch from '../GlobalSearch';
 import NotificationSound from '../NotificationSound';
 import { toast } from 'react-toastify';
 
-const drawerWidth = 260;
+const drawerWidth = 240;
+
+// ============================================================
+// ✅ PAEC THEME COLORS
+// ============================================================
+const colors = {
+  sidebar: '#01411C',
+  sidebarHover: '#0B542B',
+  active: '#0E6335',
+  accentGold: '#C9A227',
+  goldLight: '#E8C84A',
+  text: '#FFFFFF',
+  secondaryText: '#B8C8BE',
+  mainBg: '#F0F2F5',
+  white: '#FFFFFF',
+  darkText: '#1A2A3A',
+  lightText: '#5A7A8A',
+  error: '#D32F2F',
+  success: '#2E7D32',
+  warning: '#ED6C02',
+  info: '#0B5FA5',
+  borderColor: 'rgba(1, 65, 28, 0.08)',
+  shadowColor: 'rgba(1, 65, 28, 0.08)',
+};
 
 // ============================================================
 // ✅ CSS ANIMATIONS
@@ -81,8 +98,30 @@ const badgeStyles = `
     100% { transform: rotate(0deg); }
 }
 
+@keyframes glowPulse {
+    0% { opacity: 0.3; }
+    50% { opacity: 0.8; }
+    100% { opacity: 0.3; }
+}
+
+@keyframes iconFloat {
+    0% { transform: translateY(0px); }
+    50% { transform: translateY(-3px); }
+    100% { transform: translateY(0px); }
+}
+
+@keyframes gradientShine {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
 .bell-ring {
     animation: bellRing 0.6s ease-in-out 3;
+}
+
+.gradient-shine {
+    animation: gradientShine 3s ease-in-out infinite;
 }
 `;
 
@@ -148,97 +187,22 @@ const sendBrowserNotification = (title, message, options = {}) => {
 };
 
 // ============================================================
-// ✅ MENU ITEMS - HOSPITAL_ADMIN REMOVED & EQUIPMENT CATEGORIES REMOVED
+// ✅ MENU ITEMS
 // ============================================================
 const menuItems = [
-  // ✅ All roles (SUPER_ADMIN, ENGINEER)
-  { 
-    text: 'Dashboard', 
-    icon: <Dashboard sx={{ fontSize: 22, color: 'white' }} />, 
-    path: '/dashboard', 
-    roles: ['SUPER_ADMIN', 'ENGINEER'] 
-  },
-  { 
-    text: 'Equipment', 
-    icon: <MedicalServices sx={{ fontSize: 22, color: 'white' }} />, 
-    path: '/equipment', 
-    roles: ['SUPER_ADMIN', 'ENGINEER'] 
-  },
-  { 
-    text: 'Error Logs', 
-    icon: <ErrorOutline sx={{ fontSize: 22, color: 'white' }} />, 
-    path: '/errors', 
-    roles: ['SUPER_ADMIN', 'ENGINEER'] 
-  },
-  { 
-    text: 'Repairs', 
-    icon: <Build sx={{ fontSize: 22, color: 'white' }} />, 
-    path: '/repairs', 
-    roles: ['SUPER_ADMIN', 'ENGINEER'] 
-  },
-  { 
-    text: 'Knowledge Base', 
-    icon: <EmojiObjects sx={{ fontSize: 22, color: 'white' }} />, 
-    path: '/knowledge-base', 
-    roles: ['SUPER_ADMIN', 'ENGINEER'] 
-  },
-  { 
-    text: 'Reports', 
-    icon: <Assessment sx={{ fontSize: 22, color: 'white' }} />, 
-    path: '/reports', 
-    roles: ['SUPER_ADMIN', 'ENGINEER'] 
-  },
-  
-  // ✅ SUPER_ADMIN Only (and ENGINEER now has access too)
-  { 
-    text: 'Hospitals', 
-    icon: <LocalHospital sx={{ fontSize: 22, color: 'white' }} />, 
-    path: '/hospitals', 
-    roles: ['SUPER_ADMIN', 'ENGINEER'] 
-  },
-  { 
-    text: 'Users', 
-    icon: <People sx={{ fontSize: 22, color: 'white' }} />, 
-    path: '/users', 
-    roles: ['SUPER_ADMIN', 'ENGINEER'] 
-  },
-  { 
-    text: 'Maintenance', 
-    icon: <Handyman sx={{ fontSize: 22, color: 'white' }} />, 
-    path: '/maintenance', 
-    roles: ['SUPER_ADMIN', 'ENGINEER'] 
-  },
-  { 
-    text: 'Spare Parts', 
-    icon: <Inventory sx={{ fontSize: 22, color: 'white' }} />, 
-    path: '/spare-parts', 
-    roles: ['SUPER_ADMIN', 'ENGINEER'] 
-  },
-  { 
-    text: 'Service Documentation', 
-    icon: <Description sx={{ fontSize: 22, color: 'white' }} />, 
-    path: '/service-documentation', 
-    roles: ['SUPER_ADMIN', 'ENGINEER'] 
-  },
-  { 
-    text: 'AMC Contracts', 
-    icon: <Gavel sx={{ fontSize: 22, color: 'white' }} />, 
-    path: '/amc', 
-    roles: ['SUPER_ADMIN', 'ENGINEER'] 
-  },
-  { 
-    text: 'Purchase Orders', 
-    icon: <ShoppingCart sx={{ fontSize: 22, color: 'white' }} />, 
-    path: '/purchase-orders', 
-    roles: ['SUPER_ADMIN', 'ENGINEER'] 
-  },
-  { 
-    text: 'Equipment Procurement', 
-    icon: <LocalShipping sx={{ fontSize: 22, color: 'white' }} />, 
-    path: '/procurement', 
-    roles: ['SUPER_ADMIN', 'ENGINEER'] 
-  },
-  // ❌ Equipment Categories REMOVED from menu
+  { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
+  { text: 'Hospitals', icon: <LocalHospital />, path: '/hospitals' },
+  { text: 'Equipment', icon: <MedicalServices />, path: '/equipment' },
+  { text: 'Error Logs', icon: <ErrorOutline />, path: '/errors' },
+  { text: 'Repairs', icon: <Build />, path: '/repairs' },
+  { text: 'Knowledge Base', icon: <EmojiObjects />, path: '/knowledge-base' },
+  { text: 'Reports', icon: <Assessment />, path: '/reports' },
+  { text: 'Maintenance', icon: <Handyman />, path: '/maintenance' },
+  { text: 'Spare Parts', icon: <Inventory />, path: '/spare-parts' },
+  { text: 'Service Documentation', icon: <Description />, path: '/service-documentation' },
+  { text: 'AMC Contracts', icon: <Gavel />, path: '/amc' },
+  { text: 'Purchase Orders', icon: <ShoppingCart />, path: '/purchase-orders' },
+  { text: 'Equipment Procurement', icon: <LocalShipping />, path: '/procurement' },
 ];
 
 // ============================================================
@@ -280,52 +244,38 @@ const MainLayout = () => {
     return url;
   };
 
-  // ============================================================
-  // ✅ Get user's profile image URL
-  // ============================================================
   const profileImageUrl = user?.profile_image ? getFullImageUrl(user.profile_image) : null;
 
   // ============================================================
-  // ✅ GET FILTERED MENU ITEMS BASED ON USER ROLE
+  // ✅ GET FILTERED MENU ITEMS
   // ============================================================
   const getFilteredMenuItems = () => {
     const userRole = user?.role || 'ENGINEER';
-    // ✅ ENGINEER gets all menu items (same as SUPER_ADMIN)
     if (userRole === 'ENGINEER' || userRole === 'SUPER_ADMIN') {
       return menuItems;
     }
-    // ❌ HOSPITAL_ADMIN - No menu items (Access Denied handled elsewhere)
     return [];
   };
 
   const filteredMenuItems = getFilteredMenuItems();
-
-  // ============================================================
-  // ✅ TRACK PREVIOUS UNREAD COUNT
-  // ============================================================
   const prevUnreadCount = useRef(unreadCount);
 
   // ============================================================
-  // ✅ FETCH UNREAD COUNT ON MOUNT
+  // ✅ EFFECTS
   // ============================================================
   useEffect(() => {
     if (user) {
-      console.log('🔔 Fetching initial unread count...');
       dispatch(fetchUnreadCount());
       dispatch(fetchNotifications());
     }
   }, [dispatch, user]);
 
-  // ============================================================
-  // ✅ LISTEN FOR PROFILE IMAGE UPDATES VIA STORAGE EVENT
-  // ============================================================
   useEffect(() => {
     const handleStorageChange = (e) => {
       if (e.key === 'user') {
         try {
           const updatedUser = JSON.parse(e.newValue);
           if (updatedUser) {
-            console.log('🔄 Storage event: User updated in other tab:', updatedUser);
             dispatch(refreshUser());
           }
         } catch (error) {
@@ -333,85 +283,56 @@ const MainLayout = () => {
         }
       }
     };
-
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
   }, [dispatch]);
 
-  // ============================================================
-  // ✅ REFRESH USER DATA PERIODICALLY
-  // ============================================================
   useEffect(() => {
     const refreshInterval = setInterval(() => {
       const storedUser = JSON.parse(localStorage.getItem('user'));
       if (storedUser) {
         const currentProfileImage = user?.profile_image;
         const storedProfileImage = storedUser.profile_image;
-        
         if (storedProfileImage !== currentProfileImage) {
-          console.log('🔄 Profile image changed in localStorage, updating Redux...');
           dispatch(updateProfileImage(storedProfileImage));
         }
       }
     }, 30000);
-
     return () => clearInterval(refreshInterval);
   }, [dispatch, user?.profile_image]);
 
-  // ============================================================
-  // ✅ POLL FOR NEW NOTIFICATIONS EVERY 10 SECONDS
-  // ============================================================
   useEffect(() => {
     if (!user) return;
-    
-    console.log('🔔 Starting notification polling...');
     const interval = setInterval(() => {
       dispatch(fetchUnreadCount());
     }, 10000);
-    
-    return () => {
-      console.log('🔔 Stopping notification polling...');
-      clearInterval(interval);
-    };
+    return () => clearInterval(interval);
   }, [dispatch, user]);
 
-  // ============================================================
-  // ✅ HANDLE NEW NOTIFICATIONS
-  // ============================================================
   useEffect(() => {
     if (unreadCount > prevUnreadCount.current) {
-      console.log(`🔴 New notification! Unread count: ${prevUnreadCount.current} -> ${unreadCount}`);
-      
       setBellRing(true);
       setTimeout(() => setBellRing(false), 1500);
       
-      if (soundEnabled) {
-        playNotificationSound();
-      }
+      if (soundEnabled) playNotificationSound();
       
       const lastNotif = notifications?.[0];
       if (browserNotificationsEnabled && lastNotif) {
-        const title = lastNotif.title || 'New Notification';
-        const message = lastNotif.message || 'You have a new notification';
-        sendBrowserNotification(title, message);
+        sendBrowserNotification(lastNotif.title || 'New Notification', lastNotif.message || 'You have a new notification');
       }
       
       toast.info('🔔 You have a new notification!', {
         position: 'top-right',
         autoClose: 4000,
         style: {
-          background: '#0B5FA5',
-          color: 'white',
+          background: colors.sidebar,
+          color: colors.accentGold,
         },
       });
     }
-    
     prevUnreadCount.current = unreadCount;
   }, [unreadCount, notifications, soundEnabled, browserNotificationsEnabled]);
 
-  // ============================================================
-  // ✅ SAVE PREFERENCES
-  // ============================================================
   useEffect(() => {
     localStorage.setItem('notificationSound', soundEnabled);
   }, [soundEnabled]);
@@ -423,24 +344,15 @@ const MainLayout = () => {
   // ============================================================
   // ✅ HANDLERS
   // ============================================================
-  const handleDrawerToggle = () => {
-    setMobileOpen(!mobileOpen);
-  };
-
-  const handleMenuOpen = (event) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-  };
-
+  const handleDrawerToggle = () => setMobileOpen(!mobileOpen);
+  const handleMenuOpen = (event) => setAnchorEl(event.currentTarget);
+  const handleMenuClose = () => setAnchorEl(null);
+  
   const handleLogout = async () => {
     try {
       await dispatch(logout()).unwrap();
       navigate('/login');
     } catch (error) {
-      console.error('Logout error:', error);
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       navigate('/login');
@@ -458,16 +370,11 @@ const MainLayout = () => {
     handleMenuClose();
   };
 
-  const handleNotificationOpen = (event) => {
-    setNotificationAnchor(event.currentTarget);
-  };
-
-  const handleNotificationClose = () => {
-    setNotificationAnchor(null);
-  };
+  const handleNotificationOpen = (event) => setNotificationAnchor(event.currentTarget);
+  const handleNotificationClose = () => setNotificationAnchor(null);
 
   // ============================================================
-  // ✅ DRAWER CONTENT
+  // ✅ DRAWER CONTENT - LARGER TEXT, NO SCROLL
   // ============================================================
   const drawer = (
     <Box
@@ -475,64 +382,93 @@ const MainLayout = () => {
         height: '100vh',
         display: 'flex',
         flexDirection: 'column',
-        bgcolor: '#0B5FA5',
+        bgcolor: colors.sidebar,
+        backgroundImage: `linear-gradient(180deg, ${colors.sidebar} 0%, ${colors.active} 40%, ${colors.sidebar} 100%)`,
         overflow: 'hidden',
         width: '100%',
+        borderRight: `1px solid rgba(201, 162, 39, 0.08)`,
+        boxShadow: '4px 0 30px rgba(0,0,0,0.3)',
+        position: 'relative',
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: `radial-gradient(circle at 50% 0%, rgba(201, 162, 39, 0.03) 0%, transparent 70%)`,
+          pointerEvents: 'none',
+        },
+        '&::after': {
+          content: '""',
+          position: 'absolute',
+          top: 0,
+          right: 0,
+          width: '1px',
+          height: '100%',
+          background: `linear-gradient(180deg, transparent, rgba(201, 162, 39, 0.2), transparent)`,
+          animation: 'glowPulse 3s ease-in-out infinite',
+          pointerEvents: 'none',
+        },
       }}
     >
-      {/* Logo */}
+      {/* Logo Section */}
       <Box
         sx={{
-          p: { xs: 1.5, sm: 2 },
+          p: { xs: 0.8, sm: 1.2 },
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          borderBottom: '1px solid rgba(255,255,255,0.1)',
+          borderBottom: `1px solid rgba(201, 162, 39, 0.08)`,
           flexShrink: 0,
-          minHeight: { xs: 80, sm: 100 },
+          minHeight: { xs: 75, sm: 95 },
+          position: 'relative',
         }}
       >
-        <img
-          src="/logo.png"
-          alt="PAEC Logo"
-          style={{
-            width: isMobile ? 70 : 90,
-            height: isMobile ? 70 : 90,
-            objectFit: 'contain',
-          }}
-        />
+        <Box sx={{ position: 'relative' }}>
+          <img
+            src="/logoo.png"
+            alt="PAEC Logo"
+            style={{
+              width: isMobile ? 80 : 105,
+              height: isMobile ? 80 : 105,
+              objectFit: 'contain',
+              backgroundColor: 'transparent',
+              filter: 'brightness(1.1) drop-shadow(0 0 25px rgba(201, 162, 39, 0.15))',
+            }}
+            onError={(e) => {
+              console.warn('⚠️ logoo.png not found, falling back to logo.png');
+              e.target.src = '/logo.png';
+            }}
+          />
+          <Box
+            sx={{
+              position: 'absolute',
+              top: -25,
+              left: -25,
+              right: -25,
+              bottom: -25,
+              borderRadius: '50%',
+              background: `radial-gradient(circle, rgba(201, 162, 39, 0.06) 0%, transparent 70%)`,
+              animation: 'glowPulse 4s ease-in-out infinite',
+              pointerEvents: 'none',
+            }}
+          />
+        </Box>
       </Box>
 
-      {/* Menu Container */}
+      {/* ✅ COMPACT MENU - LARGER TEXT, NO SCROLL */}
       <Box
         sx={{
           flex: 1,
-          overflowY: 'auto',
-          overflowX: 'hidden',
-          py: { xs: 1, sm: 2 },
-          px: { xs: 0.5, sm: 1 },
-          scrollBehavior: 'smooth',
-          WebkitOverflowScrolling: 'touch',
-          '&::-webkit-scrollbar': {
-            width: '4px',
-          },
-          '&::-webkit-scrollbar-track': {
-            background: 'rgba(255,255,255,0.1)',
-            borderRadius: '4px',
-          },
-          '&::-webkit-scrollbar-thumb': {
-            background: 'rgba(255,255,255,0.3)',
-            borderRadius: '4px',
-            transition: 'background 0.3s ease',
-          },
-          '&::-webkit-scrollbar-thumb:hover': {
-            background: 'rgba(255,255,255,0.5)',
-          },
-          scrollbarWidth: 'thin',
-          scrollbarColor: 'rgba(255,255,255,0.3) rgba(255,255,255,0.1)',
+          overflow: 'hidden',
+          py: { xs: 0.1, sm: 0.2 },
+          px: { xs: 0.2, sm: 0.3 },
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
-        <List sx={{ p: 0 }}>
+        <List sx={{ p: 0, m: 0 }}>
           {filteredMenuItems.map((item) => (
             <ListItem
               button
@@ -542,22 +478,71 @@ const MainLayout = () => {
                 if (isMobile) setMobileOpen(false);
               }}
               sx={{
-                mx: { xs: 0.5, sm: 1 },
-                mb: 0.5,
-                borderRadius: 2,
-                color: 'white',
-                py: { xs: 1, sm: 1.2 },
-                px: { xs: 1, sm: 2 },
-                minHeight: { xs: 44, sm: 48 },
-                transition: 'all 0.2s ease',
+                mx: { xs: 0.1, sm: 0.2 },
+                mb: 0.1,
+                borderRadius: 1.5,
+                color: colors.secondaryText,
+                py: { xs: 0.4, sm: 0.5 },
+                px: { xs: 0.8, sm: 1.2 },
+                minHeight: { xs: 32, sm: 36 },
+                transition: 'all 0.3s ease',
+                position: 'relative',
+                overflow: 'hidden',
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  left: 0,
+                  top: '15%',
+                  height: '70%',
+                  width: '2px',
+                  background: colors.accentGold,
+                  transform: 'scaleX(0)',
+                  transition: 'transform 0.3s ease',
+                  boxShadow: `0 0 15px rgba(201, 162, 39, 0.3)`,
+                },
                 '&:hover': {
-                  bgcolor: 'rgba(255,255,255,0.1)',
-                  transform: 'scale(1.02)',
+                  bgcolor: colors.sidebarHover,
+                  color: colors.text,
+                  transform: 'translateX(3px)',
+                  '&::before': {
+                    transform: 'scaleX(1)',
+                  },
+                  '& .MuiListItemIcon-root': {
+                    color: colors.accentGold,
+                    transform: 'scale(1.05)',
+                  },
                 },
                 '&.Mui-selected': {
-                  bgcolor: '#C9A227',
+                  color: colors.text,
+                  background: `linear-gradient(135deg, ${colors.active} 0%, ${colors.accentGold}30 40%, ${colors.active} 80%, ${colors.active} 100%)`,
+                  backgroundSize: '200% 200%',
+                  animation: 'gradientShine 3s ease-in-out infinite',
+                  boxShadow: `inset 0 0 30px rgba(201, 162, 39, 0.1)`,
+                  transform: 'scale(1.02)',
+                  '&::before': {
+                    transform: 'scaleX(1)',
+                    boxShadow: `0 0 30px rgba(201, 162, 39, 0.5)`,
+                    width: '3px',
+                  },
+                  '&::after': {
+                    content: '""',
+                    position: 'absolute',
+                    inset: 0,
+                    borderRadius: 1.5,
+                    background: `radial-gradient(circle at 50% 50%, ${colors.accentGold}10 0%, transparent 70%)`,
+                    pointerEvents: 'none',
+                  },
+                  '& .MuiListItemIcon-root': {
+                    color: colors.accentGold,
+                    animation: 'iconFloat 3s ease-in-out infinite',
+                    filter: 'drop-shadow(0 0 15px rgba(201, 162, 39, 0.4))',
+                  },
+                  '& .MuiTypography-root': {
+                    fontWeight: 600,
+                    textShadow: `0 0 20px rgba(201, 162, 39, 0.2)`,
+                  },
                   '&:hover': {
-                    bgcolor: '#C9A227',
+                    background: `linear-gradient(135deg, ${colors.active} 0%, ${colors.accentGold}40 40%, ${colors.active} 80%, ${colors.active} 100%)`,
                   },
                 },
               }}
@@ -565,19 +550,19 @@ const MainLayout = () => {
             >
               <ListItemIcon
                 sx={{
-                  color: 'white',
-                  minWidth: { xs: 36, sm: 40 },
+                  color: colors.secondaryText,
+                  minWidth: { xs: 28, sm: 32 },
+                  transition: 'all 0.3s ease',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  flexShrink: 0,
                 }}
               >
                 {React.isValidElement(item.icon) ? (
                   React.cloneElement(item.icon, {
                     sx: {
-                      fontSize: 22,
-                      color: 'white',
+                      fontSize: { xs: 17, sm: 19 },
+                      transition: 'all 0.3s ease',
                       ...(item.icon.props.sx || {}),
                     }
                   })
@@ -588,25 +573,37 @@ const MainLayout = () => {
               <ListItemText
                 primary={item.text}
                 primaryTypographyProps={{
-                  fontSize: { xs: '12px', sm: '13px', md: '14px' },
+                  fontSize: { xs: '11px', sm: '12px', md: '13px' },
                   fontWeight: 500,
                   noWrap: true,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
+                  letterSpacing: '0.2px',
+                  transition: 'all 0.3s ease',
                 }}
-                sx={{
-                  margin: 0,
-                  flex: 1,
-                  minWidth: 0,
-                  width: '100%',
-                }}
+                sx={{ margin: 0, flex: 1, minWidth: 0 }}
               />
+              {window.location.pathname === item.path && (
+                <Box
+                  sx={{
+                    width: 5,
+                    height: 5,
+                    borderRadius: '50%',
+                    bgcolor: colors.accentGold,
+                    flexShrink: 0,
+                    ml: 0.5,
+                    boxShadow: `0 0 20px rgba(201, 162, 39, 0.6)`,
+                    animation: 'glowPulse 2s ease-in-out infinite',
+                  }}
+                />
+              )}
             </ListItem>
           ))}
         </List>
+        
+        {/* ✅ PUSH EXTRA SPACE TO BOTTOM - NO SCROLL */}
+        <Box sx={{ flex: 1 }} />
       </Box>
       
-      {/* ✅ Footer - REMOVED Role Badge (Engineer Mode / Super Admin) */}
+      {/* ❌ FOOTER REMOVED */}
     </Box>
   );
 
@@ -614,13 +611,11 @@ const MainLayout = () => {
   // ✅ DRAWER WIDTH
   // ============================================================
   const getDrawerWidth = () => {
-    if (isMobile) return drawerWidth;
-    if (isTablet) return 240;
-    return drawerWidth;
+    if (isMobile) return 230;
+    if (isTablet) return 210;
+    return 240;
   };
 
-  // ✅ Only Super Admin and Engineer can access
-  // ❌ Hospital Admin is blocked (Access Denied handled in route)
   const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'ENGINEER';
 
   // ============================================================
@@ -631,17 +626,14 @@ const MainLayout = () => {
       <style>{badgeStyles}</style>
       <NotificationSound />
       
-      {/* ============================================================ */}
-      {/* ✅ APP BAR - NAVBAR WITH PROFILE IMAGE */}
-      {/* ============================================================ */}
       <AppBar
         position="fixed"
         sx={{
           width: { sm: `calc(100% - ${getDrawerWidth()}px)` },
           ml: { sm: `${getDrawerWidth()}px` },
-          bgcolor: 'white',
-          boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
-          borderBottom: '1px solid #e9ecef',
+          bgcolor: colors.white,
+          boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+          borderBottom: `1px solid rgba(1, 65, 28, 0.06)`,
           zIndex: 1200,
         }}
       >
@@ -650,55 +642,61 @@ const MainLayout = () => {
             display: 'flex',
             justifyContent: 'space-between',
             px: { xs: 1.5, sm: 3 },
-            minHeight: { xs: 64, sm: 72 },
+            minHeight: { xs: 60, sm: 68 },
           }}
         >
-          {/* LEFT: Menu + Title */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <IconButton
-              color="primary"
               edge="start"
               onClick={handleDrawerToggle}
-              sx={{ display: { sm: 'none' } }}
+              sx={{ 
+                display: { sm: 'none' },
+                color: colors.sidebar,
+                '&:hover': {
+                  color: colors.accentGold,
+                },
+              }}
             >
               <MenuIcon />
             </IconButton>
             <Typography
               variant="h6"
               sx={{
-                color: '#0B5FA5',
+                color: colors.sidebar,
                 fontWeight: 700,
-                fontSize: { xs: '18px', sm: '22px', md: '24px' },
+                fontSize: { xs: '14px', sm: '18px', md: '20px' },
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
+                letterSpacing: '0.3px',
+                position: 'relative',
+                '&::after': {
+                  content: '""',
+                  position: 'absolute',
+                  bottom: -2,
+                  left: 0,
+                  width: '30%',
+                  height: '2px',
+                  background: `linear-gradient(90deg, ${colors.sidebar}, ${colors.accentGold})`,
+                  borderRadius: '2px',
+                },
               }}
             >
               PAEC Equipment Management
             </Typography>
           </Box>
 
-          {/* CENTER: Global Search */}
           <GlobalSearch />
 
-          {/* RIGHT: Big Bell + Avatar */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 2 } }}>
-            
-            {/* 🔔 BELL WITH BADGE */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 1.5 } }}>
             <Tooltip title={unreadCount > 0 ? `${unreadCount} unread notifications` : 'No notifications'}>
               <IconButton
-                color="primary"
                 onClick={handleNotificationOpen}
-                data-notification-icon="true"
                 sx={{
-                  padding: { xs: 1, sm: 1.5 },
-                  position: 'relative',
-                  border: '2px solid transparent',
-                  borderRadius: '50%',
-                  transition: 'all 0.3s',
+                  padding: { xs: 0.8, sm: 1.2 },
+                  transition: 'all 0.3s ease',
                   '&:hover': {
-                    backgroundColor: 'rgba(11, 95, 165, 0.08)',
-                    border: '2px solid #0B5FA5',
+                    backgroundColor: `rgba(1, 65, 28, 0.08)`,
                     transform: 'scale(1.05)',
                   },
                 }}
@@ -710,46 +708,40 @@ const MainLayout = () => {
                   className={bellRing ? 'bell-ring' : ''}
                   sx={{
                     '& .MuiBadge-badge': {
-                      bgcolor: '#dc3545',
-                      color: 'white',
-                      fontSize: { xs: '9px', sm: '10px' },
-                      fontWeight: 700,
-                      minWidth: { xs: 16, sm: 20 },
-                      height: { xs: 16, sm: 20 },
+                      bgcolor: colors.accentGold,
+                      color: colors.sidebar,
+                      fontSize: { xs: '8px', sm: '9px' },
+                      fontWeight: 800,
+                      minWidth: { xs: 14, sm: 18 },
+                      height: { xs: 14, sm: 18 },
                       borderRadius: '50%',
-                      boxShadow: '0 2px 4px rgba(220, 53, 69, 0.3)',
-                      border: '2px solid white',
-                      padding: '0 4px',
+                      boxShadow: `0 0 15px rgba(201, 162, 39, 0.3)`,
+                      border: `2px solid ${colors.white}`,
+                      padding: '0 3px',
                       animation: unreadCount > 0 ? 'badgePulse 2s ease-in-out infinite' : 'none',
                     },
                   }}
                 >
-                  <Notifications 
-                    sx={{ 
-                      fontSize: { xs: 28, sm: 36 },
-                      color: '#0B5FA5',
-                      animation: bellRing ? 'bellRing 0.6s ease-in-out 3' : 'none',
-                    }} 
-                  />
+                  <Notifications sx={{ fontSize: { xs: 22, sm: 28 }, color: colors.sidebar }} />
                 </Badge>
               </IconButton>
             </Tooltip>
 
-            {/* ✅👤 AVATAR - Profile picture from Redux with proper image URL */}
-            <IconButton onClick={handleMenuOpen} sx={{ p: { xs: 0.5, sm: 0.75 } }}>
+            <IconButton onClick={handleMenuOpen} sx={{ p: { xs: 0.3, sm: 0.5 } }}>
               <Avatar
                 src={profileImageUrl}
                 sx={{
-                  bgcolor: '#0B5FA5',
-                  width: { xs: 38, sm: 44 },
-                  height: { xs: 38, sm: 44 },
-                  fontSize: { xs: '16px', sm: '18px' },
+                  bgcolor: colors.sidebar,
+                  width: { xs: 30, sm: 38 },
+                  height: { xs: 30, sm: 38 },
+                  fontSize: { xs: '12px', sm: '14px' },
                   fontWeight: 600,
-                  border: '2px solid #0B5FA5',
-                  transition: 'all 0.3s',
+                  border: `2px solid ${colors.accentGold}`,
+                  boxShadow: `0 0 15px rgba(201, 162, 39, 0.1)`,
+                  transition: 'all 0.3s ease',
                   '&:hover': {
                     transform: 'scale(1.05)',
-                    border: '2px solid #C9A227',
+                    boxShadow: `0 0 25px rgba(201, 162, 39, 0.2)`,
                   },
                 }}
               >
@@ -757,34 +749,42 @@ const MainLayout = () => {
               </Avatar>
             </IconButton>
 
-            {/* PROFILE MENU */}
             <Menu
               anchorEl={anchorEl}
               open={Boolean(anchorEl)}
               onClose={handleMenuClose}
               transformOrigin={{ horizontal: 'right', vertical: 'top' }}
               anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+              PaperProps={{
+                sx: {
+                  mt: 1,
+                  borderRadius: 2,
+                  boxShadow: '0 8px 30px rgba(0,0,0,0.1)',
+                  minWidth: 160,
+                  border: `1px solid ${colors.borderColor}`,
+                }
+              }}
             >
-              <MenuItem onClick={handleProfileClick}>
+              <MenuItem onClick={handleProfileClick} sx={{ '&:hover': { bgcolor: `${colors.sidebar}08` } }}>
                 <ListItemIcon>
-                  <AccountCircle fontSize="small" />
+                  <AccountCircle sx={{ color: colors.sidebar }} fontSize="small" />
                 </ListItemIcon>
                 Profile
               </MenuItem>
 
               {isAdmin && (
-                <MenuItem onClick={handleUsersClick}>
+                <MenuItem onClick={handleUsersClick} sx={{ '&:hover': { bgcolor: `${colors.sidebar}08` } }}>
                   <ListItemIcon>
-                    <PersonAdd fontSize="small" />
+                    <PersonAdd sx={{ color: colors.sidebar }} fontSize="small" />
                   </ListItemIcon>
                   Users
                 </MenuItem>
               )}
 
-              <Divider />
-              <MenuItem onClick={handleLogout}>
+              <Divider sx={{ borderColor: colors.borderColor }} />
+              <MenuItem onClick={handleLogout} sx={{ color: colors.error, '&:hover': { bgcolor: `${colors.error}08` } }}>
                 <ListItemIcon>
-                  <ExitToApp fontSize="small" />
+                  <ExitToApp sx={{ color: colors.error }} fontSize="small" />
                 </ListItemIcon>
                 Logout
               </MenuItem>
@@ -793,22 +793,13 @@ const MainLayout = () => {
         </Toolbar>
       </AppBar>
 
-      {/* Notifications Dropdown */}
       <NotificationsDropdown
         open={Boolean(notificationAnchor)}
         anchorEl={notificationAnchor}
         onClose={handleNotificationClose}
       />
 
-      {/* Sidebar Drawer */}
-      <Box
-        component="nav"
-        sx={{
-          width: { sm: getDrawerWidth() },
-          flexShrink: { sm: 0 },
-        }}
-      >
-        {/* Mobile Drawer */}
+      <Box component="nav" sx={{ width: { sm: getDrawerWidth() }, flexShrink: { sm: 0 } }}>
         <Drawer
           variant="temporary"
           open={mobileOpen}
@@ -818,16 +809,15 @@ const MainLayout = () => {
             display: { xs: 'block', sm: 'none' },
             '& .MuiDrawer-paper': {
               boxSizing: 'border-box',
-              width: drawerWidth,
+              width: 230,
               overflow: 'hidden',
-              bgcolor: '#0B5FA5',
+              bgcolor: colors.sidebar,
             },
           }}
         >
           {drawer}
         </Drawer>
 
-        {/* Desktop Drawer */}
         <Drawer
           variant="permanent"
           sx={{
@@ -836,12 +826,8 @@ const MainLayout = () => {
               boxSizing: 'border-box',
               width: getDrawerWidth(),
               border: 'none',
-              bgcolor: '#0B5FA5',
+              bgcolor: colors.sidebar,
               overflow: 'hidden',
-              transition: theme.transitions.create('width', {
-                easing: theme.transitions.easing.sharp,
-                duration: theme.transitions.duration.enteringScreen,
-              }),
             },
           }}
           open
@@ -850,7 +836,6 @@ const MainLayout = () => {
         </Drawer>
       </Box>
 
-      {/* Main Content */}
       <Box
         component="main"
         sx={{
@@ -862,7 +847,7 @@ const MainLayout = () => {
           display: 'flex',
           flexDirection: 'column',
           minHeight: { xs: 'calc(100vh - 56px)', sm: 'calc(100vh - 64px)' },
-          bgcolor: '#F5F7FA',
+          bgcolor: colors.mainBg,
         }}
       >
         <Box sx={{ flex: 1 }}>
@@ -870,7 +855,6 @@ const MainLayout = () => {
         </Box>
       </Box>
 
-      {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={3000}

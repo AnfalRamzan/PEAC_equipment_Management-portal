@@ -1,7 +1,5 @@
 // src/pages/SpareParts.jsx
-// ✅ ENGINEER: Add, View, Edit (NO Delete)
-// ✅ SUPER_ADMIN: Add, View, Edit, Delete (Full Access)
-// ❌ HOSPITAL_ADMIN: Access Denied
+// ✅ PAEC THEME - Green & Gold Colors
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -65,6 +63,30 @@ import { useNavigate } from 'react-router-dom'
 import AccessDenied from '../components/Auth/AccessDenied'
 import FileUpload from '../components/FileUpload'
 
+// ============================================================
+// ✅ PAEC THEME COLORS
+// ============================================================
+const colors = {
+  sidebar: '#01411C',
+  sidebarHover: '#0B542B',
+  active: '#0E6335',
+  accentGold: '#C9A227',
+  goldLight: '#E8C84A',
+  text: '#FFFFFF',
+  secondaryText: '#B8C8BE',
+  mainBg: '#F0F2F5',
+  white: '#FFFFFF',
+  darkText: '#1A2A3A',
+  lightText: '#5A7A8A',
+  error: '#D32F2F',
+  success: '#2E7D32',
+  warning: '#ED6C02',
+  info: '#0B5FA5',
+  borderColor: 'rgba(1, 65, 28, 0.08)',
+  shadowColor: 'rgba(1, 65, 28, 0.08)',
+  cardBg: '#FFFFFF',
+}
+
 // ==================== HELPER FUNCTIONS ====================
 const getFullImageUrl = (url) => {
   if (!url) return ''
@@ -82,7 +104,6 @@ const SpareParts = () => {
   
   const { user } = useSelector((state) => state.auth)
   
-  // ✅ HOSPITAL_ADMIN - Access Denied
   if (user?.role === 'HOSPITAL_ADMIN') {
     return <AccessDenied message="Hospital Administrators cannot access Spare Parts Inventory." />
   }
@@ -90,13 +111,10 @@ const SpareParts = () => {
   const isEngineer = user?.role === 'ENGINEER'
   const isSuperAdmin = user?.role === 'SUPER_ADMIN'
   
-  // ✅ PERMISSIONS
-  // ✅ ENGINEER: Add, View, Edit (NO Delete)
-  // ✅ SUPER_ADMIN: Add, View, Edit, Delete (Full Access)
   const canCreate = isEngineer || isSuperAdmin
   const canEdit = isEngineer || isSuperAdmin
-  const canDelete = isSuperAdmin // ✅ ONLY Super Admin can delete
-  const canUseInRepair = isEngineer // ✅ Engineer can use in repair
+  const canDelete = isSuperAdmin
+  const canUseInRepair = isEngineer
 
   const [spareParts, setSpareParts] = useState([])
   const [repairs, setRepairs] = useState([])
@@ -352,19 +370,17 @@ const SpareParts = () => {
   })
 
   if (loading) {
-    return <LinearProgress />
+    return <LinearProgress sx={{ bgcolor: colors.borderColor, '& .MuiLinearProgress-bar': { bgcolor: colors.accentGold } }} />
   }
 
   return (
     <Box>
-      {/* ✅ Header - REMOVED ROLE CHIPS */}
+      {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Typography variant="h5" sx={{ fontWeight: 700, color: '#2C3E50' }}>
+          <Typography variant="h5" sx={{ fontWeight: 700, color: colors.sidebar }}>
             Spare Parts Inventory
           </Typography>
-          {/* ❌ REMOVED: Engineer Chip */}
-          {/* ❌ REMOVED: Super Admin Chip */}
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button
@@ -372,7 +388,12 @@ const SpareParts = () => {
             startIcon={<Refresh />}
             onClick={fetchSpareParts}
             size="small"
-            sx={{ borderRadius: 2 }}
+            sx={{ 
+              borderColor: colors.sidebar, 
+              color: colors.sidebar,
+              '&:hover': { borderColor: colors.accentGold, color: colors.accentGold },
+              borderRadius: 2
+            }}
           >
             Refresh
           </Button>
@@ -381,7 +402,11 @@ const SpareParts = () => {
               variant="contained"
               startIcon={<Add />}
               onClick={() => handleOpenDialog()}
-              sx={{ bgcolor: '#0B5FA5', '&:hover': { bgcolor: '#084a8a' } }}
+              sx={{ 
+                bgcolor: colors.sidebar, 
+                '&:hover': { bgcolor: colors.sidebarHover },
+                boxShadow: `0 4px 16px ${colors.sidebar}44`
+              }}
             >
               Add Spare Part
             </Button>
@@ -393,16 +418,25 @@ const SpareParts = () => {
       {lowStockItems.length > 0 && (
         <Alert 
           severity="warning" 
-          sx={{ mb: 2 }}
+          sx={{ 
+            mb: 2, 
+            borderRadius: 2,
+            border: `1px solid ${colors.warning}33`,
+            '& .MuiAlert-icon': { color: colors.warning }
+          }}
           icon={<WarningIcon />}
           action={
             <Button 
-              color="warning" 
               size="small" 
               variant="outlined"
               startIcon={<ShoppingCart />}
               onClick={() => navigate('/procurement')}
-              sx={{ mt: 0.5 }}
+              sx={{ 
+                mt: 0.5,
+                borderColor: colors.warning,
+                color: colors.warning,
+                '&:hover': { borderColor: colors.accentGold, color: colors.accentGold }
+              }}
             >
               Create Purchase Request
             </Button>
@@ -428,7 +462,12 @@ const SpareParts = () => {
       {outOfStockItems.length > 0 && (
         <Alert 
           severity="error" 
-          sx={{ mb: 2 }}
+          sx={{ 
+            mb: 2, 
+            borderRadius: 2,
+            border: `1px solid ${colors.error}33`,
+            '& .MuiAlert-icon': { color: colors.error }
+          }}
           icon={<WarningIcon />}
         >
           <Typography variant="body2">
@@ -441,49 +480,74 @@ const SpareParts = () => {
       {/* Stats Cards */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={6} sm={3}>
-          <Card sx={{ borderRadius: 2 }}>
+          <Card sx={{ 
+            borderRadius: 2, 
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 2px 12px rgba(0,0,0,0.04)'
+          }}>
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" color="#0B5FA5" fontWeight={700}>
+              <Typography variant="h4" sx={{ color: colors.sidebar, fontWeight: 700 }}>
                 {spareParts.length}
               </Typography>
-              <Typography variant="body2" color="textSecondary">Total Parts</Typography>
+              <Typography variant="body2" sx={{ color: colors.lightText }}>Total Parts</Typography>
             </CardContent>
           </Card>
         </Grid>
         <Grid item xs={6} sm={3}>
-          <Card sx={{ borderRadius: 2 }}>
+          <Card sx={{ 
+            borderRadius: 2, 
+            border: `1px solid ${colors.success}33`,
+            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+            bgcolor: `${colors.success}08`
+          }}>
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" color="#28a745" fontWeight={700}>
+              <Typography variant="h4" sx={{ color: colors.success, fontWeight: 700 }}>
                 {spareParts.filter(p => p.quantity > (p.minimum_stock_level || 5)).length}
               </Typography>
-              <Typography variant="body2" color="textSecondary">In Stock</Typography>
+              <Typography variant="body2" sx={{ color: colors.lightText }}>In Stock</Typography>
             </CardContent>
           </Card>
         </Grid>
         <Grid item xs={6} sm={3}>
-          <Card sx={{ borderRadius: 2 }}>
+          <Card sx={{ 
+            borderRadius: 2, 
+            border: `1px solid ${colors.error}33`,
+            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+            bgcolor: `${colors.error}08`
+          }}>
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" color="#dc3545" fontWeight={700}>
+              <Typography variant="h4" sx={{ color: colors.error, fontWeight: 700 }}>
                 {lowStockItems.length}
               </Typography>
-              <Typography variant="body2" color="textSecondary">Low Stock</Typography>
+              <Typography variant="body2" sx={{ color: colors.lightText }}>Low Stock</Typography>
             </CardContent>
           </Card>
         </Grid>
         <Grid item xs={6} sm={3}>
-          <Card sx={{ borderRadius: 2 }}>
+          <Card sx={{ 
+            borderRadius: 2, 
+            border: `1px solid ${colors.accentGold}33`,
+            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+            bgcolor: `${colors.accentGold}08`
+          }}>
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" color="#C9A227" fontWeight={700}>
+              <Typography variant="h4" sx={{ color: colors.accentGold, fontWeight: 700 }}>
                 {new Set(spareParts.map(p => p.brand)).size}
               </Typography>
-              <Typography variant="body2" color="textSecondary">Brands</Typography>
+              <Typography variant="body2" sx={{ color: colors.lightText }}>Brands</Typography>
             </CardContent>
           </Card>
         </Grid>
       </Grid>
 
       {/* Search & Filters */}
-      <Paper sx={{ p: 2, mb: 3, borderRadius: 2 }}>
+      <Paper sx={{ 
+        p: 2, 
+        mb: 3, 
+        borderRadius: 2,
+        border: `1px solid ${colors.borderColor}`,
+        boxShadow: '0 2px 12px rgba(0,0,0,0.04)'
+      }}>
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
           <TextField
             size="small"
@@ -494,9 +558,15 @@ const SpareParts = () => {
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <Search />
+                  <Search sx={{ color: colors.lightText }} />
                 </InputAdornment>
-              )
+              ),
+              sx: {
+                '& .MuiOutlinedInput-root': {
+                  '&:hover fieldset': { borderColor: colors.sidebar },
+                  '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                }
+              }
             }}
           />
           <TextField
@@ -505,17 +575,34 @@ const SpareParts = () => {
             value={filters.brand}
             onChange={(e) => setFilters({ ...filters, brand: e.target.value })}
             sx={{ minWidth: 150 }}
+            InputProps={{
+              sx: {
+                '& .MuiOutlinedInput-root': {
+                  '&:hover fieldset': { borderColor: colors.sidebar },
+                  '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                }
+              }
+            }}
           />
-          <Button variant="outlined" startIcon={<Download />} size="small">
+          <Button 
+            variant="outlined" 
+            startIcon={<Download />} 
+            size="small"
+            sx={{ 
+              borderColor: colors.borderColor, 
+              color: colors.darkText,
+              '&:hover': { borderColor: colors.accentGold, color: colors.accentGold }
+            }}
+          >
             Export
           </Button>
         </Box>
       </Paper>
 
-      {/* Table */}
-      <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
+      {/* Table - THEMED */}
+      <TableContainer component={Paper} sx={{ borderRadius: 2, border: `1px solid ${colors.borderColor}` }}>
         <Table>
-          <TableHead sx={{ bgcolor: '#0B5FA5' }}>
+          <TableHead sx={{ bgcolor: colors.sidebar }}>
             <TableRow>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Part Name</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Part Number</TableCell>
@@ -532,7 +619,7 @@ const SpareParts = () => {
             {filteredParts.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={9} align="center">
-                  <Typography variant="body1" sx={{ py: 4, color: '#6c757d' }}>
+                  <Typography variant="body1" sx={{ py: 4, color: colors.lightText }}>
                     No spare parts found
                   </Typography>
                 </TableCell>
@@ -543,30 +630,40 @@ const SpareParts = () => {
                 const imageUrl = getFullImageUrl(part.image_url)
                 
                 return (
-                  <TableRow key={part.id} hover sx={{ bgcolor: isLowStock ? 'rgba(255, 152, 0, 0.05)' : 'inherit' }}>
+                  <TableRow key={part.id} hover sx={{ bgcolor: isLowStock ? `${colors.warning}08` : 'inherit' }}>
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography variant="body2" fontWeight={500}>
+                        <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkText }}>
                           {part.part_name}
                         </Typography>
                         {isLowStock && (
                           <Chip 
                             label="Low Stock" 
                             size="small" 
-                            color="warning" 
+                            sx={{ 
+                              bgcolor: colors.warning, 
+                              color: 'white',
+                              fontWeight: 500,
+                              '& .MuiChip-icon': { color: 'white' }
+                            }}
                             icon={<WarningIcon sx={{ fontSize: 14 }} />}
-                            sx={{ ml: 1 }}
                           />
                         )}
                       </Box>
                     </TableCell>
-                    <TableCell>{part.part_number || '-'}</TableCell>
-                    <TableCell>{part.brand || '-'}</TableCell>
+                    <TableCell sx={{ color: colors.lightText }}>{part.part_number || '-'}</TableCell>
+                    <TableCell sx={{ color: colors.lightText }}>{part.brand || '-'}</TableCell>
                     <TableCell>
                       <Chip 
                         label={part.quantity} 
                         size="small" 
-                        color={isLowStock ? 'error' : part.quantity < 10 ? 'warning' : 'success'}
+                        sx={{
+                          bgcolor: isLowStock ? colors.error : part.quantity < 10 ? colors.warning : colors.success,
+                          color: 'white',
+                          fontWeight: 500,
+                          height: 22,
+                          fontSize: '11px'
+                        }}
                       />
                     </TableCell>
                     <TableCell>
@@ -574,15 +671,20 @@ const SpareParts = () => {
                         label={part.minimum_stock_level || 5} 
                         size="small" 
                         variant="outlined"
+                        sx={{ borderColor: colors.borderColor, color: colors.lightText }}
                       />
                     </TableCell>
-                    <TableCell>{formatPKR(part.unit_cost)}</TableCell>
-                    <TableCell>{formatPKR(part.total_cost)}</TableCell>
-                    <TableCell>{part.compatible_equipment || '-'}</TableCell>
+                    <TableCell sx={{ color: colors.darkText }}>{formatPKR(part.unit_cost)}</TableCell>
+                    <TableCell sx={{ color: colors.darkText }}>{formatPKR(part.total_cost)}</TableCell>
+                    <TableCell sx={{ color: colors.lightText }}>{part.compatible_equipment || '-'}</TableCell>
                     <TableCell align="center">
                       <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5 }}>
                         <Tooltip title="View Details">
-                          <IconButton size="small" color="primary" onClick={() => handleView(part)}>
+                          <IconButton 
+                            size="small" 
+                            onClick={() => handleView(part)}
+                            sx={{ color: colors.sidebar, '&:hover': { color: colors.accentGold } }}
+                          >
                             <Visibility fontSize="small" />
                           </IconButton>
                         </Tooltip>
@@ -591,27 +693,33 @@ const SpareParts = () => {
                           <Tooltip title="Use in Repair">
                             <IconButton 
                               size="small" 
-                              color="success" 
                               onClick={() => handleUseInRepair(part)}
+                              sx={{ color: colors.sidebar, '&:hover': { color: colors.accentGold } }}
                             >
                               <Build fontSize="small" />
                             </IconButton>
                           </Tooltip>
                         )}
                         
-                        {/* ✅ Both Engineer and Super Admin can Edit */}
                         {canEdit && (
                           <Tooltip title="Edit">
-                            <IconButton size="small" color="info" onClick={() => handleOpenDialog(part)}>
+                            <IconButton 
+                              size="small" 
+                              onClick={() => handleOpenDialog(part)}
+                              sx={{ color: colors.sidebar, '&:hover': { color: colors.accentGold } }}
+                            >
                               <Edit fontSize="small" />
                             </IconButton>
                           </Tooltip>
                         )}
                         
-                        {/* ✅ ONLY Super Admin can Delete */}
                         {canDelete && (
                           <Tooltip title="Delete">
-                            <IconButton size="small" color="error" onClick={() => handleDelete(part.id)}>
+                            <IconButton 
+                              size="small" 
+                              color="error" 
+                              onClick={() => handleDelete(part.id)}
+                            >
                               <Delete fontSize="small" />
                             </IconButton>
                           </Tooltip>
@@ -626,18 +734,14 @@ const SpareParts = () => {
         </Table>
       </TableContainer>
 
-      {/* View Dialog */}
+      {/* View Dialog - THEMED */}
       <Dialog open={openViewDialog} onClose={handleCloseView} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ bgcolor: '#0B5FA5', color: 'white' }}>
+        <DialogTitle sx={{ bgcolor: colors.sidebar, color: 'white' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6" fontWeight={600}>Spare Part Details</Typography>
-            <Box>
-              {/* ❌ REMOVED: Engineer Chip */}
-              {/* ❌ REMOVED: Super Admin Chip */}
-              <IconButton onClick={handleCloseView} sx={{ color: 'white' }}>
-                <Close />
-              </IconButton>
-            </Box>
+            <IconButton onClick={handleCloseView} sx={{ color: 'white' }}>
+              <Close />
+            </IconButton>
           </Box>
         </DialogTitle>
         <DialogContent dividers>
@@ -645,51 +749,75 @@ const SpareParts = () => {
             <Box>
               <Grid container spacing={2}>
                 <Grid item xs={12} md={6}>
-                  <Typography variant="body2" color="textSecondary">Part Name</Typography>
-                  <Typography variant="body1" fontWeight={500}>{viewingPart.part_name}</Typography>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="body2" color="textSecondary">Part Number</Typography>
-                  <Typography variant="body1">{viewingPart.part_number || '-'}</Typography>
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <Typography variant="body2" color="textSecondary">Brand</Typography>
-                  <Typography variant="body1">{viewingPart.brand || '-'}</Typography>
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <Typography variant="body2" color="textSecondary">Manufacturer</Typography>
-                  <Typography variant="body1">{viewingPart.manufacturer || '-'}</Typography>
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <Typography variant="body2" color="textSecondary">Quantity</Typography>
-                  <Typography variant="body1">{viewingPart.quantity}</Typography>
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <Typography variant="body2" color="textSecondary">Minimum Stock Level</Typography>
-                  <Typography variant="body1">{viewingPart.minimum_stock_level || 5}</Typography>
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <Typography variant="body2" color="textSecondary">Unit Cost</Typography>
-                  <Typography variant="body1">{formatPKR(viewingPart.unit_cost)}</Typography>
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <Typography variant="body2" color="textSecondary">Total Cost</Typography>
-                  <Typography variant="body1" fontWeight={600}>{formatPKR(viewingPart.total_cost)}</Typography>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="body2" color="textSecondary">Compatible Equipment</Typography>
-                  <Typography variant="body1">{viewingPart.compatible_equipment || '-'}</Typography>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="body2" color="textSecondary">Status</Typography>
-                  <Typography variant="body1">
-                    {viewingPart.quantity <= (viewingPart.minimum_stock_level || 5) ? 'Low Stock' : 'In Stock'}
+                  <Typography variant="body2" sx={{ color: colors.lightText }}>Part Name</Typography>
+                  <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkText }}>
+                    {viewingPart.part_name}
                   </Typography>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Typography variant="body2" sx={{ color: colors.lightText }}>Part Number</Typography>
+                  <Typography variant="body1" sx={{ color: colors.darkText }}>
+                    {viewingPart.part_number || '-'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <Typography variant="body2" sx={{ color: colors.lightText }}>Brand</Typography>
+                  <Typography variant="body1" sx={{ color: colors.darkText }}>
+                    {viewingPart.brand || '-'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <Typography variant="body2" sx={{ color: colors.lightText }}>Manufacturer</Typography>
+                  <Typography variant="body1" sx={{ color: colors.darkText }}>
+                    {viewingPart.manufacturer || '-'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <Typography variant="body2" sx={{ color: colors.lightText }}>Quantity</Typography>
+                  <Typography variant="body1" sx={{ color: colors.darkText }}>
+                    {viewingPart.quantity}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <Typography variant="body2" sx={{ color: colors.lightText }}>Minimum Stock Level</Typography>
+                  <Typography variant="body1" sx={{ color: colors.darkText }}>
+                    {viewingPart.minimum_stock_level || 5}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <Typography variant="body2" sx={{ color: colors.lightText }}>Unit Cost</Typography>
+                  <Typography variant="body1" sx={{ color: colors.darkText }}>
+                    {formatPKR(viewingPart.unit_cost)}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <Typography variant="body2" sx={{ color: colors.lightText }}>Total Cost</Typography>
+                  <Typography variant="body1" fontWeight={600} sx={{ color: colors.sidebar }}>
+                    {formatPKR(viewingPart.total_cost)}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Typography variant="body2" sx={{ color: colors.lightText }}>Compatible Equipment</Typography>
+                  <Typography variant="body1" sx={{ color: colors.darkText }}>
+                    {viewingPart.compatible_equipment || '-'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Typography variant="body2" sx={{ color: colors.lightText }}>Status</Typography>
+                  <Chip 
+                    label={viewingPart.quantity <= (viewingPart.minimum_stock_level || 5) ? 'Low Stock' : 'In Stock'} 
+                    size="small"
+                    sx={{
+                      bgcolor: viewingPart.quantity <= (viewingPart.minimum_stock_level || 5) ? colors.warning : colors.success,
+                      color: 'white',
+                      fontWeight: 500
+                    }}
+                  />
                 </Grid>
 
                 {viewingPart.image_url && (
                   <Grid item xs={12}>
-                    <Typography variant="body2" color="textSecondary" gutterBottom>
+                    <Typography variant="body2" sx={{ color: colors.lightText }} gutterBottom>
                       <Image sx={{ fontSize: 16, verticalAlign: 'middle', mr: 0.5 }} />
                       Spare Part Image
                     </Typography>
@@ -702,7 +830,7 @@ const SpareParts = () => {
                         height: 200,
                         objectFit: 'cover',
                         borderRadius: 2,
-                        border: '1px solid #e9ecef',
+                        border: `1px solid ${colors.borderColor}`,
                         cursor: 'pointer',
                         '&:hover': {
                           transform: 'scale(1.05)',
@@ -719,50 +847,63 @@ const SpareParts = () => {
 
                 {viewingPart.installation_notes && (
                   <Grid item xs={12}>
-                    <Typography variant="body2" color="textSecondary">Installation Notes</Typography>
-                    <Paper sx={{ p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
-                      <Typography variant="body2">{viewingPart.installation_notes}</Typography>
+                    <Typography variant="body2" sx={{ color: colors.lightText }}>Installation Notes</Typography>
+                    <Paper sx={{ 
+                      p: 2, 
+                      bgcolor: colors.mainBg, 
+                      borderRadius: 1,
+                      border: `1px solid ${colors.borderColor}`
+                    }}>
+                      <Typography variant="body2" sx={{ color: colors.darkText }}>
+                        {viewingPart.installation_notes}
+                      </Typography>
                     </Paper>
                   </Grid>
                 )}
                 {viewingPart.repair_id && (
                   <Grid item xs={12}>
-                    <Typography variant="body2" color="textSecondary">Associated Repair</Typography>
-                    <Typography variant="body1">Repair #{viewingPart.repair_id}</Typography>
+                    <Typography variant="body2" sx={{ color: colors.lightText }}>Associated Repair</Typography>
+                    <Typography variant="body1" sx={{ color: colors.darkText }}>Repair #{viewingPart.repair_id}</Typography>
                   </Grid>
                 )}
 
                 <Grid item xs={12}>
-                  <Divider sx={{ my: 2 }} />
-                  <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+                  <Divider sx={{ my: 2, borderColor: colors.borderColor }} />
+                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.sidebar }} gutterBottom>
                     <History sx={{ fontSize: 18, verticalAlign: 'middle', mr: 1 }} />
                     Stock Movement History
                   </Typography>
                   {viewingPart.movements && viewingPart.movements.length > 0 ? (
-                    <TableContainer component={Paper} variant="outlined" sx={{ mt: 1 }}>
+                    <TableContainer component={Paper} variant="outlined" sx={{ mt: 1, borderColor: colors.borderColor }}>
                       <Table size="small">
-                        <TableHead sx={{ bgcolor: '#f5f5f5' }}>
+                        <TableHead sx={{ bgcolor: colors.mainBg }}>
                           <TableRow>
-                            <TableCell sx={{ fontWeight: 600 }}>Date</TableCell>
-                            <TableCell sx={{ fontWeight: 600 }}>Action</TableCell>
-                            <TableCell sx={{ fontWeight: 600 }}>Quantity</TableCell>
-                            <TableCell sx={{ fontWeight: 600 }}>Reference</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.sidebar }}>Date</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.sidebar }}>Action</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.sidebar }}>Quantity</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.sidebar }}>Reference</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
                           {viewingPart.movements.map((mov, idx) => (
                             <TableRow key={idx} hover>
-                              <TableCell>{new Date(mov.created_at).toLocaleString()}</TableCell>
-                              <TableCell>{mov.type === 'IN' ? 'Stock In' : 'Stock Out'}</TableCell>
+                              <TableCell sx={{ color: colors.darkText }}>
+                                {new Date(mov.created_at).toLocaleString()}
+                              </TableCell>
+                              <TableCell sx={{ color: colors.darkText }}>
+                                {mov.type === 'IN' ? 'Stock In' : 'Stock Out'}
+                              </TableCell>
                               <TableCell>
                                 <Typography 
-                                  color={mov.type === 'IN' ? 'success.main' : 'error.main'}
-                                  fontWeight={600}
+                                  sx={{ 
+                                    color: mov.type === 'IN' ? colors.success : colors.error,
+                                    fontWeight: 600
+                                  }}
                                 >
                                   {mov.type === 'IN' ? '+' : '-'}{mov.quantity}
                                 </Typography>
                               </TableCell>
-                              <TableCell>
+                              <TableCell sx={{ color: colors.darkText }}>
                                 {mov.reference_type === 'purchase' ? `PO #${mov.reference_id}` : 
                                  mov.reference_type === 'repair' ? `Repair #${mov.reference_id}` : 
                                  mov.reference_type || 'N/A'}
@@ -773,7 +914,7 @@ const SpareParts = () => {
                       </Table>
                     </TableContainer>
                   ) : (
-                    <Typography variant="body2" color="textSecondary" sx={{ py: 2 }}>
+                    <Typography variant="body2" sx={{ color: colors.lightText, py: 2 }}>
                       No stock movements recorded
                     </Typography>
                   )}
@@ -783,18 +924,17 @@ const SpareParts = () => {
           )}
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={handleCloseView}>Close</Button>
+          <Button onClick={handleCloseView} sx={{ color: colors.lightText }}>Close</Button>
         </DialogActions>
       </Dialog>
 
-      {/* Add/Edit Dialog */}
+      {/* Add/Edit Dialog - THEMED */}
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ bgcolor: '#0B5FA5', color: 'white' }}>
+        <DialogTitle sx={{ bgcolor: colors.sidebar, color: 'white' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Typography variant="h6" fontWeight={600}>
               {editingPart ? 'Edit Spare Part' : 'Add New Spare Part'}
             </Typography>
-            {/* ❌ REMOVED: Engineer/Super Admin Chip */}
           </Box>
           <IconButton onClick={handleCloseDialog} sx={{ position: 'absolute', right: 8, top: 8, color: 'white' }}>
             <Close />
@@ -804,12 +944,18 @@ const SpareParts = () => {
           <Grid container spacing={2} sx={{ mt: 0 }}>
             <Grid item xs={12}>
               <FormControl fullWidth>
-                <InputLabel>Associated Repair</InputLabel>
+                <InputLabel sx={{ color: colors.lightText }}>Associated Repair</InputLabel>
                 <Select
                   name="repair_id"
                   value={formData.repair_id}
                   onChange={handleFormChange}
                   label="Associated Repair"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: colors.sidebar },
+                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    }
+                  }}
                 >
                   <MenuItem value="">None (General Stock)</MenuItem>
                   {repairs.map(repair => (
@@ -830,6 +976,12 @@ const SpareParts = () => {
                 value={formData.part_name}
                 onChange={handleFormChange}
                 placeholder="Enter part name"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               />
             </Grid>
 
@@ -841,6 +993,12 @@ const SpareParts = () => {
                 value={formData.part_number}
                 onChange={handleFormChange}
                 placeholder="Enter part number"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               />
             </Grid>
 
@@ -852,6 +1010,12 @@ const SpareParts = () => {
                 value={formData.brand}
                 onChange={handleFormChange}
                 placeholder="Enter brand name"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               />
             </Grid>
 
@@ -863,6 +1027,12 @@ const SpareParts = () => {
                 value={formData.manufacturer}
                 onChange={handleFormChange}
                 placeholder="Enter manufacturer name"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               />
             </Grid>
 
@@ -876,6 +1046,12 @@ const SpareParts = () => {
                 onChange={handleFormChange}
                 InputProps={{ inputProps: { min: 0, step: 1 } }}
                 helperText="Enter quantity (minimum 0)"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               />
             </Grid>
 
@@ -889,6 +1065,12 @@ const SpareParts = () => {
                 onChange={handleFormChange}
                 InputProps={{ inputProps: { min: 0, step: 1 } }}
                 helperText="Alert when stock falls below this level"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               />
             </Grid>
 
@@ -905,6 +1087,12 @@ const SpareParts = () => {
                   inputProps: { min: 0, step: 1 }
                 }}
                 helperText="Enter cost per unit"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               />
             </Grid>
 
@@ -921,7 +1109,11 @@ const SpareParts = () => {
                 helperText="Auto-calculated: Quantity × Unit Cost"
                 sx={{
                   '& .MuiInputBase-root.Mui-disabled': {
-                    backgroundColor: '#f5f5f5',
+                    backgroundColor: colors.mainBg,
+                  },
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
                   }
                 }}
               />
@@ -935,6 +1127,12 @@ const SpareParts = () => {
                 value={formData.compatible_equipment}
                 onChange={handleFormChange}
                 placeholder="e.g., Ventilator, Patient Monitor, ECG Machine"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               />
             </Grid>
 
@@ -948,11 +1146,17 @@ const SpareParts = () => {
                 multiline
                 rows={3}
                 placeholder="Any special instructions for installation..."
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               />
             </Grid>
 
             <Grid item xs={12}>
-              <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+              <Typography variant="subtitle2" sx={{ color: colors.lightText }} gutterBottom>
                 <Image sx={{ fontSize: 18, verticalAlign: 'middle', mr: 1 }} />
                 Spare Part Image
               </Typography>
@@ -994,7 +1198,7 @@ const SpareParts = () => {
               
               {formData.image_url && (
                 <Box sx={{ mt: 2 }}>
-                  <Typography variant="caption" color="textSecondary" gutterBottom sx={{ display: 'block' }}>
+                  <Typography variant="caption" sx={{ color: colors.lightText }} gutterBottom display="block">
                     Current Image:
                   </Typography>
                   <Box
@@ -1006,7 +1210,7 @@ const SpareParts = () => {
                       height: 150,
                       objectFit: 'cover',
                       borderRadius: 2,
-                      border: '1px solid #e9ecef'
+                      border: `1px solid ${colors.borderColor}`
                     }}
                     onError={(e) => {
                       e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="150" height="150" viewBox="0 0 24 24" fill="%23ccc"%3E%3Crect width="24" height="24" fill="%23f0f0f0"/%3E%3Ctext x="12" y="12" text-anchor="middle" dy=".3em" font-size="10" fill="%23999"%3ENo Image%3C/text%3E%3C/svg%3E'
@@ -1017,8 +1221,13 @@ const SpareParts = () => {
             </Grid>
 
             <Grid item xs={12}>
-              <Paper sx={{ p: 2, bgcolor: '#f8f9fa' }}>
-                <Typography variant="caption" color="textSecondary">
+              <Paper sx={{ 
+                p: 2, 
+                bgcolor: colors.mainBg,
+                border: `1px solid ${colors.borderColor}`,
+                borderRadius: 2
+              }}>
+                <Typography variant="caption" sx={{ color: colors.lightText }}>
                   <strong>Calculation Preview:</strong> {formData.quantity || 0} × {formData.unit_cost || 0} = {formatPKR(formData.total_cost)}
                 </Typography>
               </Paper>
@@ -1026,11 +1235,15 @@ const SpareParts = () => {
           </Grid>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={handleCloseDialog}>Cancel</Button>
+          <Button onClick={handleCloseDialog} sx={{ color: colors.lightText }}>Cancel</Button>
           <Button
             variant="contained"
             onClick={handleSubmit}
-            sx={{ bgcolor: '#0B5FA5', '&:hover': { bgcolor: '#084a8a' } }}
+            sx={{ 
+              bgcolor: colors.sidebar, 
+              '&:hover': { bgcolor: colors.sidebarHover },
+              boxShadow: `0 4px 16px ${colors.sidebar}44`
+            }}
           >
             {editingPart ? 'Update Spare Part' : 'Add Spare Part'}
           </Button>

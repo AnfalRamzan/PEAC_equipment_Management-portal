@@ -1,3 +1,6 @@
+// src/pages/Users.jsx
+// ✅ PAEC THEME - Green & Gold Colors
+
 import React, { useState, useEffect } from 'react'
 import {
   Box,
@@ -64,6 +67,30 @@ import { toast } from 'react-toastify'
 import { useSelector } from 'react-redux'
 import AccessDenied from '../components/Auth/AccessDenied'
 
+// ============================================================
+// ✅ PAEC THEME COLORS
+// ============================================================
+const colors = {
+  sidebar: '#01411C',
+  sidebarHover: '#0B542B',
+  active: '#0E6335',
+  accentGold: '#C9A227',
+  goldLight: '#E8C84A',
+  text: '#FFFFFF',
+  secondaryText: '#B8C8BE',
+  mainBg: '#F0F2F5',
+  white: '#FFFFFF',
+  darkText: '#1A2A3A',
+  lightText: '#5A7A8A',
+  error: '#D32F2F',
+  success: '#2E7D32',
+  warning: '#ED6C02',
+  info: '#0B5FA5',
+  borderColor: 'rgba(1, 65, 28, 0.08)',
+  shadowColor: 'rgba(1, 65, 28, 0.08)',
+  cardBg: '#FFFFFF',
+}
+
 const Users = () => {
   const { user } = useSelector((state) => state.auth)
   
@@ -92,7 +119,6 @@ const Users = () => {
     status: ''
   })
   
-  // ✅ VALIDATION STATE
   const [errors, setErrors] = useState({
     full_name: '',
     username: '',
@@ -113,7 +139,6 @@ const Users = () => {
     is_active: true
   })
 
-  // ✅ PASSWORD STRENGTH
   const [passwordStrength, setPasswordStrength] = useState({
     score: 0,
     label: 'Weak',
@@ -127,30 +152,23 @@ const Users = () => {
     }
   })
 
-  // ✅ UPDATED: HOSPITAL_ADMIN REMOVED
   const ROLE_NAMES = {
     1: 'SUPER_ADMIN',
-    // 2: 'HOSPITAL_ADMIN', // ❌ REMOVED
     3: 'ENGINEER'
   }
 
-  // ✅ UPDATED: HOSPITAL_ADMIN REMOVED
   const ROLE_DISPLAY = {
     'SUPER_ADMIN': 'Super Admin',
-    // 'HOSPITAL_ADMIN': 'Hospital Admin', // ❌ REMOVED
     'ENGINEER': 'Engineer'
   }
 
-  // ✅ UPDATED: HOSPITAL_ADMIN REMOVED FROM AVAILABLE ROLES
   const getAvailableRoles = () => {
     if (user?.role === 'SUPER_ADMIN') {
       return [
         { id: 1, name: 'SUPER_ADMIN', display: 'Super Admin' },
-        // { id: 2, name: 'HOSPITAL_ADMIN', display: 'Hospital Admin' }, // ❌ REMOVED
         { id: 3, name: 'ENGINEER', display: 'Engineer' }
       ]
     }
-    // Hospital Admin can no longer exist
     return []
   }
 
@@ -191,7 +209,6 @@ const Users = () => {
     }
   }
 
-  // ✅ VALIDATION FUNCTIONS
   const validateEmail = (email) => {
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
     if (!email) return 'Email is required'
@@ -252,7 +269,7 @@ const Users = () => {
       0: { label: 'Very Weak', color: '#dc3545' },
       1: { label: 'Weak', color: '#dc3545' },
       2: { label: 'Fair', color: '#ff9800' },
-      3: { label: 'Good', color: '#0B5FA5' },
+      3: { label: 'Good', color: colors.sidebar },
       4: { label: 'Strong', color: '#28a745' },
       5: { label: 'Very Strong', color: '#28a745' }
     }
@@ -348,7 +365,6 @@ const Users = () => {
       })
     } else {
       setEditingUser(null)
-      // ✅ Default role is now empty since HOSPITAL_ADMIN is removed
       const defaultRoleId = ''
       setFormData({
         username: '',
@@ -405,7 +421,6 @@ const Users = () => {
     })
   }
 
-  // ✅ CHECK EXISTING USERNAME/EMAIL
   const checkExisting = (field, value) => {
     if (!value) return false
     return users.some(u => 
@@ -415,20 +430,17 @@ const Users = () => {
   }
 
   const handleSubmit = async () => {
-    // ✅ Validate all fields
     if (!isFormValid()) {
       toast.error('Please fix all validation errors')
       return
     }
 
     try {
-      // ✅ Check if username already exists
       if (checkExisting('username', formData.username)) {
         toast.error('Username already exists. Please choose a different username')
         return
       }
 
-      // ✅ Check if email already exists
       if (checkExisting('email', formData.email)) {
         toast.error('Email already exists. Please use a different email')
         return
@@ -545,10 +557,8 @@ const Users = () => {
     }
   }
 
-  // ✅ UPDATED: HOSPITAL_ADMIN REMOVED FROM FILTER OPTIONS
   const roleFilterOptions = [
     { id: 'SUPER_ADMIN', name: 'Super Admin' },
-    // { id: 'HOSPITAL_ADMIN', name: 'Hospital Admin' }, // ❌ REMOVED
     { id: 'ENGINEER', name: 'Engineer' }
   ]
 
@@ -570,7 +580,7 @@ const Users = () => {
   })
 
   if (loading) {
-    return <LinearProgress />
+    return <LinearProgress sx={{ bgcolor: colors.borderColor, '& .MuiLinearProgress-bar': { bgcolor: colors.accentGold } }} />
   }
 
   const getVisibleColumns = () => {
@@ -585,7 +595,6 @@ const Users = () => {
 
   const visibleColumns = getVisibleColumns()
 
-  // ✅ Password strength indicator
   const PasswordStrengthIndicator = () => (
     <Box sx={{ mt: 1 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
@@ -609,24 +618,24 @@ const Users = () => {
       </Box>
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          {passwordStrength.checks.length ? <Check sx={{ fontSize: 14, color: '#28a745' }} /> : <Cancel sx={{ fontSize: 14, color: '#dc3545' }} />}
-          <Typography variant="caption">8+ chars</Typography>
+          {passwordStrength.checks.length ? <Check sx={{ fontSize: 14, color: colors.success }} /> : <Cancel sx={{ fontSize: 14, color: colors.error }} />}
+          <Typography variant="caption" sx={{ color: colors.lightText }}>8+ chars</Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          {passwordStrength.checks.uppercase ? <Check sx={{ fontSize: 14, color: '#28a745' }} /> : <Cancel sx={{ fontSize: 14, color: '#dc3545' }} />}
-          <Typography variant="caption">Uppercase</Typography>
+          {passwordStrength.checks.uppercase ? <Check sx={{ fontSize: 14, color: colors.success }} /> : <Cancel sx={{ fontSize: 14, color: colors.error }} />}
+          <Typography variant="caption" sx={{ color: colors.lightText }}>Uppercase</Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          {passwordStrength.checks.lowercase ? <Check sx={{ fontSize: 14, color: '#28a745' }} /> : <Cancel sx={{ fontSize: 14, color: '#dc3545' }} />}
-          <Typography variant="caption">Lowercase</Typography>
+          {passwordStrength.checks.lowercase ? <Check sx={{ fontSize: 14, color: colors.success }} /> : <Cancel sx={{ fontSize: 14, color: colors.error }} />}
+          <Typography variant="caption" sx={{ color: colors.lightText }}>Lowercase</Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          {passwordStrength.checks.number ? <Check sx={{ fontSize: 14, color: '#28a745' }} /> : <Cancel sx={{ fontSize: 14, color: '#dc3545' }} />}
-          <Typography variant="caption">Number</Typography>
+          {passwordStrength.checks.number ? <Check sx={{ fontSize: 14, color: colors.success }} /> : <Cancel sx={{ fontSize: 14, color: colors.error }} />}
+          <Typography variant="caption" sx={{ color: colors.lightText }}>Number</Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          {passwordStrength.checks.special ? <Check sx={{ fontSize: 14, color: '#28a745' }} /> : <Cancel sx={{ fontSize: 14, color: '#dc3545' }} />}
-          <Typography variant="caption">Special</Typography>
+          {passwordStrength.checks.special ? <Check sx={{ fontSize: 14, color: colors.success }} /> : <Cancel sx={{ fontSize: 14, color: colors.error }} />}
+          <Typography variant="caption" sx={{ color: colors.lightText }}>Special</Typography>
         </Box>
       </Box>
     </Box>
@@ -634,12 +643,12 @@ const Users = () => {
 
   return (
     <Box>
+      {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Typography variant="h5" sx={{ fontWeight: 700, color: '#2C3E50', fontSize: { xs: '1.2rem', sm: '1.5rem' } }}>
+          <Typography variant="h5" sx={{ fontWeight: 700, color: colors.sidebar, fontSize: { xs: '1.2rem', sm: '1.5rem' } }}>
             User Management
           </Typography>
-          {/* REMOVED Super Admin Chip - No longer showing */}
         </Box>
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
           <Button
@@ -647,6 +656,11 @@ const Users = () => {
             startIcon={<Refresh />}
             onClick={fetchUsers}
             size="small"
+            sx={{ 
+              borderColor: colors.sidebar, 
+              color: colors.sidebar,
+              '&:hover': { borderColor: colors.accentGold, color: colors.accentGold }
+            }}
           >
             Refresh
           </Button>
@@ -655,6 +669,11 @@ const Users = () => {
             startIcon={<Download />}
             onClick={handleExportCSV}
             size="small"
+            sx={{ 
+              borderColor: colors.sidebar, 
+              color: colors.sidebar,
+              '&:hover': { borderColor: colors.accentGold, color: colors.accentGold }
+            }}
           >
             Export
           </Button>
@@ -664,8 +683,9 @@ const Users = () => {
               startIcon={<Add />}
               onClick={() => handleOpenDialog()}
               sx={{
-                bgcolor: '#0B5FA5',
-                '&:hover': { bgcolor: '#084a8a' },
+                bgcolor: colors.sidebar,
+                '&:hover': { bgcolor: colors.sidebarHover },
+                boxShadow: `0 4px 16px ${colors.sidebar}44`,
                 fontSize: { xs: '0.75rem', sm: '0.875rem' }
               }}
               size={isMobile ? 'small' : 'medium'}
@@ -676,7 +696,14 @@ const Users = () => {
         </Box>
       </Box>
 
-      <Paper sx={{ p: { xs: 1, sm: 2 }, mb: 3, borderRadius: 2 }}>
+      {/* Search & Filter */}
+      <Paper sx={{ 
+        p: { xs: 1, sm: 2 }, 
+        mb: 3, 
+        borderRadius: 2,
+        border: `1px solid ${colors.borderColor}`,
+        boxShadow: '0 2px 12px rgba(0,0,0,0.04)'
+      }}>
         <Box sx={{ display: 'flex', gap: { xs: 1, sm: 2 }, flexWrap: 'wrap' }}>
           <TextField
             size="small"
@@ -687,19 +714,31 @@ const Users = () => {
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <Search />
+                  <Search sx={{ color: colors.lightText }} />
                 </InputAdornment>
-              )
+              ),
+              sx: {
+                '& .MuiOutlinedInput-root': {
+                  '&:hover fieldset': { borderColor: colors.sidebar },
+                  '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                }
+              }
             }}
           />
           {!isMobile && (
             <>
               <FormControl size="small" sx={{ minWidth: 130 }}>
-                <InputLabel>Role</InputLabel>
+                <InputLabel sx={{ color: colors.lightText }}>Role</InputLabel>
                 <Select
                   value={filters.role}
                   onChange={(e) => setFilters({ ...filters, role: e.target.value })}
                   label="Role"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: colors.sidebar },
+                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    }
+                  }}
                 >
                   <MenuItem value="">All</MenuItem>
                   {roleFilterOptions.map(role => (
@@ -710,11 +749,17 @@ const Users = () => {
                 </Select>
               </FormControl>
               <FormControl size="small" sx={{ minWidth: 130 }}>
-                <InputLabel>Hospital</InputLabel>
+                <InputLabel sx={{ color: colors.lightText }}>Hospital</InputLabel>
                 <Select
                   value={filters.hospital}
                   onChange={(e) => setFilters({ ...filters, hospital: e.target.value })}
                   label="Hospital"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: colors.sidebar },
+                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    }
+                  }}
                 >
                   <MenuItem value="">All</MenuItem>
                   {hospitals.map(h => (
@@ -723,11 +768,17 @@ const Users = () => {
                 </Select>
               </FormControl>
               <FormControl size="small" sx={{ minWidth: 130 }}>
-                <InputLabel>Status</InputLabel>
+                <InputLabel sx={{ color: colors.lightText }}>Status</InputLabel>
                 <Select
                   value={filters.status}
                   onChange={(e) => setFilters({ ...filters, status: e.target.value })}
                   label="Status"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: colors.sidebar },
+                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    }
+                  }}
                 >
                   <MenuItem value="">All</MenuItem>
                   <MenuItem value="active">Active</MenuItem>
@@ -745,6 +796,12 @@ const Users = () => {
                 onChange={(e) => setFilters({ ...filters, role: e.target.value })}
                 displayEmpty
                 size="small"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               >
                 <MenuItem value="">Role</MenuItem>
                 {roleFilterOptions.map(role => (
@@ -760,6 +817,12 @@ const Users = () => {
                 onChange={(e) => setFilters({ ...filters, hospital: e.target.value })}
                 displayEmpty
                 size="small"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               >
                 <MenuItem value="">Hospital</MenuItem>
                 {hospitals.map(h => (
@@ -773,6 +836,12 @@ const Users = () => {
                 onChange={(e) => setFilters({ ...filters, status: e.target.value })}
                 displayEmpty
                 size="small"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               >
                 <MenuItem value="">Status</MenuItem>
                 <MenuItem value="active">Active</MenuItem>
@@ -783,9 +852,10 @@ const Users = () => {
         )}
       </Paper>
 
-      <TableContainer component={Paper} sx={{ borderRadius: 2, overflowX: 'auto' }}>
+      {/* Table - THEMED */}
+      <TableContainer component={Paper} sx={{ borderRadius: 2, overflowX: 'auto', border: `1px solid ${colors.borderColor}` }}>
         <Table>
-          <TableHead sx={{ bgcolor: '#0B5FA5' }}>
+          <TableHead sx={{ bgcolor: colors.sidebar }}>
             <TableRow>
               {visibleColumns.includes('user') && (
                 <TableCell sx={{ color: 'white', fontWeight: 600, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
@@ -828,7 +898,7 @@ const Users = () => {
             {filteredUsers.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={visibleColumns.length} align="center">
-                  <Typography variant="body1" sx={{ py: 3, color: '#6c757d' }}>
+                  <Typography variant="body1" sx={{ py: 3, color: colors.lightText }}>
                     No users found
                   </Typography>
                 </TableCell>
@@ -842,16 +912,16 @@ const Users = () => {
                         <Avatar sx={{ 
                           width: { xs: 28, sm: 32 }, 
                           height: { xs: 28, sm: 32 }, 
-                          bgcolor: '#0B5FA5',
+                          bgcolor: colors.sidebar,
                           fontSize: { xs: '0.7rem', sm: '0.875rem' }
                         }}>
                           {userData.full_name?.charAt(0) || 'U'}
                         </Avatar>
                         <Box>
-                          <Typography variant="body2" fontWeight={500} fontSize={{ xs: '0.75rem', sm: '0.875rem' }}>
+                          <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkText, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
                             {userData.full_name}
                           </Typography>
-                          <Typography variant="caption" color="textSecondary" fontSize={{ xs: '0.6rem', sm: '0.75rem' }}>
+                          <Typography variant="caption" sx={{ color: colors.lightText, fontSize: { xs: '0.6rem', sm: '0.75rem' } }}>
                             @{userData.username}
                           </Typography>
                         </Box>
@@ -859,28 +929,48 @@ const Users = () => {
                     </TableCell>
                   )}
                   {visibleColumns.includes('email') && (
-                    <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>
+                    <TableCell sx={{ color: colors.darkText, fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>
                       {userData.email}
                     </TableCell>
                   )}
                   {visibleColumns.includes('role') && (
-                    <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>
-                      {getRoleDisplay(userData.role_name)}
+                    <TableCell>
+                      <Chip 
+                        label={getRoleDisplay(userData.role_name)} 
+                        size="small"
+                        sx={{
+                          bgcolor: userData.role_name === 'SUPER_ADMIN' ? colors.accentGold : colors.sidebar,
+                          color: 'white',
+                          fontWeight: 500,
+                          height: 22,
+                          fontSize: '11px'
+                        }}
+                      />
                     </TableCell>
                   )}
                   {visibleColumns.includes('hospital') && (
-                    <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>
+                    <TableCell sx={{ color: colors.lightText, fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>
                       {userData.hospital_name || 'N/A'}
                     </TableCell>
                   )}
                   {visibleColumns.includes('phone') && (
-                    <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>
+                    <TableCell sx={{ color: colors.lightText, fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>
                       {userData.phone || '-'}
                     </TableCell>
                   )}
                   {visibleColumns.includes('status') && (
-                    <TableCell sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>
-                      {userData.is_active ? 'Active' : 'Inactive'}
+                    <TableCell>
+                      <Chip 
+                        label={userData.is_active ? 'Active' : 'Inactive'} 
+                        size="small"
+                        sx={{
+                          bgcolor: userData.is_active ? colors.success : colors.lightText,
+                          color: 'white',
+                          fontWeight: 500,
+                          height: 22,
+                          fontSize: '11px'
+                        }}
+                      />
                     </TableCell>
                   )}
                   {visibleColumns.includes('actions') && (
@@ -889,9 +979,12 @@ const Users = () => {
                         <Tooltip title="View Details">
                           <IconButton 
                             size="small" 
-                            color="primary" 
                             onClick={() => handleViewUser(userData)}
-                            sx={{ padding: { xs: 0.5, sm: 1 } }}
+                            sx={{ 
+                              color: colors.sidebar,
+                              '&:hover': { color: colors.accentGold },
+                              padding: { xs: 0.5, sm: 1 }
+                            }}
                           >
                             <Visibility fontSize={isMobile ? 'small' : 'medium'} />
                           </IconButton>
@@ -902,9 +995,12 @@ const Users = () => {
                           <Tooltip title="Edit">
                             <IconButton 
                               size="small" 
-                              color="info" 
                               onClick={() => handleOpenDialog(userData)}
-                              sx={{ padding: { xs: 0.5, sm: 1 } }}
+                              sx={{ 
+                                color: colors.sidebar,
+                                '&:hover': { color: colors.accentGold },
+                                padding: { xs: 0.5, sm: 1 }
+                              }}
                             >
                               <Edit fontSize={isMobile ? 'small' : 'medium'} />
                             </IconButton>
@@ -934,9 +1030,9 @@ const Users = () => {
         </Table>
       </TableContainer>
 
-      {/* View Dialog */}
+      {/* View Dialog - THEMED */}
       <Dialog open={openViewDialog} onClose={handleCloseView} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ bgcolor: '#0B5FA5', color: 'white' }}>
+        <DialogTitle sx={{ bgcolor: colors.sidebar, color: 'white' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6" fontWeight={600}>
               User Details
@@ -950,58 +1046,90 @@ const Users = () => {
           {viewingUser && (
             <Grid container spacing={2}>
               <Grid item xs={12} sx={{ textAlign: 'center' }}>
-                <Avatar sx={{ width: 80, height: 80, bgcolor: '#0B5FA5', mx: 'auto', fontSize: 32 }}>
+                <Avatar sx={{ 
+                  width: 80, 
+                  height: 80, 
+                  bgcolor: colors.sidebar, 
+                  mx: 'auto', 
+                  fontSize: 32,
+                  border: `2px solid ${colors.accentGold}`,
+                  boxShadow: `0 4px 20px ${colors.sidebar}44`
+                }}>
                   {viewingUser.full_name?.charAt(0) || 'U'}
                 </Avatar>
-                <Typography variant="h6" fontWeight={600} sx={{ mt: 1 }}>
+                <Typography variant="h6" fontWeight={600} sx={{ color: colors.darkText, mt: 1 }}>
                   {viewingUser.full_name}
                 </Typography>
-                <Typography variant="body2" color="textSecondary">
-                  {getRoleDisplay(viewingUser.role_name)}
-                </Typography>
+                <Chip 
+                  label={getRoleDisplay(viewingUser.role_name)} 
+                  size="small"
+                  sx={{
+                    bgcolor: viewingUser.role_name === 'SUPER_ADMIN' ? colors.accentGold : colors.sidebar,
+                    color: 'white',
+                    fontWeight: 500,
+                    mt: 0.5
+                  }}
+                />
               </Grid>
               
               <Grid item xs={12}>
-                <Divider />
+                <Divider sx={{ borderColor: colors.borderColor }} />
               </Grid>
               
               <Grid item xs={12} md={6}>
-                <Typography variant="body2" color="textSecondary">Username</Typography>
-                <Typography variant="body1" fontWeight={500}>@{viewingUser.username}</Typography>
+                <Typography variant="body2" sx={{ color: colors.lightText }}>Username</Typography>
+                <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkText }}>@{viewingUser.username}</Typography>
               </Grid>
               <Grid item xs={12} md={6}>
-                <Typography variant="body2" color="textSecondary">Email</Typography>
-                <Typography variant="body1">{viewingUser.email}</Typography>
+                <Typography variant="body2" sx={{ color: colors.lightText }}>Email</Typography>
+                <Typography variant="body1" sx={{ color: colors.darkText }}>{viewingUser.email}</Typography>
               </Grid>
               <Grid item xs={12} md={6}>
-                <Typography variant="body2" color="textSecondary">Role</Typography>
-                <Typography variant="body1">{getRoleDisplay(viewingUser.role_name)}</Typography>
+                <Typography variant="body2" sx={{ color: colors.lightText }}>Role</Typography>
+                <Typography variant="body1" sx={{ color: colors.darkText }}>{getRoleDisplay(viewingUser.role_name)}</Typography>
               </Grid>
               <Grid item xs={12} md={6}>
-                <Typography variant="body2" color="textSecondary">Hospital</Typography>
-                <Typography variant="body1">{viewingUser.hospital_name || 'N/A'}</Typography>
+                <Typography variant="body2" sx={{ color: colors.lightText }}>Hospital</Typography>
+                <Typography variant="body1" sx={{ color: colors.darkText }}>{viewingUser.hospital_name || 'N/A'}</Typography>
               </Grid>
               <Grid item xs={12} md={6}>
-                <Typography variant="body2" color="textSecondary">Phone</Typography>
-                <Typography variant="body1">{viewingUser.phone || 'N/A'}</Typography>
+                <Typography variant="body2" sx={{ color: colors.lightText }}>Phone</Typography>
+                <Typography variant="body1" sx={{ color: colors.darkText }}>{viewingUser.phone || 'N/A'}</Typography>
               </Grid>
               <Grid item xs={12} md={6}>
-                <Typography variant="body2" color="textSecondary">Status</Typography>
-                <Typography variant="body1">{viewingUser.is_active ? 'Active' : 'Inactive'}</Typography>
+                <Typography variant="body2" sx={{ color: colors.lightText }}>Status</Typography>
+                <Chip 
+                  label={viewingUser.is_active ? 'Active' : 'Inactive'} 
+                  size="small"
+                  sx={{
+                    bgcolor: viewingUser.is_active ? colors.success : colors.lightText,
+                    color: 'white',
+                    fontWeight: 500,
+                    height: 22
+                  }}
+                />
               </Grid>
             </Grid>
           )}
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={handleCloseView} variant="contained" sx={{ bgcolor: '#0B5FA5' }}>
+          <Button 
+            onClick={handleCloseView} 
+            variant="contained" 
+            sx={{ 
+              bgcolor: colors.sidebar,
+              '&:hover': { bgcolor: colors.sidebarHover },
+              boxShadow: `0 4px 16px ${colors.sidebar}44`
+            }}
+          >
             Close
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* ✅ ADD/EDIT DIALOG WITH VALIDATION */}
+      {/* Add/Edit Dialog - THEMED */}
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ bgcolor: '#0B5FA5', color: 'white' }}>
+        <DialogTitle sx={{ bgcolor: colors.sidebar, color: 'white' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6" fontWeight={600}>
               {editingUser ? 'Edit User' : 'Add New User'}
@@ -1013,7 +1141,6 @@ const Users = () => {
         </DialogTitle>
         <DialogContent dividers>
           <Grid container spacing={2} sx={{ mt: 1 }}>
-            {/* Full Name - REQUIRED */}
             <Grid item xs={12}>
               <TextField
                 fullWidth
@@ -1026,12 +1153,17 @@ const Users = () => {
                 error={!!errors.full_name}
                 helperText={errors.full_name || 'Enter the user\'s full name'}
                 InputProps={{
-                  startAdornment: <Person sx={{ mr: 1, color: '#6c757d' }} />
+                  startAdornment: <Person sx={{ mr: 1, color: colors.lightText }} />
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
                 }}
               />
             </Grid>
 
-            {/* Username - REQUIRED with validation */}
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
@@ -1044,12 +1176,17 @@ const Users = () => {
                 error={!!errors.username}
                 helperText={errors.username || 'Min 3 chars, letters, numbers, underscore only'}
                 InputProps={{
-                  startAdornment: <Person sx={{ mr: 1, color: '#6c757d' }} />
+                  startAdornment: <Person sx={{ mr: 1, color: colors.lightText }} />
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
                 }}
               />
             </Grid>
 
-            {/* Email - REQUIRED with validation */}
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
@@ -1063,12 +1200,17 @@ const Users = () => {
                 error={!!errors.email}
                 helperText={errors.email || 'Enter a valid email address'}
                 InputProps={{
-                  startAdornment: <Email sx={{ mr: 1, color: '#6c757d' }} />
+                  startAdornment: <Email sx={{ mr: 1, color: colors.lightText }} />
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
                 }}
               />
             </Grid>
 
-            {/* Password - With Strength Indicator */}
             <Grid item xs={12}>
               <TextField
                 fullWidth
@@ -1082,23 +1224,32 @@ const Users = () => {
                 error={!!errors.password}
                 helperText={errors.password || (editingUser ? 'Leave blank to keep current password' : 'Min 6 characters')}
                 InputProps={{
-                  startAdornment: <Lock sx={{ mr: 1, color: '#6c757d' }} />,
+                  startAdornment: <Lock sx={{ mr: 1, color: colors.lightText }} />,
                   endAdornment: (
                     <InputAdornment position="end">
-                      <IconButton onClick={() => setShowPassword(!showPassword)} edge="end">
+                      <IconButton 
+                        onClick={() => setShowPassword(!showPassword)} 
+                        edge="end"
+                        sx={{ color: colors.lightText, '&:hover': { color: colors.accentGold } }}
+                      >
                         {showPassword ? <VisibilityOff /> : <Visibility />}
                       </IconButton>
                     </InputAdornment>
                   )
                 }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               />
               {formData.password && <PasswordStrengthIndicator />}
             </Grid>
 
-            {/* Role - REQUIRED - HOSPITAL_ADMIN REMOVED */}
             <Grid item xs={12} md={6}>
               <FormControl fullWidth required error={!!errors.role_id}>
-                <InputLabel>Role *</InputLabel>
+                <InputLabel sx={{ color: colors.lightText }}>Role *</InputLabel>
                 <Select
                   name="role_id"
                   value={formData.role_id}
@@ -1106,6 +1257,12 @@ const Users = () => {
                   onBlur={handleBlur('role_id')}
                   label="Role *"
                   disabled={user?.role === 'HOSPITAL_ADMIN'}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: colors.sidebar },
+                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    }
+                  }}
                 >
                   <MenuItem value="">Select Role</MenuItem>
                   {availableRoles.map(role => (
@@ -1116,21 +1273,26 @@ const Users = () => {
                 </Select>
                 {errors.role_id && <FormHelperText error>{errors.role_id}</FormHelperText>}
                 {user?.role === 'HOSPITAL_ADMIN' && (
-                  <FormHelperText>You can only create Engineer accounts</FormHelperText>
+                  <FormHelperText sx={{ color: colors.lightText }}>You can only create Engineer accounts</FormHelperText>
                 )}
               </FormControl>
             </Grid>
 
-            {/* Hospital */}
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
-                <InputLabel>Hospital</InputLabel>
+                <InputLabel sx={{ color: colors.lightText }}>Hospital</InputLabel>
                 <Select
                   name="hospital_id"
                   value={formData.hospital_id}
                   onChange={handleFormChange}
                   label="Hospital"
                   disabled={user?.role === 'HOSPITAL_ADMIN'}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: colors.sidebar },
+                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    }
+                  }}
                 >
                   <MenuItem value="">No Hospital</MenuItem>
                   {hospitals.map(h => (
@@ -1138,12 +1300,11 @@ const Users = () => {
                   ))}
                 </Select>
                 {user?.role === 'HOSPITAL_ADMIN' && (
-                  <FormHelperText>Users will be assigned to your hospital</FormHelperText>
+                  <FormHelperText sx={{ color: colors.lightText }}>Users will be assigned to your hospital</FormHelperText>
                 )}
               </FormControl>
             </Grid>
 
-            {/* Phone - With validation */}
             <Grid item xs={12}>
               <TextField
                 fullWidth
@@ -1155,33 +1316,47 @@ const Users = () => {
                 error={!!errors.phone}
                 helperText={errors.phone || 'Optional - Enter a valid phone number'}
                 InputProps={{
-                  startAdornment: <Phone sx={{ mr: 1, color: '#6c757d' }} />
+                  startAdornment: <Phone sx={{ mr: 1, color: colors.lightText }} />
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
                 }}
               />
             </Grid>
 
-            {/* Active Status */}
             <Grid item xs={12}>
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <Typography>Active</Typography>
+                <Typography sx={{ color: colors.darkText }}>Active</Typography>
                 <Switch
                   checked={formData.is_active}
                   onChange={handleToggleActive}
-                  color="primary"
-                  sx={{ ml: 2 }}
+                  sx={{ 
+                    ml: 2,
+                    '& .MuiSwitch-switchBase.Mui-checked': {
+                      color: colors.sidebar,
+                      '&:hover': { backgroundColor: `${colors.sidebar}22` }
+                    },
+                    '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                      backgroundColor: colors.sidebar
+                    }
+                  }}
                 />
               </Box>
             </Grid>
           </Grid>
         </DialogContent>
         <DialogActions sx={{ p: 3, gap: 1 }}>
-          <Button onClick={handleCloseDialog}>Cancel</Button>
+          <Button onClick={handleCloseDialog} sx={{ color: colors.lightText }}>Cancel</Button>
           <Button
             variant="contained"
             onClick={handleSubmit}
             sx={{
-              bgcolor: '#0B5FA5',
-              '&:hover': { bgcolor: '#084a8a' }
+              bgcolor: colors.sidebar,
+              '&:hover': { bgcolor: colors.sidebarHover },
+              boxShadow: `0 4px 16px ${colors.sidebar}44`
             }}
           >
             {editingUser ? 'Update' : 'Create'}

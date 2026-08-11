@@ -1,4 +1,5 @@
 // src/pages/Repairs.jsx
+// ✅ PAEC THEME - Green & Gold Colors
 
 import React, { useState, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
@@ -14,6 +15,7 @@ import {
   Button,
   IconButton,
   TextField,
+  InputAdornment,
   Chip,
   Dialog,
   DialogTitle,
@@ -44,9 +46,33 @@ import {
 import { repairService, errorService, equipmentService } from '../api/services'
 import { toast } from 'react-toastify'
 import { useSelector } from 'react-redux'
-import FileUpload from '../components/FileUpload'  // ✅ Import FileUpload
+import FileUpload from '../components/FileUpload'
 import api from '../api/axios'
 import AccessDenied from '../components/Auth/AccessDenied'
+
+// ============================================================
+// ✅ PAEC THEME COLORS
+// ============================================================
+const colors = {
+  sidebar: '#01411C',
+  sidebarHover: '#0B542B',
+  active: '#0E6335',
+  accentGold: '#C9A227',
+  goldLight: '#E8C84A',
+  text: '#FFFFFF',
+  secondaryText: '#B8C8BE',
+  mainBg: '#F0F2F5',
+  white: '#FFFFFF',
+  darkText: '#1A2A3A',
+  lightText: '#5A7A8A',
+  error: '#D32F2F',
+  success: '#2E7D32',
+  warning: '#ED6C02',
+  info: '#0B5FA5',
+  borderColor: 'rgba(1, 65, 28, 0.08)',
+  shadowColor: 'rgba(1, 65, 28, 0.08)',
+  cardBg: '#FFFFFF',
+}
 
 // ✅ Helper function for image URLs
 const getFullUrl = (url) => {
@@ -95,7 +121,6 @@ const Repairs = () => {
     installation_notes: ''
   })
 
-  // ✅ State for uploaded files
   const [uploadedFiles, setUploadedFiles] = useState([])
 
   const [formData, setFormData] = useState({
@@ -111,7 +136,7 @@ const Repairs = () => {
     spare_part_used: 'No',
     remarks: '',
     repair_date: new Date().toISOString().slice(0, 16),
-    attachments: ''  // ✅ Added attachments field
+    attachments: ''
   })
 
   useEffect(() => {
@@ -151,7 +176,6 @@ const Repairs = () => {
     }
   }
 
-  // ✅ File upload handlers
   const handleFileUploadComplete = (files) => {
     console.log('📸 Files uploaded:', files)
     
@@ -213,9 +237,9 @@ const Repairs = () => {
       spare_part_used: 'No',
       remarks: '',
       repair_date: new Date().toISOString().slice(0, 16),
-      attachments: ''  // ✅ Reset attachments
+      attachments: ''
     })
-    setUploadedFiles([])  // ✅ Reset uploaded files
+    setUploadedFiles([])
     setShowSparePartsFields(false)
     setSparePartsList([])
     setOpenDialog(true)
@@ -327,7 +351,7 @@ const Repairs = () => {
         spare_parts: formData.spare_part_used === 'Yes' ? sparePartsList : [],
         remarks: formData.remarks || '',
         repair_date: formData.repair_date || new Date().toISOString().slice(0, 19).replace('T', ' '),
-        attachments: formData.attachments || ''  // ✅ Added attachments
+        attachments: formData.attachments || ''
       }
 
       console.log('📤 Submitting repair with attachments:', payload.attachments)
@@ -375,7 +399,7 @@ const Repairs = () => {
   })
 
   if (loading) {
-    return <LinearProgress />
+    return <LinearProgress sx={{ bgcolor: colors.borderColor, '& .MuiLinearProgress-bar': { bgcolor: colors.accentGold } }} />
   }
 
   return (
@@ -383,7 +407,7 @@ const Repairs = () => {
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Typography variant="h5" sx={{ fontWeight: 700, color: '#2C3E50' }}>
+          <Typography variant="h5" sx={{ fontWeight: 700, color: colors.sidebar }}>
             Repairs
           </Typography>
           {isEngineer && (
@@ -391,20 +415,39 @@ const Repairs = () => {
               icon={<EngineeringIcon sx={{ fontSize: 16 }} />}
               label="Engineer" 
               size="small" 
-              color="info" 
+              sx={{ 
+                bgcolor: colors.sidebar, 
+                color: 'white',
+                fontWeight: 500
+              }} 
             />
           )}
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button variant="outlined" onClick={fetchData} size="small">
+          <Button 
+            variant="outlined" 
+            onClick={fetchData} 
+            size="small"
+            sx={{ 
+              borderColor: colors.sidebar, 
+              color: colors.sidebar,
+              '&:hover': { borderColor: colors.accentGold, color: colors.accentGold }
+            }}
+          >
+            <Refresh sx={{ fontSize: 18, mr: 0.5 }} />
             Refresh
           </Button>
           {(isEngineer || isSuperAdmin) && (
             <Button
               variant="contained"
               onClick={handleOpenDialog}
-              sx={{ bgcolor: '#0B5FA5', '&:hover': { bgcolor: '#084a8a' } }}
+              sx={{ 
+                bgcolor: colors.sidebar, 
+                '&:hover': { bgcolor: colors.sidebarHover },
+                boxShadow: `0 4px 16px ${colors.sidebar}44`
+              }}
             >
+              <Add sx={{ fontSize: 18, mr: 0.5 }} />
               Record Repair
             </Button>
           )}
@@ -414,49 +457,74 @@ const Repairs = () => {
       {/* Stats Cards */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={6} sm={3}>
-          <Card sx={{ borderRadius: 2 }}>
+          <Card sx={{ 
+            borderRadius: 2, 
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 2px 12px rgba(0,0,0,0.04)'
+          }}>
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" color="#0B5FA5" fontWeight={700}>
+              <Typography variant="h4" sx={{ color: colors.sidebar, fontWeight: 700 }}>
                 {repairs.length}
               </Typography>
-              <Typography variant="body2" color="textSecondary">Total Repairs</Typography>
+              <Typography variant="body2" sx={{ color: colors.lightText }}>Total Repairs</Typography>
             </CardContent>
           </Card>
         </Grid>
         <Grid item xs={6} sm={3}>
-          <Card sx={{ borderRadius: 2, bgcolor: '#e3f2fd' }}>
+          <Card sx={{ 
+            borderRadius: 2, 
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+            bgcolor: `${colors.info}08`
+          }}>
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" color="#0B5FA5" fontWeight={700}>
+              <Typography variant="h4" sx={{ color: colors.info, fontWeight: 700 }}>
                 {new Set(repairs.map(r => r.equipment_name)).size}
               </Typography>
-              <Typography variant="body2" color="textSecondary">Equipment</Typography>
+              <Typography variant="body2" sx={{ color: colors.lightText }}>Equipment</Typography>
             </CardContent>
           </Card>
         </Grid>
         <Grid item xs={6} sm={3}>
-          <Card sx={{ borderRadius: 2, bgcolor: '#e8f5e9' }}>
+          <Card sx={{ 
+            borderRadius: 2, 
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+            bgcolor: `${colors.success}08`
+          }}>
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" color="#28a745" fontWeight={700}>
+              <Typography variant="h4" sx={{ color: colors.success, fontWeight: 700 }}>
                 {repairs.filter(r => r.spare_part_used === 1).length}
               </Typography>
-              <Typography variant="body2" color="textSecondary">With Spare Parts</Typography>
+              <Typography variant="body2" sx={{ color: colors.lightText }}>With Spare Parts</Typography>
             </CardContent>
           </Card>
         </Grid>
         <Grid item xs={6} sm={3}>
-          <Card sx={{ borderRadius: 2, bgcolor: '#fff3e0' }}>
+          <Card sx={{ 
+            borderRadius: 2, 
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+            bgcolor: `${colors.warning}08`
+          }}>
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" color="#ff9800" fontWeight={700}>
+              <Typography variant="h4" sx={{ color: colors.warning, fontWeight: 700 }}>
                 {repairs.filter(r => r.time_taken > 0).length}
               </Typography>
-              <Typography variant="body2" color="textSecondary">Time Recorded</Typography>
+              <Typography variant="body2" sx={{ color: colors.lightText }}>Time Recorded</Typography>
             </CardContent>
           </Card>
         </Grid>
       </Grid>
 
       {/* Search */}
-      <Paper sx={{ p: 2, mb: 3, borderRadius: 2 }}>
+      <Paper sx={{ 
+        p: 2, 
+        mb: 3, 
+        borderRadius: 2,
+        border: `1px solid ${colors.borderColor}`,
+        boxShadow: '0 2px 12px rgba(0,0,0,0.04)'
+      }}>
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
           <TextField
             size="small"
@@ -464,14 +532,27 @@ const Repairs = () => {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             sx={{ flexGrow: 1, minWidth: 200 }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Search sx={{ color: colors.lightText }} />
+                </InputAdornment>
+              ),
+              sx: {
+                '& .MuiOutlinedInput-root': {
+                  '&:hover fieldset': { borderColor: colors.sidebar },
+                  '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                }
+              }
+            }}
           />
         </Box>
       </Paper>
 
       {/* Table */}
-      <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
+      <TableContainer component={Paper} sx={{ borderRadius: 2, border: `1px solid ${colors.borderColor}` }}>
         <Table>
-          <TableHead sx={{ bgcolor: '#0B5FA5' }}>
+          <TableHead sx={{ bgcolor: colors.sidebar }}>
             <TableRow>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Equipment</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Engineer</TableCell>
@@ -486,7 +567,7 @@ const Repairs = () => {
             {filteredRepairs.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} align="center">
-                  <Typography variant="body1" sx={{ py: 4, color: '#6c757d' }}>
+                  <Typography variant="body1" sx={{ py: 4, color: colors.lightText }}>
                     No repairs found
                   </Typography>
                 </TableCell>
@@ -495,32 +576,52 @@ const Repairs = () => {
               filteredRepairs.map((repair) => (
                 <TableRow key={repair.id} hover>
                   <TableCell>
-                    <Typography variant="body2" fontWeight={500}>
+                    <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkText }}>
                       {repair.equipment_name || 'N/A'}
                     </Typography>
                   </TableCell>
-                  <TableCell>{repair.engineer_name || 'N/A'}</TableCell>
+                  <TableCell sx={{ color: colors.lightText }}>{repair.engineer_name || 'N/A'}</TableCell>
                   <TableCell>
-                    <Typography variant="body2" noWrap sx={{ maxWidth: 150 }}>
+                    <Typography variant="body2" noWrap sx={{ maxWidth: 150, color: colors.lightText }}>
                       {repair.root_cause || '-'}
                     </Typography>
                   </TableCell>
-                  <TableCell>{repair.time_taken ? `${repair.time_taken}m` : '-'}</TableCell>
-                  <TableCell>{repair.spare_part_used ? 'Yes' : 'No'}</TableCell>
+                  <TableCell sx={{ color: colors.lightText }}>{repair.time_taken ? `${repair.time_taken}m` : '-'}</TableCell>
                   <TableCell>
+                    <Chip 
+                      label={repair.spare_part_used ? 'Yes' : 'No'} 
+                      size="small"
+                      sx={{
+                        bgcolor: repair.spare_part_used ? colors.success : colors.lightText,
+                        color: 'white',
+                        fontWeight: 500,
+                        height: 22,
+                        fontSize: '11px'
+                      }}
+                    />
+                  </TableCell>
+                  <TableCell sx={{ color: colors.lightText }}>
                     {repair.repair_date ? new Date(repair.repair_date).toLocaleDateString() : 
                      repair.created_at ? new Date(repair.created_at).toLocaleDateString() : '-'}
                   </TableCell>
                   <TableCell align="center">
                     <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5 }}>
                       <Tooltip title="View Details">
-                        <IconButton size="small" color="primary" onClick={() => handleView(repair)}>
+                        <IconButton 
+                          size="small" 
+                          onClick={() => handleView(repair)}
+                          sx={{ color: colors.sidebar, '&:hover': { color: colors.accentGold } }}
+                        >
                           <Visibility fontSize="small" />
                         </IconButton>
                       </Tooltip>
                       {isSuperAdmin && (
                         <Tooltip title="Delete">
-                          <IconButton size="small" color="error" onClick={() => handleDelete(repair.id)}>
+                          <IconButton 
+                            size="small" 
+                            color="error" 
+                            onClick={() => handleDelete(repair.id)}
+                          >
                             <Delete fontSize="small" />
                           </IconButton>
                         </Tooltip>
@@ -534,9 +635,9 @@ const Repairs = () => {
         </Table>
       </TableContainer>
 
-      {/* Add Repair Dialog - WITH FILE UPLOAD */}
+      {/* Add Repair Dialog - THEMED */}
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ bgcolor: '#0B5FA5', color: 'white' }}>
+        <DialogTitle sx={{ bgcolor: colors.sidebar, color: 'white' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6" fontWeight={600}>Record Repair</Typography>
             <IconButton onClick={handleCloseDialog} sx={{ color: 'white' }}>
@@ -547,19 +648,25 @@ const Repairs = () => {
         <DialogContent dividers>
           <Grid container spacing={2} sx={{ mt: 0 }}>
             <Grid item xs={12}>
-              <Alert severity="info">
+              <Alert severity="info" sx={{ borderRadius: 2, border: `1px solid ${colors.info}33` }}>
                 Select an error to repair. Equipment and root cause will be auto-filled.
               </Alert>
             </Grid>
 
             <Grid item xs={12}>
               <FormControl fullWidth required>
-                <InputLabel>Select Error to Repair *</InputLabel>
+                <InputLabel sx={{ color: colors.lightText }}>Select Error to Repair *</InputLabel>
                 <Select
                   name="error_log_id"
                   value={formData.error_log_id}
                   onChange={handleFormChange}
                   label="Select Error to Repair *"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: colors.sidebar },
+                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    }
+                  }}
                 >
                   <MenuItem value="">Select Error</MenuItem>
                   {errors.filter(e => e.status === 'Pending' || e.status === 'In Progress').map(err => (
@@ -573,12 +680,18 @@ const Repairs = () => {
 
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
-                <InputLabel>Equipment</InputLabel>
+                <InputLabel sx={{ color: colors.lightText }}>Equipment</InputLabel>
                 <Select
                   name="equipment_id"
                   value={formData.equipment_id}
                   onChange={handleFormChange}
                   label="Equipment"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: colors.sidebar },
+                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    }
+                  }}
                 >
                   <MenuItem value="">Select Equipment</MenuItem>
                   {equipment.map(item => (
@@ -598,6 +711,12 @@ const Repairs = () => {
                 value={formData.engineer_name}
                 onChange={handleFormChange}
                 placeholder="Enter engineer name"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               />
             </Grid>
 
@@ -611,12 +730,18 @@ const Repairs = () => {
                 value={formData.repair_date}
                 onChange={handleFormChange}
                 InputLabelProps={{ shrink: true }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               />
             </Grid>
 
             <Grid item xs={12}>
-              <Divider sx={{ my: 1 }} />
-              <Typography variant="subtitle2" fontWeight={600} color="primary" gutterBottom>
+              <Divider sx={{ my: 1, borderColor: colors.borderColor }} />
+              <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.sidebar }} gutterBottom>
                 Problem Analysis
               </Typography>
             </Grid>
@@ -630,6 +755,12 @@ const Repairs = () => {
                 multiline
                 rows={2}
                 placeholder="What caused the failure?"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               />
             </Grid>
             <Grid item xs={12}>
@@ -642,12 +773,18 @@ const Repairs = () => {
                 multiline
                 rows={2}
                 placeholder="Detailed analysis of the problem"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               />
             </Grid>
 
             <Grid item xs={12}>
-              <Divider sx={{ my: 1 }} />
-              <Typography variant="subtitle2" fontWeight={600} color="primary" gutterBottom>
+              <Divider sx={{ my: 1, borderColor: colors.borderColor }} />
+              <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.sidebar }} gutterBottom>
                 Solution
               </Typography>
             </Grid>
@@ -661,6 +798,12 @@ const Repairs = () => {
                 multiline
                 rows={2}
                 placeholder="Actions taken to fix the issue"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               />
             </Grid>
             <Grid item xs={12}>
@@ -673,6 +816,12 @@ const Repairs = () => {
                 multiline
                 rows={3}
                 placeholder="Step by step repair procedure"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               />
             </Grid>
             <Grid item xs={12}>
@@ -685,12 +834,18 @@ const Repairs = () => {
                 multiline
                 rows={2}
                 placeholder="Detailed solution description"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               />
             </Grid>
 
             <Grid item xs={12}>
-              <Divider sx={{ my: 1 }} />
-              <Typography variant="subtitle2" fontWeight={600} color="primary" gutterBottom>
+              <Divider sx={{ my: 1, borderColor: colors.borderColor }} />
+              <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.sidebar }} gutterBottom>
                 Additional Details
               </Typography>
             </Grid>
@@ -703,16 +858,28 @@ const Repairs = () => {
                 value={formData.time_taken}
                 onChange={handleFormChange}
                 InputProps={{ inputProps: { min: 0 } }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               />
             </Grid>
             <Grid item xs={12} md={4}>
               <FormControl fullWidth>
-                <InputLabel>Spare Part Used</InputLabel>
+                <InputLabel sx={{ color: colors.lightText }}>Spare Part Used</InputLabel>
                 <Select
                   name="spare_part_used"
                   value={formData.spare_part_used}
                   onChange={handleFormChange}
                   label="Spare Part Used"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: colors.sidebar },
+                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    }
+                  }}
                 >
                   <MenuItem value="No">No</MenuItem>
                   <MenuItem value="Yes">Yes</MenuItem>
@@ -722,11 +889,11 @@ const Repairs = () => {
 
             {showSparePartsFields && (
               <Grid item xs={12}>
-                <Divider sx={{ my: 2 }} />
-                <Typography variant="subtitle2" fontWeight={600} color="primary" gutterBottom>
+                <Divider sx={{ my: 2, borderColor: colors.borderColor }} />
+                <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.sidebar }} gutterBottom>
                   Spare Parts Details
                 </Typography>
-                <Box sx={{ p: 2, bgcolor: '#f8f9fa', borderRadius: 2 }}>
+                <Box sx={{ p: 2, bgcolor: colors.mainBg, borderRadius: 2, border: `1px solid ${colors.borderColor}` }}>
                   <Grid container spacing={2}>
                     <Grid item xs={12} md={4}>
                       <TextField
@@ -737,6 +904,12 @@ const Repairs = () => {
                         value={sparePartForm.part_name}
                         onChange={handleSparePartChange}
                         placeholder="e.g., Power Supply"
+                        sx={{
+                          '& .MuiOutlinedInput-root': {
+                            '&:hover fieldset': { borderColor: colors.sidebar },
+                            '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                          }
+                        }}
                       />
                     </Grid>
                     <Grid item xs={12} md={3}>
@@ -748,6 +921,12 @@ const Repairs = () => {
                         value={sparePartForm.part_number}
                         onChange={handleSparePartChange}
                         placeholder="e.g., PSU-001"
+                        sx={{
+                          '& .MuiOutlinedInput-root': {
+                            '&:hover fieldset': { borderColor: colors.sidebar },
+                            '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                          }
+                        }}
                       />
                     </Grid>
                     <Grid item xs={12} md={2}>
@@ -759,6 +938,12 @@ const Repairs = () => {
                         value={sparePartForm.brand}
                         onChange={handleSparePartChange}
                         placeholder="e.g., Siemens"
+                        sx={{
+                          '& .MuiOutlinedInput-root': {
+                            '&:hover fieldset': { borderColor: colors.sidebar },
+                            '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                          }
+                        }}
                       />
                     </Grid>
                     <Grid item xs={12} md={1}>
@@ -771,6 +956,12 @@ const Repairs = () => {
                         value={sparePartForm.quantity}
                         onChange={handleSparePartChange}
                         InputProps={{ inputProps: { min: 1, step: 1 } }}
+                        sx={{
+                          '& .MuiOutlinedInput-root': {
+                            '&:hover fieldset': { borderColor: colors.sidebar },
+                            '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                          }
+                        }}
                       />
                     </Grid>
                     <Grid item xs={12} md={2}>
@@ -783,6 +974,12 @@ const Repairs = () => {
                         value={sparePartForm.unit_cost}
                         onChange={handleSparePartChange}
                         InputProps={{ inputProps: { min: 0, step: 0.01 } }}
+                        sx={{
+                          '& .MuiOutlinedInput-root': {
+                            '&:hover fieldset': { borderColor: colors.sidebar },
+                            '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                          }
+                        }}
                       />
                     </Grid>
                     <Grid item xs={12} md={6}>
@@ -794,6 +991,12 @@ const Repairs = () => {
                         value={sparePartForm.installation_notes}
                         onChange={handleSparePartChange}
                         placeholder="Any special instructions..."
+                        sx={{
+                          '& .MuiOutlinedInput-root': {
+                            '&:hover fieldset': { borderColor: colors.sidebar },
+                            '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                          }
+                        }}
                       />
                     </Grid>
                     <Grid item xs={12} md={2}>
@@ -801,7 +1004,11 @@ const Repairs = () => {
                         fullWidth
                         variant="contained"
                         onClick={handleAddSparePart}
-                        sx={{ height: '100%', bgcolor: '#0B5FA5' }}
+                        sx={{ 
+                          height: '100%', 
+                          bgcolor: colors.sidebar,
+                          '&:hover': { bgcolor: colors.sidebarHover }
+                        }}
                       >
                         Add
                       </Button>
@@ -810,20 +1017,20 @@ const Repairs = () => {
 
                   {sparePartsList.length > 0 && (
                     <Box sx={{ mt: 2 }}>
-                      <Typography variant="caption" color="textSecondary">
+                      <Typography variant="caption" sx={{ color: colors.lightText }}>
                         Added Parts ({sparePartsList.length})
                       </Typography>
-                      <TableContainer component={Paper} variant="outlined" sx={{ mt: 1 }}>
+                      <TableContainer component={Paper} variant="outlined" sx={{ mt: 1, borderColor: colors.borderColor }}>
                         <Table size="small">
-                          <TableHead>
+                          <TableHead sx={{ bgcolor: colors.mainBg }}>
                             <TableRow>
-                              <TableCell>Part Name</TableCell>
-                              <TableCell>Part #</TableCell>
-                              <TableCell>Brand</TableCell>
-                              <TableCell align="center">Qty</TableCell>
-                              <TableCell align="right">Cost</TableCell>
-                              <TableCell align="right">Total</TableCell>
-                              <TableCell align="center">Action</TableCell>
+                              <TableCell sx={{ fontWeight: 600, color: colors.sidebar }}>Part Name</TableCell>
+                              <TableCell sx={{ fontWeight: 600, color: colors.sidebar }}>Part #</TableCell>
+                              <TableCell sx={{ fontWeight: 600, color: colors.sidebar }}>Brand</TableCell>
+                              <TableCell sx={{ fontWeight: 600, color: colors.sidebar }} align="center">Qty</TableCell>
+                              <TableCell sx={{ fontWeight: 600, color: colors.sidebar }} align="right">Cost</TableCell>
+                              <TableCell sx={{ fontWeight: 600, color: colors.sidebar }} align="right">Total</TableCell>
+                              <TableCell sx={{ fontWeight: 600, color: colors.sidebar }} align="center">Action</TableCell>
                             </TableRow>
                           </TableHead>
                           <TableBody>
@@ -834,7 +1041,7 @@ const Repairs = () => {
                                 <TableCell>{part.brand || '-'}</TableCell>
                                 <TableCell align="center">{part.quantity}</TableCell>
                                 <TableCell align="right">${part.unit_cost.toFixed(2)}</TableCell>
-                                <TableCell align="right" sx={{ fontWeight: 600 }}>
+                                <TableCell align="right" sx={{ fontWeight: 600, color: colors.sidebar }}>
                                   ${part.total_cost.toFixed(2)}
                                 </TableCell>
                                 <TableCell align="center">
@@ -848,9 +1055,9 @@ const Repairs = () => {
                                 </TableCell>
                               </TableRow>
                             ))}
-                            <TableRow sx={{ bgcolor: '#f5f5f5' }}>
-                              <TableCell colSpan={5} align="right" sx={{ fontWeight: 600 }}>Total:</TableCell>
-                              <TableCell align="right" sx={{ fontWeight: 700, color: '#0B5FA5' }}>
+                            <TableRow sx={{ bgcolor: colors.mainBg }}>
+                              <TableCell colSpan={5} align="right" sx={{ fontWeight: 600, color: colors.sidebar }}>Total:</TableCell>
+                              <TableCell align="right" sx={{ fontWeight: 700, color: colors.accentGold }}>
                                 ${sparePartsList.reduce((sum, p) => sum + p.total_cost, 0).toFixed(2)}
                               </TableCell>
                               <TableCell />
@@ -874,13 +1081,19 @@ const Repairs = () => {
                 multiline
                 rows={2}
                 placeholder="Additional remarks"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               />
             </Grid>
 
-            {/* ✅ FILE UPLOAD SECTION */}
+            {/* File Upload Section */}
             <Grid item xs={12}>
-              <Divider sx={{ my: 1 }} />
-              <Typography variant="subtitle2" fontWeight={600} color="primary" gutterBottom>
+              <Divider sx={{ my: 1, borderColor: colors.borderColor }} />
+              <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.sidebar }} gutterBottom>
                 Attachments (Images, Videos, Documents)
               </Typography>
               <FileUpload
@@ -907,10 +1120,10 @@ const Repairs = () => {
               />
             </Grid>
 
-            {/* ✅ Show uploaded files preview */}
+            {/* Uploaded files preview */}
             {formData.attachments && formData.attachments.split(',').filter(Boolean).length > 0 && (
               <Grid item xs={12}>
-                <Typography variant="caption" color="textSecondary" gutterBottom sx={{ display: 'block', mb: 1 }}>
+                <Typography variant="caption" sx={{ color: colors.lightText }} gutterBottom display="block" sx={{ mb: 1 }}>
                   Uploaded Files ({formData.attachments.split(',').filter(Boolean).length})
                 </Typography>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
@@ -929,8 +1142,8 @@ const Repairs = () => {
                           height: isImage ? 120 : 100,
                           borderRadius: 2,
                           overflow: 'hidden',
-                          border: '1px solid #e9ecef',
-                          bgcolor: '#f8f9fa',
+                          border: `1px solid ${colors.borderColor}`,
+                          bgcolor: colors.mainBg,
                           '&:hover': {
                             boxShadow: 4,
                             '& .delete-btn': {
@@ -979,7 +1192,7 @@ const Repairs = () => {
                             }}
                             onClick={() => window.open(fullUrl, '_blank')}
                           >
-                            <Typography variant="caption" align="center" noWrap>
+                            <Typography variant="caption" align="center" noWrap sx={{ color: colors.lightText }}>
                               📄 {fileName.substring(0, 15)}
                             </Typography>
                           </Box>
@@ -1011,20 +1224,24 @@ const Repairs = () => {
           </Grid>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={handleCloseDialog}>Cancel</Button>
+          <Button onClick={handleCloseDialog} sx={{ color: colors.lightText }}>Cancel</Button>
           <Button 
             variant="contained" 
             onClick={handleSubmit} 
-            sx={{ bgcolor: '#0B5FA5', '&:hover': { bgcolor: '#084a8a' } }}
+            sx={{ 
+              bgcolor: colors.sidebar, 
+              '&:hover': { bgcolor: colors.sidebarHover },
+              boxShadow: `0 4px 16px ${colors.sidebar}44`
+            }}
           >
             Record Repair
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* View Dialog - SHOW ATTACHMENTS */}
+      {/* View Dialog - THEMED */}
       <Dialog open={openViewDialog} onClose={handleCloseView} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ bgcolor: '#0B5FA5', color: 'white' }}>
+        <DialogTitle sx={{ bgcolor: colors.sidebar, color: 'white' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6" fontWeight={600}>Repair Details</Typography>
             <IconButton onClick={handleCloseView} sx={{ color: 'white' }}>
@@ -1037,70 +1254,100 @@ const Repairs = () => {
             <Box>
               <Grid container spacing={2}>
                 <Grid item xs={12} md={6}>
-                  <Typography variant="body2" color="textSecondary">Equipment</Typography>
-                  <Typography variant="body1" fontWeight={500}>{viewingRepair.equipment_name || 'N/A'}</Typography>
+                  <Typography variant="body2" sx={{ color: colors.lightText }}>Equipment</Typography>
+                  <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkText }}>
+                    {viewingRepair.equipment_name || 'N/A'}
+                  </Typography>
                 </Grid>
                 <Grid item xs={12} md={6}>
-                  <Typography variant="body2" color="textSecondary">Engineer</Typography>
-                  <Typography variant="body1">{viewingRepair.engineer_name || 'N/A'}</Typography>
+                  <Typography variant="body2" sx={{ color: colors.lightText }}>Engineer</Typography>
+                  <Typography variant="body1" sx={{ color: colors.darkText }}>
+                    {viewingRepair.engineer_name || 'N/A'}
+                  </Typography>
                 </Grid>
                 <Grid item xs={12} md={6}>
-                  <Typography variant="body2" color="textSecondary">Time Taken</Typography>
-                  <Typography variant="body1">{viewingRepair.time_taken || 'N/A'} minutes</Typography>
+                  <Typography variant="body2" sx={{ color: colors.lightText }}>Time Taken</Typography>
+                  <Typography variant="body1" sx={{ color: colors.darkText }}>
+                    {viewingRepair.time_taken || 'N/A'} minutes
+                  </Typography>
                 </Grid>
                 <Grid item xs={12} md={6}>
-                  <Typography variant="body2" color="textSecondary">Spare Part Used</Typography>
-                  <Typography variant="body1">{viewingRepair.spare_part_used ? 'Yes' : 'No'}</Typography>
+                  <Typography variant="body2" sx={{ color: colors.lightText }}>Spare Part Used</Typography>
+                  <Typography variant="body1" sx={{ color: colors.darkText }}>
+                    {viewingRepair.spare_part_used ? 'Yes' : 'No'}
+                  </Typography>
                 </Grid>
                 <Grid item xs={12} md={6}>
-                  <Typography variant="body2" color="textSecondary">Repair Date</Typography>
-                  <Typography variant="body1">
+                  <Typography variant="body2" sx={{ color: colors.lightText }}>Repair Date</Typography>
+                  <Typography variant="body1" sx={{ color: colors.darkText }}>
                     {viewingRepair.repair_date ? new Date(viewingRepair.repair_date).toLocaleString() : 
                      viewingRepair.created_at ? new Date(viewingRepair.created_at).toLocaleString() : '-'}
                   </Typography>
                 </Grid>
 
                 <Grid item xs={12}>
-                  <Divider sx={{ my: 1 }} />
+                  <Divider sx={{ my: 1, borderColor: colors.borderColor }} />
                 </Grid>
                 <Grid item xs={12}>
-                  <Typography variant="subtitle2" fontWeight={600} gutterBottom>Root Cause</Typography>
-                  <Typography variant="body2" paragraph>{viewingRepair.root_cause || 'Not specified'}</Typography>
+                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.sidebar }} gutterBottom>
+                    Root Cause
+                  </Typography>
+                  <Typography variant="body2" paragraph sx={{ color: colors.darkText }}>
+                    {viewingRepair.root_cause || 'Not specified'}
+                  </Typography>
                 </Grid>
                 <Grid item xs={12}>
-                  <Typography variant="subtitle2" fontWeight={600} gutterBottom>Problem Analysis</Typography>
-                  <Typography variant="body2" paragraph>{viewingRepair.problem_analysis || 'Not specified'}</Typography>
+                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.sidebar }} gutterBottom>
+                    Problem Analysis
+                  </Typography>
+                  <Typography variant="body2" paragraph sx={{ color: colors.darkText }}>
+                    {viewingRepair.problem_analysis || 'Not specified'}
+                  </Typography>
                 </Grid>
                 <Grid item xs={12}>
-                  <Typography variant="subtitle2" fontWeight={600} gutterBottom>Corrective Action</Typography>
-                  <Typography variant="body2" paragraph>{viewingRepair.corrective_action || 'Not specified'}</Typography>
+                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.sidebar }} gutterBottom>
+                    Corrective Action
+                  </Typography>
+                  <Typography variant="body2" paragraph sx={{ color: colors.darkText }}>
+                    {viewingRepair.corrective_action || 'Not specified'}
+                  </Typography>
                 </Grid>
                 <Grid item xs={12}>
-                  <Typography variant="subtitle2" fontWeight={600} gutterBottom>Repair Procedure</Typography>
-                  <Paper sx={{ p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
-                    <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
+                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.sidebar }} gutterBottom>
+                    Repair Procedure
+                  </Typography>
+                  <Paper sx={{ p: 2, bgcolor: colors.mainBg, borderRadius: 1, border: `1px solid ${colors.borderColor}` }}>
+                    <Typography variant="body2" sx={{ whiteSpace: 'pre-line', color: colors.darkText }}>
                       {viewingRepair.repair_procedure || 'Not specified'}
                     </Typography>
                   </Paper>
                 </Grid>
                 {viewingRepair.solution_description && (
                   <Grid item xs={12}>
-                    <Typography variant="subtitle2" fontWeight={600} gutterBottom>Solution Description</Typography>
-                    <Typography variant="body2">{viewingRepair.solution_description}</Typography>
+                    <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.sidebar }} gutterBottom>
+                      Solution Description
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: colors.darkText }}>
+                      {viewingRepair.solution_description}
+                    </Typography>
                   </Grid>
                 )}
                 {viewingRepair.remarks && (
                   <Grid item xs={12}>
-                    <Typography variant="subtitle2" fontWeight={600} gutterBottom>Remarks</Typography>
-                    <Typography variant="body2">{viewingRepair.remarks}</Typography>
+                    <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.sidebar }} gutterBottom>
+                      Remarks
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: colors.darkText }}>
+                      {viewingRepair.remarks}
+                    </Typography>
                   </Grid>
                 )}
 
-                {/* ✅ SHOW ATTACHMENTS IN VIEW */}
+                {/* Attachments in View */}
                 {viewingRepair.attachments && viewingRepair.attachments.split(',').filter(Boolean).length > 0 && (
                   <Grid item xs={12}>
-                    <Divider sx={{ my: 1 }} />
-                    <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+                    <Divider sx={{ my: 1, borderColor: colors.borderColor }} />
+                    <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.sidebar }} gutterBottom>
                       Attachments ({viewingRepair.attachments.split(',').filter(Boolean).length})
                     </Typography>
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
@@ -1118,8 +1365,8 @@ const Repairs = () => {
                               height: isImage ? 150 : 120,
                               borderRadius: 2,
                               overflow: 'hidden',
-                              border: '1px solid #e9ecef',
-                              bgcolor: '#f8f9fa',
+                              border: `1px solid ${colors.borderColor}`,
+                              bgcolor: colors.mainBg,
                               cursor: 'pointer',
                               transition: 'transform 0.2s',
                               '&:hover': {
@@ -1150,7 +1397,7 @@ const Repairs = () => {
                             ) : (
                               <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', p: 1 }}>
                                 <Typography variant="body2">📄</Typography>
-                                <Typography variant="caption" align="center" noWrap sx={{ maxWidth: '100%' }}>
+                                <Typography variant="caption" align="center" noWrap sx={{ maxWidth: '100%', color: colors.lightText }}>
                                   {fileName}
                                 </Typography>
                               </Box>
@@ -1166,7 +1413,7 @@ const Repairs = () => {
           )}
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={handleCloseView}>Close</Button>
+          <Button onClick={handleCloseView} sx={{ color: colors.lightText }}>Close</Button>
           {isSuperAdmin && viewingRepair && (
             <Button
               variant="contained"
@@ -1176,6 +1423,7 @@ const Repairs = () => {
                 handleCloseView()
               }}
               startIcon={<Delete />}
+              sx={{ boxShadow: `0 4px 16px ${colors.error}44` }}
             >
               Delete
             </Button>

@@ -1,4 +1,5 @@
 // src/pages/ErrorLogs.jsx
+// ✅ PAEC THEME - Green & Gold Colors
 
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -14,6 +15,7 @@ import {
   Button,
   IconButton,
   TextField,
+  InputAdornment,  // ✅ ADDED - Fixes the error
   Chip,
   Dialog,
   DialogTitle,
@@ -48,6 +50,30 @@ import { useSelector } from 'react-redux'
 import FileUpload from '../components/FileUpload'
 import api from '../api/axios'
 import AccessDenied from '../components/Auth/AccessDenied'
+
+// ============================================================
+// ✅ PAEC THEME COLORS
+// ============================================================
+const colors = {
+  sidebar: '#01411C',
+  sidebarHover: '#0B542B',
+  active: '#0E6335',
+  accentGold: '#C9A227',
+  goldLight: '#E8C84A',
+  text: '#FFFFFF',
+  secondaryText: '#B8C8BE',
+  mainBg: '#F0F2F5',
+  white: '#FFFFFF',
+  darkText: '#1A2A3A',
+  lightText: '#5A7A8A',
+  error: '#D32F2F',
+  success: '#2E7D32',
+  warning: '#ED6C02',
+  info: '#0B5FA5',
+  borderColor: 'rgba(1, 65, 28, 0.08)',
+  shadowColor: 'rgba(1, 65, 28, 0.08)',
+  cardBg: '#FFFFFF',
+}
 
 const ErrorLogs = () => {
   const { user } = useSelector((state) => state.auth)
@@ -369,13 +395,14 @@ const ErrorLogs = () => {
   const resolvedErrors = errors.filter(e => e.status === 'Resolved' || e.status === 'Closed').length
 
   if (loading) {
-    return <LinearProgress />
+    return <LinearProgress sx={{ bgcolor: colors.borderColor, '& .MuiLinearProgress-bar': { bgcolor: colors.accentGold } }} />
   }
 
   return (
     <Box>
+      {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700, color: '#2C3E50' }}>
+        <Typography variant="h5" sx={{ fontWeight: 700, color: colors.sidebar }}>
           Error Logs
         </Typography>
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
@@ -384,6 +411,11 @@ const ErrorLogs = () => {
             startIcon={<Refresh />}
             onClick={fetchErrors}
             size="small"
+            sx={{ 
+              borderColor: colors.sidebar, 
+              color: colors.sidebar,
+              '&:hover': { borderColor: colors.accentGold, color: colors.accentGold }
+            }}
           >
             Refresh
           </Button>
@@ -392,7 +424,11 @@ const ErrorLogs = () => {
               variant="contained"
               startIcon={<Add />}
               onClick={() => handleOpenDialog()}
-              sx={{ bgcolor: '#0B5FA5', '&:hover': { bgcolor: '#084a8a' } }}
+              sx={{ 
+                bgcolor: colors.sidebar, 
+                '&:hover': { bgcolor: colors.sidebarHover },
+                boxShadow: `0 4px 16px ${colors.sidebar}44`
+              }}
             >
               Report Error
             </Button>
@@ -400,50 +436,77 @@ const ErrorLogs = () => {
         </Box>
       </Box>
 
+      {/* Stats Cards */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={6} sm={3}>
-          <Card sx={{ borderRadius: 2 }}>
+          <Card sx={{ 
+            borderRadius: 2, 
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 2px 12px rgba(0,0,0,0.04)'
+          }}>
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" color="#0B5FA5" fontWeight={700}>
+              <Typography variant="h4" sx={{ color: colors.sidebar, fontWeight: 700 }}>
                 {totalErrors}
               </Typography>
-              <Typography variant="body2" color="textSecondary">Total Errors</Typography>
+              <Typography variant="body2" sx={{ color: colors.lightText }}>Total Errors</Typography>
             </CardContent>
           </Card>
         </Grid>
         <Grid item xs={6} sm={3}>
-          <Card sx={{ borderRadius: 2, bgcolor: '#fff3e0' }}>
+          <Card sx={{ 
+            borderRadius: 2, 
+            border: `1px solid ${colors.warning}33`,
+            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+            bgcolor: `${colors.warning}08`
+          }}>
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" color="#ff9800" fontWeight={700}>
+              <Typography variant="h4" sx={{ color: colors.warning, fontWeight: 700 }}>
                 {openErrors}
               </Typography>
-              <Typography variant="body2" color="textSecondary">Open</Typography>
+              <Typography variant="body2" sx={{ color: colors.lightText }}>Open</Typography>
             </CardContent>
           </Card>
         </Grid>
         <Grid item xs={6} sm={3}>
-          <Card sx={{ borderRadius: 2, bgcolor: '#e3f2fd' }}>
+          <Card sx={{ 
+            borderRadius: 2, 
+            border: `1px solid ${colors.info}33`,
+            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+            bgcolor: `${colors.info}08`
+          }}>
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" color="#0B5FA5" fontWeight={700}>
+              <Typography variant="h4" sx={{ color: colors.info, fontWeight: 700 }}>
                 {completedErrors}
               </Typography>
-              <Typography variant="body2" color="textSecondary">Completed</Typography>
+              <Typography variant="body2" sx={{ color: colors.lightText }}>Completed</Typography>
             </CardContent>
           </Card>
         </Grid>
         <Grid item xs={6} sm={3}>
-          <Card sx={{ borderRadius: 2, bgcolor: '#e8f5e9' }}>
+          <Card sx={{ 
+            borderRadius: 2, 
+            border: `1px solid ${colors.success}33`,
+            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+            bgcolor: `${colors.success}08`
+          }}>
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" color="#28a745" fontWeight={700}>
+              <Typography variant="h4" sx={{ color: colors.success, fontWeight: 700 }}>
                 {resolvedErrors}
               </Typography>
-              <Typography variant="body2" color="textSecondary">Resolved</Typography>
+              <Typography variant="body2" sx={{ color: colors.lightText }}>Resolved</Typography>
             </CardContent>
           </Card>
         </Grid>
       </Grid>
 
-      <Paper sx={{ p: 2, mb: 3, borderRadius: 2 }}>
+      {/* Search & Filter */}
+      <Paper sx={{ 
+        p: 2, 
+        mb: 3, 
+        borderRadius: 2,
+        border: `1px solid ${colors.borderColor}`,
+        boxShadow: '0 2px 12px rgba(0,0,0,0.04)'
+      }}>
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
           <TextField
             size="small"
@@ -451,13 +514,32 @@ const ErrorLogs = () => {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             sx={{ flexGrow: 1, minWidth: 200 }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Search sx={{ color: colors.lightText }} />
+                </InputAdornment>
+              ),
+              sx: {
+                '& .MuiOutlinedInput-root': {
+                  '&:hover fieldset': { borderColor: colors.sidebar },
+                  '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                }
+              }
+            }}
           />
           <FormControl size="small" sx={{ minWidth: 150 }}>
-            <InputLabel>Severity</InputLabel>
+            <InputLabel sx={{ color: colors.lightText }}>Severity</InputLabel>
             <Select
               value={filters.severity}
               onChange={(e) => setFilters({ ...filters, severity: e.target.value })}
               label="Severity"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  '&:hover fieldset': { borderColor: colors.sidebar },
+                  '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                }
+              }}
             >
               <MenuItem value="">All</MenuItem>
               <MenuItem value="Low">Low</MenuItem>
@@ -469,9 +551,10 @@ const ErrorLogs = () => {
         </Box>
       </Paper>
 
-      <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
+      {/* Table */}
+      <TableContainer component={Paper} sx={{ borderRadius: 2, border: `1px solid ${colors.borderColor}` }}>
         <Table>
-          <TableHead sx={{ bgcolor: '#0B5FA5' }}>
+          <TableHead sx={{ bgcolor: colors.sidebar }}>
             <TableRow>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Error</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Equipment</TableCell>
@@ -486,7 +569,7 @@ const ErrorLogs = () => {
             {filteredErrors.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} align="center">
-                  <Typography variant="body1" sx={{ py: 3, color: '#6c757d' }}>
+                  <Typography variant="body1" sx={{ py: 3, color: colors.lightText }}>
                     No errors found
                   </Typography>
                 </TableCell>
@@ -495,58 +578,76 @@ const ErrorLogs = () => {
               filteredErrors.map((error) => (
                 <TableRow key={error.id} hover>
                   <TableCell>
-                    <Typography variant="body2" fontWeight={500}>
+                    <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkText }}>
                       {error.error_title}
                     </Typography>
-                    <Typography variant="caption" color="textSecondary">
+                    <Typography variant="caption" sx={{ color: colors.lightText }}>
                       {error.error_code || 'No code'}
                     </Typography>
                   </TableCell>
-                  <TableCell>
-                    <Typography variant="body2">
-                      {error.equipment_name}
-                    </Typography>
+                  <TableCell sx={{ color: colors.lightText }}>
+                    {error.equipment_name}
+                  </TableCell>
+                  <TableCell sx={{ color: colors.lightText }}>
+                    {error.priority || 'Medium'}
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2">
-                      {error.priority || 'Medium'}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2">
-                      {error.severity || 'Medium'}
-                    </Typography>
+                    <Chip 
+                      label={error.severity || 'Medium'} 
+                      size="small"
+                      sx={{
+                        bgcolor: error.severity === 'Critical' ? colors.error :
+                                 error.severity === 'High' ? '#e65100' :
+                                 error.severity === 'Medium' ? colors.warning :
+                                 '#2E7D32',
+                        color: 'white',
+                        fontWeight: 500,
+                        height: 22,
+                        fontSize: '11px'
+                      }}
+                    />
                   </TableCell>
                   <TableCell>
                     <Chip 
                       label={error.status} 
                       size="small"
-                      color={
-                        error.status === 'Resolved' || error.status === 'Closed' ? 'success' :
-                        error.status === 'Completed' ? 'info' :
-                        error.status === 'Pending' ? 'default' :
-                        error.status === 'In Progress' ? 'warning' :
-                        error.status === 'Rejected' ? 'error' : 'default'
-                      }
-                      sx={{ height: 22, fontSize: '11px' }}
+                      sx={{
+                        bgcolor: error.status === 'Resolved' || error.status === 'Closed' ? colors.success :
+                                 error.status === 'Completed' ? colors.info :
+                                 error.status === 'Pending' ? colors.warning :
+                                 error.status === 'In Progress' ? '#FF6F00' :
+                                 error.status === 'Rejected' ? colors.error : '#9E9E9E',
+                        color: 'white',
+                        fontWeight: 500,
+                        height: 22,
+                        fontSize: '11px'
+                      }}
                     />
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2">
+                    <Typography variant="body2" sx={{ color: colors.lightText }}>
                       {new Date(error.created_at).toLocaleDateString()}
                     </Typography>
                   </TableCell>
                   <TableCell align="center">
                     <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5, flexWrap: 'wrap' }}>
                       <Tooltip title="View Details">
-                        <IconButton size="small" color="primary" onClick={() => handleViewError(error)}>
+                        <IconButton 
+                          size="small" 
+                          onClick={() => handleViewError(error)}
+                          sx={{ color: colors.sidebar, '&:hover': { color: colors.accentGold } }}
+                        >
                           <Visibility fontSize="small" />
                         </IconButton>
                       </Tooltip>
                       
                       {canDelete && (
                         <Tooltip title="Delete Error">
-                          <IconButton size="small" color="error" onClick={() => handleErrorDelete(error.id)}>
+                          <IconButton 
+                            size="small" 
+                            color="error" 
+                            onClick={() => handleErrorDelete(error.id)}
+                          >
                             <Delete fontSize="small" />
                           </IconButton>
                         </Tooltip>
@@ -560,9 +661,9 @@ const ErrorLogs = () => {
         </Table>
       </TableContainer>
 
-      {/* REPORT ERROR DIALOG */}
+      {/* REPORT ERROR DIALOG - THEMED */}
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ bgcolor: '#0B5FA5', color: 'white' }}>
+        <DialogTitle sx={{ bgcolor: colors.sidebar, color: 'white' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6" fontWeight={600}>
               Report New Error
@@ -576,12 +677,18 @@ const ErrorLogs = () => {
           <Grid container spacing={2} sx={{ mt: 1 }}>
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
-                <InputLabel>Hospital</InputLabel>
+                <InputLabel sx={{ color: colors.lightText }}>Hospital</InputLabel>
                 <Select
                   name="hospital_id"
                   value={errorFormData.hospital_id}
                   onChange={handleFormChange}
                   label="Hospital"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: colors.sidebar },
+                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    }
+                  }}
                 >
                   <MenuItem value="">Select Hospital (Optional)</MenuItem>
                   {hospitals.map(h => (
@@ -593,12 +700,18 @@ const ErrorLogs = () => {
 
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
-                <InputLabel>Department</InputLabel>
+                <InputLabel sx={{ color: colors.lightText }}>Department</InputLabel>
                 <Select
                   name="department_id"
                   value={errorFormData.department_id}
                   onChange={handleFormChange}
                   label="Department"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: colors.sidebar },
+                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    }
+                  }}
                 >
                   <MenuItem value="">Select Department (Optional)</MenuItem>
                   {departments.map(d => (
@@ -610,13 +723,19 @@ const ErrorLogs = () => {
 
             <Grid item xs={12}>
               <FormControl fullWidth required error={!!errors_validation.equipment_id}>
-                <InputLabel>Equipment *</InputLabel>
+                <InputLabel sx={{ color: colors.lightText }}>Equipment *</InputLabel>
                 <Select
                   name="equipment_id"
                   value={errorFormData.equipment_id}
                   onChange={handleFormChange}
                   onBlur={handleBlur}
                   label="Equipment *"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: colors.sidebar },
+                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    }
+                  }}
                 >
                   <MenuItem value="">Select Equipment</MenuItem>
                   {equipment.map(item => (
@@ -639,18 +758,30 @@ const ErrorLogs = () => {
                 value={errorFormData.error_code}
                 onChange={handleFormChange}
                 placeholder="e.g., ERR-001"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               />
             </Grid>
 
             <Grid item xs={12} md={6}>
               <FormControl fullWidth required error={!!errors_validation.severity}>
-                <InputLabel>Severity *</InputLabel>
+                <InputLabel sx={{ color: colors.lightText }}>Severity *</InputLabel>
                 <Select
                   name="severity"
                   value={errorFormData.severity}
                   onChange={handleFormChange}
                   onBlur={handleBlur}
                   label="Severity *"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: colors.sidebar },
+                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    }
+                  }}
                 >
                   <MenuItem value="Low">Low</MenuItem>
                   <MenuItem value="Medium">Medium</MenuItem>
@@ -665,13 +796,19 @@ const ErrorLogs = () => {
 
             <Grid item xs={12} md={6}>
               <FormControl fullWidth required error={!!errors_validation.priority}>
-                <InputLabel>Priority *</InputLabel>
+                <InputLabel sx={{ color: colors.lightText }}>Priority *</InputLabel>
                 <Select
                   name="priority"
                   value={errorFormData.priority}
                   onChange={handleFormChange}
                   onBlur={handleBlur}
                   label="Priority *"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: colors.sidebar },
+                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    }
+                  }}
                 >
                   <MenuItem value="Low">Low</MenuItem>
                   <MenuItem value="Medium">Medium</MenuItem>
@@ -696,6 +833,12 @@ const ErrorLogs = () => {
                 placeholder="Brief error title"
                 error={!!errors_validation.error_title}
                 helperText={errors_validation.error_title}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               />
             </Grid>
 
@@ -709,6 +852,12 @@ const ErrorLogs = () => {
                 multiline
                 rows={3}
                 placeholder="Detailed description of the error"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               />
             </Grid>
 
@@ -725,11 +874,17 @@ const ErrorLogs = () => {
                 InputLabelProps={{ shrink: true }}
                 error={!!errors_validation.error_date}
                 helperText={errors_validation.error_date}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               />
             </Grid>
 
             <Grid item xs={12}>
-              <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+              <Typography variant="subtitle2" sx={{ color: colors.lightText }} gutterBottom>
                 Attachments (Optional)
               </Typography>
               <FileUpload
@@ -771,18 +926,22 @@ const ErrorLogs = () => {
           </Grid>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={handleCloseDialog}>Cancel</Button>
+          <Button onClick={handleCloseDialog} sx={{ color: colors.lightText }}>Cancel</Button>
           <Button 
             variant="contained" 
             onClick={handleSubmit} 
-            sx={{ bgcolor: '#0B5FA5', '&:hover': { bgcolor: '#084a8a' } }}
+            sx={{ 
+              bgcolor: colors.sidebar, 
+              '&:hover': { bgcolor: colors.sidebarHover },
+              boxShadow: `0 4px 16px ${colors.sidebar}44`
+            }}
           >
             Report Error
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* VIEW ERROR DIALOG - REMOVED ASSIGNED TO */}
+      {/* VIEW ERROR DIALOG - THEMED */}
       <Dialog 
         open={openViewDialog} 
         onClose={handleCloseView} 
@@ -793,7 +952,7 @@ const ErrorLogs = () => {
         }}
       >
         <DialogTitle sx={{ 
-          bgcolor: '#0B5FA5', 
+          bgcolor: colors.sidebar, 
           color: 'white',
           pb: 1
         }}>
@@ -815,32 +974,74 @@ const ErrorLogs = () => {
         <DialogContent dividers sx={{ pt: 3 }}>
           {viewingError && (
             <Box>
-              <Card sx={{ mb: 3, bgcolor: '#f8f9fa', borderRadius: 2 }}>
+              <Card sx={{ 
+                mb: 3, 
+                bgcolor: `${colors.mainBg}`, 
+                borderRadius: 2,
+                border: `1px solid ${colors.borderColor}`
+              }}>
                 <CardContent>
                   <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
                     <Box flex={1}>
-                      <Typography variant="h6" fontWeight={700}>
+                      <Typography variant="h6" fontWeight={700} sx={{ color: colors.darkText }}>
                         {viewingError.error_title}
                       </Typography>
                       <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 0.5 }}>
-                        <Typography variant="body2" fontWeight={500}>
-                          Status: {viewingError.status}
-                        </Typography>
-                        <Typography variant="body2" color="textSecondary">|</Typography>
-                        <Typography variant="body2">
-                          Severity: {viewingError.severity || 'Medium'}
-                        </Typography>
-                        <Typography variant="body2" color="textSecondary">|</Typography>
-                        <Typography variant="body2">
-                          Priority: {viewingError.priority || 'Medium'}
-                        </Typography>
+                        <Chip 
+                          label={viewingError.status} 
+                          size="small"
+                          sx={{
+                            bgcolor: viewingError.status === 'Resolved' || viewingError.status === 'Closed' ? colors.success :
+                                     viewingError.status === 'Completed' ? colors.info :
+                                     viewingError.status === 'Pending' ? colors.warning :
+                                     viewingError.status === 'In Progress' ? '#FF6F00' :
+                                     viewingError.status === 'Rejected' ? colors.error : '#9E9E9E',
+                            color: 'white',
+                            fontWeight: 500,
+                            height: 22,
+                            fontSize: '11px'
+                          }}
+                        />
+                        <Chip 
+                          label={`Severity: ${viewingError.severity || 'Medium'}`} 
+                          size="small"
+                          sx={{
+                            bgcolor: viewingError.severity === 'Critical' ? colors.error :
+                                     viewingError.severity === 'High' ? '#e65100' :
+                                     viewingError.severity === 'Medium' ? colors.warning :
+                                     '#2E7D32',
+                            color: 'white',
+                            fontWeight: 500,
+                            height: 22,
+                            fontSize: '11px'
+                          }}
+                        />
+                        <Chip 
+                          label={`Priority: ${viewingError.priority || 'Medium'}`} 
+                          size="small"
+                          sx={{
+                            bgcolor: viewingError.priority === 'Critical' ? colors.error :
+                                     viewingError.priority === 'High' ? '#e65100' :
+                                     viewingError.priority === 'Medium' ? colors.warning :
+                                     '#2E7D32',
+                            color: 'white',
+                            fontWeight: 500,
+                            height: 22,
+                            fontSize: '11px'
+                          }}
+                        />
                         {viewingError.error_code && (
-                          <>
-                            <Typography variant="body2" color="textSecondary">|</Typography>
-                            <Typography variant="body2" color="textSecondary">
-                              Code: {viewingError.error_code}
-                            </Typography>
-                          </>
+                          <Chip 
+                            label={`Code: ${viewingError.error_code}`} 
+                            size="small"
+                            sx={{
+                              bgcolor: colors.sidebar,
+                              color: 'white',
+                              fontWeight: 500,
+                              height: 22,
+                              fontSize: '11px'
+                            }}
+                          />
                         )}
                       </Stack>
                     </Box>
@@ -850,51 +1051,90 @@ const ErrorLogs = () => {
 
               <Grid container spacing={2} sx={{ mb: 3 }}>
                 <Grid item xs={12} sm={6}>
-                  <Paper sx={{ p: 2, bgcolor: '#f8f9fa', borderRadius: 2 }}>
-                    <Typography variant="caption" color="textSecondary">Equipment</Typography>
-                    <Typography variant="body2" fontWeight={600}>{viewingError.equipment_name || 'N/A'}</Typography>
+                  <Paper sx={{ 
+                    p: 2, 
+                    bgcolor: colors.mainBg, 
+                    borderRadius: 2,
+                    border: `1px solid ${colors.borderColor}`
+                  }}>
+                    <Typography variant="caption" sx={{ color: colors.lightText }}>Equipment</Typography>
+                    <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkText }}>
+                      {viewingError.equipment_name || 'N/A'}
+                    </Typography>
                   </Paper>
                 </Grid>
                 <Grid item xs={12} sm={6}>
-                  <Paper sx={{ p: 2, bgcolor: '#f8f9fa', borderRadius: 2 }}>
-                    <Typography variant="caption" color="textSecondary">Hospital</Typography>
-                    <Typography variant="body2" fontWeight={600}>{viewingError.hospital_name || 'N/A'}</Typography>
+                  <Paper sx={{ 
+                    p: 2, 
+                    bgcolor: colors.mainBg, 
+                    borderRadius: 2,
+                    border: `1px solid ${colors.borderColor}`
+                  }}>
+                    <Typography variant="caption" sx={{ color: colors.lightText }}>Hospital</Typography>
+                    <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkText }}>
+                      {viewingError.hospital_name || 'N/A'}
+                    </Typography>
                   </Paper>
                 </Grid>
                 <Grid item xs={12} sm={6}>
-                  <Paper sx={{ p: 2, bgcolor: '#f8f9fa', borderRadius: 2 }}>
-                    <Typography variant="caption" color="textSecondary">Reported By</Typography>
-                    <Typography variant="body2" fontWeight={600}>{viewingError.reported_by_name || 'Unknown'}</Typography>
+                  <Paper sx={{ 
+                    p: 2, 
+                    bgcolor: colors.mainBg, 
+                    borderRadius: 2,
+                    border: `1px solid ${colors.borderColor}`
+                  }}>
+                    <Typography variant="caption" sx={{ color: colors.lightText }}>Reported By</Typography>
+                    <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkText }}>
+                      {viewingError.reported_by_name || 'Unknown'}
+                    </Typography>
                   </Paper>
                 </Grid>
                 <Grid item xs={12} sm={6}>
-                  <Paper sx={{ p: 2, bgcolor: '#f8f9fa', borderRadius: 2 }}>
-                    <Typography variant="caption" color="textSecondary">Error Date</Typography>
-                    <Typography variant="body2" fontWeight={600}>
+                  <Paper sx={{ 
+                    p: 2, 
+                    bgcolor: colors.mainBg, 
+                    borderRadius: 2,
+                    border: `1px solid ${colors.borderColor}`
+                  }}>
+                    <Typography variant="caption" sx={{ color: colors.lightText }}>Error Date</Typography>
+                    <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkText }}>
                       {viewingError.error_date ? new Date(viewingError.error_date).toLocaleString() : 'N/A'}
                     </Typography>
                   </Paper>
                 </Grid>
                 <Grid item xs={12} sm={6}>
-                  <Paper sx={{ p: 2, bgcolor: '#f8f9fa', borderRadius: 2 }}>
-                    <Typography variant="caption" color="textSecondary">Department</Typography>
-                    <Typography variant="body2" fontWeight={600}>{viewingError.department_name || 'N/A'}</Typography>
+                  <Paper sx={{ 
+                    p: 2, 
+                    bgcolor: colors.mainBg, 
+                    borderRadius: 2,
+                    border: `1px solid ${colors.borderColor}`
+                  }}>
+                    <Typography variant="caption" sx={{ color: colors.lightText }}>Department</Typography>
+                    <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkText }}>
+                      {viewingError.department_name || 'N/A'}
+                    </Typography>
                   </Paper>
                 </Grid>
               </Grid>
 
-              <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1, color: '#0B5FA5' }}>
+              <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1, color: colors.sidebar }}>
                 Error Description
               </Typography>
-              <Paper sx={{ p: 2, bgcolor: '#f5f5f5', borderRadius: 2, mb: 3 }}>
-                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+              <Paper sx={{ 
+                p: 2, 
+                bgcolor: colors.mainBg, 
+                borderRadius: 2, 
+                mb: 3,
+                border: `1px solid ${colors.borderColor}`
+              }}>
+                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', color: colors.darkText }}>
                   {viewingError.error_description || 'No description provided'}
                 </Typography>
               </Paper>
 
               {viewingError.attachments && viewingError.attachments.split(',').filter(Boolean).length > 0 && (
                 <Box sx={{ mb: 3 }}>
-                  <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1, color: '#0B5FA5' }}>
+                  <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1, color: colors.sidebar }}>
                     Attachments ({viewingError.attachments.split(',').filter(Boolean).length})
                   </Typography>
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
@@ -913,8 +1153,8 @@ const ErrorLogs = () => {
                             height: isImage ? 150 : 120,
                             borderRadius: 2,
                             overflow: 'hidden',
-                            border: '1px solid #e9ecef',
-                            bgcolor: '#f8f9fa',
+                            border: `1px solid ${colors.borderColor}`,
+                            bgcolor: colors.mainBg,
                             cursor: 'pointer',
                             transition: 'transform 0.2s',
                             '&:hover': { transform: 'scale(1.05)', boxShadow: 4 }
@@ -937,7 +1177,7 @@ const ErrorLogs = () => {
                             </video>
                           ) : (
                             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', p: 1 }}>
-                              <Typography variant="caption" align="center" noWrap>{url.split('/').pop()}</Typography>
+                              <Typography variant="caption" align="center" noWrap sx={{ color: colors.lightText }}>{url.split('/').pop()}</Typography>
                             </Box>
                           )}
                           <Box sx={{ 
@@ -965,7 +1205,7 @@ const ErrorLogs = () => {
         </DialogContent>
         
         <DialogActions sx={{ p: 3, justifyContent: 'space-between' }}>
-          <Button onClick={handleCloseView}>Close</Button>
+          <Button onClick={handleCloseView} sx={{ color: colors.lightText }}>Close</Button>
           {isSuperAdmin && viewingError && (
             <Button
               variant="contained"
@@ -977,6 +1217,7 @@ const ErrorLogs = () => {
                 }
               }}
               startIcon={<Delete />}
+              sx={{ boxShadow: `0 4px 16px ${colors.error}44` }}
             >
               Delete
             </Button>

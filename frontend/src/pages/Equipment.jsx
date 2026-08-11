@@ -1,5 +1,5 @@
 // src/pages/Equipment.jsx
-// CLEAN VERSION - User Friendly with Serial Number Validation
+// ✅ PAEC THEME - Green & Gold Colors
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -58,6 +58,29 @@ import autoTable from 'jspdf-autotable'
 import api from '../api/axios'
 import AccessDenied from '../components/Auth/AccessDenied'
 
+// ============================================================
+// ✅ PAEC THEME COLORS
+// ============================================================
+const colors = {
+  sidebar: '#01411C',
+  sidebarHover: '#0B542B',
+  active: '#0E6335',
+  accentGold: '#C9A227',
+  goldLight: '#E8C84A',
+  text: '#FFFFFF',
+  secondaryText: '#B8C8BE',
+  mainBg: '#F0F2F5',
+  white: '#FFFFFF',
+  darkText: '#1A2A3A',
+  lightText: '#5A7A8A',
+  error: '#D32F2F',
+  success: '#2E7D32',
+  info: '#0B5FA5',
+  borderColor: 'rgba(1, 65, 28, 0.08)',
+  shadowColor: 'rgba(1, 65, 28, 0.08)',
+  cardBg: '#FFFFFF',
+}
+
 const apiEndpoints = {
   getEquipment: () => api.get('/equipment'),
   createEquipment: (data) => api.post('/equipment', data),
@@ -113,7 +136,6 @@ const Equipment = () => {
     hospital: ''
   })
 
-  // ✅ SERIAL NUMBER VALIDATION
   const [serialStatus, setSerialStatus] = useState({
     isValid: true,
     message: '',
@@ -224,7 +246,6 @@ const Equipment = () => {
     }
   }
 
-  // ✅ CHECK SERIAL NUMBER
   const checkSerialNumber = async (serialNumber, excludeId = null) => {
     if (!serialNumber || serialNumber.trim() === '') {
       setSerialStatus({ isValid: true, message: '', isChecking: false })
@@ -441,7 +462,7 @@ const Equipment = () => {
     try {
       const doc = new jsPDF()
       doc.setFontSize(18)
-      doc.setTextColor('#0B5FA5')
+      doc.setTextColor(colors.sidebar)
       doc.text('Equipment Report', 14, 20)
       doc.setFontSize(10)
       doc.setTextColor('#666666')
@@ -456,7 +477,7 @@ const Equipment = () => {
         body: tableData,
         startY: 40,
         styles: { fontSize: 8, cellPadding: 2 },
-        headStyles: { fillColor: '#0B5FA5', textColor: '#FFFFFF', fontSize: 9 },
+        headStyles: { fillColor: colors.sidebar, textColor: '#FFFFFF', fontSize: 9 },
         alternateRowStyles: { fillColor: '#F5F7FA' },
         margin: { left: 14, right: 14 }
       })
@@ -661,17 +682,27 @@ const Equipment = () => {
     return matchesSearch && matchesCategory && matchesManufacturer && matchesStatus && matchesHospital
   })
 
-  if (loading) return <LinearProgress />
+  if (loading) return <LinearProgress sx={{ bgcolor: colors.borderColor, '& .MuiLinearProgress-bar': { bgcolor: colors.accentGold } }} />
 
   return (
     <Box>
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700, color: '#2C3E50' }}>
+        <Typography variant="h5" sx={{ fontWeight: 700, color: colors.sidebar }}>
           Equipment
         </Typography>
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          <Button variant="outlined" startIcon={<Refresh />} onClick={fetchEquipment} size="small">
+          <Button 
+            variant="outlined" 
+            startIcon={<Refresh />} 
+            onClick={fetchEquipment} 
+            size="small"
+            sx={{ 
+              borderColor: colors.sidebar, 
+              color: colors.sidebar,
+              '&:hover': { borderColor: colors.accentGold, color: colors.accentGold }
+            }}
+          >
             Refresh
           </Button>
           {canCreate && (
@@ -679,7 +710,11 @@ const Equipment = () => {
               variant="contained"
               startIcon={<Add />}
               onClick={() => handleOpenDialog()}
-              sx={{ bgcolor: '#0B5FA5', '&:hover': { bgcolor: '#084a8a' } }}
+              sx={{ 
+                bgcolor: colors.sidebar, 
+                '&:hover': { bgcolor: colors.sidebarHover },
+                boxShadow: `0 4px 16px ${colors.sidebar}44`
+              }}
             >
               Add Equipment
             </Button>
@@ -688,7 +723,13 @@ const Equipment = () => {
       </Box>
 
       {/* Search & Filter */}
-      <Paper sx={{ p: 2, mb: 3, borderRadius: 2 }}>
+      <Paper sx={{ 
+        p: 2, 
+        mb: 3, 
+        borderRadius: 2,
+        border: `1px solid ${colors.borderColor}`,
+        boxShadow: '0 2px 12px rgba(0,0,0,0.04)'
+      }}>
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
           <TextField
             size="small"
@@ -699,15 +740,39 @@ const Equipment = () => {
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <Search />
+                  <Search sx={{ color: colors.lightText }} />
                 </InputAdornment>
-              )
+              ),
+              sx: {
+                '& .MuiOutlinedInput-root': {
+                  '&:hover fieldset': { borderColor: colors.sidebar },
+                  '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                }
+              }
             }}
           />
-          <Button variant="outlined" startIcon={<FilterList />} onClick={handleFilterClick}>
+          <Button 
+            variant="outlined" 
+            startIcon={<FilterList />} 
+            onClick={handleFilterClick}
+            sx={{ 
+              borderColor: colors.borderColor, 
+              color: colors.darkText,
+              '&:hover': { borderColor: colors.accentGold, color: colors.accentGold }
+            }}
+          >
             Filter
           </Button>
-          <Button variant="outlined" startIcon={<Download />} onClick={handleExportClick}>
+          <Button 
+            variant="outlined" 
+            startIcon={<Download />} 
+            onClick={handleExportClick}
+            sx={{ 
+              borderColor: colors.borderColor, 
+              color: colors.darkText,
+              '&:hover': { borderColor: colors.accentGold, color: colors.accentGold }
+            }}
+          >
             Export
           </Button>
         </Box>
@@ -720,13 +785,24 @@ const Equipment = () => {
         onClose={handleFilterClose}
         PaperProps={{ sx: { p: 2, width: 280 } }}
       >
-        <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+        <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.sidebar }} gutterBottom>
           Filter Equipment
         </Typography>
         
         <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-          <InputLabel>Category</InputLabel>
-          <Select name="category" value={filters.category} onChange={handleFilterChange} label="Category">
+          <InputLabel sx={{ color: colors.lightText }}>Category</InputLabel>
+          <Select 
+            name="category" 
+            value={filters.category} 
+            onChange={handleFilterChange} 
+            label="Category"
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                '&:hover fieldset': { borderColor: colors.sidebar },
+                '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+              }
+            }}
+          >
             <MenuItem value="">All</MenuItem>
             {categories.map(cat => (
               <MenuItem key={cat.id} value={cat.id}>{cat.name}</MenuItem>
@@ -735,8 +811,19 @@ const Equipment = () => {
         </FormControl>
 
         <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-          <InputLabel>Hospital</InputLabel>
-          <Select name="hospital" value={filters.hospital} onChange={handleFilterChange} label="Hospital">
+          <InputLabel sx={{ color: colors.lightText }}>Hospital</InputLabel>
+          <Select 
+            name="hospital" 
+            value={filters.hospital} 
+            onChange={handleFilterChange} 
+            label="Hospital"
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                '&:hover fieldset': { borderColor: colors.sidebar },
+                '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+              }
+            }}
+          >
             <MenuItem value="">All</MenuItem>
             {hospitals.map(h => (
               <MenuItem key={h.id} value={h.id}>{h.name}</MenuItem>
@@ -745,14 +832,38 @@ const Equipment = () => {
         </FormControl>
 
         <TextField
-          fullWidth size="small" label="Manufacturer" name="manufacturer"
-          value={filters.manufacturer} onChange={handleFilterChange}
-          placeholder="Filter by manufacturer" sx={{ mb: 2 }}
+          fullWidth 
+          size="small" 
+          label="Manufacturer" 
+          name="manufacturer"
+          value={filters.manufacturer} 
+          onChange={handleFilterChange}
+          placeholder="Filter by manufacturer" 
+          sx={{ mb: 2 }}
+          InputProps={{
+            sx: {
+              '& .MuiOutlinedInput-root': {
+                '&:hover fieldset': { borderColor: colors.sidebar },
+                '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+              }
+            }
+          }}
         />
 
         <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-          <InputLabel>Status</InputLabel>
-          <Select name="status" value={filters.status} onChange={handleFilterChange} label="Status">
+          <InputLabel sx={{ color: colors.lightText }}>Status</InputLabel>
+          <Select 
+            name="status" 
+            value={filters.status} 
+            onChange={handleFilterChange} 
+            label="Status"
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                '&:hover fieldset': { borderColor: colors.sidebar },
+                '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+              }
+            }}
+          >
             <MenuItem value="">All</MenuItem>
             <MenuItem value="Active">Active</MenuItem>
             <MenuItem value="Maintenance">Maintenance</MenuItem>
@@ -762,10 +873,22 @@ const Equipment = () => {
         </FormControl>
 
         <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button variant="contained" onClick={handleFilterClose} fullWidth size="small">
+          <Button 
+            variant="contained" 
+            onClick={handleFilterClose} 
+            fullWidth 
+            size="small"
+            sx={{ bgcolor: colors.sidebar, '&:hover': { bgcolor: colors.sidebarHover } }}
+          >
             Apply
           </Button>
-          <Button variant="outlined" onClick={clearFilters} fullWidth size="small">
+          <Button 
+            variant="outlined" 
+            onClick={clearFilters} 
+            fullWidth 
+            size="small"
+            sx={{ borderColor: colors.borderColor, '&:hover': { borderColor: colors.accentGold } }}
+          >
             Clear
           </Button>
         </Box>
@@ -778,15 +901,21 @@ const Equipment = () => {
         onClose={handleExportClose}
         PaperProps={{ sx: { p: 1, width: 200 } }}
       >
-        <MenuItem onClick={exportToCSV}><FileDownload sx={{ mr: 1, fontSize: 20 }} /> CSV</MenuItem>
-        <MenuItem onClick={exportToExcel}><FileDownload sx={{ mr: 1, fontSize: 20 }} /> Excel</MenuItem>
-        <MenuItem onClick={exportToPDF}><FileDownload sx={{ mr: 1, fontSize: 20 }} /> PDF</MenuItem>
+        <MenuItem onClick={exportToCSV} sx={{ '&:hover': { bgcolor: `${colors.accentGold}22` } }}>
+          <FileDownload sx={{ mr: 1, fontSize: 20, color: colors.sidebar }} /> CSV
+        </MenuItem>
+        <MenuItem onClick={exportToExcel} sx={{ '&:hover': { bgcolor: `${colors.accentGold}22` } }}>
+          <FileDownload sx={{ mr: 1, fontSize: 20, color: colors.sidebar }} /> Excel
+        </MenuItem>
+        <MenuItem onClick={exportToPDF} sx={{ '&:hover': { bgcolor: `${colors.accentGold}22` } }}>
+          <FileDownload sx={{ mr: 1, fontSize: 20, color: colors.sidebar }} /> PDF
+        </MenuItem>
       </Menu>
 
       {/* Table */}
-      <TableContainer component={Paper} sx={{ borderRadius: 2, overflowX: 'auto' }}>
+      <TableContainer component={Paper} sx={{ borderRadius: 2, overflowX: 'auto', border: `1px solid ${colors.borderColor}` }}>
         <Table>
-          <TableHead sx={{ bgcolor: '#0B5FA5' }}>
+          <TableHead sx={{ bgcolor: colors.sidebar }}>
             <TableRow>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Equipment</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Category</TableCell>
@@ -801,7 +930,7 @@ const Equipment = () => {
             {filteredEquipment.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} align="center">
-                  <Typography variant="body1" sx={{ py: 3, color: '#6c757d' }}>
+                  <Typography variant="body1" sx={{ py: 3, color: colors.lightText }}>
                     No equipment found
                   </Typography>
                 </TableCell>
@@ -810,29 +939,53 @@ const Equipment = () => {
               filteredEquipment.map((item) => (
                 <TableRow key={item.id} hover>
                   <TableCell>
-                    <Typography variant="body2" fontWeight={500}>{item.name}</Typography>
+                    <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkText }}>{item.name}</Typography>
                   </TableCell>
-                  <TableCell>{item.category_name || '-'}</TableCell>
-                  <TableCell>{item.manufacturer || '-'}</TableCell>
-                  <TableCell>{item.model || '-'}</TableCell>
-                  <TableCell>{item.serial_number || '-'}</TableCell>
-                  <TableCell>{item.status || 'Active'}</TableCell>
+                  <TableCell sx={{ color: colors.lightText }}>{item.category_name || '-'}</TableCell>
+                  <TableCell sx={{ color: colors.lightText }}>{item.manufacturer || '-'}</TableCell>
+                  <TableCell sx={{ color: colors.lightText }}>{item.model || '-'}</TableCell>
+                  <TableCell sx={{ color: colors.lightText }}>{item.serial_number || '-'}</TableCell>
+                  <TableCell>
+                    <Typography 
+                      variant="body2" 
+                      sx={{ 
+                        color: item.status === 'Active' ? colors.success : 
+                               item.status === 'Maintenance' ? colors.accentGold : 
+                               colors.error,
+                        fontWeight: 500
+                      }}
+                    >
+                      {item.status || 'Active'}
+                    </Typography>
+                  </TableCell>
                   <TableCell align="center">
                     <Tooltip title="View Details">
-                      <IconButton size="small" color="primary" onClick={() => handleViewDetails(item)}>
+                      <IconButton 
+                        size="small" 
+                        onClick={() => handleViewDetails(item)}
+                        sx={{ color: colors.sidebar, '&:hover': { color: colors.accentGold } }}
+                      >
                         <Visibility />
                       </IconButton>
                     </Tooltip>
                     {canEdit && (
                       <Tooltip title="Edit Equipment">
-                        <IconButton size="small" color="info" onClick={() => handleOpenDialog(item)}>
+                        <IconButton 
+                          size="small" 
+                          onClick={() => handleOpenDialog(item)}
+                          sx={{ color: colors.sidebar, '&:hover': { color: colors.accentGold } }}
+                        >
                           <Edit />
                         </IconButton>
                       </Tooltip>
                     )}
                     {canDelete && (
                       <Tooltip title="Delete Equipment">
-                        <IconButton size="small" color="error" onClick={() => handleDelete(item.id)}>
+                        <IconButton 
+                          size="small" 
+                          color="error" 
+                          onClick={() => handleDelete(item.id)}
+                        >
                           <Delete />
                         </IconButton>
                       </Tooltip>
@@ -845,9 +998,9 @@ const Equipment = () => {
         </Table>
       </TableContainer>
 
-      {/* View Dialog */}
+      {/* View Dialog - THEMED */}
       <Dialog open={openViewDialog} onClose={handleCloseView} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ bgcolor: '#0B5FA5', color: 'white' }}>
+        <DialogTitle sx={{ bgcolor: colors.sidebar, color: 'white' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6" fontWeight={600}>Equipment Details</Typography>
             <IconButton onClick={handleCloseView} sx={{ color: 'white' }}><Close /></IconButton>
@@ -856,7 +1009,19 @@ const Equipment = () => {
         <DialogContent dividers sx={{ mt: 2 }}>
           {selectedEquipment && (
             <Box>
-              <Tabs value={viewTab} onChange={(e, v) => setViewTab(v)} sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}>
+              <Tabs 
+                value={viewTab} 
+                onChange={(e, v) => setViewTab(v)} 
+                sx={{ 
+                  mb: 2, 
+                  borderBottom: 1, 
+                  borderColor: 'divider',
+                  '& .MuiTab-root': {
+                    '&.Mui-selected': { color: colors.sidebar }
+                  },
+                  '& .MuiTabs-indicator': { bgcolor: colors.accentGold }
+                }}
+              >
                 <Tab label="General" />
                 <Tab label="Error History" />
                 <Tab label="Repair History" />
@@ -867,56 +1032,56 @@ const Equipment = () => {
               {viewTab === 0 && (
                 <Grid container spacing={2}>
                   <Grid item xs={12}>
-                    <Typography variant="h6">{selectedEquipment.name}</Typography>
+                    <Typography variant="h6" sx={{ color: colors.sidebar }}>{selectedEquipment.name}</Typography>
                     <Typography variant="body2" color="textSecondary">Status: {selectedEquipment.status}</Typography>
                     <Divider sx={{ my: 2 }} />
                   </Grid>
                   <Grid item xs={12} md={6}>
                     <Typography variant="caption" color="textSecondary">Category</Typography>
-                    <Typography variant="body2">{selectedEquipment.category_name || 'N/A'}</Typography>
+                    <Typography variant="body2" sx={{ color: colors.darkText }}>{selectedEquipment.category_name || 'N/A'}</Typography>
                   </Grid>
                   <Grid item xs={12} md={6}>
                     <Typography variant="caption" color="textSecondary">Manufacturer</Typography>
-                    <Typography variant="body2">{selectedEquipment.manufacturer || 'N/A'}</Typography>
+                    <Typography variant="body2" sx={{ color: colors.darkText }}>{selectedEquipment.manufacturer || 'N/A'}</Typography>
                   </Grid>
                   <Grid item xs={12} md={6}>
                     <Typography variant="caption" color="textSecondary">Model</Typography>
-                    <Typography variant="body2">{selectedEquipment.model || 'N/A'}</Typography>
+                    <Typography variant="body2" sx={{ color: colors.darkText }}>{selectedEquipment.model || 'N/A'}</Typography>
                   </Grid>
                   <Grid item xs={12} md={6}>
                     <Typography variant="caption" color="textSecondary">Serial Number</Typography>
-                    <Typography variant="body2">{selectedEquipment.serial_number || 'N/A'}</Typography>
+                    <Typography variant="body2" sx={{ color: colors.darkText }}>{selectedEquipment.serial_number || 'N/A'}</Typography>
                   </Grid>
                   <Grid item xs={12} md={6}>
                     <Typography variant="caption" color="textSecondary">Installation Year</Typography>
-                    <Typography variant="body2">{selectedEquipment.installation_year || 'N/A'}</Typography>
+                    <Typography variant="body2" sx={{ color: colors.darkText }}>{selectedEquipment.installation_year || 'N/A'}</Typography>
                   </Grid>
                   <Grid item xs={12} md={6}>
                     <Typography variant="caption" color="textSecondary">Hospital</Typography>
-                    <Typography variant="body2">{selectedEquipment.hospital_name || 'N/A'}</Typography>
+                    <Typography variant="body2" sx={{ color: colors.darkText }}>{selectedEquipment.hospital_name || 'N/A'}</Typography>
                   </Grid>
                   <Grid item xs={12} md={6}>
                     <Typography variant="caption" color="textSecondary">Department</Typography>
-                    <Typography variant="body2">{selectedEquipment.department_name || 'N/A'}</Typography>
+                    <Typography variant="body2" sx={{ color: colors.darkText }}>{selectedEquipment.department_name || 'N/A'}</Typography>
                   </Grid>
                   <Grid item xs={12}>
                     <Typography variant="caption" color="textSecondary">Location</Typography>
-                    <Typography variant="body2">{selectedEquipment.location || 'N/A'}</Typography>
+                    <Typography variant="body2" sx={{ color: colors.darkText }}>{selectedEquipment.location || 'N/A'}</Typography>
                   </Grid>
                 </Grid>
               )}
 
               {viewTab === 1 && (
                 <Box>
-                  <Typography variant="subtitle2" fontWeight={600} gutterBottom>Error History</Typography>
+                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.sidebar }} gutterBottom>Error History</Typography>
                   {selectedEquipment.errors?.length > 0 ? (
                     <TableContainer component={Paper} variant="outlined">
                       <Table size="small">
-                        <TableHead sx={{ bgcolor: '#f5f5f5' }}>
+                        <TableHead sx={{ bgcolor: colors.mainBg }}>
                           <TableRow>
-                            <TableCell sx={{ fontWeight: 600 }}>Error</TableCell>
-                            <TableCell sx={{ fontWeight: 600 }}>Date</TableCell>
-                            <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.sidebar }}>Error</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.sidebar }}>Date</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.sidebar }}>Status</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
@@ -940,16 +1105,16 @@ const Equipment = () => {
 
               {viewTab === 2 && (
                 <Box>
-                  <Typography variant="subtitle2" fontWeight={600} gutterBottom>Repair History</Typography>
+                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.sidebar }} gutterBottom>Repair History</Typography>
                   {selectedEquipment.repairs?.length > 0 ? (
                     <TableContainer component={Paper} variant="outlined">
                       <Table size="small">
-                        <TableHead sx={{ bgcolor: '#f5f5f5' }}>
+                        <TableHead sx={{ bgcolor: colors.mainBg }}>
                           <TableRow>
-                            <TableCell sx={{ fontWeight: 600 }}>Root Cause</TableCell>
-                            <TableCell sx={{ fontWeight: 600 }}>Engineer</TableCell>
-                            <TableCell sx={{ fontWeight: 600 }}>Date</TableCell>
-                            <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.sidebar }}>Root Cause</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.sidebar }}>Engineer</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.sidebar }}>Date</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.sidebar }}>Status</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
@@ -974,15 +1139,15 @@ const Equipment = () => {
 
               {viewTab === 3 && (
                 <Box>
-                  <Typography variant="subtitle2" fontWeight={600} gutterBottom>Maintenance History</Typography>
+                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.sidebar }} gutterBottom>Maintenance History</Typography>
                   {selectedEquipment.maintenance?.length > 0 ? (
                     <TableContainer component={Paper} variant="outlined">
                       <Table size="small">
-                        <TableHead sx={{ bgcolor: '#f5f5f5' }}>
+                        <TableHead sx={{ bgcolor: colors.mainBg }}>
                           <TableRow>
-                            <TableCell sx={{ fontWeight: 600 }}>Type</TableCell>
-                            <TableCell sx={{ fontWeight: 600 }}>Date</TableCell>
-                            <TableCell sx={{ fontWeight: 600 }}>Status</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.sidebar }}>Type</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.sidebar }}>Date</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.sidebar }}>Status</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
@@ -1006,15 +1171,15 @@ const Equipment = () => {
 
               {viewTab === 4 && (
                 <Box>
-                  <Typography variant="subtitle2" fontWeight={600} gutterBottom>Spare Parts</Typography>
+                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.sidebar }} gutterBottom>Spare Parts</Typography>
                   {selectedEquipment.spareParts?.length > 0 ? (
                     <TableContainer component={Paper} variant="outlined">
                       <Table size="small">
-                        <TableHead sx={{ bgcolor: '#f5f5f5' }}>
+                        <TableHead sx={{ bgcolor: colors.mainBg }}>
                           <TableRow>
-                            <TableCell sx={{ fontWeight: 600 }}>Part Name</TableCell>
-                            <TableCell sx={{ fontWeight: 600 }} align="center">Qty</TableCell>
-                            <TableCell sx={{ fontWeight: 600 }} align="right">Total Cost</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.sidebar }}>Part Name</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.sidebar }} align="center">Qty</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.sidebar }} align="right">Total Cost</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
@@ -1025,9 +1190,9 @@ const Equipment = () => {
                               <TableCell align="right">Rs. {part.total_cost.toLocaleString()}</TableCell>
                             </TableRow>
                           ))}
-                          <TableRow sx={{ bgcolor: '#f5f5f5' }}>
-                            <TableCell colSpan={2} align="right" sx={{ fontWeight: 600 }}>Total:</TableCell>
-                            <TableCell align="right" sx={{ fontWeight: 700, color: '#0B5FA5' }}>
+                          <TableRow sx={{ bgcolor: colors.mainBg }}>
+                            <TableCell colSpan={2} align="right" sx={{ fontWeight: 600, color: colors.sidebar }}>Total:</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 700, color: colors.accentGold }}>
                               Rs. {selectedEquipment.spareParts.reduce((sum, p) => sum + p.total_cost, 0).toLocaleString()}
                             </TableCell>
                           </TableRow>
@@ -1045,16 +1210,24 @@ const Equipment = () => {
           )}
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={handleCloseView} variant="contained" sx={{ bgcolor: '#0B5FA5', '&:hover': { bgcolor: '#084a8a' } }}>
+          <Button 
+            onClick={handleCloseView} 
+            variant="contained" 
+            sx={{ 
+              bgcolor: colors.sidebar, 
+              '&:hover': { bgcolor: colors.sidebarHover },
+              boxShadow: `0 4px 16px ${colors.sidebar}44`
+            }}
+          >
             Close
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Add/Edit Dialog */}
+      {/* Add/Edit Dialog - THEMED */}
       {(canCreate || canEdit) && (
         <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
-          <DialogTitle sx={{ bgcolor: '#0B5FA5', color: 'white' }}>
+          <DialogTitle sx={{ bgcolor: colors.sidebar, color: 'white' }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Typography variant="h6" fontWeight={600}>
                 {editingEquipment ? 'Edit Equipment' : 'Add New Equipment'}
@@ -1074,30 +1247,76 @@ const Equipment = () => {
                   required
                   error={touched.name && !formData.name}
                   helperText={touched.name && !formData.name ? 'Equipment name is required' : ''}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: colors.sidebar },
+                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    }
+                  }}
                 />
               </Grid>
 
               <Grid item xs={12} md={6}>
                 <FormControl fullWidth>
-                  <InputLabel>Category</InputLabel>
-                  <Select name="category_id" value={formData.category_id} onChange={handleFormChange} label="Category">
+                  <InputLabel sx={{ color: colors.lightText }}>Category</InputLabel>
+                  <Select 
+                    name="category_id" 
+                    value={formData.category_id} 
+                    onChange={handleFormChange} 
+                    label="Category"
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        '&:hover fieldset': { borderColor: colors.sidebar },
+                        '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                      }
+                    }}
+                  >
                     <MenuItem value="">Select Category</MenuItem>
                     {categories.map(cat => (
                       <MenuItem key={cat.id} value={cat.id}>{cat.name}</MenuItem>
                     ))}
                   </Select>
                 </FormControl>
-                <Button size="small" startIcon={<Add />} onClick={() => handleOpenCustomDialog('category')} sx={{ mt: 0.5 }}>
+                <Button 
+                  size="small" 
+                  startIcon={<Add />} 
+                  onClick={() => handleOpenCustomDialog('category')} 
+                  sx={{ mt: 0.5, color: colors.sidebar, '&:hover': { color: colors.accentGold } }}
+                >
                   Add New Category
                 </Button>
               </Grid>
 
               <Grid item xs={12} md={6}>
-                <TextField fullWidth label="Manufacturer" name="manufacturer" value={formData.manufacturer} onChange={handleFormChange} />
+                <TextField 
+                  fullWidth 
+                  label="Manufacturer" 
+                  name="manufacturer" 
+                  value={formData.manufacturer} 
+                  onChange={handleFormChange}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: colors.sidebar },
+                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    }
+                  }}
+                />
               </Grid>
 
               <Grid item xs={12} md={6}>
-                <TextField fullWidth label="Model" name="model" value={formData.model} onChange={handleFormChange} />
+                <TextField 
+                  fullWidth 
+                  label="Model" 
+                  name="model" 
+                  value={formData.model} 
+                  onChange={handleFormChange}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: colors.sidebar },
+                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    }
+                  }}
+                />
               </Grid>
 
               <Grid item xs={12} md={6}>
@@ -1109,10 +1328,15 @@ const Equipment = () => {
                   value={formData.installation_year}
                   onChange={handleFormChange}
                   inputProps={{ min: 1900, max: 2155 }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: colors.sidebar },
+                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    }
+                  }}
                 />
               </Grid>
 
-              {/* ✅ SERIAL NUMBER WITH GREEN/RED STATUS */}
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
@@ -1123,10 +1347,11 @@ const Equipment = () => {
                   placeholder="Enter unique serial number"
                   sx={{
                     '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: colors.sidebar },
                       '&.Mui-focused fieldset': {
                         borderColor: serialStatus.message 
-                          ? (serialStatus.isValid ? '#28a745' : '#d32f2f')
-                          : undefined
+                          ? (serialStatus.isValid ? colors.success : colors.error)
+                          : colors.accentGold
                       }
                     }
                   }}
@@ -1134,9 +1359,9 @@ const Equipment = () => {
                     endAdornment: serialStatus.message && (
                       <InputAdornment position="end">
                         {serialStatus.isValid ? (
-                          <CheckCircle sx={{ color: '#28a745', fontSize: 22 }} />
+                          <CheckCircle sx={{ color: colors.success, fontSize: 22 }} />
                         ) : (
-                          <Cancel sx={{ color: '#d32f2f', fontSize: 22 }} />
+                          <Cancel sx={{ color: colors.error, fontSize: 22 }} />
                         )}
                       </InputAdornment>
                     )
@@ -1145,7 +1370,7 @@ const Equipment = () => {
                 {serialStatus.message && (
                   <FormHelperText 
                     sx={{ 
-                      color: serialStatus.isValid ? '#28a745' : '#d32f2f',
+                      color: serialStatus.isValid ? colors.success : colors.error,
                       fontWeight: 500,
                       fontSize: '0.875rem',
                       mt: 0.5
@@ -1158,13 +1383,19 @@ const Equipment = () => {
 
               <Grid item xs={12} md={6}>
                 <FormControl fullWidth>
-                  <InputLabel>Hospital</InputLabel>
+                  <InputLabel sx={{ color: colors.lightText }}>Hospital</InputLabel>
                   <Select
                     name="hospital_id"
                     value={formData.hospital_id}
                     onChange={handleFormChange}
                     label="Hospital"
                     disabled={user?.role === 'ENGINEER'}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        '&:hover fieldset': { borderColor: colors.sidebar },
+                        '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                      }
+                    }}
                   >
                     <MenuItem value="">Select Hospital</MenuItem>
                     {hospitals.map(h => (
@@ -1172,34 +1403,74 @@ const Equipment = () => {
                     ))}
                   </Select>
                   {user?.role === 'ENGINEER' && (
-                    <FormHelperText>Auto-assigned to your hospital</FormHelperText>
+                    <FormHelperText sx={{ color: colors.lightText }}>Auto-assigned to your hospital</FormHelperText>
                   )}
                 </FormControl>
               </Grid>
 
               <Grid item xs={12} md={6}>
                 <FormControl fullWidth>
-                  <InputLabel>Department</InputLabel>
-                  <Select name="department_id" value={formData.department_id} onChange={handleFormChange} label="Department">
+                  <InputLabel sx={{ color: colors.lightText }}>Department</InputLabel>
+                  <Select 
+                    name="department_id" 
+                    value={formData.department_id} 
+                    onChange={handleFormChange} 
+                    label="Department"
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        '&:hover fieldset': { borderColor: colors.sidebar },
+                        '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                      }
+                    }}
+                  >
                     <MenuItem value="">Select Department</MenuItem>
                     {departments.map(d => (
                       <MenuItem key={d.id} value={d.id}>{d.name}</MenuItem>
                     ))}
                   </Select>
                 </FormControl>
-                <Button size="small" startIcon={<Add />} onClick={() => handleOpenCustomDialog('department')} sx={{ mt: 0.5 }}>
+                <Button 
+                  size="small" 
+                  startIcon={<Add />} 
+                  onClick={() => handleOpenCustomDialog('department')} 
+                  sx={{ mt: 0.5, color: colors.sidebar, '&:hover': { color: colors.accentGold } }}
+                >
                   Add New Department
                 </Button>
               </Grid>
 
               <Grid item xs={12} md={6}>
-                <TextField fullWidth label="Location" name="location" value={formData.location} onChange={handleFormChange} placeholder="e.g., Room 101" />
+                <TextField 
+                  fullWidth 
+                  label="Location" 
+                  name="location" 
+                  value={formData.location} 
+                  onChange={handleFormChange} 
+                  placeholder="e.g., Room 101"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: colors.sidebar },
+                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    }
+                  }}
+                />
               </Grid>
 
               <Grid item xs={12} md={6}>
                 <FormControl fullWidth>
-                  <InputLabel>Status</InputLabel>
-                  <Select name="status" value={formData.status} onChange={handleFormChange} label="Status">
+                  <InputLabel sx={{ color: colors.lightText }}>Status</InputLabel>
+                  <Select 
+                    name="status" 
+                    value={formData.status} 
+                    onChange={handleFormChange} 
+                    label="Status"
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        '&:hover fieldset': { borderColor: colors.sidebar },
+                        '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                      }
+                    }}
+                  >
                     <MenuItem value="Active">Active</MenuItem>
                     <MenuItem value="Maintenance">Maintenance</MenuItem>
                     <MenuItem value="Inactive">Inactive</MenuItem>
@@ -1209,7 +1480,7 @@ const Equipment = () => {
               </Grid>
 
               <Grid item xs={12}>
-                <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                <Typography variant="subtitle2" sx={{ color: colors.lightText }} gutterBottom>
                   Equipment Images
                 </Typography>
                 <FileUpload
@@ -1234,15 +1505,16 @@ const Equipment = () => {
             </Grid>
           </DialogContent>
           <DialogActions sx={{ p: 3 }}>
-            <Button onClick={handleCloseDialog}>Cancel</Button>
+            <Button onClick={handleCloseDialog} sx={{ color: colors.lightText }}>Cancel</Button>
             <Button
               variant="contained"
               onClick={handleSubmit}
               disabled={!serialStatus.isValid && formData.serial_number !== ''}
               sx={{
-                bgcolor: '#0B5FA5',
-                '&:hover': { bgcolor: '#084a8a' },
-                '&.Mui-disabled': { bgcolor: '#bdbdbd' }
+                bgcolor: colors.sidebar,
+                '&:hover': { bgcolor: colors.sidebarHover },
+                '&.Mui-disabled': { bgcolor: '#bdbdbd' },
+                boxShadow: `0 4px 16px ${colors.sidebar}44`
               }}
             >
               {editingEquipment ? 'Update' : 'Create'}
@@ -1253,7 +1525,7 @@ const Equipment = () => {
 
       {/* Custom Add Dialog */}
       <Dialog open={openCustomDialog} onClose={handleCloseCustomDialog} maxWidth="xs" fullWidth>
-        <DialogTitle>
+        <DialogTitle sx={{ color: colors.sidebar }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6">
               Add New {customDialogType.charAt(0).toUpperCase() + customDialogType.slice(1)}
@@ -1271,17 +1543,29 @@ const Equipment = () => {
             onKeyPress={(e) => e.key === 'Enter' && handleSaveCustomItem()}
             sx={{ mt: 1 }}
             placeholder={`e.g., ${customDialogType === 'category' ? 'X-Ray Machine' : 'Cardiology'}`}
+            InputProps={{
+              sx: {
+                '& .MuiOutlinedInput-root': {
+                  '&:hover fieldset': { borderColor: colors.sidebar },
+                  '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                }
+              }
+            }}
           />
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={handleCloseCustomDialog}>Cancel</Button>
+          <Button onClick={handleCloseCustomDialog} sx={{ color: colors.lightText }}>Cancel</Button>
           <Button
             variant="contained"
             onClick={handleSaveCustomItem}
             disabled={customDialogLoading || !customDialogValue.trim()}
-            sx={{ bgcolor: '#0B5FA5', '&:hover': { bgcolor: '#084a8a' } }}
+            sx={{ 
+              bgcolor: colors.sidebar, 
+              '&:hover': { bgcolor: colors.sidebarHover },
+              boxShadow: `0 4px 16px ${colors.sidebar}44`
+            }}
           >
-            {customDialogLoading ? <CircularProgress size={24} /> : 'Add'}
+            {customDialogLoading ? <CircularProgress size={24} sx={{ color: 'white' }} /> : 'Add'}
           </Button>
         </DialogActions>
       </Dialog>

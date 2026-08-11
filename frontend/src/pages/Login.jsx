@@ -1,5 +1,5 @@
 // frontend/src/pages/Login.jsx
-// ✅ Correct paths for logo and video files
+// ✅ PAEC THEME - Transparent Logo (No White Background)
 
 import React, { useState } from 'react';
 import {
@@ -13,12 +13,34 @@ import {
     InputAdornment,
     IconButton,
     useTheme,
-    useMediaQuery
+    useMediaQuery,
 } from '@mui/material';
 import { Visibility, VisibilityOff, Email, Lock } from '@mui/icons-material';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { login } from '../redux/slices/authSlice';
+
+// ============================================================
+// ✅ PAEC THEME COLORS
+// ============================================================
+const colors = {
+    sidebar: '#01411C',
+    sidebarHover: '#0B542B',
+    active: '#0E6335',
+    accentGold: '#C9A227',
+    goldLight: '#E8C84A',
+    text: '#FFFFFF',
+    secondaryText: '#B8C8BE',
+    mainBg: '#F0F2F5',
+    white: '#FFFFFF',
+    darkText: '#1A2A3A',
+    lightText: '#5A7A8A',
+    error: '#D32F2F',
+    success: '#2E7D32',
+    info: '#0B5FA5',
+    borderColor: 'rgba(1, 65, 28, 0.08)',
+    shadowColor: 'rgba(1, 65, 28, 0.08)',
+};
 
 const Login = () => {
     const [formData, setFormData] = useState({ email: '', password: '' });
@@ -75,10 +97,12 @@ const Login = () => {
                 overflow: 'hidden',
                 margin: 0,
                 padding: 0,
-                background: videoError ? 'linear-gradient(135deg, #0B5FA5 0%, #1a7fc9 100%)' : 'none',
+                background: videoError 
+                    ? `linear-gradient(135deg, ${colors.sidebar} 0%, ${colors.active} 50%, ${colors.sidebar} 100%)` 
+                    : 'none',
             }}
         >
-            {/* ✅ VIDEO BACKGROUND - CORRECT PATHS */}
+            {/* Video Background */}
             {!videoError && (
                 <Box
                     component="video"
@@ -97,10 +121,8 @@ const Login = () => {
                         zIndex: 0,
                     }}
                 >
-                    {/* ✅ CORRECT PATHS - These files should be in public/videos/ */}
                     <source src="/videos/login-bg.mp4" type="video/mp4" />
                     <source src="/videos/login-bg.webm" type="video/webm" />
-                    {/* ✅ Fallback URL if local files don't exist */}
                     <source 
                         src="https://cdn.pixabay.com/video/2020/09/04/48267-448099234_large.mp4" 
                         type="video/mp4" 
@@ -108,7 +130,7 @@ const Login = () => {
                 </Box>
             )}
 
-            {/* ✅ OVERLAY */}
+            {/* Overlay */}
             <Box
                 sx={{
                     position: 'absolute',
@@ -116,12 +138,12 @@ const Login = () => {
                     left: 0,
                     width: '100%',
                     height: '100%',
-                    background: 'linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.4) 100%)',
+                    background: 'linear-gradient(135deg, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.6) 100%)',
                     zIndex: 1,
                 }}
             />
 
-            {/* ✅ LOGIN FORM - PERFECT CENTER */}
+            {/* Login Form */}
             <Container 
                 maxWidth={false}
                 sx={{ 
@@ -132,77 +154,160 @@ const Login = () => {
                     alignItems: 'center',
                     minHeight: '100vh',
                     width: '100%',
-                    py: { xs: 2, sm: 3 },
+                    py: { xs: 2, sm: 3, md: 4 },
                 }}
             >
                 <Paper
-                    elevation={24}
+                    elevation={30}
                     sx={{
                         width: '100%',
-                        maxWidth: { xs: '92%', sm: 400, md: 420 },
-                        p: { xs: 2.5, sm: 3.5, md: 4 },
-                        borderRadius: 4,
-                        backgroundColor: 'rgba(255, 255, 255, 0.12)',
-                        backdropFilter: 'blur(24px)',
-                        WebkitBackdropFilter: 'blur(24px)',
-                        border: '1px solid rgba(255,255,255,0.08)',
-                        boxShadow: '0 30px 80px rgba(0,0,0,0.25)',
+                        maxWidth: { xs: '92%', sm: 420, md: 440, lg: 460 },
+                        p: { xs: 3, sm: 4, md: 4.5 },
+                        borderRadius: { xs: 3, sm: 4 },
+                        background: `linear-gradient(135deg, rgba(1, 65, 28, 0.15) 0%, rgba(14, 99, 53, 0.10) 50%, rgba(1, 65, 28, 0.15) 100%)`,
+                        backgroundColor: 'rgba(255,255,255,0.88)',
+                        backdropFilter: 'blur(30px)',
+                        WebkitBackdropFilter: 'blur(30px)',
+                        border: `1px solid rgba(201, 162, 39, 0.15)`,
+                        boxShadow: '0 30px 80px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.2)',
                         transition: 'all 0.3s ease',
                         position: 'relative',
                         overflow: 'hidden',
                         mx: 'auto',
+                        '&::before': {
+                            content: '""',
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            height: '4px',
+                            background: `linear-gradient(90deg, ${colors.sidebar}, ${colors.accentGold}, ${colors.sidebar})`,
+                            backgroundSize: '200% 100%',
+                            animation: 'gradient 3s ease infinite',
+                            borderRadius: '4px 4px 0 0',
+                        },
+                        '@keyframes gradient': {
+                            '0%': { backgroundPosition: '0% 50%' },
+                            '50%': { backgroundPosition: '100% 50%' },
+                            '100%': { backgroundPosition: '0% 50%' },
+                        },
                     }}
                 >
-                    {/* ✅ Form Content */}
                     <Box sx={{ position: 'relative', zIndex: 1 }}>
-                        {/* ✅ Logo - CORRECT PATH */}
-                        <Box sx={{ textAlign: 'center', mb: { xs: 2.5, sm: 3.5 } }}>
-                            <Box sx={{ display: 'flex', justifyContent: 'center', mb: { xs: 1.5, sm: 2 } }}>
-                                <img
-                                    src="/logo.png"
-                                    alt="PAEC Logo"
-                                    style={{
-                                        height: isMobile ? '60px' : '80px',
-                                        width: 'auto',
-                                        borderRadius: '12px',
-                                        backgroundColor: 'rgba(255,255,255,0.9)',
-                                        padding: '8px',
-                                        boxShadow: '0 4px 20px rgba(0,0,0,0.12)',
-                                    }}
-                                    onError={(e) => { 
-                                        console.warn('⚠️ Logo not found at /logo.png');
-                                        e.target.style.display = 'none'; 
-                                    }}
-                                />
+                        {/* Logo Section - TRANSPARENT LOGO */}
+                        <Box sx={{ textAlign: 'center', mb: { xs: 3, sm: 4 } }}>
+                            <Box 
+                                sx={{ 
+                                    display: 'flex', 
+                                    justifyContent: 'center', 
+                                    mb: { xs: 2, sm: 2.5 },
+                                    position: 'relative',
+                                }}
+                            >
+                                {/* ✅ Transparent Logo - No White Background */}
+                                <Box sx={{ position: 'relative' }}>
+                                    <img
+                                        src="/logoo.png"
+                                        alt="PAEC Logo"
+                                        style={{
+                                            height: isMobile ? '90px' : '120px',
+                                            width: 'auto',
+                                            backgroundColor: 'transparent',
+                                            padding: '0px',
+                                            borderRadius: '0px',
+                                            border: 'none',
+                                            filter: 'drop-shadow(0 0 30px rgba(201, 162, 39, 0.2))',
+                                            objectFit: 'contain',
+                                            transition: 'all 0.3s ease',
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.target.style.transform = 'scale(1.05)';
+                                            e.target.style.filter = 'drop-shadow(0 0 50px rgba(201, 162, 39, 0.4))';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.target.style.transform = 'scale(1)';
+                                            e.target.style.filter = 'drop-shadow(0 0 30px rgba(201, 162, 39, 0.2))';
+                                        }}
+                                        onError={(e) => { 
+                                            console.warn('⚠️ Logo not found');
+                                            e.target.style.display = 'none'; 
+                                        }}
+                                    />
+                                    {/* ✅ Gold Glow Behind Logo */}
+                                    <Box
+                                        sx={{
+                                            position: 'absolute',
+                                            top: '-30px',
+                                            left: '-30px',
+                                            right: '-30px',
+                                            bottom: '-30px',
+                                            borderRadius: '50%',
+                                            background: `radial-gradient(circle, ${colors.accentGold}08 0%, transparent 70%)`,
+                                            animation: 'pulseGlow 3s ease-in-out infinite',
+                                            pointerEvents: 'none',
+                                        }}
+                                    />
+                                    <Box
+                                        sx={{
+                                            position: 'absolute',
+                                            top: '-50px',
+                                            left: '-50px',
+                                            right: '-50px',
+                                            bottom: '-50px',
+                                            borderRadius: '50%',
+                                            background: `radial-gradient(circle, ${colors.accentGold}04 0%, transparent 70%)`,
+                                            animation: 'pulseGlow 3s ease-in-out infinite 1s',
+                                            pointerEvents: 'none',
+                                        }}
+                                    />
+                                </Box>
                             </Box>
+                            
                             <Typography
                                 variant="h5"
                                 sx={{
                                     fontWeight: 700,
-                                    color: '#FFFFFF',
-                                    fontSize: { xs: '1rem', sm: '1.2rem', md: '1.4rem' },
-                                    textShadow: '0 2px 12px rgba(0,0,0,0.3)',
-                                    letterSpacing: '0.3px',
+                                    color: colors.sidebar,
+                                    fontSize: { xs: '1.2rem', sm: '1.4rem', md: '1.6rem' },
+                                    letterSpacing: '0.5px',
                                     lineHeight: 1.3,
+                                    mt: 1,
                                 }}
                             >
-                                PAEC Equipment Management Portal
+                                PAEC Equipment Portal
+                            </Typography>
+                            
+                            <Typography
+                                variant="body2"
+                                sx={{
+                                    color: colors.lightText,
+                                    fontSize: { xs: '0.75rem', sm: '0.85rem' },
+                                    fontWeight: 400,
+                                    mt: 0.5,
+                                    letterSpacing: '0.3px',
+                                }}
+                            >
+                                Sign in to manage your equipment
                             </Typography>
                         </Box>
 
+                        {/* Error Alert */}
                         {error && (
                             <Alert 
                                 severity="error" 
                                 sx={{ 
                                     mb: 2.5, 
-                                    backgroundColor: 'rgba(255,255,255,0.9)',
+                                    backgroundColor: 'rgba(211, 47, 47, 0.08)',
+                                    border: '1px solid rgba(211, 47, 47, 0.2)',
                                     borderRadius: 2,
+                                    fontWeight: 500,
                                 }}
                             >
                                 {error}
                             </Alert>
                         )}
 
+                        {/* Form */}
                         <form onSubmit={handleSubmit}>
                             <TextField
                                 fullWidth
@@ -213,34 +318,44 @@ const Login = () => {
                                 onChange={handleChange}
                                 error={!!errors.email}
                                 helperText={errors.email}
-                                sx={{ mb: { xs: 2, sm: 2.5 } }}
+                                sx={{ 
+                                    mb: { xs: 2.5, sm: 3 },
+                                    '& .MuiOutlinedInput-root': {
+                                        backgroundColor: 'rgba(255,255,255,0.92)',
+                                        borderRadius: 2.5,
+                                        transition: 'all 0.3s ease',
+                                        '&:hover fieldset': {
+                                            borderColor: colors.sidebar,
+                                            borderWidth: 2,
+                                        },
+                                        '&.Mui-focused fieldset': {
+                                            borderColor: colors.accentGold,
+                                            borderWidth: 2.5,
+                                            boxShadow: `0 0 0 6px ${colors.accentGold}22`,
+                                        },
+                                    },
+                                    '& .MuiInputLabel-root': {
+                                        fontWeight: 600,
+                                        fontSize: '0.95rem',
+                                        color: colors.lightText,
+                                    },
+                                    '& .MuiInputLabel-root.Mui-focused': {
+                                        color: colors.sidebar,
+                                        fontWeight: 700,
+                                    },
+                                }}
                                 InputProps={{
                                     startAdornment: (
                                         <InputAdornment position="start">
-                                            <Email sx={{ color: '#888', fontSize: '1.1rem' }} />
+                                            <Email sx={{ color: colors.lightText, fontSize: '1.2rem' }} />
                                         </InputAdornment>
                                     ),
                                     sx: {
-                                        backgroundColor: 'rgba(255,255,255,0.9)',
-                                        borderRadius: 2,
-                                        '& .MuiInputLabel-root': { 
-                                            color: '#555',
-                                            fontWeight: 500,
-                                        },
                                         '& .MuiInputBase-input': { 
-                                            color: '#222',
-                                            padding: '10px 14px',
-                                            fontSize: '0.95rem',
-                                        },
-                                        '& .MuiOutlinedInput-notchedOutline': {
-                                            borderColor: 'rgba(0,0,0,0.05)',
-                                        },
-                                        '&:hover .MuiOutlinedInput-notchedOutline': {
-                                            borderColor: 'rgba(11, 95, 165, 0.3)',
-                                        },
-                                        '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                                            borderColor: '#0B5FA5',
-                                            borderWidth: 2,
+                                            color: colors.darkText,
+                                            padding: '14px 16px',
+                                            fontSize: '1rem',
+                                            fontWeight: 500,
                                         },
                                     }
                                 }}
@@ -255,11 +370,36 @@ const Login = () => {
                                 onChange={handleChange}
                                 error={!!errors.password}
                                 helperText={errors.password}
-                                sx={{ mb: { xs: 2.5, sm: 3 } }}
+                                sx={{ 
+                                    mb: { xs: 3, sm: 3.5 },
+                                    '& .MuiOutlinedInput-root': {
+                                        backgroundColor: 'rgba(255,255,255,0.92)',
+                                        borderRadius: 2.5,
+                                        transition: 'all 0.3s ease',
+                                        '&:hover fieldset': {
+                                            borderColor: colors.sidebar,
+                                            borderWidth: 2,
+                                        },
+                                        '&.Mui-focused fieldset': {
+                                            borderColor: colors.accentGold,
+                                            borderWidth: 2.5,
+                                            boxShadow: `0 0 0 6px ${colors.accentGold}22`,
+                                        },
+                                    },
+                                    '& .MuiInputLabel-root': {
+                                        fontWeight: 600,
+                                        fontSize: '0.95rem',
+                                        color: colors.lightText,
+                                    },
+                                    '& .MuiInputLabel-root.Mui-focused': {
+                                        color: colors.sidebar,
+                                        fontWeight: 700,
+                                    },
+                                }}
                                 InputProps={{
                                     startAdornment: (
                                         <InputAdornment position="start">
-                                            <Lock sx={{ color: '#888', fontSize: '1.1rem' }} />
+                                            <Lock sx={{ color: colors.lightText, fontSize: '1.2rem' }} />
                                         </InputAdornment>
                                     ),
                                     endAdornment: (
@@ -267,63 +407,67 @@ const Login = () => {
                                             <IconButton
                                                 onClick={() => setShowPassword(!showPassword)}
                                                 edge="end"
-                                                sx={{ color: '#888' }}
+                                                sx={{ 
+                                                    color: colors.lightText,
+                                                    '&:hover': {
+                                                        color: colors.accentGold,
+                                                        backgroundColor: `${colors.accentGold}22`,
+                                                    }
+                                                }}
                                             >
                                                 {showPassword ? <VisibilityOff /> : <Visibility />}
                                             </IconButton>
                                         </InputAdornment>
                                     ),
                                     sx: {
-                                        backgroundColor: 'rgba(255,255,255,0.9)',
-                                        borderRadius: 2,
-                                        '& .MuiInputLabel-root': { 
-                                            color: '#555',
-                                            fontWeight: 500,
-                                        },
                                         '& .MuiInputBase-input': { 
-                                            color: '#222',
-                                            padding: '10px 14px',
-                                            fontSize: '0.95rem',
-                                        },
-                                        '& .MuiOutlinedInput-notchedOutline': {
-                                            borderColor: 'rgba(0,0,0,0.05)',
-                                        },
-                                        '&:hover .MuiOutlinedInput-notchedOutline': {
-                                            borderColor: 'rgba(11, 95, 165, 0.3)',
-                                        },
-                                        '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                                            borderColor: '#0B5FA5',
-                                            borderWidth: 2,
+                                            color: colors.darkText,
+                                            padding: '14px 16px',
+                                            fontSize: '1rem',
+                                            fontWeight: 500,
                                         },
                                     }
                                 }}
                             />
 
+                            {/* Login Button */}
                             <Button
                                 fullWidth
                                 type="submit"
                                 variant="contained"
                                 disabled={loading}
                                 sx={{
-                                    py: { xs: 1.3, sm: 1.5 },
-                                    bgcolor: '#0B5FA5',
+                                    py: { xs: 1.5, sm: 1.8 },
+                                    background: `linear-gradient(135deg, ${colors.sidebar} 0%, ${colors.active} 50%, ${colors.sidebar} 100%)`,
+                                    backgroundSize: '200% 200%',
+                                    animation: 'buttonGradient 3s ease infinite',
                                     '&:hover': { 
-                                        bgcolor: '#084a8a',
-                                        transform: 'translateY(-1px)',
-                                        boxShadow: '0 8px 30px rgba(11, 95, 165, 0.4)',
+                                        background: `linear-gradient(135deg, ${colors.sidebarHover} 0%, ${colors.active} 50%, ${colors.sidebarHover} 100%)`,
+                                        transform: 'translateY(-2px) scale(1.01)',
+                                        boxShadow: `0 10px 35px ${colors.sidebar}66`,
                                     },
-                                    borderRadius: 2,
-                                    fontSize: { xs: '15px', sm: '17px' },
+                                    borderRadius: 2.5,
+                                    fontSize: { xs: '16px', sm: '18px' },
                                     fontWeight: 700,
                                     mt: 1,
-                                    boxShadow: '0 4px 20px rgba(11, 95, 165, 0.3)',
-                                    textTransform: 'uppercase',
-                                    letterSpacing: '1.2px',
+                                    boxShadow: `0 6px 25px ${colors.sidebar}44`,
+                                    textTransform: 'none',
+                                    letterSpacing: '0.8px',
                                     transition: 'all 0.3s ease',
-                                    padding: '12px',
+                                    padding: '14px',
+                                    color: 'white',
+                                    '&:disabled': {
+                                        background: `linear-gradient(135deg, ${colors.lightText} 0%, ${colors.secondaryText} 100%)`,
+                                        animation: 'none',
+                                    },
+                                    '@keyframes buttonGradient': {
+                                        '0%': { backgroundPosition: '0% 50%' },
+                                        '50%': { backgroundPosition: '100% 50%' },
+                                        '100%': { backgroundPosition: '0% 50%' },
+                                    },
                                 }}
                             >
-                                {loading ? 'Logging in...' : 'Login'}
+                                {loading ? 'Logging in...' : 'Sign In'}
                             </Button>
                         </form>
                     </Box>

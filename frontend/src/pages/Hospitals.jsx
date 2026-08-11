@@ -1,3 +1,6 @@
+// src/pages/Hospitals.jsx
+// ✅ PAEC THEME - Green & Gold Colors
+
 import React, { useState, useEffect } from 'react'
 import {
   Box,
@@ -56,7 +59,29 @@ import { useDispatch, useSelector } from 'react-redux'
 import { hospitalService, equipmentService, errorService, userService } from '../api/services'
 import { toast } from 'react-toastify'
 
-// REMOVED: getStatusColor function - No longer needed
+// ============================================================
+// ✅ PAEC THEME COLORS
+// ============================================================
+const colors = {
+  sidebar: '#01411C',
+  sidebarHover: '#0B542B',
+  active: '#0E6335',
+  accentGold: '#C9A227',
+  goldLight: '#E8C84A',
+  text: '#FFFFFF',
+  secondaryText: '#B8C8BE',
+  mainBg: '#F0F2F5',
+  white: '#FFFFFF',
+  darkText: '#1A2A3A',
+  lightText: '#5A7A8A',
+  error: '#D32F2F',
+  success: '#2E7D32',
+  warning: '#ED6C02',
+  info: '#0B5FA5',
+  borderColor: 'rgba(1, 65, 28, 0.08)',
+  shadowColor: 'rgba(1, 65, 28, 0.08)',
+  cardBg: '#FFFFFF',
+}
 
 const Hospitals = () => {
   const [hospitals, setHospitals] = useState([])
@@ -130,7 +155,6 @@ const Hospitals = () => {
     }
   }
 
-  // ============ FILTER FUNCTIONS ============
   const handleFilterClick = (event) => {
     setFilterAnchorEl(event.currentTarget)
   }
@@ -152,7 +176,6 @@ const Hospitals = () => {
     toast.info('Filters cleared')
   }
 
-  // ============ EXPORT FUNCTIONS ============
   const handleExportClick = (event) => {
     setExportAnchorEl(event.currentTarget)
   }
@@ -242,7 +265,7 @@ const Hospitals = () => {
         const doc = new jsPDF()
         
         doc.setFontSize(18)
-        doc.setTextColor('#0B5FA5')
+        doc.setTextColor(colors.sidebar)
         doc.text('Hospitals Report', 14, 20)
         
         doc.setFontSize(10)
@@ -265,7 +288,7 @@ const Hospitals = () => {
           body: tableData,
           startY: 40,
           styles: { fontSize: 8, cellPadding: 2 },
-          headStyles: { fillColor: '#0B5FA5', textColor: '#FFFFFF', fontSize: 9, fontStyle: 'bold' },
+          headStyles: { fillColor: colors.sidebar, textColor: '#FFFFFF', fontSize: 9, fontStyle: 'bold' },
           alternateRowStyles: { fillColor: '#F5F7FA' },
           margin: { left: 14, right: 14 }
         })
@@ -282,13 +305,11 @@ const Hospitals = () => {
     }
   }
 
-  // ============ VIEW DETAILS ============
   const handleViewDetails = (hospital) => {
     setSelectedHospital(hospital)
     setOpenViewDialog(true)
   }
 
-  // ============ AUTO-GENERATE CODE ============
   const generateHospitalCode = () => {
     const prefix = 'HOS';
     const timestamp = Date.now().toString().slice(-6);
@@ -296,7 +317,6 @@ const Hospitals = () => {
     return `${prefix}-${timestamp}-${random}`;
   };
 
-  // ============ HANDLE FUNCTIONS ============
   const handleOpenDialog = (hospital = null) => {
     if (hospital) {
       setEditingHospital(hospital)
@@ -406,7 +426,6 @@ const Hospitals = () => {
     }
   }
 
-  // ============ FILTERED HOSPITALS ============
   const filteredHospitals = hospitals.filter(hospital => {
     const matchesSearch = hospital.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       hospital.city?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -424,13 +443,14 @@ const Hospitals = () => {
   })
 
   if (loading) {
-    return <LinearProgress />
+    return <LinearProgress sx={{ bgcolor: colors.borderColor, '& .MuiLinearProgress-bar': { bgcolor: colors.accentGold } }} />
   }
 
   return (
     <Box>
+      {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700, color: '#2C3E50' }}>
+        <Typography variant="h5" sx={{ fontWeight: 700, color: colors.sidebar }}>
           Hospitals
         </Typography>
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
@@ -439,6 +459,11 @@ const Hospitals = () => {
             startIcon={<Refresh />}
             onClick={fetchAllData}
             size="small"
+            sx={{ 
+              borderColor: colors.sidebar, 
+              color: colors.sidebar,
+              '&:hover': { borderColor: colors.accentGold, color: colors.accentGold }
+            }}
           >
             Refresh
           </Button>
@@ -448,8 +473,9 @@ const Hospitals = () => {
               startIcon={<Add />}
               onClick={() => handleOpenDialog()}
               sx={{
-                bgcolor: '#0B5FA5',
-                '&:hover': { bgcolor: '#084a8a' }
+                bgcolor: colors.sidebar,
+                '&:hover': { bgcolor: colors.sidebarHover },
+                boxShadow: `0 4px 16px ${colors.sidebar}44`
               }}
             >
               Add Hospital
@@ -458,7 +484,14 @@ const Hospitals = () => {
         </Box>
       </Box>
 
-      <Paper sx={{ p: 2, mb: 3, borderRadius: 2 }}>
+      {/* Search & Filter */}
+      <Paper sx={{ 
+        p: 2, 
+        mb: 3, 
+        borderRadius: 2,
+        border: `1px solid ${colors.borderColor}`,
+        boxShadow: '0 2px 12px rgba(0,0,0,0.04)'
+      }}>
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
           <TextField
             size="small"
@@ -469,9 +502,15 @@ const Hospitals = () => {
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <Search />
+                  <Search sx={{ color: colors.lightText }} />
                 </InputAdornment>
-              )
+              ),
+              sx: {
+                '& .MuiOutlinedInput-root': {
+                  '&:hover fieldset': { borderColor: colors.sidebar },
+                  '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                }
+              }
             }}
           />
           
@@ -479,6 +518,11 @@ const Hospitals = () => {
             variant="outlined" 
             startIcon={<FilterList />}
             onClick={handleFilterClick}
+            sx={{ 
+              borderColor: colors.borderColor, 
+              color: colors.darkText,
+              '&:hover': { borderColor: colors.accentGold, color: colors.accentGold }
+            }}
           >
             Filter
           </Button>
@@ -487,29 +531,40 @@ const Hospitals = () => {
             variant="outlined" 
             startIcon={<Download />}
             onClick={handleExportClick}
+            sx={{ 
+              borderColor: colors.borderColor, 
+              color: colors.darkText,
+              '&:hover': { borderColor: colors.accentGold, color: colors.accentGold }
+            }}
           >
             Export
           </Button>
         </Box>
       </Paper>
 
-      {/* Filter Menu */}
+      {/* Filter Menu - THEMED */}
       <Menu
         anchorEl={filterAnchorEl}
         open={Boolean(filterAnchorEl)}
         onClose={handleFilterClose}
         PaperProps={{ sx: { p: 2, width: 250 } }}
       >
-        <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+        <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.sidebar }} gutterBottom>
           Filter Hospitals
         </Typography>
         <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-          <InputLabel>Status</InputLabel>
+          <InputLabel sx={{ color: colors.lightText }}>Status</InputLabel>
           <Select
             name="status"
             value={filters.status}
             onChange={handleFilterChange}
             label="Status"
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                '&:hover fieldset': { borderColor: colors.sidebar },
+                '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+              }
+            }}
           >
             <MenuItem value="all">All</MenuItem>
             <MenuItem value="active">Active</MenuItem>
@@ -525,39 +580,59 @@ const Hospitals = () => {
           onChange={handleFilterChange}
           placeholder="Filter by city"
           sx={{ mb: 2 }}
+          InputProps={{
+            sx: {
+              '& .MuiOutlinedInput-root': {
+                '&:hover fieldset': { borderColor: colors.sidebar },
+                '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+              }
+            }
+          }}
         />
         <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button variant="contained" onClick={handleFilterClose} fullWidth size="small">
+          <Button 
+            variant="contained" 
+            onClick={handleFilterClose} 
+            fullWidth 
+            size="small"
+            sx={{ bgcolor: colors.sidebar, '&:hover': { bgcolor: colors.sidebarHover } }}
+          >
             Apply
           </Button>
-          <Button variant="outlined" onClick={clearFilters} fullWidth size="small">
+          <Button 
+            variant="outlined" 
+            onClick={clearFilters} 
+            fullWidth 
+            size="small"
+            sx={{ borderColor: colors.borderColor, '&:hover': { borderColor: colors.accentGold } }}
+          >
             Clear
           </Button>
         </Box>
       </Menu>
 
-      {/* Export Menu */}
+      {/* Export Menu - THEMED */}
       <Menu
         anchorEl={exportAnchorEl}
         open={Boolean(exportAnchorEl)}
         onClose={handleExportClose}
         PaperProps={{ sx: { p: 1, width: 200 } }}
       >
-        <MenuItem onClick={exportToCSV}>
-          <FileDownload sx={{ mr: 1, fontSize: 20 }} /> Export CSV
+        <MenuItem onClick={exportToCSV} sx={{ '&:hover': { bgcolor: `${colors.accentGold}22` } }}>
+          <FileDownload sx={{ mr: 1, fontSize: 20, color: colors.sidebar }} /> Export CSV
         </MenuItem>
-        <MenuItem onClick={exportToExcel}>
-          <FileDownload sx={{ mr: 1, fontSize: 20 }} /> Export Excel
+        <MenuItem onClick={exportToExcel} sx={{ '&:hover': { bgcolor: `${colors.accentGold}22` } }}>
+          <FileDownload sx={{ mr: 1, fontSize: 20, color: colors.sidebar }} /> Export Excel
         </MenuItem>
-        <MenuItem onClick={exportToPDF}>
-          <FileDownload sx={{ mr: 1, fontSize: 20 }} /> Export PDF
+        <MenuItem onClick={exportToPDF} sx={{ '&:hover': { bgcolor: `${colors.accentGold}22` } }}>
+          <FileDownload sx={{ mr: 1, fontSize: 20, color: colors.sidebar }} /> Export PDF
         </MenuItem>
       </Menu>
 
-      {/* Table - REMOVED Status Color and Chips */}
-      <TableContainer component={Paper} sx={{ borderRadius: 2, overflowX: 'auto' }}>
+      {/* Table - THEMED */}
+      <TableContainer component={Paper} sx={{ borderRadius: 2, overflowX: 'auto', border: `1px solid ${colors.borderColor}` }}>
         <Table>
-          <TableHead sx={{ bgcolor: '#0B5FA5' }}>
+          <TableHead sx={{ bgcolor: colors.sidebar }}>
             <TableRow>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Hospital Name</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Code</TableCell>
@@ -572,7 +647,7 @@ const Hospitals = () => {
             {filteredHospitals.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} align="center">
-                  <Typography variant="body1" sx={{ py: 3, color: '#6c757d' }}>
+                  <Typography variant="body1" sx={{ py: 3, color: colors.lightText }}>
                     No hospitals found
                   </Typography>
                 </TableCell>
@@ -581,48 +656,67 @@ const Hospitals = () => {
               filteredHospitals.map((hospital) => (
                 <TableRow key={hospital.id} hover>
                   <TableCell>
-                    <Typography variant="body2" fontWeight={500}>
+                    <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkText }}>
                       {hospital.name}
                     </Typography>
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '12px' }}>
+                    <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '12px', color: colors.lightText }}>
                       {hospital.hospital_code || 'N/A'}
                     </Typography>
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2" color="textSecondary">
+                    <Typography variant="body2" sx={{ color: colors.lightText }}>
                       {hospital.city}, {hospital.state}
                     </Typography>
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2">{hospital.phone}</Typography>
-                    <Typography variant="caption" color="textSecondary">
+                    <Typography variant="body2" sx={{ color: colors.darkText }}>{hospital.phone}</Typography>
+                    <Typography variant="caption" sx={{ color: colors.lightText }}>
                       {hospital.email}
                     </Typography>
                   </TableCell>
-                  <TableCell>{hospital.biomedical_head || '-'}</TableCell>
+                  <TableCell sx={{ color: colors.lightText }}>{hospital.biomedical_head || '-'}</TableCell>
                   <TableCell>
-                    {/* REMOVED: Colored Status - showing plain text */}
-                    <Typography variant="body2">
-                      {hospital.is_active ? 'Active' : 'Inactive'}
-                    </Typography>
+                    <Chip 
+                      label={hospital.is_active ? 'Active' : 'Inactive'} 
+                      size="small"
+                      sx={{
+                        bgcolor: hospital.is_active ? colors.success : colors.lightText,
+                        color: 'white',
+                        fontWeight: 500,
+                        height: 22,
+                        fontSize: '11px'
+                      }}
+                    />
                   </TableCell>
                   <TableCell align="center">
                     <Tooltip title="View Details">
-                      <IconButton size="small" color="primary" onClick={() => handleViewDetails(hospital)}>
+                      <IconButton 
+                        size="small" 
+                        onClick={() => handleViewDetails(hospital)}
+                        sx={{ color: colors.sidebar, '&:hover': { color: colors.accentGold } }}
+                      >
                         <Visibility />
                       </IconButton>
                     </Tooltip>
                     {isSuperAdmin && (
                       <>
                         <Tooltip title="Edit Hospital">
-                          <IconButton size="small" color="info" onClick={() => handleOpenDialog(hospital)}>
+                          <IconButton 
+                            size="small" 
+                            onClick={() => handleOpenDialog(hospital)}
+                            sx={{ color: colors.sidebar, '&:hover': { color: colors.accentGold } }}
+                          >
                             <Edit />
                           </IconButton>
                         </Tooltip>
                         <Tooltip title="Delete Hospital">
-                          <IconButton size="small" color="error" onClick={() => handleDelete(hospital.id)}>
+                          <IconButton 
+                            size="small" 
+                            color="error" 
+                            onClick={() => handleDelete(hospital.id)}
+                          >
                             <Delete />
                           </IconButton>
                         </Tooltip>
@@ -636,9 +730,9 @@ const Hospitals = () => {
         </Table>
       </TableContainer>
 
-      {/* VIEW DETAILS DIALOG - REMOVED Status Color */}
+      {/* VIEW DETAILS DIALOG - THEMED */}
       <Dialog open={openViewDialog} onClose={handleCloseViewDialog} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ bgcolor: '#0B5FA5', color: 'white' }}>
+        <DialogTitle sx={{ bgcolor: colors.sidebar, color: 'white' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6" fontWeight={600}>
               Hospital Details
@@ -651,27 +745,33 @@ const Hospitals = () => {
         <DialogContent dividers sx={{ mt: 2 }}>
           {selectedHospital && (
             <Grid container spacing={3}>
-              {/* Hospital Name */}
               <Grid item xs={12}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                  <Business sx={{ fontSize: 40, color: '#0B5FA5' }} />
+                  <Business sx={{ fontSize: 40, color: colors.sidebar }} />
                   <Box>
-                    <Typography variant="h5" fontWeight={600}>
+                    <Typography variant="h5" fontWeight={600} sx={{ color: colors.darkText }}>
                       {selectedHospital.name}
                     </Typography>
                     <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
-                      {/* REMOVED: Colored Status - showing plain text */}
-                      <Typography variant="body2">
-                        {selectedHospital.is_active ? 'Active' : 'Inactive'}
-                      </Typography>
+                      <Chip 
+                        label={selectedHospital.is_active ? 'Active' : 'Inactive'} 
+                        size="small"
+                        sx={{
+                          bgcolor: selectedHospital.is_active ? colors.success : colors.lightText,
+                          color: 'white',
+                          fontWeight: 500,
+                          height: 22,
+                          fontSize: '11px'
+                        }}
+                      />
                       {selectedHospital.hospital_code && (
                         <Typography 
                           variant="body2" 
                           sx={{ 
                             fontFamily: 'monospace',
                             fontSize: '12px',
-                            color: '#6c757d',
-                            border: '1px solid #dee2e6',
+                            color: colors.lightText,
+                            border: `1px solid ${colors.borderColor}`,
                             borderRadius: '4px',
                             padding: '0 8px'
                           }}
@@ -682,85 +782,77 @@ const Hospitals = () => {
                     </Box>
                   </Box>
                 </Box>
-                <Divider />
+                <Divider sx={{ borderColor: colors.borderColor }} />
               </Grid>
 
-              {/* Address */}
               <Grid item xs={12}>
-                <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                <Typography variant="subtitle2" sx={{ color: colors.lightText }} gutterBottom>
                   Address
                 </Typography>
-                <Typography variant="body1">
+                <Typography variant="body1" sx={{ color: colors.darkText }}>
                   {selectedHospital.address || 'N/A'}
                 </Typography>
               </Grid>
 
-              {/* City */}
               <Grid item xs={12} md={6}>
-                <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                <Typography variant="subtitle2" sx={{ color: colors.lightText }} gutterBottom>
                   City
                 </Typography>
-                <Typography variant="body1">
+                <Typography variant="body1" sx={{ color: colors.darkText }}>
                   {selectedHospital.city || 'N/A'}
                 </Typography>
               </Grid>
 
-              {/* State */}
               <Grid item xs={12} md={6}>
-                <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                <Typography variant="subtitle2" sx={{ color: colors.lightText }} gutterBottom>
                   State / Province
                 </Typography>
-                <Typography variant="body1">
+                <Typography variant="body1" sx={{ color: colors.darkText }}>
                   {selectedHospital.state || 'N/A'}
                 </Typography>
               </Grid>
 
-              {/* Country */}
               <Grid item xs={12} md={6}>
-                <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                <Typography variant="subtitle2" sx={{ color: colors.lightText }} gutterBottom>
                   Country
                 </Typography>
-                <Typography variant="body1">
+                <Typography variant="body1" sx={{ color: colors.darkText }}>
                   {selectedHospital.country || 'Pakistan'}
                 </Typography>
               </Grid>
 
-              {/* Phone */}
               <Grid item xs={12} md={6}>
-                <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                <Typography variant="subtitle2" sx={{ color: colors.lightText }} gutterBottom>
                   Phone Number
                 </Typography>
-                <Typography variant="body1">
+                <Typography variant="body1" sx={{ color: colors.darkText }}>
                   {selectedHospital.phone || 'N/A'}
                 </Typography>
               </Grid>
 
-              {/* Email */}
               <Grid item xs={12}>
-                <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                <Typography variant="subtitle2" sx={{ color: colors.lightText }} gutterBottom>
                   Hospital Email
                 </Typography>
-                <Typography variant="body1">
+                <Typography variant="body1" sx={{ color: colors.darkText }}>
                   {selectedHospital.email || 'N/A'}
                 </Typography>
               </Grid>
 
-              {/* Director */}
               <Grid item xs={12} md={6}>
-                <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                <Typography variant="subtitle2" sx={{ color: colors.lightText }} gutterBottom>
                   Hospital Director
                 </Typography>
-                <Typography variant="body1" fontWeight={500}>
+                <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkText }}>
                   {selectedHospital.director || 'Not Assigned'}
                 </Typography>
               </Grid>
 
-              {/* Biomedical Head */}
               <Grid item xs={12} md={6}>
-                <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                <Typography variant="subtitle2" sx={{ color: colors.lightText }} gutterBottom>
                   Biomedical Engineering Head
                 </Typography>
-                <Typography variant="body1" fontWeight={500}>
+                <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkText }}>
                   {selectedHospital.biomedical_head || 'Not Assigned'}
                 </Typography>
               </Grid>
@@ -771,33 +863,36 @@ const Hospitals = () => {
           <Button 
             onClick={handleCloseViewDialog}
             variant="contained"
-            sx={{ bgcolor: '#0B5FA5', '&:hover': { bgcolor: '#084a8a' } }}
+            sx={{ 
+              bgcolor: colors.sidebar, 
+              '&:hover': { bgcolor: colors.sidebarHover },
+              boxShadow: `0 4px 16px ${colors.sidebar}44`
+            }}
           >
             Close
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Add/Edit Dialog */}
+      {/* Add/Edit Dialog - THEMED */}
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
-        <DialogTitle>
-          <Typography variant="h6" fontWeight={600}>
-            {editingHospital ? 'Edit Hospital' : 'Add New Hospital'}
-          </Typography>
-          <IconButton
-            onClick={handleCloseDialog}
-            sx={{ position: 'absolute', right: 8, top: 8 }}
-          >
-            <Close />
-          </IconButton>
+        <DialogTitle sx={{ bgcolor: colors.sidebar, color: 'white' }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="h6" fontWeight={600}>
+              {editingHospital ? 'Edit Hospital' : 'Add New Hospital'}
+            </Typography>
+            <IconButton onClick={handleCloseDialog} sx={{ color: 'white' }}>
+              <Close />
+            </IconButton>
+          </Box>
         </DialogTitle>
         <DialogContent dividers>
           <Grid container spacing={2.5} sx={{ mt: 0 }}>
             <Grid item xs={12}>
-              <Typography variant="subtitle2" color="primary" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="subtitle2" sx={{ color: colors.sidebar, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Business fontSize="small" /> Hospital Information
               </Typography>
-              <Divider sx={{ mt: 1 }} />
+              <Divider sx={{ mt: 1, borderColor: colors.borderColor }} />
             </Grid>
             
             <Grid item xs={12} md={6}>
@@ -809,6 +904,12 @@ const Hospitals = () => {
                 onChange={handleFormChange}
                 required
                 placeholder="e.g., PAEC Karachi Hospital"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               />
             </Grid>
 
@@ -821,6 +922,12 @@ const Hospitals = () => {
                 onChange={handleFormChange}
                 placeholder="e.g., HOS-001"
                 disabled={!!editingHospital}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               />
             </Grid>
 
@@ -832,6 +939,12 @@ const Hospitals = () => {
                 value={formData.country}
                 onChange={handleFormChange}
                 placeholder="Pakistan"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               />
             </Grid>
 
@@ -846,6 +959,12 @@ const Hospitals = () => {
                 rows={2}
                 required
                 placeholder="Enter complete address"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               />
             </Grid>
             
@@ -857,6 +976,12 @@ const Hospitals = () => {
                 value={formData.city}
                 onChange={handleFormChange}
                 placeholder="e.g., Karachi"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -867,6 +992,12 @@ const Hospitals = () => {
                 value={formData.state}
                 onChange={handleFormChange}
                 placeholder="e.g., Sindh"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               />
             </Grid>
             
@@ -878,6 +1009,12 @@ const Hospitals = () => {
                 value={formData.phone}
                 onChange={handleFormChange}
                 placeholder="+92-XX-XXXXXXX"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               />
             </Grid>
             
@@ -890,14 +1027,20 @@ const Hospitals = () => {
                 value={formData.email}
                 onChange={handleFormChange}
                 placeholder="hospital@domain.com"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               />
             </Grid>
             
             <Grid item xs={12}>
-              <Typography variant="subtitle2" color="primary" sx={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+              <Typography variant="subtitle2" sx={{ color: colors.sidebar, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
                 <Person fontSize="small" /> Hospital Leadership
               </Typography>
-              <Divider sx={{ mt: 1 }} />
+              <Divider sx={{ mt: 1, borderColor: colors.borderColor }} />
             </Grid>
 
             <Grid item xs={12} md={6}>
@@ -908,6 +1051,12 @@ const Hospitals = () => {
                 value={formData.director || ''}
                 onChange={handleFormChange}
                 placeholder="Enter Hospital Director name"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               />
             </Grid>
 
@@ -919,11 +1068,17 @@ const Hospitals = () => {
                 value={formData.biomedical_head || ''}
                 onChange={handleFormChange}
                 placeholder="Enter Biomedical Engineering Head name"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               />
             </Grid>
 
             <Grid item xs={12}>
-              <Alert severity="info" sx={{ mt: 1 }}>
+              <Alert severity="info" sx={{ mt: 1, borderRadius: 2, border: `1px solid ${colors.info}33` }}>
                 <Typography variant="body2">
                   <strong>Note:</strong> Hospital code is automatically generated. It will be used as a unique identifier for the hospital.
                 </Typography>
@@ -935,7 +1090,7 @@ const Hospitals = () => {
           <Button 
             onClick={handleCloseDialog}
             variant="outlined"
-            sx={{ color: '#6c757d', borderColor: '#6c757d' }}
+            sx={{ color: colors.lightText, borderColor: colors.borderColor }}
           >
             Cancel
           </Button>
@@ -943,9 +1098,10 @@ const Hospitals = () => {
             variant="contained"
             onClick={handleSubmit}
             sx={{
-              bgcolor: '#0B5FA5',
-              '&:hover': { bgcolor: '#084a8a' },
-              px: 4
+              bgcolor: colors.sidebar,
+              '&:hover': { bgcolor: colors.sidebarHover },
+              px: 4,
+              boxShadow: `0 4px 16px ${colors.sidebar}44`
             }}
             startIcon={editingHospital ? <Edit /> : <Add />}
           >

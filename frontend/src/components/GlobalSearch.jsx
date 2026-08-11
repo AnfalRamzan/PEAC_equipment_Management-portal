@@ -1,3 +1,6 @@
+// src/components/GlobalSearch.jsx
+// ✅ PAEC THEME - Green & Gold Colors
+
 import React, { useState, useEffect, useRef } from 'react'
 import {
     Box,
@@ -31,6 +34,30 @@ import {
 } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
 import api from '../api/axios'
+
+// ============================================================
+// ✅ PAEC THEME COLORS
+// ============================================================
+const colors = {
+    sidebar: '#01411C',
+    sidebarHover: '#0B542B',
+    active: '#0E6335',
+    accentGold: '#C9A227',
+    goldLight: '#E8C84A',
+    text: '#FFFFFF',
+    secondaryText: '#B8C8BE',
+    mainBg: '#F0F2F5',
+    white: '#FFFFFF',
+    darkText: '#1A2A3A',
+    lightText: '#5A7A8A',
+    error: '#D32F2F',
+    success: '#2E7D32',
+    warning: '#ED6C02',
+    info: '#0B5FA5',
+    borderColor: 'rgba(1, 65, 28, 0.08)',
+    shadowColor: 'rgba(1, 65, 28, 0.08)',
+    cardBg: '#FFFFFF',
+}
 
 // ============================================================
 // ✅ FUZZY SEARCH HELPER
@@ -119,7 +146,7 @@ const GlobalSearch = () => {
     }, [query])
 
     // ============================================================
-    // ✅ PERFORM SEARCH - HANDLES BOTH ARRAY AND OBJECT RESPONSES
+    // ✅ PERFORM SEARCH
     // ============================================================
     const performSearch = async (searchQuery) => {
         console.log('🔍 Searching for:', searchQuery);
@@ -128,15 +155,12 @@ const GlobalSearch = () => {
             const response = await api.get(`/search?q=${encodeURIComponent(searchQuery)}`);
             console.log('📥 Search Response:', response.data);
             
-            // ✅ Your backend returns: { success: true, results: {...}, total: 5 }
             const rawResults = response.data.results || {};
             console.log('📊 Raw Results:', rawResults);
             
-            // ✅ Check if results is an array or object
             let resultsData = {};
             
             if (Array.isArray(rawResults)) {
-                // If it's an array, convert to object
                 console.log('📊 Results is an array, converting...');
                 resultsData = {
                     hospitals: rawResults.filter(r => r.type === 'hospital' || r.type === 'hospitals'),
@@ -148,14 +172,10 @@ const GlobalSearch = () => {
                     users: rawResults.filter(r => r.type === 'user' || r.type === 'users')
                 };
             } else {
-                // It's already an object
                 resultsData = rawResults;
                 console.log('📊 Results is an object, using as-is');
             }
             
-            console.log('📊 Processed Results:', resultsData);
-            
-            // ✅ Log counts for each category
             console.log('📊 Results Breakdown:');
             console.log(`   🏥 Hospitals: ${resultsData.hospitals?.length || 0}`);
             console.log(`   🛠️ Equipment: ${resultsData.equipment?.length || 0}`);
@@ -165,7 +185,6 @@ const GlobalSearch = () => {
             console.log(`   🔩 Spare Parts: ${resultsData.spareParts?.length || 0}`);
             console.log(`   👤 Users: ${resultsData.users?.length || 0}`);
             
-            // ✅ Apply fuzzy search
             const fuzzyResults = {
                 hospitals: smartSearch(searchQuery, resultsData.hospitals || []),
                 equipment: smartSearch(searchQuery, resultsData.equipment || []),
@@ -176,7 +195,6 @@ const GlobalSearch = () => {
                 users: smartSearch(searchQuery, resultsData.users || [])
             };
             
-            console.log('📊 Fuzzy Results:', fuzzyResults);
             console.log('📊 Total Fuzzy Results:', 
                 (fuzzyResults.hospitals?.length || 0) +
                 (fuzzyResults.equipment?.length || 0) +
@@ -248,27 +266,27 @@ const GlobalSearch = () => {
 
     const getIcon = (type) => {
         const icons = {
-            hospital: <LocalHospital sx={{ color: '#0B5FA5' }} />,
-            hospitals: <LocalHospital sx={{ color: '#0B5FA5' }} />,
-            equipment: <MedicalServices sx={{ color: '#28a745' }} />,
-            error: <ErrorIcon sx={{ color: '#dc3545' }} />,
-            errors: <ErrorIcon sx={{ color: '#dc3545' }} />,
-            repair: <Build sx={{ color: '#fd7e14' }} />,
-            repairs: <Build sx={{ color: '#fd7e14' }} />,
-            knowledge: <Description sx={{ color: '#6f42c1' }} />,
-            'knowledge-base': <Description sx={{ color: '#6f42c1' }} />,
-            sparePart: <Inventory sx={{ color: '#17a2b8' }} />,
-            spareParts: <Inventory sx={{ color: '#17a2b8' }} />,
-            'spare-parts': <Inventory sx={{ color: '#17a2b8' }} />,
-            user: <Person sx={{ color: '#6c757d' }} />,
-            users: <Person sx={{ color: '#6c757d' }} />
+            hospital: <LocalHospital sx={{ color: colors.sidebar }} />,
+            hospitals: <LocalHospital sx={{ color: colors.sidebar }} />,
+            equipment: <MedicalServices sx={{ color: colors.success }} />,
+            error: <ErrorIcon sx={{ color: colors.error }} />,
+            errors: <ErrorIcon sx={{ color: colors.error }} />,
+            repair: <Build sx={{ color: colors.warning }} />,
+            repairs: <Build sx={{ color: colors.warning }} />,
+            knowledge: <Description sx={{ color: colors.info }} />,
+            'knowledge-base': <Description sx={{ color: colors.info }} />,
+            sparePart: <Inventory sx={{ color: colors.sidebar }} />,
+            spareParts: <Inventory sx={{ color: colors.sidebar }} />,
+            'spare-parts': <Inventory sx={{ color: colors.sidebar }} />,
+            user: <Person sx={{ color: colors.lightText }} />,
+            users: <Person sx={{ color: colors.lightText }} />
         }
         return icons[type] || <Description />
     }
 
     const getStatusColor = (status) => {
         if (!status) return 'default'
-        const colors = {
+        const colorsMap = {
             'Active': 'success',
             'Inactive': 'error',
             'Pending': 'warning',
@@ -283,9 +301,13 @@ const GlobalSearch = () => {
             'Retired': 'default',
             'Draft': 'default',
             'Ordered': 'info',
-            'Received': 'success'
+            'Received': 'success',
+            'Critical': 'error',
+            'High': 'warning',
+            'Medium': 'info',
+            'Low': 'success'
         }
-        return colors[status] || 'default'
+        return colorsMap[status] || 'default'
     }
 
     const getHighlightedText = (text, query) => {
@@ -298,7 +320,7 @@ const GlobalSearch = () => {
         return (
             <>
                 {text.substring(0, index)}
-                <strong style={{ color: '#0B5FA5' }}>
+                <strong style={{ color: colors.sidebar }}>
                     {text.substring(index, index + query.length)}
                 </strong>
                 {text.substring(index + query.length)}
@@ -324,11 +346,11 @@ const GlobalSearch = () => {
         if (!hasResults) {
             return (
                 <Box sx={{ p: 4, textAlign: 'center' }}>
-                    <Search sx={{ fontSize: 48, color: '#6c757d', mb: 2 }} />
-                    <Typography variant="h6" color="textSecondary">
+                    <Search sx={{ fontSize: 48, color: colors.lightText, mb: 2 }} />
+                    <Typography variant="h6" sx={{ color: colors.lightText }}>
                         No results found
                     </Typography>
-                    <Typography variant="body2" color="textSecondary">
+                    <Typography variant="body2" sx={{ color: colors.lightText }}>
                         Try searching with different keywords
                     </Typography>
                 </Box>
@@ -337,14 +359,28 @@ const GlobalSearch = () => {
 
         return (
             <Box>
-                <Box sx={{ px: 2, py: 1, bgcolor: '#e3f2fd', display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Search sx={{ fontSize: 16, color: '#0B5FA5' }} />
-                    <Typography variant="caption" sx={{ color: '#0B5FA5' }}>
+                <Box sx={{ 
+                    px: 2, 
+                    py: 1, 
+                    bgcolor: `${colors.sidebar}08`, 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: 1,
+                    borderBottom: `1px solid ${colors.borderColor}`
+                }}>
+                    <Search sx={{ fontSize: 16, color: colors.sidebar }} />
+                    <Typography variant="caption" sx={{ color: colors.sidebar }}>
                         Results for "{query}"
                         <Chip 
                             label={`${Object.values(results).reduce((sum, arr) => sum + arr.length, 0)}`}
                             size="small"
-                            sx={{ ml: 1, fontSize: '10px', height: 20 }}
+                            sx={{ 
+                                ml: 1, 
+                                fontSize: '10px', 
+                                height: 20,
+                                bgcolor: colors.sidebar,
+                                color: 'white'
+                            }}
                         />
                     </Typography>
                 </Box>
@@ -355,9 +391,9 @@ const GlobalSearch = () => {
 
                     return (
                         <Box key={section.key}>
-                            {index > 0 && <Divider />}
-                            <Box sx={{ px: 2, py: 1, bgcolor: '#f8f9fa' }}>
-                                <Typography variant="caption" sx={{ color: '#6c757d', fontWeight: 600 }}>
+                            {index > 0 && <Divider sx={{ borderColor: colors.borderColor }} />}
+                            <Box sx={{ px: 2, py: 1, bgcolor: colors.mainBg }}>
+                                <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600 }}>
                                     {section.label} ({items.length})
                                 </Typography>
                             </Box>
@@ -371,49 +407,74 @@ const GlobalSearch = () => {
                                         button
                                         onClick={() => handleResultClick(section.type, item.id)}
                                         sx={{ 
-                                            '&:hover': { bgcolor: '#f5f5f5' },
-                                            borderBottom: '1px solid #f0f0f0'
+                                            '&:hover': { bgcolor: `${colors.sidebar}06` },
+                                            borderBottom: `1px solid ${colors.borderColor}`
                                         }}
                                     >
                                         <ListItemIcon>
-                                            <Avatar sx={{ bgcolor: '#f0f7ff', width: 32, height: 32 }}>
+                                            <Avatar sx={{ 
+                                                bgcolor: `${colors.sidebar}10`, 
+                                                width: 32, 
+                                                height: 32,
+                                                color: colors.sidebar
+                                            }}>
                                                 {getIcon(section.type)}
                                             </Avatar>
                                         </ListItemIcon>
                                         <ListItemText
                                             primary={
                                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                                                    <Typography variant="body2" fontWeight={500}>
+                                                    <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkText }}>
                                                         {getHighlightedText(name, query)}
                                                     </Typography>
                                                     {item.status && (
                                                         <Chip 
                                                             label={item.status} 
                                                             size="small" 
-                                                            sx={{ fontSize: '10px', height: 18 }}
-                                                            color={getStatusColor(item.status)}
+                                                            sx={{ 
+                                                                fontSize: '10px', 
+                                                                height: 18,
+                                                                bgcolor: getStatusColor(item.status) === 'success' ? colors.success :
+                                                                        getStatusColor(item.status) === 'error' ? colors.error :
+                                                                        getStatusColor(item.status) === 'warning' ? colors.warning :
+                                                                        getStatusColor(item.status) === 'info' ? colors.info :
+                                                                        '#e0e0e0',
+                                                                color: 'white'
+                                                            }}
                                                         />
                                                     )}
                                                     {item.priority && (
                                                         <Chip 
                                                             label={item.priority} 
                                                             size="small" 
-                                                            sx={{ fontSize: '10px', height: 18 }}
-                                                            color={item.priority === 'Critical' ? 'error' : item.priority === 'High' ? 'warning' : 'default'}
+                                                            sx={{ 
+                                                                fontSize: '10px', 
+                                                                height: 18,
+                                                                bgcolor: item.priority === 'Critical' ? colors.error : 
+                                                                        item.priority === 'High' ? colors.warning : 
+                                                                        colors.sidebar,
+                                                                color: 'white'
+                                                            }}
                                                         />
                                                     )}
                                                     {item.severity && (
                                                         <Chip 
                                                             label={item.severity} 
                                                             size="small" 
-                                                            sx={{ fontSize: '10px', height: 18 }}
-                                                            color={item.severity === 'Critical' ? 'error' : item.severity === 'High' ? 'warning' : 'default'}
+                                                            sx={{ 
+                                                                fontSize: '10px', 
+                                                                height: 18,
+                                                                bgcolor: item.severity === 'Critical' ? colors.error : 
+                                                                        item.severity === 'High' ? colors.warning : 
+                                                                        colors.sidebar,
+                                                                color: 'white'
+                                                            }}
                                                         />
                                                     )}
                                                 </Box>
                                             }
                                             secondary={
-                                                <Typography variant="caption" color="textSecondary">
+                                                <Typography variant="caption" sx={{ color: colors.lightText }}>
                                                     {subtitle}
                                                     {item.manufacturer && ` • ${item.manufacturer}`}
                                                     {item.model && ` • ${item.model}`}
@@ -452,29 +513,38 @@ const GlobalSearch = () => {
                     sx={{
                         '& .MuiOutlinedInput-root': {
                             borderRadius: 2,
-                            bgcolor: '#f8f9fa',
+                            bgcolor: colors.mainBg,
                             '& fieldset': {
-                                borderColor: '#e9ecef'
+                                borderColor: colors.borderColor
                             },
                             '&:hover fieldset': {
-                                borderColor: '#0B5FA5'
+                                borderColor: colors.sidebar
                             },
                             '&.Mui-focused fieldset': {
-                                borderColor: '#0B5FA5'
+                                borderColor: colors.accentGold,
+                                borderWidth: 2
                             }
                         }
                     }}
                     InputProps={{
                         startAdornment: (
                             <InputAdornment position="start">
-                                <Search sx={{ color: '#6c757d', fontSize: 20 }} />
+                                <Search sx={{ color: colors.lightText, fontSize: 20 }} />
                             </InputAdornment>
                         ),
                         endAdornment: (
                             <InputAdornment position="end">
-                                {loading && <CircularProgress size={18} />}
+                                {loading && <CircularProgress size={18} sx={{ color: colors.sidebar }} />}
                                 {query && !loading && (
-                                    <IconButton size="small" onClick={handleClear} sx={{ p: 0.5 }}>
+                                    <IconButton 
+                                        size="small" 
+                                        onClick={handleClear} 
+                                        sx={{ 
+                                            p: 0.5,
+                                            color: colors.lightText,
+                                            '&:hover': { color: colors.error }
+                                        }}
+                                    >
                                         <Clear fontSize="small" />
                                     </IconButton>
                                 )}
@@ -495,16 +565,17 @@ const GlobalSearch = () => {
                             overflow: 'auto',
                             zIndex: 9999,
                             borderRadius: 2,
-                            boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+                            boxShadow: `0 4px 20px ${colors.shadowColor}`,
+                            border: `1px solid ${colors.borderColor}`,
                             '&::-webkit-scrollbar': {
                                 width: '6px'
                             },
                             '&::-webkit-scrollbar-track': {
-                                bgcolor: '#f1f1f1',
+                                bgcolor: colors.mainBg,
                                 borderRadius: '3px'
                             },
                             '&::-webkit-scrollbar-thumb': {
-                                bgcolor: '#c1c1c1',
+                                bgcolor: colors.sidebar,
                                 borderRadius: '3px'
                             }
                         }}

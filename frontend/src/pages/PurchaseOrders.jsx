@@ -1,7 +1,5 @@
 // src/pages/PurchaseOrders.jsx
-// ✅ ENGINEER: Create, View, Edit (NO Delete, NO Approve/Reject)
-// ✅ SUPER_ADMIN: Create, View, Edit, Delete, Approve, Reject (Full Access)
-// ❌ HOSPITAL_ADMIN: Access Denied
+// ✅ PAEC THEME - Enhanced Cards with Green & Gold Colors
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -34,7 +32,16 @@ import {
   StepLabel,
   StepContent,
   Avatar,
-  CircularProgress
+  CircularProgress,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Badge,
+  Fade,
+  Grow,
 } from '@mui/material'
 import {
   Add,
@@ -60,7 +67,12 @@ import {
   Image,
   PictureAsPdf,
   Warning as WarningIcon,
-  Info
+  Info,
+  Verified,
+  FolderOpen,
+  TrendingUp,
+  TrendingDown,
+  ChevronRight,  // ✅ ADDED - Fixes the "ChevronRight is not defined" error
 } from '@mui/icons-material'
 import { purchaseOrderService, hospitalService } from '../api/services'
 import { toast } from 'react-toastify'
@@ -68,7 +80,331 @@ import { useSelector } from 'react-redux'
 import AccessDenied from '../components/Auth/AccessDenied'
 import FileUpload from '../components/FileUpload'
 
-// ==================== HELPER FUNCTIONS ====================
+// ============================================================
+// ✅ PAEC THEME COLORS
+// ============================================================
+const colors = {
+  sidebar: '#01411C',
+  sidebarHover: '#0B542B',
+  active: '#0E6335',
+  accentGold: '#C9A227',
+  goldLight: '#E8C84A',
+  text: '#FFFFFF',
+  secondaryText: '#B8C8BE',
+  mainBg: '#F0F2F5',
+  white: '#FFFFFF',
+  darkText: '#1A2A3A',
+  lightText: '#5A7A8A',
+  error: '#D32F2F',
+  success: '#2E7D32',
+  warning: '#ED6C02',
+  info: '#0B5FA5',
+  borderColor: 'rgba(1, 65, 28, 0.08)',
+  shadowColor: 'rgba(1, 65, 28, 0.08)',
+  cardBg: '#FFFFFF',
+}
+
+// ============================================================
+// ✅ ENHANCED STAT CARD COMPONENT
+// ============================================================
+const StatCard = ({ title, value, icon, color, bgColor, subtext }) => (
+  <Grow in timeout={300}>
+    <Card sx={{ 
+      borderRadius: 3, 
+      border: `1px solid ${colors.borderColor}`,
+      boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+      transition: 'all 0.3s ease',
+      position: 'relative',
+      overflow: 'hidden',
+      '&:hover': {
+        transform: 'translateY(-4px)',
+        boxShadow: `0 8px 30px ${colors.shadowColor}`,
+        borderColor: colors.accentGold,
+      }
+    }}>
+      <CardContent sx={{ textAlign: 'center', py: 3, position: 'relative', zIndex: 1 }}>
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          mb: 1.5
+        }}>
+          <Avatar sx={{ 
+            bgcolor: bgColor || color || colors.sidebar,
+            width: 48,
+            height: 48,
+            boxShadow: `0 4px 16px ${color || colors.sidebar}44`
+          }}>
+            {icon}
+          </Avatar>
+        </Box>
+        <Typography variant="h4" sx={{ color: colors.darkText, fontWeight: 700 }}>
+          {value}
+        </Typography>
+        <Typography variant="body2" sx={{ color: colors.lightText, fontWeight: 500 }}>
+          {title}
+        </Typography>
+        {subtext && (
+          <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', mt: 0.5 }}>
+            {subtext}
+          </Typography>
+        )}
+        <Box sx={{
+          position: 'absolute',
+          top: -50,
+          right: -50,
+          width: 100,
+          height: 100,
+          borderRadius: '50%',
+          background: `radial-gradient(circle, ${color || colors.sidebar}08 0%, transparent 70%)`,
+          pointerEvents: 'none',
+        }} />
+      </CardContent>
+    </Card>
+  </Grow>
+)
+
+// ============================================================
+// ✅ ENHANCED ORDER CARD
+// ============================================================
+const OrderCard = ({ order, onView, onEdit, onDelete, onApprove, onReject, onPrint, canEdit, canDelete, canApprove }) => {
+  const [isHovered, setIsHovered] = useState(false)
+  
+  const getStatusColor = (status) => {
+    const statusColors = {
+      'Draft': colors.lightText,
+      'Pending Approval': colors.warning,
+      'Approved': colors.success,
+      'Ordered': colors.info,
+      'Received': colors.success,
+      'Cancelled': colors.error
+    }
+    return statusColors[status] || colors.lightText
+  }
+
+  const getStatusIcon = (status) => {
+    switch(status) {
+      case 'Draft': return <Description sx={{ fontSize: 20 }} />
+      case 'Pending Approval': return <Info sx={{ fontSize: 20 }} />
+      case 'Approved': return <CheckCircle sx={{ fontSize: 20 }} />
+      case 'Ordered': return <LocalShipping sx={{ fontSize: 20 }} />
+      case 'Received': return <Check sx={{ fontSize: 20 }} />
+      case 'Cancelled': return <Cancel sx={{ fontSize: 20 }} />
+      default: return <ShoppingCart sx={{ fontSize: 20 }} />
+    }
+  }
+
+  return (
+    <Grow in timeout={300}>
+      <Card
+        sx={{
+          borderRadius: 3,
+          transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+          border: `1px solid ${colors.borderColor}`,
+          position: 'relative',
+          overflow: 'hidden',
+          transform: isHovered ? 'translateY(-8px)' : 'translateY(0)',
+          boxShadow: isHovered ? `0 12px 40px ${colors.shadowColor}` : '0 2px 12px rgba(0,0,0,0.04)',
+          '&:hover': {
+            borderColor: colors.accentGold,
+          }
+        }}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
+        {/* Top Gradient Bar */}
+        <Box sx={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 4,
+          background: `linear-gradient(90deg, ${getStatusColor(order.status)}, ${colors.accentGold})`,
+        }} />
+        
+        {/* Decorative Background */}
+        <Box sx={{
+          position: 'absolute',
+          top: -30,
+          right: -30,
+          width: 80,
+          height: 80,
+          borderRadius: '50%',
+          background: `radial-gradient(circle, ${getStatusColor(order.status)}08 0%, transparent 70%)`,
+          pointerEvents: 'none',
+        }} />
+        
+        <CardContent sx={{ p: 3, position: 'relative', zIndex: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+            {/* Order Icon with Badge */}
+            <Badge
+              badgeContent={order.items?.length || 0}
+              color="primary"
+              sx={{
+                '& .MuiBadge-badge': {
+                  bgcolor: colors.accentGold,
+                  color: 'white',
+                  fontWeight: 700,
+                  fontSize: '10px',
+                  height: 20,
+                  minWidth: 20,
+                  border: `2px solid ${colors.white}`,
+                }
+              }}
+            >
+              <Avatar sx={{ 
+                bgcolor: `${getStatusColor(order.status)}15`,
+                width: 56,
+                height: 56,
+                border: `2px solid ${getStatusColor(order.status)}30`,
+                transition: 'all 0.3s ease',
+                transform: isHovered ? 'scale(1.05) rotate(-5deg)' : 'scale(1)',
+              }}>
+                {getStatusIcon(order.status)}
+              </Avatar>
+            </Badge>
+            
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography variant="h6" fontWeight={700} sx={{ color: colors.darkText, mb: 0.5, fontSize: '1rem' }} noWrap>
+                {order.po_number}
+              </Typography>
+              <Chip
+                label={order.status}
+                size="small"
+                sx={{
+                  bgcolor: getStatusColor(order.status),
+                  color: 'white',
+                  fontWeight: 600,
+                  height: 22,
+                  fontSize: '10px',
+                  '& .MuiChip-label': { px: 1 }
+                }}
+              />
+            </Box>
+          </Box>
+
+          {/* Details Section */}
+          <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+            <Typography variant="body2" sx={{ color: colors.lightText }}>
+              <Business sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
+              Vendor: <strong style={{ color: colors.darkText }}>{order.vendor_name}</strong>
+            </Typography>
+            <Typography variant="body2" sx={{ color: colors.lightText }}>
+              <ShoppingCart sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
+              Hospital: <span style={{ color: colors.darkText }}>{order.hospital_name}</span>
+            </Typography>
+            <Typography variant="body2" sx={{ color: colors.darkText }}>
+              <Receipt sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
+              Amount: <strong style={{ color: colors.accentGold }}>${safeToFixed(order.total_amount)}</strong>
+            </Typography>
+            <Typography variant="caption" sx={{ color: colors.lightText }}>
+              <Description sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
+              Items: {order.items?.length || 0}
+              {order.order_date && ` • Ordered: ${new Date(order.order_date).toLocaleDateString()}`}
+              {order.delivery_date && ` • Delivery: ${new Date(order.delivery_date).toLocaleDateString()}`}
+            </Typography>
+          </Box>
+
+          {/* Click Hint */}
+          <Box sx={{ 
+            mt: 1.5,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 0.5,
+            opacity: isHovered ? 1 : 0.4,
+            transition: 'opacity 0.3s ease',
+          }}>
+            <Typography variant="caption" sx={{ color: colors.lightText, fontSize: '10px', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+              Click to view details
+            </Typography>
+            <ChevronRight sx={{ fontSize: 16, color: colors.lightText }} />
+          </Box>
+        </CardContent>
+        
+        <CardActions sx={{ p: 2, pt: 0, gap: 0.5, flexWrap: 'wrap' }}>
+          <Tooltip title="View Details">
+            <Button 
+              size="small" 
+              startIcon={<Visibility />} 
+              onClick={() => onView(order)}
+              sx={{ 
+                color: colors.sidebar,
+                '&:hover': { color: colors.accentGold },
+                fontSize: '12px',
+                textTransform: 'none',
+              }}
+            >
+              View
+            </Button>
+          </Tooltip>
+          
+          {canEdit && order.status === 'Draft' && (
+            <Tooltip title="Edit">
+              <IconButton 
+                size="small" 
+                onClick={() => onEdit(order)}
+                sx={{ color: colors.sidebar, '&:hover': { color: colors.accentGold } }}
+              >
+                <Edit fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+          
+          {canDelete && order.status === 'Draft' && (
+            <Tooltip title="Delete">
+              <IconButton 
+                size="small" 
+                color="error" 
+                onClick={() => onDelete(order.id)}
+              >
+                <Delete fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+          
+          {canApprove && order.status === 'Pending Approval' && (
+            <>
+              <Tooltip title="Approve">
+                <IconButton 
+                  size="small" 
+                  onClick={() => onApprove(order.id)}
+                  sx={{ color: colors.success, '&:hover': { color: colors.accentGold } }}
+                >
+                  <CheckCircle fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Reject">
+                <IconButton 
+                  size="small" 
+                  color="error" 
+                  onClick={() => onReject(order.id)}
+                >
+                  <Cancel fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </>
+          )}
+          
+          {(order.status === 'Approved' || order.status === 'Ordered' || order.status === 'Received') && (
+            <Tooltip title="Print">
+              <IconButton 
+                size="small" 
+                onClick={() => onPrint(order)}
+                sx={{ color: colors.sidebar, '&:hover': { color: colors.accentGold } }}
+              >
+                <Print fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+        </CardActions>
+      </Card>
+    </Grow>
+  )
+}
+
+// ============================================================
+// ✅ HELPER FUNCTIONS
+// ============================================================
 const getFullUrl = (url) => {
   if (!url) return ''
   if (url.startsWith('http://') || url.startsWith('https://')) {
@@ -94,34 +430,12 @@ const safeFormatDate = (date) => {
   }
 }
 
-const getStatusColor = (status) => {
-  const colors = {
-    'Draft': '#6c757d',
-    'Pending Approval': '#ff9800',
-    'Approved': '#28a745',
-    'Ordered': '#2196f3',
-    'Received': '#4caf50',
-    'Cancelled': '#dc3545'
-  }
-  return colors[status] || '#6c757d'
-}
-
-const getStatusIcon = (status) => {
-  switch(status) {
-    case 'Draft': return <Description sx={{ fontSize: 20 }} />
-    case 'Pending Approval': return <Info sx={{ fontSize: 20 }} />
-    case 'Approved': return <CheckCircle sx={{ fontSize: 20 }} />
-    case 'Ordered': return <LocalShipping sx={{ fontSize: 20 }} />
-    case 'Received': return <Check sx={{ fontSize: 20 }} />
-    case 'Cancelled': return <Cancel sx={{ fontSize: 20 }} />
-    default: return <ShoppingCart sx={{ fontSize: 20 }} />
-  }
-}
-
+// ============================================================
+// ✅ MAIN COMPONENT
+// ============================================================
 const PurchaseOrders = () => {
   const { user } = useSelector((state) => state.auth)
   
-  // ✅ HOSPITAL_ADMIN - Access Denied
   if (user?.role === 'HOSPITAL_ADMIN') {
     return <AccessDenied message="Hospital Administrators cannot access Purchase Orders." />
   }
@@ -129,7 +443,6 @@ const PurchaseOrders = () => {
   const isEngineer = user?.role === 'ENGINEER'
   const isSuperAdmin = user?.role === 'SUPER_ADMIN'
   
-  // ✅ PERMISSIONS
   const canCreate = isEngineer || isSuperAdmin
   const canEdit = isEngineer || isSuperAdmin
   const canDelete = isSuperAdmin
@@ -505,8 +818,8 @@ const PurchaseOrders = () => {
     }
   }
 
-  const handlePrint = () => {
-    if (!viewingOrder) {
+  const handlePrint = (order) => {
+    if (!order) {
       toast.error('No order selected to print')
       return
     }
@@ -518,32 +831,44 @@ const PurchaseOrders = () => {
         return
       }
 
-      const orderDate = safeFormatDate(viewingOrder.order_date)
-      const deliveryDate = safeFormatDate(viewingOrder.delivery_date)
+      const orderDate = safeFormatDate(order.order_date)
+      const deliveryDate = safeFormatDate(order.delivery_date)
+
+      const getStatusColor = (status) => {
+        const colors_map = {
+          'Draft': '#6c757d',
+          'Pending Approval': '#ff9800',
+          'Approved': '#28a745',
+          'Ordered': '#2196f3',
+          'Received': '#4caf50',
+          'Cancelled': '#dc3545'
+        }
+        return colors_map[status] || '#6c757d'
+      }
 
       const content = `
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Purchase Order ${viewingOrder.po_number}</title>
+        <title>Purchase Order ${order.po_number}</title>
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
           body { font-family: Arial, sans-serif; padding: 40px; color: #333; background: #fff; }
-          .header { text-align: center; border-bottom: 2px solid #0B5FA5; padding-bottom: 20px; margin-bottom: 20px; }
-          .header h1 { color: #0B5FA5; font-size: 28px; margin-bottom: 5px; }
+          .header { text-align: center; border-bottom: 2px solid #01411C; padding-bottom: 20px; margin-bottom: 20px; }
+          .header h1 { color: #01411C; font-size: 28px; margin-bottom: 5px; }
           .header p { color: #666; font-size: 14px; }
-          .po-number { text-align: right; font-size: 18px; font-weight: bold; color: #0B5FA5; margin-bottom: 20px; }
+          .po-number { text-align: right; font-size: 18px; font-weight: bold; color: #01411C; margin-bottom: 20px; }
           .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 30px; margin-bottom: 20px; }
           .info-item { display: flex; padding: 8px 0; border-bottom: 1px solid #eee; }
           .info-item .label { font-weight: 600; min-width: 120px; color: #666; }
           .info-item .value { color: #333; }
-          .status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; background: ${getStatusColor(viewingOrder.status)}; color: white; }
+          .status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; background: ${getStatusColor(order.status)}; color: white; }
           table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-          th { background: #f8f9fa; padding: 12px; text-align: left; border-bottom: 2px solid #0B5FA5; font-weight: 600; }
+          th { background: #f8f9fa; padding: 12px; text-align: left; border-bottom: 2px solid #01411C; font-weight: 600; }
           td { padding: 10px 12px; border-bottom: 1px solid #eee; }
           .total-row { font-weight: 600; font-size: 16px; }
-          .total-row td { border-top: 2px solid #0B5FA5; padding-top: 12px; }
-          .total-amount { font-size: 18px; color: #0B5FA5; }
+          .total-row td { border-top: 2px solid #01411C; padding-top: 12px; }
+          .total-amount { font-size: 18px; color: #01411C; }
           .notes { margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 5px; }
           .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #999; border-top: 1px solid #eee; padding-top: 20px; }
           .documents { margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 5px; }
@@ -556,32 +881,32 @@ const PurchaseOrders = () => {
           <p>Purchase Order</p>
         </div>
         <div class="po-number">
-          ${viewingOrder.po_number || 'N/A'}
-          <span class="status-badge" style="margin-left: 15px;">${viewingOrder.status || 'Draft'}</span>
+          ${order.po_number || 'N/A'}
+          <span class="status-badge" style="margin-left: 15px;">${order.status || 'Draft'}</span>
         </div>
         <div class="info-grid">
-          <div class="info-item"><span class="label">Hospital:</span><span class="value">${viewingOrder.hospital_name || 'N/A'}</span></div>
-          <div class="info-item"><span class="label">Vendor:</span><span class="value">${viewingOrder.vendor_name || 'N/A'}</span></div>
+          <div class="info-item"><span class="label">Hospital:</span><span class="value">${order.hospital_name || 'N/A'}</span></div>
+          <div class="info-item"><span class="label">Vendor:</span><span class="value">${order.vendor_name || 'N/A'}</span></div>
           <div class="info-item"><span class="label">Order Date:</span><span class="value">${orderDate}</span></div>
           <div class="info-item"><span class="label">Delivery Date:</span><span class="value">${deliveryDate}</span></div>
-          ${viewingOrder.vendor_contact ? `<div class="info-item"><span class="label">Contact Person:</span><span class="value">${viewingOrder.vendor_contact}</span></div>` : ''}
-          ${viewingOrder.vendor_email ? `<div class="info-item"><span class="label">Email:</span><span class="value">${viewingOrder.vendor_email}</span></div>` : ''}
-          ${viewingOrder.vendor_address ? `<div class="info-item" style="grid-column: span 2;"><span class="label">Address:</span><span class="value">${viewingOrder.vendor_address}</span></div>` : ''}
+          ${order.vendor_contact ? `<div class="info-item"><span class="label">Contact Person:</span><span class="value">${order.vendor_contact}</span></div>` : ''}
+          ${order.vendor_email ? `<div class="info-item"><span class="label">Email:</span><span class="value">${order.vendor_email}</span></div>` : ''}
+          ${order.vendor_address ? `<div class="info-item" style="grid-column: span 2;"><span class="label">Address:</span><span class="value">${order.vendor_address}</span></div>` : ''}
         </div>
-        <h3 style="margin: 20px 0 10px 0; color: #0B5FA5;">Order Items</h3>
+        <h3 style="margin: 20px 0 10px 0; color: #01411C;">Order Items</h3>
         <table>
           <thead><tr><th>#</th><th>Description</th><th style="text-align: center;">Quantity</th><th style="text-align: right;">Unit Price</th><th style="text-align: right;">Total</th></tr></thead>
           <tbody>
-            ${viewingOrder.items && viewingOrder.items.length > 0 ? viewingOrder.items.map((item, index) => `
+            ${order.items && order.items.length > 0 ? order.items.map((item, index) => `
             <tr><td>${index + 1}</td><td>${item.description || 'N/A'}</td><td style="text-align: center;">${item.quantity || 0}</td><td style="text-align: right;">$${safeToFixed(item.unit_price)}</td><td style="text-align: right;">$${safeToFixed(item.total)}</td></tr>
             `).join('') : `<tr><td colspan="5" style="text-align: center; color: #999;">No items</td></tr>`}
-            <tr class="total-row"><td colspan="4" style="text-align: right;">Total Amount:</td><td style="text-align: right;"><span class="total-amount">$${safeToFixed(viewingOrder.total_amount)}</span></td></tr>
+            <tr class="total-row"><td colspan="4" style="text-align: right;">Total Amount:</td><td style="text-align: right;"><span class="total-amount">$${safeToFixed(order.total_amount)}</span></td></tr>
           </tbody>
         </table>
-        ${viewingOrder.notes ? `<div class="notes"><strong>Notes:</strong><p style="margin-top: 5px;">${viewingOrder.notes}</p></div>` : ''}
-        ${viewingOrder.documents && viewingOrder.documents.split(',').filter(Boolean).length > 0 ? `
+        ${order.notes ? `<div class="notes"><strong>Notes:</strong><p style="margin-top: 5px;">${order.notes}</p></div>` : ''}
+        ${order.documents && order.documents.split(',').filter(Boolean).length > 0 ? `
         <div class="documents"><strong>Attached Documents:</strong><ul style="margin-top: 5px; list-style: none; padding: 0;">
-          ${viewingOrder.documents.split(',').filter(Boolean).map(url => `<li style="padding: 2px 0;">📎 ${url.split('/').pop()}</li>`).join('')}
+          ${order.documents.split(',').filter(Boolean).map(url => `<li style="padding: 2px 0;">📎 ${url.split('/').pop()}</li>`).join('')}
         </ul></div>` : ''}
         <div class="footer">Generated on ${new Date().toLocaleString()}<br>This is a system-generated document from PAEC Equipment Management Portal</div>
         <script>setTimeout(() => { window.print(); window.close(); }, 500);<\/script>
@@ -617,7 +942,6 @@ const PurchaseOrders = () => {
     return matchesSearch && matchesStatus && matchesHospital
   })
 
-  // Stats
   const totalOrders = orders.length
   const draftOrders = orders.filter(o => o.status === 'Draft').length
   const pendingOrders = orders.filter(o => o.status === 'Pending Approval').length
@@ -625,17 +949,28 @@ const PurchaseOrders = () => {
   const cancelledOrders = orders.filter(o => o.status === 'Cancelled').length
 
   if (loading) {
-    return <LinearProgress />
+    return <LinearProgress sx={{ bgcolor: colors.borderColor, '& .MuiLinearProgress-bar': { bgcolor: colors.accentGold } }} />
   }
 
   return (
     <Box>
-      {/* ✅ Header - Same as Service Documentation */}
+      {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Typography variant="h5" sx={{ fontWeight: 700, color: '#2C3E50' }}>
+          <Typography variant="h5" sx={{ fontWeight: 700, color: colors.sidebar }}>
             Purchase Orders
           </Typography>
+          <Chip 
+            icon={<ShoppingCart sx={{ fontSize: 16 }} />}
+            label={`${orders.length} Orders`}
+            size="small"
+            sx={{ 
+              bgcolor: colors.sidebar, 
+              color: 'white',
+              fontWeight: 600,
+              '& .MuiChip-icon': { color: colors.accentGold }
+            }}
+          />
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button
@@ -643,6 +978,11 @@ const PurchaseOrders = () => {
             startIcon={<Refresh />}
             onClick={fetchOrders}
             size="small"
+            sx={{ 
+              borderColor: colors.sidebar, 
+              color: colors.sidebar,
+              '&:hover': { borderColor: colors.accentGold, color: colors.accentGold }
+            }}
           >
             Refresh
           </Button>
@@ -652,8 +992,9 @@ const PurchaseOrders = () => {
               startIcon={<Add />}
               onClick={() => handleOpenDialog()}
               sx={{
-                bgcolor: '#0B5FA5',
-                '&:hover': { bgcolor: '#084a8a' }
+                bgcolor: colors.sidebar,
+                '&:hover': { bgcolor: colors.sidebarHover },
+                boxShadow: `0 4px 16px ${colors.sidebar}44`
               }}
             >
               Create Purchase Order
@@ -662,52 +1003,68 @@ const PurchaseOrders = () => {
         </Box>
       </Box>
 
-      {/* ✅ Stats Cards - Same as Service Documentation */}
+      {/* Enhanced Stats Cards */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={6} sm={2.4}>
-          <Paper sx={{ p: 2, textAlign: 'center', borderRadius: 2 }}>
-            <Typography variant="h4" fontWeight={700} color="#0B5FA5">
-              {totalOrders}
-            </Typography>
-            <Typography variant="body2" color="textSecondary">Total Orders</Typography>
-          </Paper>
+          <StatCard 
+            title="Total Orders" 
+            value={totalOrders} 
+            icon={<ShoppingCart sx={{ fontSize: 24, color: 'white' }} />}
+            color={colors.sidebar}
+            bgColor={colors.sidebar}
+            subtext="All purchase orders"
+          />
         </Grid>
         <Grid item xs={6} sm={2.4}>
-          <Paper sx={{ p: 2, textAlign: 'center', borderRadius: 2, bgcolor: '#e3f2fd' }}>
-            <Typography variant="h4" fontWeight={700} color="#2196f3">
-              {draftOrders}
-            </Typography>
-            <Typography variant="body2" color="textSecondary">Draft</Typography>
-          </Paper>
+          <StatCard 
+            title="Draft" 
+            value={draftOrders} 
+            icon={<Description sx={{ fontSize: 24, color: 'white' }} />}
+            color={colors.info}
+            bgColor={colors.info}
+            subtext="In progress"
+          />
         </Grid>
         <Grid item xs={6} sm={2.4}>
-          <Paper sx={{ p: 2, textAlign: 'center', borderRadius: 2, bgcolor: '#fff3e0' }}>
-            <Typography variant="h4" fontWeight={700} color="#ff9800">
-              {pendingOrders}
-            </Typography>
-            <Typography variant="body2" color="textSecondary">Pending Approval</Typography>
-          </Paper>
+          <StatCard 
+            title="Pending Approval" 
+            value={pendingOrders} 
+            icon={<Info sx={{ fontSize: 24, color: 'white' }} />}
+            color={colors.warning}
+            bgColor={colors.warning}
+            subtext="Awaiting review"
+          />
         </Grid>
         <Grid item xs={6} sm={2.4}>
-          <Paper sx={{ p: 2, textAlign: 'center', borderRadius: 2, bgcolor: '#e8f5e9' }}>
-            <Typography variant="h4" fontWeight={700} color="#4caf50">
-              {completedOrders}
-            </Typography>
-            <Typography variant="body2" color="textSecondary">Completed</Typography>
-          </Paper>
+          <StatCard 
+            title="Completed" 
+            value={completedOrders} 
+            icon={<CheckCircle sx={{ fontSize: 24, color: 'white' }} />}
+            color={colors.success}
+            bgColor={colors.success}
+            subtext="Approved/Received"
+          />
         </Grid>
         <Grid item xs={6} sm={2.4}>
-          <Paper sx={{ p: 2, textAlign: 'center', borderRadius: 2, bgcolor: '#ffebee' }}>
-            <Typography variant="h4" fontWeight={700} color="#dc3545">
-              {cancelledOrders}
-            </Typography>
-            <Typography variant="body2" color="textSecondary">Cancelled</Typography>
-          </Paper>
+          <StatCard 
+            title="Cancelled" 
+            value={cancelledOrders} 
+            icon={<Cancel sx={{ fontSize: 24, color: 'white' }} />}
+            color={colors.error}
+            bgColor={colors.error}
+            subtext="Cancelled orders"
+          />
         </Grid>
       </Grid>
 
-      {/* ✅ Search & Filter - Same as Service Documentation */}
-      <Paper sx={{ p: 2, mb: 3, borderRadius: 2 }}>
+      {/* Search & Filter */}
+      <Paper sx={{ 
+        p: 2, 
+        mb: 3, 
+        borderRadius: 2,
+        border: `1px solid ${colors.borderColor}`,
+        boxShadow: '0 2px 12px rgba(0,0,0,0.04)'
+      }}>
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
           <TextField
             size="small"
@@ -718,18 +1075,30 @@ const PurchaseOrders = () => {
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <Search />
+                  <Search sx={{ color: colors.lightText }} />
                 </InputAdornment>
-              )
+              ),
+              sx: {
+                '& .MuiOutlinedInput-root': {
+                  '&:hover fieldset': { borderColor: colors.sidebar },
+                  '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                }
+              }
             }}
           />
           
           <FormControl size="small" sx={{ minWidth: 150 }}>
-            <InputLabel>Status</InputLabel>
+            <InputLabel sx={{ color: colors.lightText }}>Status</InputLabel>
             <Select
               value={filters.status}
               onChange={(e) => setFilters({ ...filters, status: e.target.value })}
               label="Status"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  '&:hover fieldset': { borderColor: colors.sidebar },
+                  '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                }
+              }}
             >
               <MenuItem value="">All</MenuItem>
               <MenuItem value="Draft">Draft</MenuItem>
@@ -742,11 +1111,17 @@ const PurchaseOrders = () => {
           </FormControl>
 
           <FormControl size="small" sx={{ minWidth: 150 }}>
-            <InputLabel>Hospital</InputLabel>
+            <InputLabel sx={{ color: colors.lightText }}>Hospital</InputLabel>
             <Select
               value={filters.hospital_id}
               onChange={(e) => setFilters({ ...filters, hospital_id: e.target.value })}
               label="Hospital"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  '&:hover fieldset': { borderColor: colors.sidebar },
+                  '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                }
+              }}
             >
               <MenuItem value="">All Hospitals</MenuItem>
               {hospitals.map(h => (
@@ -757,165 +1132,51 @@ const PurchaseOrders = () => {
         </Box>
       </Paper>
 
-      {/* ✅ Cards View - Same as Service Documentation */}
+      {/* Enhanced Order Cards Grid */}
       <Grid container spacing={3}>
         {filteredOrders.map((order) => (
           <Grid item xs={12} sm={6} md={4} key={order.id}>
-            <Card sx={{ 
-              borderRadius: 2, 
-              height: '100%', 
-              display: 'flex', 
-              flexDirection: 'column',
-              transition: 'transform 0.2s',
-              '&:hover': {
-                transform: 'translateY(-4px)',
-                boxShadow: 4
-              }
-            }}>
-              <CardContent sx={{ flexGrow: 1 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <Avatar sx={{ 
-                    bgcolor: getStatusColor(order.status),
-                    width: 40,
-                    height: 40,
-                    mr: 2
-                  }}>
-                    {getStatusIcon(order.status)}
-                  </Avatar>
-                  <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Typography variant="subtitle1" fontWeight={600} noWrap>
-                      {order.po_number}
-                    </Typography>
-                    <Chip
-                      label={order.status}
-                      size="small"
-                      color={
-                        order.status === 'Approved' || order.status === 'Received' ? 'success' :
-                        order.status === 'Pending Approval' ? 'warning' :
-                        order.status === 'Draft' ? 'default' :
-                        order.status === 'Ordered' ? 'info' :
-                        order.status === 'Cancelled' ? 'error' : 'default'
-                      }
-                      sx={{ height: 22, fontSize: '11px' }}
-                    />
-                  </Box>
-                </Box>
-
-                <Typography variant="body2" color="textSecondary">
-                  <Business sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
-                  Vendor: {order.vendor_name}
-                </Typography>
-                <Typography variant="body2" color="textSecondary">
-                  <ShoppingCart sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
-                  Hospital: {order.hospital_name}
-                </Typography>
-                <Typography variant="body2" color="textSecondary">
-                  <Receipt sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
-                  Amount: ${safeToFixed(order.total_amount)}
-                </Typography>
-                <Typography variant="body2" color="textSecondary">
-                  <Description sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
-                  Items: {order.items?.length || 0}
-                </Typography>
-                <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mt: 1 }}>
-                  {order.order_date ? `Ordered: ${new Date(order.order_date).toLocaleDateString()}` : ''}
-                  {order.delivery_date ? ` | Delivery: ${new Date(order.delivery_date).toLocaleDateString()}` : ''}
-                </Typography>
-              </CardContent>
-              <CardActions sx={{ p: 2, pt: 0 }}>
-                <Tooltip title="View Details">
-                  <Button 
-                    size="small" 
-                    startIcon={<Visibility />} 
-                    color="primary"
-                    onClick={() => handleView(order)}
-                  >
-                    View
-                  </Button>
-                </Tooltip>
-                
-                {canEdit && order.status === 'Draft' && (
-                  <Tooltip title="Edit">
-                    <IconButton 
-                      size="small" 
-                      color="info" 
-                      onClick={() => handleOpenDialog(order)}
-                    >
-                      <Edit fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                )}
-                
-                {canDelete && order.status === 'Draft' && (
-                  <Tooltip title="Delete">
-                    <IconButton 
-                      size="small" 
-                      color="error" 
-                      onClick={() => handleDelete(order.id)}
-                    >
-                      <Delete fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                )}
-                
-                {canApprove && order.status === 'Pending Approval' && (
-                  <>
-                    <Tooltip title="Approve">
-                      <IconButton 
-                        size="small" 
-                        color="success" 
-                        onClick={() => handleApprove(order.id)}
-                      >
-                        <CheckCircle fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                    <Tooltip title="Reject">
-                      <IconButton 
-                        size="small" 
-                        color="error" 
-                        onClick={() => handleReject(order.id)}
-                      >
-                        <Cancel fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </>
-                )}
-                
-                {(order.status === 'Approved' || order.status === 'Ordered' || order.status === 'Received') && (
-                  <Tooltip title="Print">
-                    <IconButton 
-                      size="small" 
-                      color="primary" 
-                      onClick={() => {
-                        setViewingOrder(order)
-                        setTimeout(handlePrint, 100)
-                      }}
-                    >
-                      <Print fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                )}
-              </CardActions>
-            </Card>
+            <OrderCard
+              order={order}
+              onView={handleView}
+              onEdit={handleOpenDialog}
+              onDelete={handleDelete}
+              onApprove={handleApprove}
+              onReject={handleReject}
+              onPrint={handlePrint}
+              canEdit={canEdit}
+              canDelete={canDelete}
+              canApprove={canApprove}
+            />
           </Grid>
         ))}
       </Grid>
 
-      {/* ✅ Empty State - Same as Service Documentation */}
+      {/* Empty State */}
       {filteredOrders.length === 0 && !loading && (
-        <Paper sx={{ p: 4, textAlign: 'center', borderRadius: 2 }}>
-          <ShoppingCart sx={{ fontSize: 64, color: '#6c757d' }} />
-          <Typography variant="h6" color="textSecondary" sx={{ mt: 2 }}>
+        <Paper sx={{ 
+          p: 4, 
+          textAlign: 'center', 
+          borderRadius: 2,
+          border: `1px solid ${colors.borderColor}`
+        }}>
+          <ShoppingCart sx={{ fontSize: 64, color: colors.lightText }} />
+          <Typography variant="h6" sx={{ color: colors.lightText, mt: 2 }}>
             No purchase orders found
           </Typography>
-          <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+          <Typography variant="body2" sx={{ color: colors.lightText, mb: 2 }}>
             Try adjusting your search or filters
           </Typography>
           {canCreate && (
-            <Button              variant="contained"
+            <Button
+              variant="contained"
               startIcon={<Add />}
               onClick={() => handleOpenDialog()}
-              sx={{ mt: 2 }}
+              sx={{ 
+                mt: 2,
+                bgcolor: colors.sidebar,
+                '&:hover': { bgcolor: colors.sidebarHover }
+              }}
             >
               Create First Purchase Order
             </Button>
@@ -923,9 +1184,9 @@ const PurchaseOrders = () => {
         </Paper>
       )}
 
-      {/* ✅ Add/Edit Dialog - Same as Service Documentation */}
+      {/* Add/Edit Dialog - Same as before */}
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ bgcolor: '#0B5FA5', color: 'white' }}>
+        <DialogTitle sx={{ bgcolor: colors.sidebar, color: 'white' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <ShoppingCart sx={{ color: 'white' }} />
             <Typography variant="h6" fontWeight={600}>
@@ -943,13 +1204,19 @@ const PurchaseOrders = () => {
           <Grid container spacing={2} sx={{ mt: 0 }}>
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
-                <InputLabel>Hospital</InputLabel>
+                <InputLabel sx={{ color: colors.lightText }}>Hospital</InputLabel>
                 <Select
                   name="hospital_id"
                   value={formData.hospital_id}
                   onChange={handleFormChange}
                   label="Hospital"
                   required
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: colors.sidebar },
+                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    }
+                  }}
                 >
                   <MenuItem value="">Select Hospital</MenuItem>
                   {hospitals.map(h => (
@@ -967,12 +1234,18 @@ const PurchaseOrders = () => {
                 onChange={handleFormChange}
                 required
                 disabled={editingOrder}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               />
             </Grid>
 
             <Grid item xs={12}>
-              <Divider sx={{ my: 1 }}>
-                <Typography variant="caption" color="textSecondary">
+              <Divider sx={{ my: 1, borderColor: colors.borderColor }}>
+                <Typography variant="caption" sx={{ color: colors.lightText }}>
                   <Business sx={{ fontSize: 16, mr: 1 }} />
                   Vendor Details
                 </Typography>
@@ -986,6 +1259,12 @@ const PurchaseOrders = () => {
                 value={formData.vendor_name}
                 onChange={handleFormChange}
                 required
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -995,6 +1274,12 @@ const PurchaseOrders = () => {
                 name="vendor_contact"
                 value={formData.vendor_contact}
                 onChange={handleFormChange}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -1005,6 +1290,12 @@ const PurchaseOrders = () => {
                 type="email"
                 value={formData.vendor_email}
                 onChange={handleFormChange}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -1014,6 +1305,12 @@ const PurchaseOrders = () => {
                 name="vendor_phone"
                 value={formData.vendor_phone}
                 onChange={handleFormChange}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               />
             </Grid>
             <Grid item xs={12}>
@@ -1025,12 +1322,18 @@ const PurchaseOrders = () => {
                 onChange={handleFormChange}
                 multiline
                 rows={2}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               />
             </Grid>
 
             <Grid item xs={12}>
-              <Divider sx={{ my: 1 }}>
-                <Typography variant="caption" color="textSecondary">
+              <Divider sx={{ my: 1, borderColor: colors.borderColor }}>
+                <Typography variant="caption" sx={{ color: colors.lightText }}>
                   <Receipt sx={{ fontSize: 16, mr: 1 }} />
                   Order Details
                 </Typography>
@@ -1045,6 +1348,12 @@ const PurchaseOrders = () => {
                 value={formData.order_date}
                 onChange={handleFormChange}
                 InputLabelProps={{ shrink: true }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               />
             </Grid>
             <Grid item xs={12} md={6}>
@@ -1056,16 +1365,28 @@ const PurchaseOrders = () => {
                 value={formData.delivery_date}
                 onChange={handleFormChange}
                 InputLabelProps={{ shrink: true }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               />
             </Grid>
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
-                <InputLabel>Status</InputLabel>
+                <InputLabel sx={{ color: colors.lightText }}>Status</InputLabel>
                 <Select
                   name="status"
                   value={formData.status}
                   onChange={handleFormChange}
                   label="Status"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: colors.sidebar },
+                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    }
+                  }}
                 >
                   <MenuItem value="Draft">Draft</MenuItem>
                   <MenuItem value="Pending Approval">Pending Approval</MenuItem>
@@ -1084,19 +1405,25 @@ const PurchaseOrders = () => {
                 value={formData.approved_by}
                 onChange={handleFormChange}
                 placeholder="Name of approver"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               />
             </Grid>
 
             <Grid item xs={12}>
-              <Divider sx={{ my: 1 }}>
-                <Typography variant="caption" color="textSecondary">
+              <Divider sx={{ my: 1, borderColor: colors.borderColor }}>
+                <Typography variant="caption" sx={{ color: colors.lightText }}>
                   <ShoppingCart sx={{ fontSize: 16, mr: 1 }} />
                   Order Items
                 </Typography>
               </Divider>
             </Grid>
             <Grid item xs={12}>
-              <Paper variant="outlined" sx={{ p: 2 }}>
+              <Paper variant="outlined" sx={{ p: 2, borderColor: colors.borderColor }}>
                 {itemsList.map((item, index) => (
                   <Grid container spacing={1} key={item.id} sx={{ mb: 1 }}>
                     <Grid item xs={4}>
@@ -1106,6 +1433,12 @@ const PurchaseOrders = () => {
                         value={item.description}
                         onChange={(e) => handleItemChange(index, 'description', e.target.value)}
                         fullWidth
+                        sx={{
+                          '& .MuiOutlinedInput-root': {
+                            '&:hover fieldset': { borderColor: colors.sidebar },
+                            '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                          }
+                        }}
                       />
                     </Grid>
                     <Grid item xs={2}>
@@ -1117,6 +1450,12 @@ const PurchaseOrders = () => {
                         onChange={(e) => handleItemChange(index, 'quantity', parseFloat(e.target.value) || 0)}
                         fullWidth
                         InputProps={{ inputProps: { min: 1, step: 1 } }}
+                        sx={{
+                          '& .MuiOutlinedInput-root': {
+                            '&:hover fieldset': { borderColor: colors.sidebar },
+                            '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                          }
+                        }}
                       />
                     </Grid>
                     <Grid item xs={2.5}>
@@ -1128,6 +1467,12 @@ const PurchaseOrders = () => {
                         onChange={(e) => handleItemChange(index, 'unit_price', parseFloat(e.target.value) || 0)}
                         fullWidth
                         InputProps={{ inputProps: { min: 0, step: 0.01 } }}
+                        sx={{
+                          '& .MuiOutlinedInput-root': {
+                            '&:hover fieldset': { borderColor: colors.sidebar },
+                            '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                          }
+                        }}
                       />
                     </Grid>
                     <Grid item xs={2.5}>
@@ -1137,7 +1482,13 @@ const PurchaseOrders = () => {
                         value={item.total.toFixed(2)}
                         fullWidth
                         disabled
-                        sx={{ '& .MuiInputBase-root': { bgcolor: '#f5f5f5' } }}
+                        sx={{ 
+                          '& .MuiInputBase-root': { bgcolor: colors.mainBg },
+                          '& .MuiOutlinedInput-root': {
+                            '&:hover fieldset': { borderColor: colors.sidebar },
+                            '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                          }
+                        }}
                       />
                     </Grid>
                     <Grid item xs={1}>
@@ -1156,12 +1507,16 @@ const PurchaseOrders = () => {
                   size="small" 
                   startIcon={<Add />} 
                   onClick={addItem}
-                  sx={{ mt: 1 }}
+                  sx={{ 
+                    mt: 1,
+                    color: colors.sidebar,
+                    '&:hover': { color: colors.accentGold }
+                  }}
                 >
                   Add Item
                 </Button>
                 <Box sx={{ mt: 2, textAlign: 'right' }}>
-                  <Typography variant="subtitle1" fontWeight={600}>
+                  <Typography variant="subtitle1" fontWeight={600} sx={{ color: colors.sidebar }}>
                     Total Amount: ${calculateTotal().toFixed(2)}
                   </Typography>
                 </Box>
@@ -1178,11 +1533,17 @@ const PurchaseOrders = () => {
                 multiline
                 rows={3}
                 placeholder="Additional notes or special instructions..."
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.sidebar },
+                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  }
+                }}
               />
             </Grid>
 
             <Grid item xs={12}>
-              <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+              <Typography variant="subtitle2" sx={{ color: colors.lightText }} gutterBottom>
                 <AttachFile sx={{ fontSize: 18, verticalAlign: 'middle', mr: 1 }} />
                 Documents (Quotation, Invoice, etc.)
               </Typography>
@@ -1225,7 +1586,7 @@ const PurchaseOrders = () => {
               
               {formData.documents && formData.documents.split(',').filter(Boolean).length > 0 && (
                 <Box sx={{ mt: 1 }}>
-                  <Typography variant="caption" color="textSecondary">
+                  <Typography variant="caption" sx={{ color: colors.lightText }}>
                     {formData.documents.split(',').filter(Boolean).length} document(s) attached
                   </Typography>
                 </Box>
@@ -1234,13 +1595,14 @@ const PurchaseOrders = () => {
           </Grid>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={handleCloseDialog}>Cancel</Button>
+          <Button onClick={handleCloseDialog} sx={{ color: colors.lightText }}>Cancel</Button>
           <Button
             variant="contained"
             onClick={handleSubmit}
             sx={{
-              bgcolor: '#0B5FA5',
-              '&:hover': { bgcolor: '#084a8a' }
+              bgcolor: colors.sidebar,
+              '&:hover': { bgcolor: colors.sidebarHover },
+              boxShadow: `0 4px 16px ${colors.sidebar}44`
             }}
           >
             {editingOrder ? 'Update' : 'Create'}
@@ -1248,9 +1610,9 @@ const PurchaseOrders = () => {
         </DialogActions>
       </Dialog>
 
-      {/* ✅ View Dialog - Same as Service Documentation */}
+      {/* View Dialog - Same as before */}
       <Dialog open={openViewDialog} onClose={handleCloseView} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ bgcolor: '#0B5FA5', color: 'white' }}>
+        <DialogTitle sx={{ bgcolor: colors.sidebar, color: 'white' }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6" fontWeight={600}>
               Purchase Order Details
@@ -1265,27 +1627,29 @@ const PurchaseOrders = () => {
             <Grid container spacing={2}>
               <Grid item xs={12}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Typography variant="h6" fontWeight={600}>
+                  <Typography variant="h6" fontWeight={600} sx={{ color: colors.darkText }}>
                     {viewingOrder.po_number}
                   </Typography>
                   <Chip 
                     label={viewingOrder.status} 
-                    color={
-                      viewingOrder.status === 'Approved' || viewingOrder.status === 'Received' ? 'success' :
-                      viewingOrder.status === 'Pending Approval' ? 'warning' :
-                      viewingOrder.status === 'Draft' ? 'default' :
-                      viewingOrder.status === 'Ordered' ? 'info' :
-                      viewingOrder.status === 'Cancelled' ? 'error' : 'default'
-                    }
+                    sx={{
+                      bgcolor: viewingOrder.status === 'Approved' || viewingOrder.status === 'Received' ? colors.success :
+                               viewingOrder.status === 'Pending Approval' ? colors.warning :
+                               viewingOrder.status === 'Draft' ? colors.lightText :
+                               viewingOrder.status === 'Ordered' ? colors.info :
+                               viewingOrder.status === 'Cancelled' ? colors.error : colors.lightText,
+                      color: 'white',
+                      fontWeight: 500
+                    }}
                   />
                 </Box>
               </Grid>
               <Grid item xs={12}>
-                <Divider />
+                <Divider sx={{ borderColor: colors.borderColor }} />
               </Grid>
 
               <Grid item xs={12}>
-                <Typography variant="subtitle2" color="textSecondary" sx={{ mb: 2 }}>
+                <Typography variant="subtitle2" sx={{ color: colors.sidebar, mb: 2 }}>
                   Order Status Timeline
                 </Typography>
                 <Stepper activeStep={getCurrentStep(viewingOrder.status)} orientation="vertical">
@@ -1293,19 +1657,20 @@ const PurchaseOrders = () => {
                     <Step key={step}>
                       <StepLabel 
                         StepIconComponent={({ active, completed }) => {
-                          const colors = {
-                            'Draft': '#9e9e9e',
-                            'Pending Approval': '#ff9800',
-                            'Approved': '#4caf50',
-                            'Ordered': '#2196f3',
-                            'Received': '#4caf50'
+                          const stepColors = {
+                            'Draft': colors.lightText,
+                            'Pending Approval': colors.warning,
+                            'Approved': colors.success,
+                            'Ordered': colors.info,
+                            'Received': colors.success
                           }
                           return (
                             <Avatar sx={{ 
-                              bgcolor: active || completed ? colors[step] : '#e0e0e0',
+                              bgcolor: active || completed ? stepColors[step] : colors.borderColor,
                               width: 24, 
                               height: 24,
-                              fontSize: 14
+                              fontSize: 14,
+                              color: 'white'
                             }}>
                               {index + 1}
                             </Avatar>
@@ -1315,7 +1680,7 @@ const PurchaseOrders = () => {
                         {step}
                       </StepLabel>
                       <StepContent>
-                        <Typography variant="caption" color="textSecondary">
+                        <Typography variant="caption" sx={{ color: colors.lightText }}>
                           {step === viewingOrder.status ? 'Current status' : 
                            getCurrentStep(viewingOrder.status) > index ? 'Completed' : 'Pending'}
                         </Typography>
@@ -1326,55 +1691,65 @@ const PurchaseOrders = () => {
               </Grid>
 
               <Grid item xs={12}>
-                <Divider />
+                <Divider sx={{ borderColor: colors.borderColor }} />
               </Grid>
 
               <Grid item xs={12} md={6}>
-                <Typography variant="body2" color="textSecondary">Hospital</Typography>
-                <Typography variant="body1" fontWeight={500}>{viewingOrder.hospital_name}</Typography>
+                <Typography variant="body2" sx={{ color: colors.lightText }}>Hospital</Typography>
+                <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkText }}>
+                  {viewingOrder.hospital_name}
+                </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
-                <Typography variant="body2" color="textSecondary">Vendor</Typography>
-                <Typography variant="body1" fontWeight={500}>{viewingOrder.vendor_name}</Typography>
+                <Typography variant="body2" sx={{ color: colors.lightText }}>Vendor</Typography>
+                <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkText }}>
+                  {viewingOrder.vendor_name}
+                </Typography>
               </Grid>
               {viewingOrder.vendor_contact && (
                 <Grid item xs={12} md={6}>
-                  <Typography variant="body2" color="textSecondary">Vendor Contact</Typography>
-                  <Typography variant="body1">{viewingOrder.vendor_contact}</Typography>
+                  <Typography variant="body2" sx={{ color: colors.lightText }}>Vendor Contact</Typography>
+                  <Typography variant="body1" sx={{ color: colors.darkText }}>
+                    {viewingOrder.vendor_contact}
+                  </Typography>
                 </Grid>
               )}
               {viewingOrder.vendor_email && (
                 <Grid item xs={12} md={6}>
-                  <Typography variant="body2" color="textSecondary">Vendor Email</Typography>
-                  <Typography variant="body1">{viewingOrder.vendor_email}</Typography>
+                  <Typography variant="body2" sx={{ color: colors.lightText }}>Vendor Email</Typography>
+                  <Typography variant="body1" sx={{ color: colors.darkText }}>
+                    {viewingOrder.vendor_email}
+                  </Typography>
                 </Grid>
               )}
               {viewingOrder.vendor_address && (
                 <Grid item xs={12}>
-                  <Typography variant="body2" color="textSecondary">Vendor Address</Typography>
-                  <Typography variant="body1">{viewingOrder.vendor_address}</Typography>
+                  <Typography variant="body2" sx={{ color: colors.lightText }}>Vendor Address</Typography>
+                  <Typography variant="body1" sx={{ color: colors.darkText }}>
+                    {viewingOrder.vendor_address}
+                  </Typography>
                 </Grid>
               )}
 
               <Grid item xs={12}>
-                <Divider />
+                <Divider sx={{ borderColor: colors.borderColor }} />
               </Grid>
 
               <Grid item xs={12} md={4}>
-                <Typography variant="body2" color="textSecondary">Order Date</Typography>
-                <Typography variant="body1">
+                <Typography variant="body2" sx={{ color: colors.lightText }}>Order Date</Typography>
+                <Typography variant="body1" sx={{ color: colors.darkText }}>
                   {viewingOrder.order_date ? new Date(viewingOrder.order_date).toLocaleDateString() : '-'}
                 </Typography>
               </Grid>
               <Grid item xs={12} md={4}>
-                <Typography variant="body2" color="textSecondary">Delivery Date</Typography>
-                <Typography variant="body1">
+                <Typography variant="body2" sx={{ color: colors.lightText }}>Delivery Date</Typography>
+                <Typography variant="body1" sx={{ color: colors.darkText }}>
                   {viewingOrder.delivery_date ? new Date(viewingOrder.delivery_date).toLocaleDateString() : '-'}
                 </Typography>
               </Grid>
               <Grid item xs={12} md={4}>
-                <Typography variant="body2" color="textSecondary">Total Amount</Typography>
-                <Typography variant="body1" fontWeight={600} color="#0B5FA5">
+                <Typography variant="body2" sx={{ color: colors.lightText }}>Total Amount</Typography>
+                <Typography variant="body1" fontWeight={600} sx={{ color: colors.accentGold }}>
                   {viewingOrder.total_amount ? `$${parseFloat(viewingOrder.total_amount).toFixed(2)}` : '-'}
                 </Typography>
               </Grid>
@@ -1382,21 +1757,21 @@ const PurchaseOrders = () => {
               {viewingOrder.items && viewingOrder.items.length > 0 && (
                 <>
                   <Grid item xs={12}>
-                    <Divider />
-                    <Typography variant="subtitle2" color="textSecondary" sx={{ mt: 2, mb: 1 }}>
+                    <Divider sx={{ borderColor: colors.borderColor }} />
+                    <Typography variant="subtitle2" sx={{ color: colors.sidebar, mt: 2, mb: 1 }}>
                       Order Items
                     </Typography>
                   </Grid>
                   <Grid item xs={12}>
-                    <TableContainer component={Paper} variant="outlined">
+                    <TableContainer component={Paper} variant="outlined" sx={{ borderColor: colors.borderColor }}>
                       <Table size="small">
-                        <TableHead>
+                        <TableHead sx={{ bgcolor: colors.mainBg }}>
                           <TableRow>
-                            <TableCell>#</TableCell>
-                            <TableCell>Description</TableCell>
-                            <TableCell align="center">Quantity</TableCell>
-                            <TableCell align="right">Unit Price</TableCell>
-                            <TableCell align="right">Total</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.sidebar }}>#</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.sidebar }}>Description</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.sidebar }} align="center">Quantity</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.sidebar }} align="right">Unit Price</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.sidebar }} align="right">Total</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
@@ -1418,16 +1793,16 @@ const PurchaseOrders = () => {
 
               {viewingOrder.notes && (
                 <Grid item xs={12}>
-                  <Divider />
-                  <Typography variant="body2" color="textSecondary" sx={{ mt: 2 }}>Notes</Typography>
-                  <Typography variant="body1">{viewingOrder.notes}</Typography>
+                  <Divider sx={{ borderColor: colors.borderColor }} />
+                  <Typography variant="body2" sx={{ color: colors.lightText, mt: 2 }}>Notes</Typography>
+                  <Typography variant="body1" sx={{ color: colors.darkText }}>{viewingOrder.notes}</Typography>
                 </Grid>
               )}
 
               {viewingOrder.documents && viewingOrder.documents.split(',').filter(Boolean).length > 0 && (
                 <Grid item xs={12}>
-                  <Divider />
-                  <Typography variant="body2" color="textSecondary" sx={{ mt: 2, mb: 1 }}>
+                  <Divider sx={{ borderColor: colors.borderColor }} />
+                  <Typography variant="body2" sx={{ color: colors.lightText, mt: 2, mb: 1 }}>
                     <AttachFile sx={{ fontSize: 16, verticalAlign: 'middle' }} />
                     Attached Documents ({viewingOrder.documents.split(',').filter(Boolean).length})
                   </Typography>
@@ -1444,7 +1819,12 @@ const PurchaseOrders = () => {
                           startIcon={isImage ? <Image /> : isPDF ? <PictureAsPdf /> : <Description />}
                           href={getFullUrl(url)}
                           target="_blank"
-                          sx={{ textTransform: 'none' }}
+                          sx={{ 
+                            textTransform: 'none',
+                            borderColor: colors.borderColor,
+                            color: colors.darkText,
+                            '&:hover': { borderColor: colors.accentGold, color: colors.accentGold }
+                          }}
                         >
                           {url.split('/').pop().substring(0, 20)}
                         </Button>
@@ -1456,8 +1836,8 @@ const PurchaseOrders = () => {
 
               {viewingOrder.status !== 'Cancelled' && viewingOrder.status !== 'Received' && canEdit && (
                 <Grid item xs={12}>
-                  <Divider />
-                  <Typography variant="subtitle2" color="textSecondary" sx={{ mt: 2, mb: 1 }}>
+                  <Divider sx={{ borderColor: colors.borderColor }} />
+                  <Typography variant="subtitle2" sx={{ color: colors.sidebar, mt: 2, mb: 1 }}>
                     Update Status
                   </Typography>
                   <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
@@ -1465,8 +1845,12 @@ const PurchaseOrders = () => {
                       <Button 
                         size="small" 
                         variant="outlined" 
-                        color="warning"
                         onClick={() => handleStatusUpdate(viewingOrder.id, 'Pending Approval')}
+                        sx={{ 
+                          borderColor: colors.warning,
+                          color: colors.warning,
+                          '&:hover': { borderColor: colors.accentGold, color: colors.accentGold }
+                        }}
                       >
                         Submit for Approval
                       </Button>
@@ -1476,9 +1860,13 @@ const PurchaseOrders = () => {
                         <Button 
                           size="small" 
                           variant="contained" 
-                          color="success"
                           onClick={() => handleApprove(viewingOrder.id)}
                           startIcon={<CheckCircle />}
+                          sx={{ 
+                            bgcolor: colors.success,
+                            '&:hover': { bgcolor: '#1B5E20' },
+                            boxShadow: `0 4px 16px ${colors.success}44`
+                          }}
                         >
                           Approve
                         </Button>
@@ -1494,7 +1882,7 @@ const PurchaseOrders = () => {
                       </>
                     )}
                     {viewingOrder.status === 'Pending Approval' && !canApprove && (
-                      <Alert severity="info" sx={{ mt: 1, width: '100%' }}>
+                      <Alert severity="info" sx={{ mt: 1, width: '100%', borderRadius: 2, border: `1px solid ${colors.info}33` }}>
                         <Typography variant="body2">
                           <strong>Waiting for Super Admin approval.</strong> Only Super Admin can approve or reject orders.
                         </Typography>
@@ -1504,9 +1892,13 @@ const PurchaseOrders = () => {
                       <Button 
                         size="small" 
                         variant="contained" 
-                        color="primary"
                         onClick={() => handleStatusUpdate(viewingOrder.id, 'Ordered')}
                         startIcon={<LocalShipping />}
+                        sx={{ 
+                          bgcolor: colors.info,
+                          '&:hover': { bgcolor: '#0D47A1' },
+                          boxShadow: `0 4px 16px ${colors.info}44`
+                        }}
                       >
                         Mark as Ordered
                       </Button>
@@ -1515,9 +1907,13 @@ const PurchaseOrders = () => {
                       <Button 
                         size="small" 
                         variant="contained" 
-                        color="success"
                         onClick={() => handleStatusUpdate(viewingOrder.id, 'Received')}
                         startIcon={<Check />}
+                        sx={{ 
+                          bgcolor: colors.success,
+                          '&:hover': { bgcolor: '#1B5E20' },
+                          boxShadow: `0 4px 16px ${colors.success}44`
+                        }}
                       >
                         Mark as Received
                       </Button>
@@ -1528,7 +1924,7 @@ const PurchaseOrders = () => {
 
               {viewingOrder.status === 'Cancelled' && (
                 <Grid item xs={12}>
-                  <Alert severity="error" sx={{ mt: 2 }}>
+                  <Alert severity="error" sx={{ mt: 2, borderRadius: 2, border: `1px solid ${colors.error}33` }}>
                     <Typography variant="body2">
                       <strong>This order has been cancelled.</strong> No further actions can be taken.
                     </Typography>
@@ -1538,7 +1934,7 @@ const PurchaseOrders = () => {
 
               {viewingOrder.status === 'Received' && (
                 <Grid item xs={12}>
-                  <Alert severity="success" sx={{ mt: 2 }}>
+                  <Alert severity="success" sx={{ mt: 2, borderRadius: 2, border: `1px solid ${colors.success}33` }}>
                     <Typography variant="body2">
                       <strong>Order completed!</strong> All items have been received.
                     </Typography>
@@ -1549,12 +1945,16 @@ const PurchaseOrders = () => {
           )}
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={handleCloseView}>Close</Button>
+          <Button onClick={handleCloseView} sx={{ color: colors.lightText }}>Close</Button>
           <Button 
             variant="contained" 
             startIcon={<Print />} 
-            sx={{ bgcolor: '#0B5FA5' }}
-            onClick={handlePrint}
+            sx={{ 
+              bgcolor: colors.sidebar,
+              '&:hover': { bgcolor: colors.sidebarHover },
+              boxShadow: `0 4px 16px ${colors.sidebar}44`
+            }}
+            onClick={() => handlePrint(viewingOrder)}
           >
             Print
           </Button>

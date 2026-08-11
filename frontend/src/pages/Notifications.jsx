@@ -1,6 +1,5 @@
 // src/pages/Notifications.jsx
-// ✅ SUPER_ADMIN and ENGINEER can access
-// ❌ HOSPITAL_ADMIN - Access Denied
+// ✅ PAEC THEME - Green & Gold Colors
 
 import React, { useEffect, useState, useRef } from 'react';
 import {
@@ -60,15 +59,37 @@ import { toast } from 'react-toastify';
 import AccessDenied from '../components/Auth/AccessDenied';
 
 // ============================================================
+// ✅ PAEC THEME COLORS
+// ============================================================
+const colors = {
+  sidebar: '#01411C',
+  sidebarHover: '#0B542B',
+  active: '#0E6335',
+  accentGold: '#C9A227',
+  goldLight: '#E8C84A',
+  text: '#FFFFFF',
+  secondaryText: '#B8C8BE',
+  mainBg: '#F0F2F5',
+  white: '#FFFFFF',
+  darkText: '#1A2A3A',
+  lightText: '#5A7A8A',
+  error: '#D32F2F',
+  success: '#2E7D32',
+  warning: '#ED6C02',
+  info: '#0B5FA5',
+  borderColor: 'rgba(1, 65, 28, 0.08)',
+  shadowColor: 'rgba(1, 65, 28, 0.08)',
+  cardBg: '#FFFFFF',
+}
+
+// ============================================================
 // ✅ SOUND EFFECT FUNCTION
 // ============================================================
 const playNotificationSound = () => {
   try {
-    // Try to play audio file first
     const audio = new Audio('/sounds/notification.mp3');
     audio.volume = 0.5;
     audio.play().catch(() => {
-      // Fallback: Use Web Audio API beep
       try {
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         const oscillator = audioCtx.createOscillator();
@@ -95,23 +116,23 @@ const playNotificationSound = () => {
 const getNotificationIcon = (type) => {
   switch (type?.toLowerCase()) {
     case 'error':
-      return <ErrorIcon sx={{ color: '#f44336' }} />;
+      return <ErrorIcon sx={{ color: colors.error }} />;
     case 'repair':
-      return <BuildIcon sx={{ color: '#ff9800' }} />;
+      return <BuildIcon sx={{ color: colors.warning }} />;
     case 'maintenance':
-      return <BuildIcon sx={{ color: '#2196f3' }} />;
+      return <BuildIcon sx={{ color: colors.info }} />;
     case 'purchaseorder':
     case 'purchase-order':
     case 'purchase':
-      return <ShoppingCartIcon sx={{ color: '#4caf50' }} />;
+      return <ShoppingCartIcon sx={{ color: colors.success }} />;
     case 'procurement':
       return <LocalShippingIcon sx={{ color: '#9c27b0' }} />;
     case 'warning':
-      return <WarningIcon sx={{ color: '#ff9800' }} />;
+      return <WarningIcon sx={{ color: colors.warning }} />;
     case 'amc':
       return <LocalShippingIcon sx={{ color: '#00bcd4' }} />;
     default:
-      return <InfoIcon sx={{ color: '#0B5FA5' }} />;
+      return <InfoIcon sx={{ color: colors.sidebar }} />;
   }
 };
 
@@ -121,23 +142,23 @@ const getNotificationIcon = (type) => {
 const getNotificationColor = (type) => {
   switch (type?.toLowerCase()) {
     case 'error':
-      return '#f44336';
+      return colors.error;
     case 'repair':
-      return '#ff9800';
+      return colors.warning;
     case 'maintenance':
-      return '#2196f3';
+      return colors.info;
     case 'purchaseorder':
     case 'purchase-order':
     case 'purchase':
-      return '#4caf50';
+      return colors.success;
     case 'procurement':
       return '#9c27b0';
     case 'warning':
-      return '#ff9800';
+      return colors.warning;
     case 'amc':
       return '#00bcd4';
     default:
-      return '#0B5FA5';
+      return colors.sidebar;
   }
 };
 
@@ -171,7 +192,6 @@ const formatTime = (dateString) => {
 const Notifications = () => {
   const { user } = useSelector((state) => state.auth);
   
-  // ✅ HOSPITAL_ADMIN - Access Denied
   if (user?.role === 'HOSPITAL_ADMIN') {
     return <AccessDenied message="Hospital Administrators cannot access Notifications." />;
   }
@@ -189,16 +209,11 @@ const Notifications = () => {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   
-  // Reference to track previous notifications count
   const prevNotificationsRef = useRef([]);
 
-  // ============================================================
-  // ✅ LOAD NOTIFICATIONS ON MOUNT
-  // ============================================================
   useEffect(() => {
     loadNotifications();
     
-    // Set up polling every 30 seconds
     const interval = setInterval(() => {
       loadNotifications();
     }, 30000);
@@ -206,22 +221,15 @@ const Notifications = () => {
     return () => clearInterval(interval);
   }, []);
 
-  // ============================================================
-  // ✅ PLAY SOUND ON NEW NOTIFICATIONS
-  // ============================================================
   useEffect(() => {
-    // Only play sound if sound is enabled and there are notifications
     if (!soundEnabled || notifications.length === 0) return;
     
-    // Check if there are new notifications
     const prevIds = prevNotificationsRef.current.map(n => n.id);
     const currentIds = notifications.map(n => n.id);
     
-    // Find new notifications (not in previous list)
     const newNotifications = notifications.filter(n => !prevIds.includes(n.id));
     
     if (newNotifications.length > 0) {
-      // Check if any new notification is recent (within last 10 seconds)
       const now = new Date();
       const hasRecent = newNotifications.some(n => {
         const notifTime = new Date(n.created_at);
@@ -233,7 +241,6 @@ const Notifications = () => {
         console.log('🔔 New notification detected! Playing sound...');
         playNotificationSound();
         
-        // Show toast for new notification
         const latest = newNotifications[0];
         toast.info(`🔔 ${latest.title}`, {
           position: "top-right",
@@ -242,17 +249,17 @@ const Notifications = () => {
           closeOnClick: true,
           pauseOnHover: true,
           draggable: true,
+          style: {
+            background: colors.sidebar,
+            color: colors.text,
+          },
         });
       }
     }
     
-    // Update previous notifications reference
     prevNotificationsRef.current = notifications;
   }, [notifications, soundEnabled]);
 
-  // ============================================================
-  // ✅ LOAD NOTIFICATIONS FUNCTION
-  // ============================================================
   const loadNotifications = async () => {
     try {
       await dispatch(fetchNotifications()).unwrap();
@@ -262,16 +269,10 @@ const Notifications = () => {
     }
   };
 
-  // ============================================================
-  // ✅ HANDLE TAB CHANGE
-  // ============================================================
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
   };
 
-  // ============================================================
-  // ✅ HANDLE MARK AS READ
-  // ============================================================
   const handleMarkAsRead = async (id) => {
     try {
       await dispatch(markAsRead(id)).unwrap();
@@ -282,9 +283,6 @@ const Notifications = () => {
     }
   };
 
-  // ============================================================
-  // ✅ HANDLE MARK ALL AS READ
-  // ============================================================
   const handleMarkAllAsRead = async () => {
     try {
       await dispatch(markAllAsRead()).unwrap();
@@ -295,9 +293,6 @@ const Notifications = () => {
     }
   };
 
-  // ============================================================
-  // ✅ HANDLE DELETE
-  // ============================================================
   const handleDelete = async (id) => {
     try {
       await dispatch(deleteNotification(id)).unwrap();
@@ -309,9 +304,6 @@ const Notifications = () => {
     }
   };
 
-  // ============================================================
-  // ✅ HANDLE MENU OPEN/CLOSE
-  // ============================================================
   const handleMenuOpen = (event, notification) => {
     setMenuAnchor(event.currentTarget);
     setSelectedNotification(notification);
@@ -322,25 +314,16 @@ const Notifications = () => {
     setSelectedNotification(null);
   };
 
-  // ============================================================
-  // ✅ HANDLE DELETE CLICK
-  // ============================================================
   const handleDeleteClick = (notification) => {
     setNotificationToDelete(notification);
     setDeleteDialogOpen(true);
     handleMenuClose();
   };
 
-  // ============================================================
-  // ✅ SHOW SNACKBAR
-  // ============================================================
   const showSnackbar = (message, severity = 'success') => {
     setSnackbar({ open: true, message, severity });
   };
 
-  // ============================================================
-  // ✅ GET FILTERED NOTIFICATIONS
-  // ============================================================
   const getFilteredNotifications = () => {
     if (tabValue === 0) {
       return notifications;
@@ -352,25 +335,20 @@ const Notifications = () => {
 
   const filteredNotifications = getFilteredNotifications();
 
-  // ============================================================
-  // ✅ RENDER LOADING STATE
-  // ============================================================
   if (isLoading && notifications.length === 0) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
-        <CircularProgress />
+        <CircularProgress sx={{ color: colors.sidebar }} />
       </Box>
     );
   }
 
-  // ============================================================
-  // ✅ RENDER ERROR STATE
-  // ============================================================
   if (error && notifications.length === 0) {
     return (
       <Box sx={{ p: 3 }}>
         <Alert 
           severity="error" 
+          sx={{ borderRadius: 2, border: `1px solid ${colors.error}33` }}
           action={
             <Button color="inherit" size="small" onClick={loadNotifications}>
               Retry
@@ -383,9 +361,6 @@ const Notifications = () => {
     );
   }
 
-  // ============================================================
-  // ✅ MAIN RENDER
-  // ============================================================
   return (
     <Box sx={{ p: { xs: 2, sm: 3 } }}>
       {/* Header */}
@@ -403,18 +378,19 @@ const Notifications = () => {
             color="secondary"
             sx={{
               '& .MuiBadge-badge': {
-                bgcolor: '#C9A227',
+                bgcolor: colors.accentGold,
                 color: 'white',
+                fontWeight: 700,
               }
             }}
           >
-            <NotificationsIcon sx={{ fontSize: 32, color: '#0B5FA5' }} />
+            <NotificationsIcon sx={{ fontSize: 32, color: colors.sidebar }} />
           </Badge>
           <Box>
-            <Typography variant="h5" sx={{ fontWeight: 600, color: '#0B5FA5' }}>
+            <Typography variant="h5" sx={{ fontWeight: 700, color: colors.sidebar }}>
               Notifications
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{ color: colors.lightText }}>
               {unreadCount} unread {unreadCount === 1 ? 'notification' : 'notifications'}
             </Typography>
           </Box>
@@ -426,13 +402,12 @@ const Notifications = () => {
             <IconButton
               onClick={() => setSoundEnabled(!soundEnabled)}
               sx={{ 
-                bgcolor: soundEnabled ? 'rgba(11, 95, 165, 0.08)' : 'transparent',
-                color: soundEnabled ? '#0B5FA5' : '#999',
-                border: '1px solid',
-                borderColor: soundEnabled ? '#0B5FA5' : '#ddd',
+                bgcolor: soundEnabled ? `${colors.sidebar}14` : 'transparent',
+                color: soundEnabled ? colors.sidebar : colors.lightText,
+                border: `1px solid ${soundEnabled ? colors.sidebar : colors.borderColor}`,
                 borderRadius: 1,
                 '&:hover': {
-                  bgcolor: soundEnabled ? 'rgba(11, 95, 165, 0.15)' : 'rgba(0,0,0,0.04)',
+                  bgcolor: soundEnabled ? `${colors.sidebar}22` : 'rgba(0,0,0,0.04)',
                 }
               }}
             >
@@ -448,11 +423,12 @@ const Notifications = () => {
               onClick={loadNotifications}
               size="small"
               sx={{ 
-                borderColor: '#0B5FA5',
-                color: '#0B5FA5',
+                borderColor: colors.sidebar,
+                color: colors.sidebar,
                 '&:hover': {
-                  borderColor: '#0B5FA5',
-                  bgcolor: 'rgba(11, 95, 165, 0.08)'
+                  borderColor: colors.accentGold,
+                  color: colors.accentGold,
+                  bgcolor: `${colors.accentGold}14`
                 }
               }}
             >
@@ -468,10 +444,11 @@ const Notifications = () => {
               onClick={handleMarkAllAsRead}
               size="small"
               sx={{
-                bgcolor: '#0B5FA5',
+                bgcolor: colors.sidebar,
                 '&:hover': {
-                  bgcolor: '#094a80'
-                }
+                  bgcolor: colors.sidebarHover,
+                },
+                boxShadow: `0 4px 16px ${colors.sidebar}44`
               }}
             >
               Mark All Read
@@ -480,8 +457,13 @@ const Notifications = () => {
         </Box>
       </Box>
 
-      {/* Tabs */}
-      <Paper sx={{ mb: 3, borderRadius: 2 }}>
+      {/* Tabs - THEMED */}
+      <Paper sx={{ 
+        mb: 3, 
+        borderRadius: 2,
+        border: `1px solid ${colors.borderColor}`,
+        boxShadow: '0 2px 12px rgba(0,0,0,0.04)'
+      }}>
         <Tabs
           value={tabValue}
           onChange={handleTabChange}
@@ -492,13 +474,14 @@ const Notifications = () => {
               fontWeight: 500,
               fontSize: '14px',
               minHeight: 48,
+              color: colors.lightText,
             },
             '& .Mui-selected': {
-              color: '#0B5FA5',
+              color: colors.sidebar,
               fontWeight: 600,
             },
             '& .MuiTabs-indicator': {
-              bgcolor: '#0B5FA5',
+              bgcolor: colors.accentGold,
             }
           }}
         >
@@ -510,9 +493,10 @@ const Notifications = () => {
                   label={notifications.length} 
                   size="small" 
                   sx={{ 
-                    bgcolor: '#0B5FA5', 
+                    bgcolor: colors.sidebar, 
                     color: 'white',
                     height: 20,
+                    fontWeight: 600,
                     '& .MuiChip-label': { px: 1, fontSize: '11px' }
                   }} 
                 />
@@ -527,9 +511,10 @@ const Notifications = () => {
                   label={unreadCount} 
                   size="small" 
                   sx={{ 
-                    bgcolor: '#C9A227', 
+                    bgcolor: colors.accentGold, 
                     color: 'white',
                     height: 20,
+                    fontWeight: 600,
                     '& .MuiChip-label': { px: 1, fontSize: '11px' }
                   }} 
                 />
@@ -539,8 +524,13 @@ const Notifications = () => {
         </Tabs>
       </Paper>
 
-      {/* Notifications List */}
-      <Paper sx={{ borderRadius: 2, overflow: 'hidden' }}>
+      {/* Notifications List - THEMED */}
+      <Paper sx={{ 
+        borderRadius: 2, 
+        overflow: 'hidden',
+        border: `1px solid ${colors.borderColor}`,
+        boxShadow: '0 2px 12px rgba(0,0,0,0.04)'
+      }}>
         {filteredNotifications.length === 0 ? (
           <Box sx={{ 
             p: 4, 
@@ -550,11 +540,11 @@ const Notifications = () => {
             justifyContent: 'center',
             minHeight: 200
           }}>
-            <NotificationsOffIcon sx={{ fontSize: 48, color: '#ccc', mb: 2 }} />
-            <Typography variant="h6" color="text.secondary">
+            <NotificationsOffIcon sx={{ fontSize: 48, color: colors.lightText, mb: 2 }} />
+            <Typography variant="h6" sx={{ color: colors.lightText }}>
               No notifications
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{ color: colors.lightText }}>
               {tabValue === 0 ? 'You have no notifications' : 'All notifications are read'}
             </Typography>
           </Box>
@@ -566,10 +556,10 @@ const Notifications = () => {
                   sx={{
                     px: 3,
                     py: 2,
-                    bgcolor: notification.is_read ? 'transparent' : 'rgba(11, 95, 165, 0.04)',
+                    bgcolor: notification.is_read ? 'transparent' : `${colors.sidebar}08`,
                     transition: 'all 0.2s',
                     '&:hover': {
-                      bgcolor: notification.is_read ? 'rgba(0, 0, 0, 0.02)' : 'rgba(11, 95, 165, 0.08)',
+                      bgcolor: notification.is_read ? 'rgba(0, 0, 0, 0.02)' : `${colors.sidebar}14`,
                     },
                     cursor: 'pointer',
                   }}
@@ -582,7 +572,8 @@ const Notifications = () => {
                   <ListItemAvatar>
                     <Avatar sx={{ 
                       bgcolor: `${getNotificationColor(notification.type)}20`,
-                      color: getNotificationColor(notification.type)
+                      color: getNotificationColor(notification.type),
+                      boxShadow: `0 2px 8px ${getNotificationColor(notification.type)}33`
                     }}>
                       {getNotificationIcon(notification.type)}
                     </Avatar>
@@ -591,7 +582,10 @@ const Notifications = () => {
                   <ListItemText
                     primary={
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                        <Typography variant="subtitle1" sx={{ fontWeight: notification.is_read ? 400 : 600 }}>
+                        <Typography variant="subtitle1" sx={{ 
+                          fontWeight: notification.is_read ? 400 : 600,
+                          color: colors.darkText
+                        }}>
                           {notification.title}
                         </Typography>
                         {!notification.is_read && (
@@ -599,9 +593,10 @@ const Notifications = () => {
                             label="New" 
                             size="small" 
                             sx={{ 
-                              bgcolor: '#C9A227', 
+                              bgcolor: colors.accentGold, 
                               color: 'white',
                               height: 20,
+                              fontWeight: 600,
                               '& .MuiChip-label': { fontSize: '10px', px: 1 }
                             }} 
                           />
@@ -610,11 +605,11 @@ const Notifications = () => {
                     }
                     secondary={
                       <>
-                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                        <Typography variant="body2" sx={{ color: colors.lightText, mt: 0.5 }}>
                           {notification.message}
                         </Typography>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-                          <Typography variant="caption" color="text.secondary">
+                          <Typography variant="caption" sx={{ color: colors.lightText }}>
                             {formatTime(notification.created_at)}
                           </Typography>
                           {notification.type && (
@@ -626,6 +621,7 @@ const Notifications = () => {
                                 fontSize: '10px',
                                 bgcolor: `${getNotificationColor(notification.type)}20`,
                                 color: getNotificationColor(notification.type),
+                                fontWeight: 500,
                               }}
                             />
                           )}
@@ -643,7 +639,13 @@ const Notifications = () => {
                             e.stopPropagation();
                             handleMarkAsRead(notification.id);
                           }}
-                          sx={{ color: '#0B5FA5' }}
+                          sx={{ 
+                            color: colors.sidebar,
+                            '&:hover': { 
+                              color: colors.accentGold,
+                              bgcolor: `${colors.accentGold}14`
+                            }
+                          }}
                         >
                           <CheckCircleIcon fontSize="small" />
                         </IconButton>
@@ -657,6 +659,13 @@ const Notifications = () => {
                           e.stopPropagation();
                           handleMenuOpen(e, notification);
                         }}
+                        sx={{ 
+                          color: colors.lightText,
+                          '&:hover': { 
+                            color: colors.sidebar,
+                            bgcolor: `${colors.sidebar}14`
+                          }
+                        }}
                       >
                         <MoreVertIcon fontSize="small" />
                       </IconButton>
@@ -664,14 +673,14 @@ const Notifications = () => {
                   </Box>
                 </ListItem>
                 
-                {index < filteredNotifications.length - 1 && <Divider />}
+                {index < filteredNotifications.length - 1 && <Divider sx={{ borderColor: colors.borderColor }} />}
               </React.Fragment>
             ))}
           </List>
         )}
       </Paper>
 
-      {/* Menu */}
+      {/* Menu - THEMED */}
       <Menu
         anchorEl={menuAnchor}
         open={Boolean(menuAnchor)}
@@ -684,65 +693,95 @@ const Notifications = () => {
           vertical: 'top',
           horizontal: 'right',
         }}
+        PaperProps={{
+          sx: {
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+          }
+        }}
       >
         {selectedNotification && !selectedNotification.is_read && (
-          <MenuItem onClick={() => {
-            handleMarkAsRead(selectedNotification.id);
-            handleMenuClose();
-          }}>
-            <CheckCircleIcon sx={{ mr: 1, fontSize: 20, color: '#0B5FA5' }} />
+          <MenuItem 
+            onClick={() => {
+              handleMarkAsRead(selectedNotification.id);
+              handleMenuClose();
+            }}
+            sx={{ '&:hover': { bgcolor: `${colors.sidebar}14` } }}
+          >
+            <CheckCircleIcon sx={{ mr: 1, fontSize: 20, color: colors.sidebar }} />
             Mark as read
           </MenuItem>
         )}
-        <MenuItem onClick={() => handleDeleteClick(selectedNotification)}>
-          <DeleteIcon sx={{ mr: 1, fontSize: 20, color: '#f44336' }} />
+        <MenuItem 
+          onClick={() => handleDeleteClick(selectedNotification)}
+          sx={{ '&:hover': { bgcolor: `${colors.error}14` } }}
+        >
+          <DeleteIcon sx={{ mr: 1, fontSize: 20, color: colors.error }} />
           Delete
         </MenuItem>
       </Menu>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Confirmation Dialog - THEMED */}
       <Dialog 
         open={deleteDialogOpen} 
         onClose={() => setDeleteDialogOpen(false)}
         maxWidth="sm"
         fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            border: `1px solid ${colors.borderColor}`,
+          }
+        }}
       >
-        <DialogTitle sx={{ color: '#f44336' }}>
+        <DialogTitle sx={{ color: colors.error }}>
           <DeleteIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
           Delete Notification
         </DialogTitle>
         <DialogContent>
-          <DialogContentText>
+          <DialogContentText sx={{ color: colors.darkText }}>
             Are you sure you want to delete this notification? This action cannot be undone.
           </DialogContentText>
           {notificationToDelete && (
-            <Box sx={{ mt: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+            <Box sx={{ 
+              mt: 2, 
+              p: 2, 
+              bgcolor: colors.mainBg, 
+              borderRadius: 2,
+              border: `1px solid ${colors.borderColor}`
+            }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: colors.darkText }}>
                 {notificationToDelete.title}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{ color: colors.lightText }}>
                 {notificationToDelete.message}
               </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+              <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', mt: 1 }}>
                 {formatTime(notificationToDelete.created_at)}
               </Typography>
             </Box>
           )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+        <DialogActions sx={{ p: 3 }}>
+          <Button 
+            onClick={() => setDeleteDialogOpen(false)}
+            sx={{ color: colors.lightText }}
+          >
+            Cancel
+          </Button>
           <Button 
             onClick={() => handleDelete(notificationToDelete?.id)} 
             variant="contained" 
             color="error"
             startIcon={<DeleteIcon />}
+            sx={{ boxShadow: `0 4px 16px ${colors.error}44` }}
           >
             Delete
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Snackbar */}
+      {/* Snackbar - THEMED */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={3000}
@@ -753,6 +792,10 @@ const Notifications = () => {
           severity={snackbar.severity} 
           onClose={() => setSnackbar({ ...snackbar, open: false })}
           variant="filled"
+          sx={{ 
+            borderRadius: 2,
+            '& .MuiAlert-icon': { color: 'white' }
+          }}
         >
           {snackbar.message}
         </Alert>

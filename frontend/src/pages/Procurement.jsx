@@ -1,7 +1,5 @@
 // src/pages/Procurement.jsx
-// ✅ SUPER_ADMIN: Full access (Create, Edit, Delete, Approve, Reject, Review, Mark Procured)
-// ✅ ENGINEER: Create, Edit, Delete, Review, Mark Procured (EXCEPT Approve/Reject)
-// ❌ HOSPITAL_ADMIN: Access Denied
+// ✅ PAEC THEME - Green & Gold Colors
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -68,6 +66,30 @@ import { useSelector } from 'react-redux'
 import AccessDenied from '../components/Auth/AccessDenied'
 import FileUpload from '../components/FileUpload'
 
+// ============================================================
+// ✅ PAEC THEME COLORS
+// ============================================================
+const colors = {
+  sidebar: '#01411C',
+  sidebarHover: '#0B542B',
+  active: '#0E6335',
+  accentGold: '#C9A227',
+  goldLight: '#E8C84A',
+  text: '#FFFFFF',
+  secondaryText: '#B8C8BE',
+  mainBg: '#F0F2F5',
+  white: '#FFFFFF',
+  darkText: '#1A2A3A',
+  lightText: '#5A7A8A',
+  error: '#D32F2F',
+  success: '#2E7D32',
+  warning: '#ED6C02',
+  info: '#0B5FA5',
+  borderColor: 'rgba(1, 65, 28, 0.08)',
+  shadowColor: 'rgba(1, 65, 28, 0.08)',
+  cardBg: '#FFFFFF',
+}
+
 // ==================== HELPER FUNCTIONS ====================
 const getFullUrl = (url) => {
   if (!url) return ''
@@ -81,12 +103,8 @@ const getFullUrl = (url) => {
 }
 
 const Procurement = () => {
-  // ============================================================
-  // ✅ PROCUREMENT - PERMISSIONS
-  // ============================================================
   const { user } = useSelector((state) => state.auth)
 
-  // ✅ HOSPITAL_ADMIN - Access Denied
   if (user?.role === 'HOSPITAL_ADMIN') {
     return <AccessDenied message="Hospital Administrators cannot access Equipment Procurement." />
   }
@@ -94,13 +112,12 @@ const Procurement = () => {
   const isEngineer = user?.role === 'ENGINEER'
   const isSuperAdmin = user?.role === 'SUPER_ADMIN'
 
-  // ✅ PERMISSIONS
   const canCreate = isEngineer || isSuperAdmin
   const canEdit = isEngineer || isSuperAdmin
   const canDelete = isEngineer || isSuperAdmin
   const canReview = isEngineer || isSuperAdmin
   const canMarkProcured = isEngineer || isSuperAdmin
-  const canApprove = isSuperAdmin // ✅ ONLY Super Admin can approve/reject
+  const canApprove = isSuperAdmin
 
   const [requests, setRequests] = useState([])
   const [equipment, setEquipment] = useState([])
@@ -407,7 +424,6 @@ const Procurement = () => {
     }
   }
 
-  // ============ EXPORT FUNCTIONS ============
   const handleExportClick = (event) => {
     setExportAnchorEl(event.currentTarget)
   }
@@ -501,7 +517,6 @@ const Procurement = () => {
     return matchesSearch && matchesStatus && matchesPriority
   })
 
-  // Stats
   const totalRequests = requests.length
   const pendingRequests = requests.filter(r => r.status === 'Requested' || r.status === 'Under Review').length
   const approvedRequests = requests.filter(r => r.status === 'Approved' || r.status === 'Procured').length
@@ -509,14 +524,14 @@ const Procurement = () => {
   const urgentRequests = requests.filter(r => r.priority === 'Urgent' && r.status !== 'Rejected').length
 
   if (loading) {
-    return <LinearProgress />
+    return <LinearProgress sx={{ bgcolor: colors.borderColor, '& .MuiLinearProgress-bar': { bgcolor: colors.accentGold } }} />
   }
 
   return (
     <Box>
-      {/* ✅ Header - No Chips */}
+      {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700, color: '#2C3E50' }}>
+        <Typography variant="h5" sx={{ fontWeight: 700, color: colors.sidebar }}>
           Equipment Procurement
         </Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
@@ -525,6 +540,11 @@ const Procurement = () => {
             startIcon={<Refresh />}
             onClick={fetchRequests}
             size="small"
+            sx={{ 
+              borderColor: colors.sidebar, 
+              color: colors.sidebar,
+              '&:hover': { borderColor: colors.accentGold, color: colors.accentGold }
+            }}
           >
             Refresh
           </Button>
@@ -533,7 +553,11 @@ const Procurement = () => {
               variant="contained"
               startIcon={<Add />}
               onClick={() => handleOpenDialog()}
-              sx={{ bgcolor: '#0B5FA5', '&:hover': { bgcolor: '#084a8a' } }}
+              sx={{ 
+                bgcolor: colors.sidebar, 
+                '&:hover': { bgcolor: colors.sidebarHover },
+                boxShadow: `0 4px 16px ${colors.sidebar}44`
+              }}
             >
               Request Equipment
             </Button>
@@ -541,55 +565,79 @@ const Procurement = () => {
         </Box>
       </Box>
 
-      {/* Stats Cards */}
+      {/* Stats Cards - THEMED */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={6} sm={2.4}>
-          <Card sx={{ borderRadius: 2 }}>
+          <Card sx={{ 
+            borderRadius: 2, 
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 2px 12px rgba(0,0,0,0.04)'
+          }}>
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" color="#0B5FA5" fontWeight={700}>
+              <Typography variant="h4" sx={{ color: colors.sidebar, fontWeight: 700 }}>
                 {totalRequests}
               </Typography>
-              <Typography variant="body2" color="textSecondary">Total Requests</Typography>
+              <Typography variant="body2" sx={{ color: colors.lightText }}>Total Requests</Typography>
             </CardContent>
           </Card>
         </Grid>
         <Grid item xs={6} sm={2.4}>
-          <Card sx={{ borderRadius: 2, bgcolor: '#fff3e0' }}>
+          <Card sx={{ 
+            borderRadius: 2, 
+            border: `1px solid ${colors.warning}33`,
+            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+            bgcolor: `${colors.warning}08`
+          }}>
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" color="warning.main" fontWeight={700}>
+              <Typography variant="h4" sx={{ color: colors.warning, fontWeight: 700 }}>
                 {pendingRequests}
               </Typography>
-              <Typography variant="body2" color="textSecondary">Pending Review</Typography>
+              <Typography variant="body2" sx={{ color: colors.lightText }}>Pending Review</Typography>
             </CardContent>
           </Card>
         </Grid>
         <Grid item xs={6} sm={2.4}>
-          <Card sx={{ borderRadius: 2, bgcolor: '#e8f5e9' }}>
+          <Card sx={{ 
+            borderRadius: 2, 
+            border: `1px solid ${colors.success}33`,
+            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+            bgcolor: `${colors.success}08`
+          }}>
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" color="success.main" fontWeight={700}>
+              <Typography variant="h4" sx={{ color: colors.success, fontWeight: 700 }}>
                 {approvedRequests}
               </Typography>
-              <Typography variant="body2" color="textSecondary">Approved/Procured</Typography>
+              <Typography variant="body2" sx={{ color: colors.lightText }}>Approved/Procured</Typography>
             </CardContent>
           </Card>
         </Grid>
         <Grid item xs={6} sm={2.4}>
-          <Card sx={{ borderRadius: 2, bgcolor: '#ffebee' }}>
+          <Card sx={{ 
+            borderRadius: 2, 
+            border: `1px solid ${colors.error}33`,
+            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+            bgcolor: `${colors.error}08`
+          }}>
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" color="error.main" fontWeight={700}>
+              <Typography variant="h4" sx={{ color: colors.error, fontWeight: 700 }}>
                 {rejectedRequests}
               </Typography>
-              <Typography variant="body2" color="textSecondary">Rejected</Typography>
+              <Typography variant="body2" sx={{ color: colors.lightText }}>Rejected</Typography>
             </CardContent>
           </Card>
         </Grid>
         <Grid item xs={6} sm={2.4}>
-          <Card sx={{ borderRadius: 2, bgcolor: '#fce4ec' }}>
+          <Card sx={{ 
+            borderRadius: 2, 
+            border: `1px solid ${colors.error}33`,
+            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+            bgcolor: `${colors.error}08`
+          }}>
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" color="error.main" fontWeight={700}>
+              <Typography variant="h4" sx={{ color: colors.error, fontWeight: 700 }}>
                 {urgentRequests}
               </Typography>
-              <Typography variant="body2" color="textSecondary">Urgent</Typography>
+              <Typography variant="body2" sx={{ color: colors.lightText }}>Urgent</Typography>
             </CardContent>
           </Card>
         </Grid>
@@ -599,13 +647,18 @@ const Procurement = () => {
       {urgentRequests > 0 && (
         <Alert 
           severity="error" 
-          sx={{ mb: 2 }}
+          sx={{ 
+            mb: 2, 
+            borderRadius: 2,
+            border: `1px solid ${colors.error}33`,
+            '& .MuiAlert-icon': { color: colors.error }
+          }}
           icon={<Warning />}
           action={
             <Button 
-              color="error" 
               size="small"
               onClick={() => setFilters({ ...filters, priority: 'Urgent' })}
+              sx={{ color: colors.error }}
             >
               View Urgent
             </Button>
@@ -618,7 +671,13 @@ const Procurement = () => {
       )}
 
       {/* Search & Filters */}
-      <Paper sx={{ p: 2, mb: 3, borderRadius: 2 }}>
+      <Paper sx={{ 
+        p: 2, 
+        mb: 3, 
+        borderRadius: 2,
+        border: `1px solid ${colors.borderColor}`,
+        boxShadow: '0 2px 12px rgba(0,0,0,0.04)'
+      }}>
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
           <TextField
             size="small"
@@ -629,17 +688,29 @@ const Procurement = () => {
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <Search />
+                  <Search sx={{ color: colors.lightText }} />
                 </InputAdornment>
-              )
+              ),
+              sx: {
+                '& .MuiOutlinedInput-root': {
+                  '&:hover fieldset': { borderColor: colors.sidebar },
+                  '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                }
+              }
             }}
           />
           <FormControl size="small" sx={{ minWidth: 150 }}>
-            <InputLabel>Status</InputLabel>
+            <InputLabel sx={{ color: colors.lightText }}>Status</InputLabel>
             <Select
               value={filters.status}
               onChange={(e) => setFilters({ ...filters, status: e.target.value })}
               label="Status"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  '&:hover fieldset': { borderColor: colors.sidebar },
+                  '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                }
+              }}
             >
               <MenuItem value="">All</MenuItem>
               <MenuItem value="Requested">Requested</MenuItem>
@@ -650,11 +721,17 @@ const Procurement = () => {
             </Select>
           </FormControl>
           <FormControl size="small" sx={{ minWidth: 150 }}>
-            <InputLabel>Priority</InputLabel>
+            <InputLabel sx={{ color: colors.lightText }}>Priority</InputLabel>
             <Select
               value={filters.priority}
               onChange={(e) => setFilters({ ...filters, priority: e.target.value })}
               label="Priority"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  '&:hover fieldset': { borderColor: colors.sidebar },
+                  '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                }
+              }}
             >
               <MenuItem value="">All</MenuItem>
               <MenuItem value="Low">Low</MenuItem>
@@ -667,31 +744,36 @@ const Procurement = () => {
             variant="outlined" 
             startIcon={<Download />}
             onClick={handleExportClick}
+            sx={{ 
+              borderColor: colors.borderColor, 
+              color: colors.darkText,
+              '&:hover': { borderColor: colors.accentGold, color: colors.accentGold }
+            }}
           >
             Export
           </Button>
         </Box>
       </Paper>
 
-      {/* Export Menu */}
+      {/* Export Menu - THEMED */}
       <Menu
         anchorEl={exportAnchorEl}
         open={Boolean(exportAnchorEl)}
         onClose={handleExportClose}
         PaperProps={{ sx: { p: 1, width: 200 } }}
       >
-        <MenuItem onClick={exportToCSV}>
-          <FileDownload sx={{ mr: 1, fontSize: 20 }} /> Export CSV
+        <MenuItem onClick={exportToCSV} sx={{ '&:hover': { bgcolor: `${colors.accentGold}22` } }}>
+          <FileDownload sx={{ mr: 1, fontSize: 20, color: colors.sidebar }} /> Export CSV
         </MenuItem>
-        <MenuItem onClick={exportToExcel}>
-          <FileDownload sx={{ mr: 1, fontSize: 20 }} /> Export Excel
+        <MenuItem onClick={exportToExcel} sx={{ '&:hover': { bgcolor: `${colors.accentGold}22` } }}>
+          <FileDownload sx={{ mr: 1, fontSize: 20, color: colors.sidebar }} /> Export Excel
         </MenuItem>
       </Menu>
 
-      {/* Table */}
-      <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
+      {/* Table - THEMED */}
+      <TableContainer component={Paper} sx={{ borderRadius: 2, border: `1px solid ${colors.borderColor}` }}>
         <Table>
-          <TableHead sx={{ bgcolor: '#0B5FA5' }}>
+          <TableHead sx={{ bgcolor: colors.sidebar }}>
             <TableRow>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Equipment</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Hospital</TableCell>
@@ -708,7 +790,7 @@ const Procurement = () => {
             {filteredRequests.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={9} align="center">
-                  <Typography variant="body1" sx={{ py: 3, color: '#6c757d' }}>
+                  <Typography variant="body1" sx={{ py: 3, color: colors.lightText }}>
                     No procurement requests found
                   </Typography>
                 </TableCell>
@@ -718,55 +800,69 @@ const Procurement = () => {
                 <TableRow key={request.id} hover>
                   <TableCell>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <LocalShipping sx={{ fontSize: 18, color: '#0B5FA5' }} />
-                      <Typography variant="body2" fontWeight={500}>
+                      <LocalShipping sx={{ fontSize: 18, color: colors.sidebar }} />
+                      <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkText }}>
                         {request.equipment_name}
                       </Typography>
                     </Box>
                   </TableCell>
-                  <TableCell>{request.hospital_name}</TableCell>
-                  <TableCell>{request.manufacturer || '-'}</TableCell>
-                  <TableCell>{request.model || '-'}</TableCell>
-                  <TableCell>{request.quantity}</TableCell>
-                  <TableCell>
+                  <TableCell sx={{ color: colors.lightText }}>{request.hospital_name}</TableCell>
+                  <TableCell sx={{ color: colors.lightText }}>{request.manufacturer || '-'}</TableCell>
+                  <TableCell sx={{ color: colors.lightText }}>{request.model || '-'}</TableCell>
+                  <TableCell sx={{ color: colors.darkText }}>{request.quantity}</TableCell>
+                  <TableCell sx={{ color: colors.darkText }}>
                     {request.estimated_cost ? `$${parseFloat(request.estimated_cost).toFixed(2)}` : '-'}
                   </TableCell>
                   <TableCell>
                     <Chip
                       label={request.priority}
                       size="small"
-                      color={
-                        request.priority === 'Urgent' ? 'error' :
-                        request.priority === 'High' ? 'warning' :
-                        request.priority === 'Medium' ? 'info' : 'default'
-                      }
-                      variant="outlined"
+                      sx={{
+                        bgcolor: request.priority === 'Urgent' ? colors.error :
+                                 request.priority === 'High' ? colors.warning :
+                                 request.priority === 'Medium' ? colors.info : colors.lightText,
+                        color: 'white',
+                        fontWeight: 500,
+                        height: 22,
+                        fontSize: '11px'
+                      }}
                     />
                   </TableCell>
                   <TableCell>
                     <Chip
                       label={request.status}
                       size="small"
-                      color={
-                        request.status === 'Approved' || request.status === 'Procured' ? 'success' :
-                        request.status === 'Rejected' ? 'error' :
-                        request.status === 'Under Review' ? 'info' :
-                        'default'
-                      }
-                      variant="outlined"
+                      sx={{
+                        bgcolor: request.status === 'Approved' || request.status === 'Procured' ? colors.success :
+                                 request.status === 'Rejected' ? colors.error :
+                                 request.status === 'Under Review' ? colors.info :
+                                 colors.lightText,
+                        color: 'white',
+                        fontWeight: 500,
+                        height: 22,
+                        fontSize: '11px'
+                      }}
                     />
                   </TableCell>
                   <TableCell align="center">
                     <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5, flexWrap: 'wrap' }}>
                       <Tooltip title="View Details">
-                        <IconButton size="small" color="primary" onClick={() => handleView(request)}>
+                        <IconButton 
+                          size="small" 
+                          onClick={() => handleView(request)}
+                          sx={{ color: colors.sidebar, '&:hover': { color: colors.accentGold } }}
+                        >
                           <Visibility />
                         </IconButton>
                       </Tooltip>
                       
                       {(request.status === 'Requested' || request.status === 'Under Review') && canEdit && (
                         <Tooltip title="Edit">
-                          <IconButton size="small" color="info" onClick={() => handleOpenDialog(request)}>
+                          <IconButton 
+                            size="small" 
+                            onClick={() => handleOpenDialog(request)}
+                            sx={{ color: colors.sidebar, '&:hover': { color: colors.accentGold } }}
+                          >
                             <Edit />
                           </IconButton>
                         </Tooltip>
@@ -788,8 +884,8 @@ const Procurement = () => {
                         <Tooltip title="Start Review">
                           <IconButton 
                             size="small" 
-                            color="info" 
                             onClick={() => handleReview(request.id)}
+                            sx={{ color: colors.info, '&:hover': { color: colors.accentGold } }}
                           >
                             <Info />
                           </IconButton>
@@ -799,12 +895,20 @@ const Procurement = () => {
                       {request.status === 'Under Review' && canApprove && (
                         <>
                           <Tooltip title="Approve Request">
-                            <IconButton size="small" color="success" onClick={() => handleApprove(request.id)}>
+                            <IconButton 
+                              size="small" 
+                              onClick={() => handleApprove(request.id)}
+                              sx={{ color: colors.success, '&:hover': { color: colors.accentGold } }}
+                            >
                               <CheckCircle />
                             </IconButton>
                           </Tooltip>
                           <Tooltip title="Reject Request">
-                            <IconButton size="small" color="error" onClick={() => handleReject(request.id)}>
+                            <IconButton 
+                              size="small" 
+                              color="error" 
+                              onClick={() => handleReject(request.id)}
+                            >
                               <Cancel />
                             </IconButton>
                           </Tooltip>
@@ -815,8 +919,8 @@ const Procurement = () => {
                         <Tooltip title="Mark as Procured">
                           <IconButton 
                             size="small" 
-                            color="success" 
                             onClick={() => handleMarkProcured(request.id)}
+                            sx={{ color: colors.success, '&:hover': { color: colors.accentGold } }}
                           >
                             <CheckCircle />
                           </IconButton>
@@ -831,10 +935,10 @@ const Procurement = () => {
         </Table>
       </TableContainer>
 
-      {/* Add/Edit Dialog */}
+      {/* Add/Edit Dialog - THEMED */}
       {canCreate && (
         <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
-          <DialogTitle sx={{ bgcolor: '#0B5FA5', color: 'white' }}>
+          <DialogTitle sx={{ bgcolor: colors.sidebar, color: 'white' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <LocalShipping sx={{ color: 'white' }} />
@@ -851,13 +955,19 @@ const Procurement = () => {
             <Grid container spacing={2} sx={{ mt: 0 }}>
               <Grid item xs={12} md={6}>
                 <FormControl fullWidth>
-                  <InputLabel>Hospital</InputLabel>
+                  <InputLabel sx={{ color: colors.lightText }}>Hospital</InputLabel>
                   <Select
                     name="hospital_id"
                     value={formData.hospital_id}
                     onChange={handleFormChange}
                     label="Hospital"
                     required
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        '&:hover fieldset': { borderColor: colors.sidebar },
+                        '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                      }
+                    }}
                   >
                     <MenuItem value="">Select Hospital</MenuItem>
                     {hospitals.map(h => (
@@ -868,12 +978,18 @@ const Procurement = () => {
               </Grid>
               <Grid item xs={12} md={6}>
                 <FormControl fullWidth>
-                  <InputLabel>Category</InputLabel>
+                  <InputLabel sx={{ color: colors.lightText }}>Category</InputLabel>
                   <Select
                     name="category_id"
                     value={formData.category_id}
                     onChange={handleFormChange}
                     label="Category"
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        '&:hover fieldset': { borderColor: colors.sidebar },
+                        '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                      }
+                    }}
                   >
                     <MenuItem value="">Select Category</MenuItem>
                     {equipment.map(cat => (
@@ -890,6 +1006,12 @@ const Procurement = () => {
                   value={formData.equipment_name}
                   onChange={handleFormChange}
                   required
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: colors.sidebar },
+                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    }
+                  }}
                 />
               </Grid>
               <Grid item xs={12} md={6}>
@@ -899,6 +1021,12 @@ const Procurement = () => {
                   name="manufacturer"
                   value={formData.manufacturer}
                   onChange={handleFormChange}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: colors.sidebar },
+                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    }
+                  }}
                 />
               </Grid>
               <Grid item xs={12} md={6}>
@@ -908,6 +1036,12 @@ const Procurement = () => {
                   name="model"
                   value={formData.model}
                   onChange={handleFormChange}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: colors.sidebar },
+                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    }
+                  }}
                 />
               </Grid>
               <Grid item xs={12} md={4}>
@@ -919,6 +1053,12 @@ const Procurement = () => {
                   value={formData.quantity}
                   onChange={handleFormChange}
                   InputProps={{ inputProps: { min: 1 } }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: colors.sidebar },
+                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    }
+                  }}
                 />
               </Grid>
               <Grid item xs={12} md={4}>
@@ -930,17 +1070,29 @@ const Procurement = () => {
                   value={formData.estimated_cost}
                   onChange={handleFormChange}
                   InputProps={{ inputProps: { min: 0, step: 0.01 } }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: colors.sidebar },
+                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    }
+                  }}
                 />
               </Grid>
               
               <Grid item xs={12} md={4}>
                 <FormControl fullWidth>
-                  <InputLabel>Priority</InputLabel>
+                  <InputLabel sx={{ color: colors.lightText }}>Priority</InputLabel>
                   <Select
                     name="priority"
                     value={formData.priority}
                     onChange={handleFormChange}
                     label="Priority"
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        '&:hover fieldset': { borderColor: colors.sidebar },
+                        '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                      }
+                    }}
                   >
                     <MenuItem value="Low">Low</MenuItem>
                     <MenuItem value="Medium">Medium</MenuItem>
@@ -957,6 +1109,12 @@ const Procurement = () => {
                   name="requested_by"
                   value={formData.requested_by}
                   onChange={handleFormChange}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: colors.sidebar },
+                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    }
+                  }}
                 />
               </Grid>
               <Grid item xs={12} md={6}>
@@ -966,6 +1124,12 @@ const Procurement = () => {
                   name="department"
                   value={formData.department}
                   onChange={handleFormChange}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: colors.sidebar },
+                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    }
+                  }}
                 />
               </Grid>
               <Grid item xs={12}>
@@ -978,11 +1142,17 @@ const Procurement = () => {
                   multiline
                   rows={3}
                   placeholder="Explain why this equipment is needed..."
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: colors.sidebar },
+                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    }
+                  }}
                 />
               </Grid>
 
               <Grid item xs={12}>
-                <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                <Typography variant="subtitle2" sx={{ color: colors.lightText }} gutterBottom>
                   <AttachFile sx={{ fontSize: 18, verticalAlign: 'middle', mr: 1 }} />
                   Attach Documents (Quotes, Specifications, etc.)
                 </Typography>
@@ -1025,7 +1195,7 @@ const Procurement = () => {
                 
                 {formData.attachments && formData.attachments.split(',').filter(Boolean).length > 0 && (
                   <Box sx={{ mt: 1 }}>
-                    <Typography variant="caption" color="textSecondary">
+                    <Typography variant="caption" sx={{ color: colors.lightText }}>
                       {formData.attachments.split(',').filter(Boolean).length} document(s) attached
                     </Typography>
                   </Box>
@@ -1034,11 +1204,15 @@ const Procurement = () => {
             </Grid>
           </DialogContent>
           <DialogActions sx={{ p: 3 }}>
-            <Button onClick={handleCloseDialog}>Cancel</Button>
+            <Button onClick={handleCloseDialog} sx={{ color: colors.lightText }}>Cancel</Button>
             <Button
               variant="contained"
               onClick={handleSubmit}
-              sx={{ bgcolor: '#0B5FA5', '&:hover': { bgcolor: '#084a8a' } }}
+              sx={{ 
+                bgcolor: colors.sidebar, 
+                '&:hover': { bgcolor: colors.sidebarHover },
+                boxShadow: `0 4px 16px ${colors.sidebar}44`
+              }}
             >
               {editingRequest ? 'Update' : 'Submit Request'}
             </Button>
@@ -1046,7 +1220,7 @@ const Procurement = () => {
         </Dialog>
       )}
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Confirmation Dialog - THEMED */}
       <Dialog 
         open={openDeleteDialog} 
         onClose={() => {
@@ -1061,60 +1235,60 @@ const Procurement = () => {
       >
         <DialogTitle>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Warning sx={{ color: '#f44336', fontSize: 28 }} />
-            <Typography variant="h6">Delete Procurement Request</Typography>
+            <Warning sx={{ color: colors.error, fontSize: 28 }} />
+            <Typography variant="h6" sx={{ color: colors.darkText }}>Delete Procurement Request</Typography>
           </Box>
         </DialogTitle>
         <DialogContent>
           <Box sx={{ py: 2 }}>
             {deleteError?.type === 'status_error' ? (
-              <Alert severity="error" sx={{ mb: 2 }}>
+              <Alert severity="error" sx={{ mb: 2, borderRadius: 2, border: `1px solid ${colors.error}33` }}>
                 <Typography variant="body2" fontWeight={600}>
                   Cannot Delete Request
                 </Typography>
                 <Typography variant="body2">
                   {deleteError.message}
                 </Typography>
-                <Typography variant="caption" color="textSecondary" sx={{ mt: 1, display: 'block' }}>
+                <Typography variant="caption" sx={{ color: colors.lightText, mt: 1, display: 'block' }}>
                   💡 Please contact Super Admin if you need to delete this request.
                 </Typography>
               </Alert>
             ) : (
               <>
-                <Typography variant="body1" gutterBottom>
+                <Typography variant="body1" gutterBottom sx={{ color: colors.darkText }}>
                   Are you sure you want to delete this procurement request?
                 </Typography>
                 
                 <Paper 
                   sx={{ 
                     p: 2, 
-                    bgcolor: '#fff3e0', 
-                    borderRadius: 1,
-                    border: '1px solid #ffcc80'
+                    bgcolor: `${colors.warning}08`, 
+                    borderRadius: 2,
+                    border: `1px solid ${colors.warning}33`
                   }}
                 >
-                  <Typography variant="body2" fontWeight={600}>
+                  <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkText }}>
                     Equipment: {deletingRequest?.equipment_name}
                   </Typography>
                   {deletingRequest?.manufacturer && (
-                    <Typography variant="body2" color="textSecondary">
+                    <Typography variant="body2" sx={{ color: colors.lightText }}>
                       Manufacturer: {deletingRequest.manufacturer}
                     </Typography>
                   )}
                   {deletingRequest?.model && (
-                    <Typography variant="body2" color="textSecondary">
+                    <Typography variant="body2" sx={{ color: colors.lightText }}>
                       Model: {deletingRequest.model}
                     </Typography>
                   )}
-                  <Typography variant="body2" color="textSecondary">
+                  <Typography variant="body2" sx={{ color: colors.lightText }}>
                     Status: {deletingRequest?.status}
                   </Typography>
-                  <Typography variant="body2" color="textSecondary">
+                  <Typography variant="body2" sx={{ color: colors.lightText }}>
                     Priority: {deletingRequest?.priority}
                   </Typography>
                 </Paper>
 
-                <Typography variant="caption" color="error" sx={{ mt: 2, display: 'block' }}>
+                <Typography variant="caption" sx={{ color: colors.error, mt: 2, display: 'block' }}>
                   ⚠️ This action cannot be undone.
                 </Typography>
               </>
@@ -1129,6 +1303,7 @@ const Procurement = () => {
               setDeleteError(null)
             }}
             disabled={deleting}
+            sx={{ color: colors.lightText }}
           >
             {deleteError?.type === 'status_error' ? 'Close' : 'Cancel'}
           </Button>
@@ -1139,6 +1314,7 @@ const Procurement = () => {
               onClick={handleConfirmDelete}
               disabled={deleting}
               startIcon={deleting ? <LinearProgress size={20} color="inherit" /> : <Delete />}
+              sx={{ boxShadow: `0 4px 16px ${colors.error}44` }}
             >
               {deleting ? 'Deleting...' : 'Delete Request'}
             </Button>
@@ -1146,9 +1322,9 @@ const Procurement = () => {
         </DialogActions>
       </Dialog>
 
-      {/* View Details Dialog */}
+      {/* View Details Dialog - THEMED */}
       <Dialog open={openViewDialog} onClose={handleCloseView} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ bgcolor: '#0B5FA5', color: 'white' }}>
+        <DialogTitle sx={{ bgcolor: colors.sidebar, color: 'white' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <Typography variant="h6" fontWeight={600}>
               Procurement Request Details
@@ -1163,40 +1339,44 @@ const Procurement = () => {
             <Grid container spacing={2} sx={{ mt: 0 }}>
               <Grid item xs={12}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
-                  <Typography variant="h6" fontWeight={600}>
+                  <Typography variant="h6" fontWeight={600} sx={{ color: colors.darkText }}>
                     {viewingRequest.equipment_name}
                   </Typography>
                   <Box>
                     <Chip
                       label={viewingRequest.status}
                       size="small"
-                      color={
-                        viewingRequest.status === 'Approved' || viewingRequest.status === 'Procured' ? 'success' :
-                        viewingRequest.status === 'Rejected' ? 'error' :
-                        viewingRequest.status === 'Under Review' ? 'info' :
-                        'default'
-                      }
-                      sx={{ mr: 1 }}
+                      sx={{
+                        bgcolor: viewingRequest.status === 'Approved' || viewingRequest.status === 'Procured' ? colors.success :
+                                 viewingRequest.status === 'Rejected' ? colors.error :
+                                 viewingRequest.status === 'Under Review' ? colors.info :
+                                 colors.lightText,
+                        color: 'white',
+                        fontWeight: 500,
+                        mr: 0.5
+                      }}
                     />
                     <Chip
                       label={viewingRequest.priority}
                       size="small"
-                      color={
-                        viewingRequest.priority === 'Urgent' ? 'error' :
-                        viewingRequest.priority === 'High' ? 'warning' :
-                        viewingRequest.priority === 'Medium' ? 'info' : 'default'
-                      }
+                      sx={{
+                        bgcolor: viewingRequest.priority === 'Urgent' ? colors.error :
+                                 viewingRequest.priority === 'High' ? colors.warning :
+                                 viewingRequest.priority === 'Medium' ? colors.info : colors.lightText,
+                        color: 'white',
+                        fontWeight: 500
+                      }}
                     />
                   </Box>
                 </Box>
               </Grid>
               <Grid item xs={12}>
-                <Divider />
+                <Divider sx={{ borderColor: colors.borderColor }} />
               </Grid>
 
               {/* Status Timeline */}
               <Grid item xs={12}>
-                <Typography variant="subtitle2" color="textSecondary" sx={{ mb: 2 }}>
+                <Typography variant="subtitle2" sx={{ color: colors.sidebar, mb: 2 }}>
                   Request Status Timeline
                 </Typography>
                 <Stepper activeStep={getCurrentStep(viewingRequest.status)} orientation="vertical">
@@ -1204,18 +1384,19 @@ const Procurement = () => {
                     <Step key={step}>
                       <StepLabel
                         StepIconComponent={({ active, completed }) => {
-                          const colors = {
-                            'Requested': '#ff9800',
-                            'Under Review': '#2196f3',
-                            'Approved': '#4caf50',
-                            'Procured': '#4caf50'
+                          const stepColors = {
+                            'Requested': colors.warning,
+                            'Under Review': colors.info,
+                            'Approved': colors.success,
+                            'Procured': colors.success
                           }
                           return (
                             <Avatar sx={{
-                              bgcolor: active || completed ? colors[step] : '#e0e0e0',
+                              bgcolor: active || completed ? stepColors[step] : colors.borderColor,
                               width: 24,
                               height: 24,
-                              fontSize: 14
+                              fontSize: 14,
+                              color: 'white'
                             }}>
                               {index + 1}
                             </Avatar>
@@ -1225,7 +1406,7 @@ const Procurement = () => {
                         {step}
                       </StepLabel>
                       <StepContent>
-                        <Typography variant="caption" color="textSecondary">
+                        <Typography variant="caption" sx={{ color: colors.lightText }}>
                           {step === viewingRequest.status ? 'Current status' :
                             getCurrentStep(viewingRequest.status) > index ? 'Completed' : 'Pending'}
                         </Typography>
@@ -1236,48 +1417,68 @@ const Procurement = () => {
               </Grid>
 
               <Grid item xs={12}>
-                <Divider />
+                <Divider sx={{ borderColor: colors.borderColor }} />
               </Grid>
 
               {/* Details */}
               <Grid item xs={12} md={6}>
-                <Typography variant="body2" color="textSecondary">Hospital</Typography>
-                <Typography variant="body1" fontWeight={500}>{viewingRequest.hospital_name}</Typography>
+                <Typography variant="body2" sx={{ color: colors.lightText }}>Hospital</Typography>
+                <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkText }}>
+                  {viewingRequest.hospital_name}
+                </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
-                <Typography variant="body2" color="textSecondary">Category</Typography>
-                <Typography variant="body1">{viewingRequest.category_name || 'N/A'}</Typography>
+                <Typography variant="body2" sx={{ color: colors.lightText }}>Category</Typography>
+                <Typography variant="body1" sx={{ color: colors.darkText }}>
+                  {viewingRequest.category_name || 'N/A'}
+                </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
-                <Typography variant="body2" color="textSecondary">Manufacturer</Typography>
-                <Typography variant="body1">{viewingRequest.manufacturer || 'N/A'}</Typography>
+                <Typography variant="body2" sx={{ color: colors.lightText }}>Manufacturer</Typography>
+                <Typography variant="body1" sx={{ color: colors.darkText }}>
+                  {viewingRequest.manufacturer || 'N/A'}
+                </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
-                <Typography variant="body2" color="textSecondary">Model</Typography>
-                <Typography variant="body1">{viewingRequest.model || 'N/A'}</Typography>
+                <Typography variant="body2" sx={{ color: colors.lightText }}>Model</Typography>
+                <Typography variant="body1" sx={{ color: colors.darkText }}>
+                  {viewingRequest.model || 'N/A'}
+                </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
-                <Typography variant="body2" color="textSecondary">Quantity</Typography>
-                <Typography variant="body1">{viewingRequest.quantity}</Typography>
+                <Typography variant="body2" sx={{ color: colors.lightText }}>Quantity</Typography>
+                <Typography variant="body1" sx={{ color: colors.darkText }}>
+                  {viewingRequest.quantity}
+                </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
-                <Typography variant="body2" color="textSecondary">Estimated Cost</Typography>
-                <Typography variant="body1" fontWeight={600} color="#0B5FA5">
+                <Typography variant="body2" sx={{ color: colors.lightText }}>Estimated Cost</Typography>
+                <Typography variant="body1" fontWeight={600} sx={{ color: colors.accentGold }}>
                   {viewingRequest.estimated_cost ? `$${parseFloat(viewingRequest.estimated_cost).toFixed(2)}` : '-'}
                 </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
-                <Typography variant="body2" color="textSecondary">Requested By</Typography>
-                <Typography variant="body1">{viewingRequest.requested_by || 'N/A'}</Typography>
+                <Typography variant="body2" sx={{ color: colors.lightText }}>Requested By</Typography>
+                <Typography variant="body1" sx={{ color: colors.darkText }}>
+                  {viewingRequest.requested_by || 'N/A'}
+                </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
-                <Typography variant="body2" color="textSecondary">Department</Typography>
-                <Typography variant="body1">{viewingRequest.department || 'N/A'}</Typography>
+                <Typography variant="body2" sx={{ color: colors.lightText }}>Department</Typography>
+                <Typography variant="body1" sx={{ color: colors.darkText }}>
+                  {viewingRequest.department || 'N/A'}
+                </Typography>
               </Grid>
               <Grid item xs={12}>
-                <Typography variant="body2" color="textSecondary">Justification</Typography>
-                <Paper variant="outlined" sx={{ p: 2, mt: 0.5, bgcolor: '#f5f5f5' }}>
-                  <Typography variant="body1">
+                <Typography variant="body2" sx={{ color: colors.lightText }}>Justification</Typography>
+                <Paper variant="outlined" sx={{ 
+                  p: 2, 
+                  mt: 0.5, 
+                  bgcolor: colors.mainBg,
+                  borderColor: colors.borderColor,
+                  borderRadius: 2
+                }}>
+                  <Typography variant="body1" sx={{ color: colors.darkText }}>
                     {viewingRequest.justification || 'No justification provided'}
                   </Typography>
                 </Paper>
@@ -1286,8 +1487,8 @@ const Procurement = () => {
               {/* Attachments */}
               {viewingRequest.attachments && viewingRequest.attachments.split(',').filter(Boolean).length > 0 && (
                 <Grid item xs={12}>
-                  <Divider sx={{ my: 1 }} />
-                  <Typography variant="body2" color="textSecondary" gutterBottom>
+                  <Divider sx={{ my: 1, borderColor: colors.borderColor }} />
+                  <Typography variant="body2" sx={{ color: colors.lightText }} gutterBottom>
                     <AttachFile sx={{ fontSize: 16, verticalAlign: 'middle' }} />
                     Attached Documents ({viewingRequest.attachments.split(',').filter(Boolean).length})
                   </Typography>
@@ -1304,7 +1505,12 @@ const Procurement = () => {
                           startIcon={isImage ? <Image /> : isPDF ? <PictureAsPdf /> : <Description />}
                           href={getFullUrl(url)}
                           target="_blank"
-                          sx={{ textTransform: 'none' }}
+                          sx={{ 
+                            textTransform: 'none',
+                            borderColor: colors.borderColor,
+                            color: colors.darkText,
+                            '&:hover': { borderColor: colors.accentGold, color: colors.accentGold }
+                          }}
                         >
                           {url.split('/').pop().substring(0, 25)}
                         </Button>
@@ -1317,7 +1523,7 @@ const Procurement = () => {
               {/* Delete Button in View Dialog */}
               {viewingRequest && canDelete && (
                 <Grid item xs={12}>
-                  <Divider sx={{ my: 2 }} />
+                  <Divider sx={{ my: 2, borderColor: colors.borderColor }} />
                   <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                     <Button
                       variant="contained"
@@ -1327,6 +1533,7 @@ const Procurement = () => {
                         handleCloseView()
                         handleDeleteClick(viewingRequest)
                       }}
+                      sx={{ boxShadow: `0 4px 16px ${colors.error}44` }}
                     >
                       Delete Request
                     </Button>
@@ -1337,8 +1544,8 @@ const Procurement = () => {
               {/* Status Update Actions */}
               {viewingRequest.status !== 'Rejected' && viewingRequest.status !== 'Procured' && (
                 <Grid item xs={12}>
-                  <Divider sx={{ my: 2 }} />
-                  <Typography variant="subtitle2" color="textSecondary" sx={{ mb: 1 }}>
+                  <Divider sx={{ my: 2, borderColor: colors.borderColor }} />
+                  <Typography variant="subtitle2" sx={{ color: colors.sidebar, mb: 1 }}>
                     Update Status
                   </Typography>
                   <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
@@ -1346,9 +1553,13 @@ const Procurement = () => {
                       <Button
                         size="small"
                         variant="contained"
-                        color="info"
                         onClick={() => handleReview(viewingRequest.id)}
                         startIcon={<Info />}
+                        sx={{ 
+                          bgcolor: colors.info,
+                          '&:hover': { bgcolor: '#0D47A1' },
+                          boxShadow: `0 4px 16px ${colors.info}44`
+                        }}
                       >
                         Start Review
                       </Button>
@@ -1358,9 +1569,13 @@ const Procurement = () => {
                         <Button
                           size="small"
                           variant="contained"
-                          color="success"
                           onClick={() => handleApprove(viewingRequest.id)}
                           startIcon={<CheckCircle />}
+                          sx={{ 
+                            bgcolor: colors.success,
+                            '&:hover': { bgcolor: '#1B5E20' },
+                            boxShadow: `0 4px 16px ${colors.success}44`
+                          }}
                         >
                           Approve
                         </Button>
@@ -1379,9 +1594,13 @@ const Procurement = () => {
                       <Button
                         size="small"
                         variant="contained"
-                        color="success"
                         onClick={() => handleMarkProcured(viewingRequest.id)}
                         startIcon={<CheckCircle />}
+                        sx={{ 
+                          bgcolor: colors.success,
+                          '&:hover': { bgcolor: '#1B5E20' },
+                          boxShadow: `0 4px 16px ${colors.success}44`
+                        }}
                       >
                         Mark as Procured
                       </Button>
@@ -1390,10 +1609,10 @@ const Procurement = () => {
                 </Grid>
               )}
 
-              {/* View Only Messages - Simplified */}
+              {/* View Only Messages */}
               {viewingRequest.status === 'Rejected' && (
                 <Grid item xs={12}>
-                  <Alert severity="error" sx={{ mt: 2 }}>
+                  <Alert severity="error" sx={{ mt: 2, borderRadius: 2, border: `1px solid ${colors.error}33` }}>
                     This request has been rejected. No further actions can be taken.
                   </Alert>
                 </Grid>
@@ -1401,7 +1620,7 @@ const Procurement = () => {
 
               {viewingRequest.status === 'Procured' && (
                 <Grid item xs={12}>
-                  <Alert severity="success" sx={{ mt: 2 }}>
+                  <Alert severity="success" sx={{ mt: 2, borderRadius: 2, border: `1px solid ${colors.success}33` }}>
                     Equipment has been procured! This request is complete.
                   </Alert>
                 </Grid>
@@ -1410,12 +1629,16 @@ const Procurement = () => {
           )}
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={handleCloseView}>Close</Button>
+          <Button onClick={handleCloseView} sx={{ color: colors.lightText }}>Close</Button>
           {viewingRequest && viewingRequest.status !== 'Rejected' && viewingRequest.status !== 'Procured' && canEdit && (
             <Button 
               variant="contained" 
               startIcon={<Print />} 
-              sx={{ bgcolor: '#0B5FA5' }}
+              sx={{ 
+                bgcolor: colors.sidebar,
+                '&:hover': { bgcolor: colors.sidebarHover },
+                boxShadow: `0 4px 16px ${colors.sidebar}44`
+              }}
               onClick={() => window.print()}
             >
               Print Request
