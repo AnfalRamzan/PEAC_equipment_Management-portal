@@ -1,5 +1,5 @@
 // src/pages/Equipment.jsx
-// ✅ PAEC THEME - Green & Gold Colors
+// ✅ DARK NAVY + LIGHT CYAN THEME - Matching Sidebar
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -59,26 +59,45 @@ import api from '../api/axios'
 import AccessDenied from '../components/Auth/AccessDenied'
 
 // ============================================================
-// ✅ PAEC THEME COLORS
+// ✅ DARK NAVY + LIGHT CYAN THEME COLORS
 // ============================================================
 const colors = {
-  sidebar: '#01411C',
-  sidebarHover: '#0B542B',
-  active: '#0E6335',
+  // Dark Navy Base
+  darkNavy: '#0F172A',
+  darkNavyLight: '#1E293B',
+  darkNavyDark: '#0A0F1E',
+  darkNavyHover: '#1E3A5F',
+  
+  // Light Cyan Accents
+  lightCyan: '#67E8F9',
+  lightCyanBright: '#A5F3FC',
+  lightCyanDark: '#22D3EE',
+  lightCyanGlow: 'rgba(103, 232, 249, 0.15)',
+  lightCyanGlowStrong: 'rgba(103, 232, 249, 0.3)',
+  
+  // Gold accent (keeping PAEC branding)
   accentGold: '#C9A227',
   goldLight: '#E8C84A',
+  
+  // Text
   text: '#FFFFFF',
-  secondaryText: '#B8C8BE',
-  mainBg: '#F0F2F5',
-  white: '#FFFFFF',
-  darkText: '#1A2A3A',
-  lightText: '#5A7A8A',
-  error: '#D32F2F',
-  success: '#2E7D32',
-  info: '#0B5FA5',
-  borderColor: 'rgba(1, 65, 28, 0.08)',
-  shadowColor: 'rgba(1, 65, 28, 0.08)',
+  secondaryText: '#94A3B8',
+  textLight: '#CBD5E1',
+  cyanText: '#67E8F9',
+  darkText: '#0F172A',
+  lightText: '#64748B',
+  
+  // Cards/Background
   cardBg: '#FFFFFF',
+  borderColor: 'rgba(103, 232, 249, 0.1)',
+  shadowColor: 'rgba(15, 23, 42, 0.08)',
+  mainBg: '#F1F5F9',
+  
+  // Status colors
+  error: '#EF4444',
+  success: '#22C55E',
+  warning: '#F59E0B',
+  info: '#3B82F6',
 }
 
 const apiEndpoints = {
@@ -462,7 +481,7 @@ const Equipment = () => {
     try {
       const doc = new jsPDF()
       doc.setFontSize(18)
-      doc.setTextColor(colors.sidebar)
+      doc.setTextColor(colors.darkNavy)
       doc.text('Equipment Report', 14, 20)
       doc.setFontSize(10)
       doc.setTextColor('#666666')
@@ -477,7 +496,7 @@ const Equipment = () => {
         body: tableData,
         startY: 40,
         styles: { fontSize: 8, cellPadding: 2 },
-        headStyles: { fillColor: colors.sidebar, textColor: '#FFFFFF', fontSize: 9 },
+        headStyles: { fillColor: colors.darkNavy, textColor: '#FFFFFF', fontSize: 9 },
         alternateRowStyles: { fillColor: '#F5F7FA' },
         margin: { left: 14, right: 14 }
       })
@@ -682,13 +701,28 @@ const Equipment = () => {
     return matchesSearch && matchesCategory && matchesManufacturer && matchesStatus && matchesHospital
   })
 
-  if (loading) return <LinearProgress sx={{ bgcolor: colors.borderColor, '& .MuiLinearProgress-bar': { bgcolor: colors.accentGold } }} />
+  if (loading) return <LinearProgress sx={{ bgcolor: colors.borderColor, '& .MuiLinearProgress-bar': { bgcolor: colors.lightCyan } }} />
 
   return (
     <Box>
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700, color: colors.sidebar }}>
+        <Typography 
+          variant="h5" 
+          sx={{ 
+            fontWeight: 700, 
+            color: colors.darkNavy,
+            '&::after': {
+              content: '""',
+              display: 'block',
+              width: '40px',
+              height: '3px',
+              background: `linear-gradient(90deg, ${colors.lightCyan}, ${colors.darkNavy})`,
+              borderRadius: '2px',
+              marginTop: '4px',
+            }
+          }}
+        >
           Equipment
         </Typography>
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
@@ -698,9 +732,13 @@ const Equipment = () => {
             onClick={fetchEquipment} 
             size="small"
             sx={{ 
-              borderColor: colors.sidebar, 
-              color: colors.sidebar,
-              '&:hover': { borderColor: colors.accentGold, color: colors.accentGold }
+              borderColor: colors.borderColor, 
+              color: colors.darkNavy,
+              '&:hover': { 
+                borderColor: colors.lightCyan, 
+                color: colors.lightCyanDark,
+                backgroundColor: 'rgba(103, 232, 249, 0.04)'
+              }
             }}
           >
             Refresh
@@ -711,9 +749,14 @@ const Equipment = () => {
               startIcon={<Add />}
               onClick={() => handleOpenDialog()}
               sx={{ 
-                bgcolor: colors.sidebar, 
-                '&:hover': { bgcolor: colors.sidebarHover },
-                boxShadow: `0 4px 16px ${colors.sidebar}44`
+                bgcolor: colors.darkNavy, 
+                '&:hover': { 
+                  bgcolor: colors.darkNavyHover,
+                  boxShadow: `0 4px 20px ${colors.lightCyanGlowStrong}`
+                },
+                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+                borderRadius: 2,
+                textTransform: 'none',
               }}
             >
               Add Equipment
@@ -728,7 +771,8 @@ const Equipment = () => {
         mb: 3, 
         borderRadius: 2,
         border: `1px solid ${colors.borderColor}`,
-        boxShadow: '0 2px 12px rgba(0,0,0,0.04)'
+        boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+        bgcolor: colors.cardBg,
       }}>
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
           <TextField
@@ -745,8 +789,8 @@ const Equipment = () => {
               ),
               sx: {
                 '& .MuiOutlinedInput-root': {
-                  '&:hover fieldset': { borderColor: colors.sidebar },
-                  '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  '&:hover fieldset': { borderColor: colors.lightCyan },
+                  '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                 }
               }
             }}
@@ -757,8 +801,12 @@ const Equipment = () => {
             onClick={handleFilterClick}
             sx={{ 
               borderColor: colors.borderColor, 
-              color: colors.darkText,
-              '&:hover': { borderColor: colors.accentGold, color: colors.accentGold }
+              color: colors.darkNavy,
+              '&:hover': { 
+                borderColor: colors.lightCyan, 
+                color: colors.lightCyanDark,
+                backgroundColor: 'rgba(103, 232, 249, 0.04)'
+              }
             }}
           >
             Filter
@@ -769,8 +817,12 @@ const Equipment = () => {
             onClick={handleExportClick}
             sx={{ 
               borderColor: colors.borderColor, 
-              color: colors.darkText,
-              '&:hover': { borderColor: colors.accentGold, color: colors.accentGold }
+              color: colors.darkNavy,
+              '&:hover': { 
+                borderColor: colors.lightCyan, 
+                color: colors.lightCyanDark,
+                backgroundColor: 'rgba(103, 232, 249, 0.04)'
+              }
             }}
           >
             Export
@@ -778,14 +830,22 @@ const Equipment = () => {
         </Box>
       </Paper>
 
-      {/* Filter Menu */}
+      {/* Filter Menu - CYAN THEMED */}
       <Menu
         anchorEl={filterAnchorEl}
         open={Boolean(filterAnchorEl)}
         onClose={handleFilterClose}
-        PaperProps={{ sx: { p: 2, width: 280 } }}
+        PaperProps={{ 
+          sx: { 
+            p: 2, 
+            width: 280,
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 8px 30px rgba(0,0,0,0.08)',
+            borderRadius: 2,
+          } 
+        }}
       >
-        <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.sidebar }} gutterBottom>
+        <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>
           Filter Equipment
         </Typography>
         
@@ -798,8 +858,8 @@ const Equipment = () => {
             label="Category"
             sx={{
               '& .MuiOutlinedInput-root': {
-                '&:hover fieldset': { borderColor: colors.sidebar },
-                '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                '&:hover fieldset': { borderColor: colors.lightCyan },
+                '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
               }
             }}
           >
@@ -819,8 +879,8 @@ const Equipment = () => {
             label="Hospital"
             sx={{
               '& .MuiOutlinedInput-root': {
-                '&:hover fieldset': { borderColor: colors.sidebar },
-                '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                '&:hover fieldset': { borderColor: colors.lightCyan },
+                '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
               }
             }}
           >
@@ -843,8 +903,8 @@ const Equipment = () => {
           InputProps={{
             sx: {
               '& .MuiOutlinedInput-root': {
-                '&:hover fieldset': { borderColor: colors.sidebar },
-                '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                '&:hover fieldset': { borderColor: colors.lightCyan },
+                '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
               }
             }
           }}
@@ -859,8 +919,8 @@ const Equipment = () => {
             label="Status"
             sx={{
               '& .MuiOutlinedInput-root': {
-                '&:hover fieldset': { borderColor: colors.sidebar },
-                '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                '&:hover fieldset': { borderColor: colors.lightCyan },
+                '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
               }
             }}
           >
@@ -878,7 +938,14 @@ const Equipment = () => {
             onClick={handleFilterClose} 
             fullWidth 
             size="small"
-            sx={{ bgcolor: colors.sidebar, '&:hover': { bgcolor: colors.sidebarHover } }}
+            sx={{ 
+              bgcolor: colors.darkNavy, 
+              '&:hover': { 
+                bgcolor: colors.darkNavyHover,
+                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`
+              },
+              textTransform: 'none',
+            }}
           >
             Apply
           </Button>
@@ -887,35 +954,82 @@ const Equipment = () => {
             onClick={clearFilters} 
             fullWidth 
             size="small"
-            sx={{ borderColor: colors.borderColor, '&:hover': { borderColor: colors.accentGold } }}
+            sx={{ 
+              borderColor: colors.borderColor,
+              color: colors.darkNavy,
+              '&:hover': { 
+                borderColor: colors.lightCyan,
+                backgroundColor: 'rgba(103, 232, 249, 0.04)'
+              }
+            }}
           >
             Clear
           </Button>
         </Box>
       </Menu>
 
-      {/* Export Menu */}
+      {/* Export Menu - CYAN THEMED */}
       <Menu
         anchorEl={exportAnchorEl}
         open={Boolean(exportAnchorEl)}
         onClose={handleExportClose}
-        PaperProps={{ sx: { p: 1, width: 200 } }}
+        PaperProps={{ 
+          sx: { 
+            p: 1, 
+            width: 200,
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 8px 30px rgba(0,0,0,0.08)',
+            borderRadius: 2,
+          } 
+        }}
       >
-        <MenuItem onClick={exportToCSV} sx={{ '&:hover': { bgcolor: `${colors.accentGold}22` } }}>
-          <FileDownload sx={{ mr: 1, fontSize: 20, color: colors.sidebar }} /> CSV
+        <MenuItem 
+          onClick={exportToCSV} 
+          sx={{ 
+            '&:hover': { 
+              bgcolor: 'rgba(103, 232, 249, 0.08)',
+              borderRadius: 1,
+            } 
+          }}
+        >
+          <FileDownload sx={{ mr: 1, fontSize: 20, color: colors.darkNavy }} /> CSV
         </MenuItem>
-        <MenuItem onClick={exportToExcel} sx={{ '&:hover': { bgcolor: `${colors.accentGold}22` } }}>
-          <FileDownload sx={{ mr: 1, fontSize: 20, color: colors.sidebar }} /> Excel
+        <MenuItem 
+          onClick={exportToExcel} 
+          sx={{ 
+            '&:hover': { 
+              bgcolor: 'rgba(103, 232, 249, 0.08)',
+              borderRadius: 1,
+            } 
+          }}
+        >
+          <FileDownload sx={{ mr: 1, fontSize: 20, color: colors.darkNavy }} /> Excel
         </MenuItem>
-        <MenuItem onClick={exportToPDF} sx={{ '&:hover': { bgcolor: `${colors.accentGold}22` } }}>
-          <FileDownload sx={{ mr: 1, fontSize: 20, color: colors.sidebar }} /> PDF
+        <MenuItem 
+          onClick={exportToPDF} 
+          sx={{ 
+            '&:hover': { 
+              bgcolor: 'rgba(103, 232, 249, 0.08)',
+              borderRadius: 1,
+            } 
+          }}
+        >
+          <FileDownload sx={{ mr: 1, fontSize: 20, color: colors.darkNavy }} /> PDF
         </MenuItem>
       </Menu>
 
-      {/* Table */}
-      <TableContainer component={Paper} sx={{ borderRadius: 2, overflowX: 'auto', border: `1px solid ${colors.borderColor}` }}>
+      {/* Table - DARK NAVY + LIGHT CYAN THEMED */}
+      <TableContainer 
+        component={Paper} 
+        sx={{ 
+          borderRadius: 2, 
+          overflowX: 'auto', 
+          border: `1px solid ${colors.borderColor}`,
+          boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+        }}
+      >
         <Table>
-          <TableHead sx={{ bgcolor: colors.sidebar }}>
+          <TableHead sx={{ bgcolor: colors.darkNavy }}>
             <TableRow>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Equipment</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Category</TableCell>
@@ -937,9 +1051,20 @@ const Equipment = () => {
               </TableRow>
             ) : (
               filteredEquipment.map((item) => (
-                <TableRow key={item.id} hover>
+                <TableRow 
+                  key={item.id} 
+                  hover
+                  sx={{
+                    '&:hover': {
+                      backgroundColor: 'rgba(103, 232, 249, 0.04)',
+                    },
+                    '&:last-child td': { borderBottom: 0 }
+                  }}
+                >
                   <TableCell>
-                    <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkText }}>{item.name}</Typography>
+                    <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>
+                      {item.name}
+                    </Typography>
                   </TableCell>
                   <TableCell sx={{ color: colors.lightText }}>{item.category_name || '-'}</TableCell>
                   <TableCell sx={{ color: colors.lightText }}>{item.manufacturer || '-'}</TableCell>
@@ -950,7 +1075,7 @@ const Equipment = () => {
                       variant="body2" 
                       sx={{ 
                         color: item.status === 'Active' ? colors.success : 
-                               item.status === 'Maintenance' ? colors.accentGold : 
+                               item.status === 'Maintenance' ? colors.warning : 
                                colors.error,
                         fontWeight: 500
                       }}
@@ -963,7 +1088,13 @@ const Equipment = () => {
                       <IconButton 
                         size="small" 
                         onClick={() => handleViewDetails(item)}
-                        sx={{ color: colors.sidebar, '&:hover': { color: colors.accentGold } }}
+                        sx={{ 
+                          color: colors.darkNavy, 
+                          '&:hover': { 
+                            color: colors.lightCyanDark,
+                            backgroundColor: 'rgba(103, 232, 249, 0.08)'
+                          } 
+                        }}
                       >
                         <Visibility />
                       </IconButton>
@@ -973,7 +1104,13 @@ const Equipment = () => {
                         <IconButton 
                           size="small" 
                           onClick={() => handleOpenDialog(item)}
-                          sx={{ color: colors.sidebar, '&:hover': { color: colors.accentGold } }}
+                          sx={{ 
+                            color: colors.darkNavy, 
+                            '&:hover': { 
+                              color: colors.lightCyanDark,
+                              backgroundColor: 'rgba(103, 232, 249, 0.08)'
+                            } 
+                          }}
                         >
                           <Edit />
                         </IconButton>
@@ -998,9 +1135,25 @@ const Equipment = () => {
         </Table>
       </TableContainer>
 
-      {/* View Dialog - THEMED */}
-      <Dialog open={openViewDialog} onClose={handleCloseView} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ bgcolor: colors.sidebar, color: 'white' }}>
+      {/* View Dialog - DARK NAVY + CYAN THEMED */}
+      <Dialog 
+        open={openViewDialog} 
+        onClose={handleCloseView} 
+        maxWidth="md" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          bgcolor: colors.darkNavy, 
+          color: 'white',
+          borderRadius: '8px 8px 0 0',
+        }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6" fontWeight={600}>Equipment Details</Typography>
             <IconButton onClick={handleCloseView} sx={{ color: 'white' }}><Close /></IconButton>
@@ -1017,9 +1170,9 @@ const Equipment = () => {
                   borderBottom: 1, 
                   borderColor: 'divider',
                   '& .MuiTab-root': {
-                    '&.Mui-selected': { color: colors.sidebar }
+                    '&.Mui-selected': { color: colors.darkNavy }
                   },
-                  '& .MuiTabs-indicator': { bgcolor: colors.accentGold }
+                  '& .MuiTabs-indicator': { bgcolor: colors.lightCyan }
                 }}
               >
                 <Tab label="General" />
@@ -1032,56 +1185,56 @@ const Equipment = () => {
               {viewTab === 0 && (
                 <Grid container spacing={2}>
                   <Grid item xs={12}>
-                    <Typography variant="h6" sx={{ color: colors.sidebar }}>{selectedEquipment.name}</Typography>
+                    <Typography variant="h6" sx={{ color: colors.darkNavy }}>{selectedEquipment.name}</Typography>
                     <Typography variant="body2" color="textSecondary">Status: {selectedEquipment.status}</Typography>
                     <Divider sx={{ my: 2 }} />
                   </Grid>
                   <Grid item xs={12} md={6}>
                     <Typography variant="caption" color="textSecondary">Category</Typography>
-                    <Typography variant="body2" sx={{ color: colors.darkText }}>{selectedEquipment.category_name || 'N/A'}</Typography>
+                    <Typography variant="body2" sx={{ color: colors.darkNavy }}>{selectedEquipment.category_name || 'N/A'}</Typography>
                   </Grid>
                   <Grid item xs={12} md={6}>
                     <Typography variant="caption" color="textSecondary">Manufacturer</Typography>
-                    <Typography variant="body2" sx={{ color: colors.darkText }}>{selectedEquipment.manufacturer || 'N/A'}</Typography>
+                    <Typography variant="body2" sx={{ color: colors.darkNavy }}>{selectedEquipment.manufacturer || 'N/A'}</Typography>
                   </Grid>
                   <Grid item xs={12} md={6}>
                     <Typography variant="caption" color="textSecondary">Model</Typography>
-                    <Typography variant="body2" sx={{ color: colors.darkText }}>{selectedEquipment.model || 'N/A'}</Typography>
+                    <Typography variant="body2" sx={{ color: colors.darkNavy }}>{selectedEquipment.model || 'N/A'}</Typography>
                   </Grid>
                   <Grid item xs={12} md={6}>
                     <Typography variant="caption" color="textSecondary">Serial Number</Typography>
-                    <Typography variant="body2" sx={{ color: colors.darkText }}>{selectedEquipment.serial_number || 'N/A'}</Typography>
+                    <Typography variant="body2" sx={{ color: colors.darkNavy }}>{selectedEquipment.serial_number || 'N/A'}</Typography>
                   </Grid>
                   <Grid item xs={12} md={6}>
                     <Typography variant="caption" color="textSecondary">Installation Year</Typography>
-                    <Typography variant="body2" sx={{ color: colors.darkText }}>{selectedEquipment.installation_year || 'N/A'}</Typography>
+                    <Typography variant="body2" sx={{ color: colors.darkNavy }}>{selectedEquipment.installation_year || 'N/A'}</Typography>
                   </Grid>
                   <Grid item xs={12} md={6}>
                     <Typography variant="caption" color="textSecondary">Hospital</Typography>
-                    <Typography variant="body2" sx={{ color: colors.darkText }}>{selectedEquipment.hospital_name || 'N/A'}</Typography>
+                    <Typography variant="body2" sx={{ color: colors.darkNavy }}>{selectedEquipment.hospital_name || 'N/A'}</Typography>
                   </Grid>
                   <Grid item xs={12} md={6}>
                     <Typography variant="caption" color="textSecondary">Department</Typography>
-                    <Typography variant="body2" sx={{ color: colors.darkText }}>{selectedEquipment.department_name || 'N/A'}</Typography>
+                    <Typography variant="body2" sx={{ color: colors.darkNavy }}>{selectedEquipment.department_name || 'N/A'}</Typography>
                   </Grid>
                   <Grid item xs={12}>
                     <Typography variant="caption" color="textSecondary">Location</Typography>
-                    <Typography variant="body2" sx={{ color: colors.darkText }}>{selectedEquipment.location || 'N/A'}</Typography>
+                    <Typography variant="body2" sx={{ color: colors.darkNavy }}>{selectedEquipment.location || 'N/A'}</Typography>
                   </Grid>
                 </Grid>
               )}
 
               {viewTab === 1 && (
                 <Box>
-                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.sidebar }} gutterBottom>Error History</Typography>
+                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>Error History</Typography>
                   {selectedEquipment.errors?.length > 0 ? (
                     <TableContainer component={Paper} variant="outlined">
                       <Table size="small">
                         <TableHead sx={{ bgcolor: colors.mainBg }}>
                           <TableRow>
-                            <TableCell sx={{ fontWeight: 600, color: colors.sidebar }}>Error</TableCell>
-                            <TableCell sx={{ fontWeight: 600, color: colors.sidebar }}>Date</TableCell>
-                            <TableCell sx={{ fontWeight: 600, color: colors.sidebar }}>Status</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }}>Error</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }}>Date</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }}>Status</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
@@ -1105,16 +1258,16 @@ const Equipment = () => {
 
               {viewTab === 2 && (
                 <Box>
-                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.sidebar }} gutterBottom>Repair History</Typography>
+                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>Repair History</Typography>
                   {selectedEquipment.repairs?.length > 0 ? (
                     <TableContainer component={Paper} variant="outlined">
                       <Table size="small">
                         <TableHead sx={{ bgcolor: colors.mainBg }}>
                           <TableRow>
-                            <TableCell sx={{ fontWeight: 600, color: colors.sidebar }}>Root Cause</TableCell>
-                            <TableCell sx={{ fontWeight: 600, color: colors.sidebar }}>Engineer</TableCell>
-                            <TableCell sx={{ fontWeight: 600, color: colors.sidebar }}>Date</TableCell>
-                            <TableCell sx={{ fontWeight: 600, color: colors.sidebar }}>Status</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }}>Root Cause</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }}>Engineer</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }}>Date</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }}>Status</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
@@ -1139,15 +1292,15 @@ const Equipment = () => {
 
               {viewTab === 3 && (
                 <Box>
-                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.sidebar }} gutterBottom>Maintenance History</Typography>
+                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>Maintenance History</Typography>
                   {selectedEquipment.maintenance?.length > 0 ? (
                     <TableContainer component={Paper} variant="outlined">
                       <Table size="small">
                         <TableHead sx={{ bgcolor: colors.mainBg }}>
                           <TableRow>
-                            <TableCell sx={{ fontWeight: 600, color: colors.sidebar }}>Type</TableCell>
-                            <TableCell sx={{ fontWeight: 600, color: colors.sidebar }}>Date</TableCell>
-                            <TableCell sx={{ fontWeight: 600, color: colors.sidebar }}>Status</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }}>Type</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }}>Date</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }}>Status</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
@@ -1171,15 +1324,15 @@ const Equipment = () => {
 
               {viewTab === 4 && (
                 <Box>
-                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.sidebar }} gutterBottom>Spare Parts</Typography>
+                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>Spare Parts</Typography>
                   {selectedEquipment.spareParts?.length > 0 ? (
                     <TableContainer component={Paper} variant="outlined">
                       <Table size="small">
                         <TableHead sx={{ bgcolor: colors.mainBg }}>
                           <TableRow>
-                            <TableCell sx={{ fontWeight: 600, color: colors.sidebar }}>Part Name</TableCell>
-                            <TableCell sx={{ fontWeight: 600, color: colors.sidebar }} align="center">Qty</TableCell>
-                            <TableCell sx={{ fontWeight: 600, color: colors.sidebar }} align="right">Total Cost</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }}>Part Name</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }} align="center">Qty</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }} align="right">Total Cost</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
@@ -1191,8 +1344,8 @@ const Equipment = () => {
                             </TableRow>
                           ))}
                           <TableRow sx={{ bgcolor: colors.mainBg }}>
-                            <TableCell colSpan={2} align="right" sx={{ fontWeight: 600, color: colors.sidebar }}>Total:</TableCell>
-                            <TableCell align="right" sx={{ fontWeight: 700, color: colors.accentGold }}>
+                            <TableCell colSpan={2} align="right" sx={{ fontWeight: 600, color: colors.darkNavy }}>Total:</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 700, color: colors.lightCyanDark }}>
                               Rs. {selectedEquipment.spareParts.reduce((sum, p) => sum + p.total_cost, 0).toLocaleString()}
                             </TableCell>
                           </TableRow>
@@ -1214,9 +1367,14 @@ const Equipment = () => {
             onClick={handleCloseView} 
             variant="contained" 
             sx={{ 
-              bgcolor: colors.sidebar, 
-              '&:hover': { bgcolor: colors.sidebarHover },
-              boxShadow: `0 4px 16px ${colors.sidebar}44`
+              bgcolor: colors.darkNavy, 
+              '&:hover': { 
+                bgcolor: colors.darkNavyHover,
+                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`
+              },
+              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+              textTransform: 'none',
+              borderRadius: 2,
             }}
           >
             Close
@@ -1224,10 +1382,26 @@ const Equipment = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Add/Edit Dialog - THEMED */}
+      {/* Add/Edit Dialog - DARK NAVY + CYAN THEMED */}
       {(canCreate || canEdit) && (
-        <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
-          <DialogTitle sx={{ bgcolor: colors.sidebar, color: 'white' }}>
+        <Dialog 
+          open={openDialog} 
+          onClose={handleCloseDialog} 
+          maxWidth="md" 
+          fullWidth
+          PaperProps={{
+            sx: {
+              borderRadius: 3,
+              border: `1px solid ${colors.borderColor}`,
+              boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+            }
+          }}
+        >
+          <DialogTitle sx={{ 
+            bgcolor: colors.darkNavy, 
+            color: 'white',
+            borderRadius: '8px 8px 0 0',
+          }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Typography variant="h6" fontWeight={600}>
                 {editingEquipment ? 'Edit Equipment' : 'Add New Equipment'}
@@ -1249,8 +1423,8 @@ const Equipment = () => {
                   helperText={touched.name && !formData.name ? 'Equipment name is required' : ''}
                   sx={{
                     '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.sidebar },
-                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                     }
                   }}
                 />
@@ -1266,8 +1440,8 @@ const Equipment = () => {
                     label="Category"
                     sx={{
                       '& .MuiOutlinedInput-root': {
-                        '&:hover fieldset': { borderColor: colors.sidebar },
-                        '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                        '&:hover fieldset': { borderColor: colors.lightCyan },
+                        '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                       }
                     }}
                   >
@@ -1281,7 +1455,14 @@ const Equipment = () => {
                   size="small" 
                   startIcon={<Add />} 
                   onClick={() => handleOpenCustomDialog('category')} 
-                  sx={{ mt: 0.5, color: colors.sidebar, '&:hover': { color: colors.accentGold } }}
+                  sx={{ 
+                    mt: 0.5, 
+                    color: colors.darkNavy, 
+                    '&:hover': { 
+                      color: colors.lightCyanDark,
+                      backgroundColor: 'rgba(103, 232, 249, 0.04)'
+                    } 
+                  }}
                 >
                   Add New Category
                 </Button>
@@ -1296,8 +1477,8 @@ const Equipment = () => {
                   onChange={handleFormChange}
                   sx={{
                     '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.sidebar },
-                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                     }
                   }}
                 />
@@ -1312,8 +1493,8 @@ const Equipment = () => {
                   onChange={handleFormChange}
                   sx={{
                     '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.sidebar },
-                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                     }
                   }}
                 />
@@ -1330,8 +1511,8 @@ const Equipment = () => {
                   inputProps={{ min: 1900, max: 2155 }}
                   sx={{
                     '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.sidebar },
-                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                     }
                   }}
                 />
@@ -1347,11 +1528,11 @@ const Equipment = () => {
                   placeholder="Enter unique serial number"
                   sx={{
                     '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.sidebar },
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
                       '&.Mui-focused fieldset': {
                         borderColor: serialStatus.message 
                           ? (serialStatus.isValid ? colors.success : colors.error)
-                          : colors.accentGold
+                          : colors.lightCyanDark
                       }
                     }
                   }}
@@ -1392,8 +1573,8 @@ const Equipment = () => {
                     disabled={user?.role === 'ENGINEER'}
                     sx={{
                       '& .MuiOutlinedInput-root': {
-                        '&:hover fieldset': { borderColor: colors.sidebar },
-                        '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                        '&:hover fieldset': { borderColor: colors.lightCyan },
+                        '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                       }
                     }}
                   >
@@ -1418,8 +1599,8 @@ const Equipment = () => {
                     label="Department"
                     sx={{
                       '& .MuiOutlinedInput-root': {
-                        '&:hover fieldset': { borderColor: colors.sidebar },
-                        '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                        '&:hover fieldset': { borderColor: colors.lightCyan },
+                        '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                       }
                     }}
                   >
@@ -1433,7 +1614,14 @@ const Equipment = () => {
                   size="small" 
                   startIcon={<Add />} 
                   onClick={() => handleOpenCustomDialog('department')} 
-                  sx={{ mt: 0.5, color: colors.sidebar, '&:hover': { color: colors.accentGold } }}
+                  sx={{ 
+                    mt: 0.5, 
+                    color: colors.darkNavy, 
+                    '&:hover': { 
+                      color: colors.lightCyanDark,
+                      backgroundColor: 'rgba(103, 232, 249, 0.04)'
+                    } 
+                  }}
                 >
                   Add New Department
                 </Button>
@@ -1449,8 +1637,8 @@ const Equipment = () => {
                   placeholder="e.g., Room 101"
                   sx={{
                     '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.sidebar },
-                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                     }
                   }}
                 />
@@ -1466,8 +1654,8 @@ const Equipment = () => {
                     label="Status"
                     sx={{
                       '& .MuiOutlinedInput-root': {
-                        '&:hover fieldset': { borderColor: colors.sidebar },
-                        '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                        '&:hover fieldset': { borderColor: colors.lightCyan },
+                        '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                       }
                     }}
                   >
@@ -1505,16 +1693,32 @@ const Equipment = () => {
             </Grid>
           </DialogContent>
           <DialogActions sx={{ p: 3 }}>
-            <Button onClick={handleCloseDialog} sx={{ color: colors.lightText }}>Cancel</Button>
+            <Button 
+              onClick={handleCloseDialog} 
+              sx={{ 
+                color: colors.darkNavy,
+                '&:hover': { 
+                  backgroundColor: 'rgba(103, 232, 249, 0.04)'
+                },
+                textTransform: 'none',
+              }}
+            >
+              Cancel
+            </Button>
             <Button
               variant="contained"
               onClick={handleSubmit}
               disabled={!serialStatus.isValid && formData.serial_number !== ''}
               sx={{
-                bgcolor: colors.sidebar,
-                '&:hover': { bgcolor: colors.sidebarHover },
+                bgcolor: colors.darkNavy,
+                '&:hover': { 
+                  bgcolor: colors.darkNavyHover,
+                  boxShadow: `0 4px 20px ${colors.lightCyanGlowStrong}`
+                },
                 '&.Mui-disabled': { bgcolor: '#bdbdbd' },
-                boxShadow: `0 4px 16px ${colors.sidebar}44`
+                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+                textTransform: 'none',
+                borderRadius: 2,
               }}
             >
               {editingEquipment ? 'Update' : 'Create'}
@@ -1523,14 +1727,30 @@ const Equipment = () => {
         </Dialog>
       )}
 
-      {/* Custom Add Dialog */}
-      <Dialog open={openCustomDialog} onClose={handleCloseCustomDialog} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ color: colors.sidebar }}>
+      {/* Custom Add Dialog - CYAN THEMED */}
+      <Dialog 
+        open={openCustomDialog} 
+        onClose={handleCloseCustomDialog} 
+        maxWidth="xs" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          bgcolor: colors.darkNavy, 
+          color: 'white',
+          borderRadius: '8px 8px 0 0',
+        }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6">
               Add New {customDialogType.charAt(0).toUpperCase() + customDialogType.slice(1)}
             </Typography>
-            <IconButton onClick={handleCloseCustomDialog}><Close /></IconButton>
+            <IconButton onClick={handleCloseCustomDialog} sx={{ color: 'white' }}><Close /></IconButton>
           </Box>
         </DialogTitle>
         <DialogContent>
@@ -1546,23 +1766,39 @@ const Equipment = () => {
             InputProps={{
               sx: {
                 '& .MuiOutlinedInput-root': {
-                  '&:hover fieldset': { borderColor: colors.sidebar },
-                  '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  '&:hover fieldset': { borderColor: colors.lightCyan },
+                  '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                 }
               }
             }}
           />
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={handleCloseCustomDialog} sx={{ color: colors.lightText }}>Cancel</Button>
+          <Button 
+            onClick={handleCloseCustomDialog} 
+            sx={{ 
+              color: colors.darkNavy,
+              '&:hover': { 
+                backgroundColor: 'rgba(103, 232, 249, 0.04)'
+              },
+              textTransform: 'none',
+            }}
+          >
+            Cancel
+          </Button>
           <Button
             variant="contained"
             onClick={handleSaveCustomItem}
             disabled={customDialogLoading || !customDialogValue.trim()}
             sx={{ 
-              bgcolor: colors.sidebar, 
-              '&:hover': { bgcolor: colors.sidebarHover },
-              boxShadow: `0 4px 16px ${colors.sidebar}44`
+              bgcolor: colors.darkNavy, 
+              '&:hover': { 
+                bgcolor: colors.darkNavyHover,
+                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`
+              },
+              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+              textTransform: 'none',
+              borderRadius: 2,
             }}
           >
             {customDialogLoading ? <CircularProgress size={24} sx={{ color: 'white' }} /> : 'Add'}

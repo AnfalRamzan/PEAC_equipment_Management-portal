@@ -1,5 +1,5 @@
 // src/pages/Procurement.jsx
-// ✅ PAEC THEME - Green & Gold Colors
+// ✅ DARK NAVY + LIGHT CYAN THEME - Matching Sidebar
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -67,27 +67,45 @@ import AccessDenied from '../components/Auth/AccessDenied'
 import FileUpload from '../components/FileUpload'
 
 // ============================================================
-// ✅ PAEC THEME COLORS
+// ✅ DARK NAVY + LIGHT CYAN THEME COLORS
 // ============================================================
 const colors = {
-  sidebar: '#01411C',
-  sidebarHover: '#0B542B',
-  active: '#0E6335',
+  // Dark Navy Base
+  darkNavy: '#0F172A',
+  darkNavyLight: '#1E293B',
+  darkNavyDark: '#0A0F1E',
+  darkNavyHover: '#1E3A5F',
+  
+  // Light Cyan Accents
+  lightCyan: '#67E8F9',
+  lightCyanBright: '#A5F3FC',
+  lightCyanDark: '#22D3EE',
+  lightCyanGlow: 'rgba(103, 232, 249, 0.15)',
+  lightCyanGlowStrong: 'rgba(103, 232, 249, 0.3)',
+  
+  // Gold accent (keeping PAEC branding)
   accentGold: '#C9A227',
   goldLight: '#E8C84A',
+  
+  // Text
   text: '#FFFFFF',
-  secondaryText: '#B8C8BE',
-  mainBg: '#F0F2F5',
-  white: '#FFFFFF',
-  darkText: '#1A2A3A',
-  lightText: '#5A7A8A',
-  error: '#D32F2F',
-  success: '#2E7D32',
-  warning: '#ED6C02',
-  info: '#0B5FA5',
-  borderColor: 'rgba(1, 65, 28, 0.08)',
-  shadowColor: 'rgba(1, 65, 28, 0.08)',
+  secondaryText: '#94A3B8',
+  textLight: '#CBD5E1',
+  cyanText: '#67E8F9',
+  darkText: '#0F172A',
+  lightText: '#64748B',
+  
+  // Cards/Background
   cardBg: '#FFFFFF',
+  borderColor: 'rgba(103, 232, 249, 0.1)',
+  shadowColor: 'rgba(15, 23, 42, 0.08)',
+  mainBg: '#F1F5F9',
+  
+  // Status colors
+  error: '#EF4444',
+  success: '#22C55E',
+  warning: '#F59E0B',
+  info: '#3B82F6',
 }
 
 // ==================== HELPER FUNCTIONS ====================
@@ -524,14 +542,29 @@ const Procurement = () => {
   const urgentRequests = requests.filter(r => r.priority === 'Urgent' && r.status !== 'Rejected').length
 
   if (loading) {
-    return <LinearProgress sx={{ bgcolor: colors.borderColor, '& .MuiLinearProgress-bar': { bgcolor: colors.accentGold } }} />
+    return <LinearProgress sx={{ bgcolor: colors.borderColor, '& .MuiLinearProgress-bar': { bgcolor: colors.lightCyan } }} />
   }
 
   return (
     <Box>
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700, color: colors.sidebar }}>
+        <Typography 
+          variant="h5" 
+          sx={{ 
+            fontWeight: 700, 
+            color: colors.darkNavy,
+            '&::after': {
+              content: '""',
+              display: 'block',
+              width: '40px',
+              height: '3px',
+              background: `linear-gradient(90deg, ${colors.lightCyan}, ${colors.darkNavy})`,
+              borderRadius: '2px',
+              marginTop: '4px',
+            }
+          }}
+        >
           Equipment Procurement
         </Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
@@ -541,9 +574,13 @@ const Procurement = () => {
             onClick={fetchRequests}
             size="small"
             sx={{ 
-              borderColor: colors.sidebar, 
-              color: colors.sidebar,
-              '&:hover': { borderColor: colors.accentGold, color: colors.accentGold }
+              borderColor: colors.borderColor, 
+              color: colors.darkNavy,
+              '&:hover': { 
+                borderColor: colors.lightCyan, 
+                color: colors.lightCyanDark,
+                backgroundColor: 'rgba(103, 232, 249, 0.04)'
+              }
             }}
           >
             Refresh
@@ -554,9 +591,14 @@ const Procurement = () => {
               startIcon={<Add />}
               onClick={() => handleOpenDialog()}
               sx={{ 
-                bgcolor: colors.sidebar, 
-                '&:hover': { bgcolor: colors.sidebarHover },
-                boxShadow: `0 4px 16px ${colors.sidebar}44`
+                bgcolor: colors.darkNavy, 
+                '&:hover': { 
+                  bgcolor: colors.darkNavyHover,
+                  boxShadow: `0 4px 20px ${colors.lightCyanGlowStrong}`
+                },
+                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+                borderRadius: 2,
+                textTransform: 'none',
               }}
             >
               Request Equipment
@@ -565,16 +607,20 @@ const Procurement = () => {
         </Box>
       </Box>
 
-      {/* Stats Cards - THEMED */}
+      {/* Stats Cards - DARK NAVY + CYAN */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={6} sm={2.4}>
           <Card sx={{ 
             borderRadius: 2, 
             border: `1px solid ${colors.borderColor}`,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.04)'
+            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+            '&:hover': {
+              borderColor: colors.lightCyan,
+              boxShadow: `0 4px 20px ${colors.lightCyanGlow}`
+            }
           }}>
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" sx={{ color: colors.sidebar, fontWeight: 700 }}>
+              <Typography variant="h4" sx={{ color: colors.darkNavy, fontWeight: 700 }}>
                 {totalRequests}
               </Typography>
               <Typography variant="body2" sx={{ color: colors.lightText }}>Total Requests</Typography>
@@ -586,7 +632,11 @@ const Procurement = () => {
             borderRadius: 2, 
             border: `1px solid ${colors.warning}33`,
             boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-            bgcolor: `${colors.warning}08`
+            bgcolor: `${colors.warning}08`,
+            '&:hover': {
+              borderColor: colors.warning,
+              boxShadow: `0 4px 20px rgba(245, 158, 11, 0.15)`
+            }
           }}>
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
               <Typography variant="h4" sx={{ color: colors.warning, fontWeight: 700 }}>
@@ -601,7 +651,11 @@ const Procurement = () => {
             borderRadius: 2, 
             border: `1px solid ${colors.success}33`,
             boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-            bgcolor: `${colors.success}08`
+            bgcolor: `${colors.success}08`,
+            '&:hover': {
+              borderColor: colors.success,
+              boxShadow: `0 4px 20px rgba(34, 197, 94, 0.15)`
+            }
           }}>
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
               <Typography variant="h4" sx={{ color: colors.success, fontWeight: 700 }}>
@@ -616,7 +670,11 @@ const Procurement = () => {
             borderRadius: 2, 
             border: `1px solid ${colors.error}33`,
             boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-            bgcolor: `${colors.error}08`
+            bgcolor: `${colors.error}08`,
+            '&:hover': {
+              borderColor: colors.error,
+              boxShadow: `0 4px 20px rgba(239, 68, 68, 0.15)`
+            }
           }}>
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
               <Typography variant="h4" sx={{ color: colors.error, fontWeight: 700 }}>
@@ -631,7 +689,11 @@ const Procurement = () => {
             borderRadius: 2, 
             border: `1px solid ${colors.error}33`,
             boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-            bgcolor: `${colors.error}08`
+            bgcolor: `${colors.error}08`,
+            '&:hover': {
+              borderColor: colors.error,
+              boxShadow: `0 4px 20px rgba(239, 68, 68, 0.15)`
+            }
           }}>
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
               <Typography variant="h4" sx={{ color: colors.error, fontWeight: 700 }}>
@@ -670,13 +732,14 @@ const Procurement = () => {
         </Alert>
       )}
 
-      {/* Search & Filters */}
+      {/* Search & Filters - CYAN THEMED */}
       <Paper sx={{ 
         p: 2, 
         mb: 3, 
         borderRadius: 2,
         border: `1px solid ${colors.borderColor}`,
-        boxShadow: '0 2px 12px rgba(0,0,0,0.04)'
+        boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+        bgcolor: colors.cardBg,
       }}>
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
           <TextField
@@ -693,8 +756,8 @@ const Procurement = () => {
               ),
               sx: {
                 '& .MuiOutlinedInput-root': {
-                  '&:hover fieldset': { borderColor: colors.sidebar },
-                  '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  '&:hover fieldset': { borderColor: colors.lightCyan },
+                  '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                 }
               }
             }}
@@ -707,8 +770,8 @@ const Procurement = () => {
               label="Status"
               sx={{
                 '& .MuiOutlinedInput-root': {
-                  '&:hover fieldset': { borderColor: colors.sidebar },
-                  '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  '&:hover fieldset': { borderColor: colors.lightCyan },
+                  '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                 }
               }}
             >
@@ -728,8 +791,8 @@ const Procurement = () => {
               label="Priority"
               sx={{
                 '& .MuiOutlinedInput-root': {
-                  '&:hover fieldset': { borderColor: colors.sidebar },
-                  '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  '&:hover fieldset': { borderColor: colors.lightCyan },
+                  '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                 }
               }}
             >
@@ -746,8 +809,12 @@ const Procurement = () => {
             onClick={handleExportClick}
             sx={{ 
               borderColor: colors.borderColor, 
-              color: colors.darkText,
-              '&:hover': { borderColor: colors.accentGold, color: colors.accentGold }
+              color: colors.darkNavy,
+              '&:hover': { 
+                borderColor: colors.lightCyan, 
+                color: colors.lightCyanDark,
+                backgroundColor: 'rgba(103, 232, 249, 0.04)'
+              }
             }}
           >
             Export
@@ -755,25 +822,56 @@ const Procurement = () => {
         </Box>
       </Paper>
 
-      {/* Export Menu - THEMED */}
+      {/* Export Menu - CYAN THEMED */}
       <Menu
         anchorEl={exportAnchorEl}
         open={Boolean(exportAnchorEl)}
         onClose={handleExportClose}
-        PaperProps={{ sx: { p: 1, width: 200 } }}
+        PaperProps={{ 
+          sx: { 
+            p: 1, 
+            width: 200,
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 8px 30px rgba(0,0,0,0.08)',
+            borderRadius: 2,
+          } 
+        }}
       >
-        <MenuItem onClick={exportToCSV} sx={{ '&:hover': { bgcolor: `${colors.accentGold}22` } }}>
-          <FileDownload sx={{ mr: 1, fontSize: 20, color: colors.sidebar }} /> Export CSV
+        <MenuItem 
+          onClick={exportToCSV} 
+          sx={{ 
+            '&:hover': { 
+              bgcolor: 'rgba(103, 232, 249, 0.08)',
+              borderRadius: 1,
+            } 
+          }}
+        >
+          <FileDownload sx={{ mr: 1, fontSize: 20, color: colors.darkNavy }} /> Export CSV
         </MenuItem>
-        <MenuItem onClick={exportToExcel} sx={{ '&:hover': { bgcolor: `${colors.accentGold}22` } }}>
-          <FileDownload sx={{ mr: 1, fontSize: 20, color: colors.sidebar }} /> Export Excel
+        <MenuItem 
+          onClick={exportToExcel} 
+          sx={{ 
+            '&:hover': { 
+              bgcolor: 'rgba(103, 232, 249, 0.08)',
+              borderRadius: 1,
+            } 
+          }}
+        >
+          <FileDownload sx={{ mr: 1, fontSize: 20, color: colors.darkNavy }} /> Export Excel
         </MenuItem>
       </Menu>
 
-      {/* Table - THEMED */}
-      <TableContainer component={Paper} sx={{ borderRadius: 2, border: `1px solid ${colors.borderColor}` }}>
+      {/* Table - DARK NAVY + CYAN THEMED */}
+      <TableContainer 
+        component={Paper} 
+        sx={{ 
+          borderRadius: 2, 
+          border: `1px solid ${colors.borderColor}`,
+          boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+        }}
+      >
         <Table>
-          <TableHead sx={{ bgcolor: colors.sidebar }}>
+          <TableHead sx={{ bgcolor: colors.darkNavy }}>
             <TableRow>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Equipment</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Hospital</TableCell>
@@ -797,11 +895,20 @@ const Procurement = () => {
               </TableRow>
             ) : (
               filteredRequests.map((request) => (
-                <TableRow key={request.id} hover>
+                <TableRow 
+                  key={request.id} 
+                  hover
+                  sx={{
+                    '&:hover': {
+                      backgroundColor: 'rgba(103, 232, 249, 0.04)',
+                    },
+                    '&:last-child td': { borderBottom: 0 }
+                  }}
+                >
                   <TableCell>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <LocalShipping sx={{ fontSize: 18, color: colors.sidebar }} />
-                      <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkText }}>
+                      <LocalShipping sx={{ fontSize: 18, color: colors.darkNavy }} />
+                      <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>
                         {request.equipment_name}
                       </Typography>
                     </Box>
@@ -809,8 +916,8 @@ const Procurement = () => {
                   <TableCell sx={{ color: colors.lightText }}>{request.hospital_name}</TableCell>
                   <TableCell sx={{ color: colors.lightText }}>{request.manufacturer || '-'}</TableCell>
                   <TableCell sx={{ color: colors.lightText }}>{request.model || '-'}</TableCell>
-                  <TableCell sx={{ color: colors.darkText }}>{request.quantity}</TableCell>
-                  <TableCell sx={{ color: colors.darkText }}>
+                  <TableCell sx={{ color: colors.darkNavy }}>{request.quantity}</TableCell>
+                  <TableCell sx={{ color: colors.darkNavy }}>
                     {request.estimated_cost ? `$${parseFloat(request.estimated_cost).toFixed(2)}` : '-'}
                   </TableCell>
                   <TableCell>
@@ -850,7 +957,13 @@ const Procurement = () => {
                         <IconButton 
                           size="small" 
                           onClick={() => handleView(request)}
-                          sx={{ color: colors.sidebar, '&:hover': { color: colors.accentGold } }}
+                          sx={{ 
+                            color: colors.darkNavy, 
+                            '&:hover': { 
+                              color: colors.lightCyanDark,
+                              backgroundColor: 'rgba(103, 232, 249, 0.08)'
+                            } 
+                          }}
                         >
                           <Visibility />
                         </IconButton>
@@ -861,7 +974,13 @@ const Procurement = () => {
                           <IconButton 
                             size="small" 
                             onClick={() => handleOpenDialog(request)}
-                            sx={{ color: colors.sidebar, '&:hover': { color: colors.accentGold } }}
+                            sx={{ 
+                              color: colors.darkNavy, 
+                              '&:hover': { 
+                                color: colors.lightCyanDark,
+                                backgroundColor: 'rgba(103, 232, 249, 0.08)'
+                              } 
+                            }}
                           >
                             <Edit />
                           </IconButton>
@@ -885,7 +1004,7 @@ const Procurement = () => {
                           <IconButton 
                             size="small" 
                             onClick={() => handleReview(request.id)}
-                            sx={{ color: colors.info, '&:hover': { color: colors.accentGold } }}
+                            sx={{ color: colors.info, '&:hover': { color: colors.lightCyanDark } }}
                           >
                             <Info />
                           </IconButton>
@@ -898,7 +1017,7 @@ const Procurement = () => {
                             <IconButton 
                               size="small" 
                               onClick={() => handleApprove(request.id)}
-                              sx={{ color: colors.success, '&:hover': { color: colors.accentGold } }}
+                              sx={{ color: colors.success, '&:hover': { color: colors.lightCyanDark } }}
                             >
                               <CheckCircle />
                             </IconButton>
@@ -920,7 +1039,7 @@ const Procurement = () => {
                           <IconButton 
                             size="small" 
                             onClick={() => handleMarkProcured(request.id)}
-                            sx={{ color: colors.success, '&:hover': { color: colors.accentGold } }}
+                            sx={{ color: colors.success, '&:hover': { color: colors.lightCyanDark } }}
                           >
                             <CheckCircle />
                           </IconButton>
@@ -935,10 +1054,26 @@ const Procurement = () => {
         </Table>
       </TableContainer>
 
-      {/* Add/Edit Dialog - THEMED */}
+      {/* Add/Edit Dialog - DARK NAVY + CYAN */}
       {canCreate && (
-        <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
-          <DialogTitle sx={{ bgcolor: colors.sidebar, color: 'white' }}>
+        <Dialog 
+          open={openDialog} 
+          onClose={handleCloseDialog} 
+          maxWidth="md" 
+          fullWidth
+          PaperProps={{
+            sx: {
+              borderRadius: 3,
+              border: `1px solid ${colors.borderColor}`,
+              boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+            }
+          }}
+        >
+          <DialogTitle sx={{ 
+            bgcolor: colors.darkNavy, 
+            color: 'white',
+            borderRadius: '8px 8px 0 0',
+          }}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <LocalShipping sx={{ color: 'white' }} />
@@ -964,8 +1099,8 @@ const Procurement = () => {
                     required
                     sx={{
                       '& .MuiOutlinedInput-root': {
-                        '&:hover fieldset': { borderColor: colors.sidebar },
-                        '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                        '&:hover fieldset': { borderColor: colors.lightCyan },
+                        '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                       }
                     }}
                   >
@@ -986,8 +1121,8 @@ const Procurement = () => {
                     label="Category"
                     sx={{
                       '& .MuiOutlinedInput-root': {
-                        '&:hover fieldset': { borderColor: colors.sidebar },
-                        '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                        '&:hover fieldset': { borderColor: colors.lightCyan },
+                        '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                       }
                     }}
                   >
@@ -1008,8 +1143,8 @@ const Procurement = () => {
                   required
                   sx={{
                     '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.sidebar },
-                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                     }
                   }}
                 />
@@ -1023,8 +1158,8 @@ const Procurement = () => {
                   onChange={handleFormChange}
                   sx={{
                     '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.sidebar },
-                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                     }
                   }}
                 />
@@ -1038,8 +1173,8 @@ const Procurement = () => {
                   onChange={handleFormChange}
                   sx={{
                     '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.sidebar },
-                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                     }
                   }}
                 />
@@ -1055,8 +1190,8 @@ const Procurement = () => {
                   InputProps={{ inputProps: { min: 1 } }}
                   sx={{
                     '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.sidebar },
-                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                     }
                   }}
                 />
@@ -1072,8 +1207,8 @@ const Procurement = () => {
                   InputProps={{ inputProps: { min: 0, step: 0.01 } }}
                   sx={{
                     '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.sidebar },
-                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                     }
                   }}
                 />
@@ -1089,8 +1224,8 @@ const Procurement = () => {
                     label="Priority"
                     sx={{
                       '& .MuiOutlinedInput-root': {
-                        '&:hover fieldset': { borderColor: colors.sidebar },
-                        '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                        '&:hover fieldset': { borderColor: colors.lightCyan },
+                        '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                       }
                     }}
                   >
@@ -1111,8 +1246,8 @@ const Procurement = () => {
                   onChange={handleFormChange}
                   sx={{
                     '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.sidebar },
-                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                     }
                   }}
                 />
@@ -1126,8 +1261,8 @@ const Procurement = () => {
                   onChange={handleFormChange}
                   sx={{
                     '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.sidebar },
-                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                     }
                   }}
                 />
@@ -1144,8 +1279,8 @@ const Procurement = () => {
                   placeholder="Explain why this equipment is needed..."
                   sx={{
                     '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.sidebar },
-                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                     }
                   }}
                 />
@@ -1204,14 +1339,30 @@ const Procurement = () => {
             </Grid>
           </DialogContent>
           <DialogActions sx={{ p: 3 }}>
-            <Button onClick={handleCloseDialog} sx={{ color: colors.lightText }}>Cancel</Button>
+            <Button 
+              onClick={handleCloseDialog} 
+              sx={{ 
+                color: colors.darkNavy,
+                '&:hover': { 
+                  backgroundColor: 'rgba(103, 232, 249, 0.04)'
+                },
+                textTransform: 'none',
+              }}
+            >
+              Cancel
+            </Button>
             <Button
               variant="contained"
               onClick={handleSubmit}
               sx={{ 
-                bgcolor: colors.sidebar, 
-                '&:hover': { bgcolor: colors.sidebarHover },
-                boxShadow: `0 4px 16px ${colors.sidebar}44`
+                bgcolor: colors.darkNavy, 
+                '&:hover': { 
+                  bgcolor: colors.darkNavyHover,
+                  boxShadow: `0 4px 20px ${colors.lightCyanGlowStrong}`
+                },
+                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+                textTransform: 'none',
+                borderRadius: 2,
               }}
             >
               {editingRequest ? 'Update' : 'Submit Request'}
@@ -1220,7 +1371,7 @@ const Procurement = () => {
         </Dialog>
       )}
 
-      {/* Delete Confirmation Dialog - THEMED */}
+      {/* Delete Confirmation Dialog - DARK NAVY + CYAN */}
       <Dialog 
         open={openDeleteDialog} 
         onClose={() => {
@@ -1232,11 +1383,18 @@ const Procurement = () => {
         }}
         maxWidth="sm"
         fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+          }
+        }}
       >
         <DialogTitle>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Warning sx={{ color: colors.error, fontSize: 28 }} />
-            <Typography variant="h6" sx={{ color: colors.darkText }}>Delete Procurement Request</Typography>
+            <Typography variant="h6" sx={{ color: colors.darkNavy }}>Delete Procurement Request</Typography>
           </Box>
         </DialogTitle>
         <DialogContent>
@@ -1255,7 +1413,7 @@ const Procurement = () => {
               </Alert>
             ) : (
               <>
-                <Typography variant="body1" gutterBottom sx={{ color: colors.darkText }}>
+                <Typography variant="body1" gutterBottom sx={{ color: colors.darkNavy }}>
                   Are you sure you want to delete this procurement request?
                 </Typography>
                 
@@ -1267,7 +1425,7 @@ const Procurement = () => {
                     border: `1px solid ${colors.warning}33`
                   }}
                 >
-                  <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkText }}>
+                  <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkNavy }}>
                     Equipment: {deletingRequest?.equipment_name}
                   </Typography>
                   {deletingRequest?.manufacturer && (
@@ -1303,7 +1461,13 @@ const Procurement = () => {
               setDeleteError(null)
             }}
             disabled={deleting}
-            sx={{ color: colors.lightText }}
+            sx={{ 
+              color: colors.darkNavy,
+              '&:hover': { 
+                backgroundColor: 'rgba(103, 232, 249, 0.04)'
+              },
+              textTransform: 'none',
+            }}
           >
             {deleteError?.type === 'status_error' ? 'Close' : 'Cancel'}
           </Button>
@@ -1314,7 +1478,11 @@ const Procurement = () => {
               onClick={handleConfirmDelete}
               disabled={deleting}
               startIcon={deleting ? <LinearProgress size={20} color="inherit" /> : <Delete />}
-              sx={{ boxShadow: `0 4px 16px ${colors.error}44` }}
+              sx={{ 
+                boxShadow: `0 4px 16px ${colors.error}44`,
+                textTransform: 'none',
+                borderRadius: 2,
+              }}
             >
               {deleting ? 'Deleting...' : 'Delete Request'}
             </Button>
@@ -1322,9 +1490,25 @@ const Procurement = () => {
         </DialogActions>
       </Dialog>
 
-      {/* View Details Dialog - THEMED */}
-      <Dialog open={openViewDialog} onClose={handleCloseView} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ bgcolor: colors.sidebar, color: 'white' }}>
+      {/* View Details Dialog - DARK NAVY + CYAN */}
+      <Dialog 
+        open={openViewDialog} 
+        onClose={handleCloseView} 
+        maxWidth="md" 
+        fullWidth
+        PaperProps={{
+          sx: { 
+            borderRadius: 3,
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          bgcolor: colors.darkNavy, 
+          color: 'white',
+          borderRadius: '8px 8px 0 0',
+        }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <Typography variant="h6" fontWeight={600}>
               Procurement Request Details
@@ -1339,7 +1523,7 @@ const Procurement = () => {
             <Grid container spacing={2} sx={{ mt: 0 }}>
               <Grid item xs={12}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
-                  <Typography variant="h6" fontWeight={600} sx={{ color: colors.darkText }}>
+                  <Typography variant="h6" fontWeight={600} sx={{ color: colors.darkNavy }}>
                     {viewingRequest.equipment_name}
                   </Typography>
                   <Box>
@@ -1376,7 +1560,7 @@ const Procurement = () => {
 
               {/* Status Timeline */}
               <Grid item xs={12}>
-                <Typography variant="subtitle2" sx={{ color: colors.sidebar, mb: 2 }}>
+                <Typography variant="subtitle2" sx={{ color: colors.darkNavy, mb: 2 }}>
                   Request Status Timeline
                 </Typography>
                 <Stepper activeStep={getCurrentStep(viewingRequest.status)} orientation="vertical">
@@ -1423,49 +1607,49 @@ const Procurement = () => {
               {/* Details */}
               <Grid item xs={12} md={6}>
                 <Typography variant="body2" sx={{ color: colors.lightText }}>Hospital</Typography>
-                <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkText }}>
+                <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy }}>
                   {viewingRequest.hospital_name}
                 </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
                 <Typography variant="body2" sx={{ color: colors.lightText }}>Category</Typography>
-                <Typography variant="body1" sx={{ color: colors.darkText }}>
+                <Typography variant="body1" sx={{ color: colors.darkNavy }}>
                   {viewingRequest.category_name || 'N/A'}
                 </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
                 <Typography variant="body2" sx={{ color: colors.lightText }}>Manufacturer</Typography>
-                <Typography variant="body1" sx={{ color: colors.darkText }}>
+                <Typography variant="body1" sx={{ color: colors.darkNavy }}>
                   {viewingRequest.manufacturer || 'N/A'}
                 </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
                 <Typography variant="body2" sx={{ color: colors.lightText }}>Model</Typography>
-                <Typography variant="body1" sx={{ color: colors.darkText }}>
+                <Typography variant="body1" sx={{ color: colors.darkNavy }}>
                   {viewingRequest.model || 'N/A'}
                 </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
                 <Typography variant="body2" sx={{ color: colors.lightText }}>Quantity</Typography>
-                <Typography variant="body1" sx={{ color: colors.darkText }}>
+                <Typography variant="body1" sx={{ color: colors.darkNavy }}>
                   {viewingRequest.quantity}
                 </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
                 <Typography variant="body2" sx={{ color: colors.lightText }}>Estimated Cost</Typography>
-                <Typography variant="body1" fontWeight={600} sx={{ color: colors.accentGold }}>
+                <Typography variant="body1" fontWeight={600} sx={{ color: colors.lightCyanDark }}>
                   {viewingRequest.estimated_cost ? `$${parseFloat(viewingRequest.estimated_cost).toFixed(2)}` : '-'}
                 </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
                 <Typography variant="body2" sx={{ color: colors.lightText }}>Requested By</Typography>
-                <Typography variant="body1" sx={{ color: colors.darkText }}>
+                <Typography variant="body1" sx={{ color: colors.darkNavy }}>
                   {viewingRequest.requested_by || 'N/A'}
                 </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
                 <Typography variant="body2" sx={{ color: colors.lightText }}>Department</Typography>
-                <Typography variant="body1" sx={{ color: colors.darkText }}>
+                <Typography variant="body1" sx={{ color: colors.darkNavy }}>
                   {viewingRequest.department || 'N/A'}
                 </Typography>
               </Grid>
@@ -1478,7 +1662,7 @@ const Procurement = () => {
                   borderColor: colors.borderColor,
                   borderRadius: 2
                 }}>
-                  <Typography variant="body1" sx={{ color: colors.darkText }}>
+                  <Typography variant="body1" sx={{ color: colors.darkNavy }}>
                     {viewingRequest.justification || 'No justification provided'}
                   </Typography>
                 </Paper>
@@ -1508,8 +1692,8 @@ const Procurement = () => {
                           sx={{ 
                             textTransform: 'none',
                             borderColor: colors.borderColor,
-                            color: colors.darkText,
-                            '&:hover': { borderColor: colors.accentGold, color: colors.accentGold }
+                            color: colors.darkNavy,
+                            '&:hover': { borderColor: colors.lightCyan, color: colors.lightCyanDark }
                           }}
                         >
                           {url.split('/').pop().substring(0, 25)}
@@ -1533,7 +1717,11 @@ const Procurement = () => {
                         handleCloseView()
                         handleDeleteClick(viewingRequest)
                       }}
-                      sx={{ boxShadow: `0 4px 16px ${colors.error}44` }}
+                      sx={{ 
+                        boxShadow: `0 4px 16px ${colors.error}44`,
+                        textTransform: 'none',
+                        borderRadius: 2,
+                      }}
                     >
                       Delete Request
                     </Button>
@@ -1545,7 +1733,7 @@ const Procurement = () => {
               {viewingRequest.status !== 'Rejected' && viewingRequest.status !== 'Procured' && (
                 <Grid item xs={12}>
                   <Divider sx={{ my: 2, borderColor: colors.borderColor }} />
-                  <Typography variant="subtitle2" sx={{ color: colors.sidebar, mb: 1 }}>
+                  <Typography variant="subtitle2" sx={{ color: colors.darkNavy, mb: 1 }}>
                     Update Status
                   </Typography>
                   <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
@@ -1558,7 +1746,9 @@ const Procurement = () => {
                         sx={{ 
                           bgcolor: colors.info,
                           '&:hover': { bgcolor: '#0D47A1' },
-                          boxShadow: `0 4px 16px ${colors.info}44`
+                          boxShadow: `0 4px 16px ${colors.info}44`,
+                          textTransform: 'none',
+                          borderRadius: 2,
                         }}
                       >
                         Start Review
@@ -1574,7 +1764,9 @@ const Procurement = () => {
                           sx={{ 
                             bgcolor: colors.success,
                             '&:hover': { bgcolor: '#1B5E20' },
-                            boxShadow: `0 4px 16px ${colors.success}44`
+                            boxShadow: `0 4px 16px ${colors.success}44`,
+                            textTransform: 'none',
+                            borderRadius: 2,
                           }}
                         >
                           Approve
@@ -1585,6 +1777,10 @@ const Procurement = () => {
                           color="error"
                           onClick={() => handleReject(viewingRequest.id)}
                           startIcon={<Cancel />}
+                          sx={{
+                            textTransform: 'none',
+                            borderRadius: 2,
+                          }}
                         >
                           Reject
                         </Button>
@@ -1599,7 +1795,9 @@ const Procurement = () => {
                         sx={{ 
                           bgcolor: colors.success,
                           '&:hover': { bgcolor: '#1B5E20' },
-                          boxShadow: `0 4px 16px ${colors.success}44`
+                          boxShadow: `0 4px 16px ${colors.success}44`,
+                          textTransform: 'none',
+                          borderRadius: 2,
                         }}
                       >
                         Mark as Procured
@@ -1629,15 +1827,31 @@ const Procurement = () => {
           )}
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={handleCloseView} sx={{ color: colors.lightText }}>Close</Button>
+          <Button 
+            onClick={handleCloseView} 
+            sx={{ 
+              color: colors.darkNavy,
+              '&:hover': { 
+                backgroundColor: 'rgba(103, 232, 249, 0.04)'
+              },
+              textTransform: 'none',
+            }}
+          >
+            Close
+          </Button>
           {viewingRequest && viewingRequest.status !== 'Rejected' && viewingRequest.status !== 'Procured' && canEdit && (
             <Button 
               variant="contained" 
               startIcon={<Print />} 
               sx={{ 
-                bgcolor: colors.sidebar,
-                '&:hover': { bgcolor: colors.sidebarHover },
-                boxShadow: `0 4px 16px ${colors.sidebar}44`
+                bgcolor: colors.darkNavy,
+                '&:hover': { 
+                  bgcolor: colors.darkNavyHover,
+                  boxShadow: `0 4px 16px ${colors.lightCyanGlow}`
+                },
+                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+                textTransform: 'none',
+                borderRadius: 2,
               }}
               onClick={() => window.print()}
             >

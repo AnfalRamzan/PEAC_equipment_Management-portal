@@ -1,5 +1,5 @@
 // frontend/src/pages/Login.jsx
-// ✅ PAEC THEME - Transparent Logo (No White Background)
+// ✅ DARK NAVY + LIGHT CYAN THEME - Transparent Logo
 
 import React, { useState } from 'react';
 import {
@@ -19,27 +19,43 @@ import { Visibility, VisibilityOff, Email, Lock } from '@mui/icons-material';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { login } from '../redux/slices/authSlice';
+import { toast } from 'react-toastify'; // ✅ ADDED - Fixes the error
+import 'react-toastify/dist/ReactToastify.css'; // ✅ ADDED - Toast styles
 
 // ============================================================
-// ✅ PAEC THEME COLORS
+// ✅ DARK NAVY + LIGHT CYAN THEME COLORS
 // ============================================================
 const colors = {
-    sidebar: '#01411C',
-    sidebarHover: '#0B542B',
-    active: '#0E6335',
+    // Dark Navy Base
+    darkNavy: '#0F172A',
+    darkNavyLight: '#1E293B',
+    darkNavyDark: '#0A0F1E',
+    darkNavyHover: '#1E3A5F',
+    
+    // Light Cyan Accents
+    lightCyan: '#67E8F9',
+    lightCyanBright: '#A5F3FC',
+    lightCyanDark: '#22D3EE',
+    lightCyanGlow: 'rgba(103, 232, 249, 0.15)',
+    lightCyanGlowStrong: 'rgba(103, 232, 249, 0.3)',
+    
+    // Gold accent (keeping PAEC branding)
     accentGold: '#C9A227',
     goldLight: '#E8C84A',
+    
+    // Text
     text: '#FFFFFF',
-    secondaryText: '#B8C8BE',
-    mainBg: '#F0F2F5',
-    white: '#FFFFFF',
-    darkText: '#1A2A3A',
-    lightText: '#5A7A8A',
-    error: '#D32F2F',
-    success: '#2E7D32',
-    info: '#0B5FA5',
-    borderColor: 'rgba(1, 65, 28, 0.08)',
-    shadowColor: 'rgba(1, 65, 28, 0.08)',
+    secondaryText: '#94A3B8',
+    textLight: '#CBD5E1',
+    cyanText: '#67E8F9',
+    darkText: '#0F172A',
+    lightText: '#64748B',
+    
+    // Status colors
+    error: '#EF4444',
+    success: '#22C55E',
+    warning: '#F59E0B',
+    info: '#3B82F6',
 };
 
 const Login = () => {
@@ -73,9 +89,21 @@ const Login = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (validateForm()) {
-            const result = await dispatch(login(formData));
-            if (!result.error) {
-                navigate('/dashboard');
+            try {
+                console.log('📤 Sending login request:', { email: formData.email });
+                const result = await dispatch(login(formData));
+                console.log('📥 Login response:', result);
+                
+                if (result.payload && result.payload.user) {
+                    console.log('👤 Logged in user:', result.payload.user.email, 'Role:', result.payload.user.role);
+                    toast.success(`Welcome back, ${result.payload.user.full_name || result.payload.user.email}!`);
+                    navigate('/dashboard');
+                } else if (result.error) {
+                    toast.error(result.error.message || 'Login failed');
+                }
+            } catch (err) {
+                console.error('❌ Login error:', err);
+                toast.error(err.message || 'Login failed');
             }
         }
     };
@@ -98,7 +126,7 @@ const Login = () => {
                 margin: 0,
                 padding: 0,
                 background: videoError 
-                    ? `linear-gradient(135deg, ${colors.sidebar} 0%, ${colors.active} 50%, ${colors.sidebar} 100%)` 
+                    ? `linear-gradient(135deg, ${colors.darkNavy} 0%, ${colors.darkNavyLight} 50%, ${colors.darkNavy} 100%)` 
                     : 'none',
             }}
         >
@@ -130,7 +158,7 @@ const Login = () => {
                 </Box>
             )}
 
-            {/* Overlay */}
+            {/* Overlay - Dark Navy tint */}
             <Box
                 sx={{
                     position: 'absolute',
@@ -138,7 +166,7 @@ const Login = () => {
                     left: 0,
                     width: '100%',
                     height: '100%',
-                    background: 'linear-gradient(135deg, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.6) 100%)',
+                    background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.5) 0%, rgba(15, 23, 42, 0.7) 100%)',
                     zIndex: 1,
                 }}
             />
@@ -164,11 +192,11 @@ const Login = () => {
                         maxWidth: { xs: '92%', sm: 420, md: 440, lg: 460 },
                         p: { xs: 3, sm: 4, md: 4.5 },
                         borderRadius: { xs: 3, sm: 4 },
-                        background: `linear-gradient(135deg, rgba(1, 65, 28, 0.15) 0%, rgba(14, 99, 53, 0.10) 50%, rgba(1, 65, 28, 0.15) 100%)`,
-                        backgroundColor: 'rgba(255,255,255,0.88)',
+                        background: `linear-gradient(135deg, rgba(15, 23, 42, 0.12) 0%, rgba(30, 58, 95, 0.08) 50%, rgba(15, 23, 42, 0.12) 100%)`,
+                        backgroundColor: 'rgba(255,255,255,0.92)',
                         backdropFilter: 'blur(30px)',
                         WebkitBackdropFilter: 'blur(30px)',
-                        border: `1px solid rgba(201, 162, 39, 0.15)`,
+                        border: `1px solid rgba(103, 232, 249, 0.15)`,
                         boxShadow: '0 30px 80px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.2)',
                         transition: 'all 0.3s ease',
                         position: 'relative',
@@ -181,7 +209,7 @@ const Login = () => {
                             left: 0,
                             right: 0,
                             height: '4px',
-                            background: `linear-gradient(90deg, ${colors.sidebar}, ${colors.accentGold}, ${colors.sidebar})`,
+                            background: `linear-gradient(90deg, ${colors.darkNavy}, ${colors.lightCyan}, ${colors.accentGold}, ${colors.lightCyan}, ${colors.darkNavy})`,
                             backgroundSize: '200% 100%',
                             animation: 'gradient 3s ease infinite',
                             borderRadius: '4px 4px 0 0',
@@ -191,6 +219,10 @@ const Login = () => {
                             '50%': { backgroundPosition: '100% 50%' },
                             '100%': { backgroundPosition: '0% 50%' },
                         },
+                        '&:hover': {
+                            borderColor: `rgba(103, 232, 249, 0.25)`,
+                            boxShadow: '0 30px 80px rgba(0,0,0,0.5), 0 0 60px rgba(103, 232, 249, 0.05)',
+                        }
                     }}
                 >
                     <Box sx={{ position: 'relative', zIndex: 1 }}>
@@ -204,7 +236,6 @@ const Login = () => {
                                     position: 'relative',
                                 }}
                             >
-                                {/* ✅ Transparent Logo - No White Background */}
                                 <Box sx={{ position: 'relative' }}>
                                     <img
                                         src="/logoo.png"
@@ -216,24 +247,24 @@ const Login = () => {
                                             padding: '0px',
                                             borderRadius: '0px',
                                             border: 'none',
-                                            filter: 'drop-shadow(0 0 30px rgba(201, 162, 39, 0.2))',
+                                            filter: 'drop-shadow(0 0 40px rgba(103, 232, 249, 0.2))',
                                             objectFit: 'contain',
                                             transition: 'all 0.3s ease',
                                         }}
                                         onMouseEnter={(e) => {
                                             e.target.style.transform = 'scale(1.05)';
-                                            e.target.style.filter = 'drop-shadow(0 0 50px rgba(201, 162, 39, 0.4))';
+                                            e.target.style.filter = 'drop-shadow(0 0 60px rgba(103, 232, 249, 0.4))';
                                         }}
                                         onMouseLeave={(e) => {
                                             e.target.style.transform = 'scale(1)';
-                                            e.target.style.filter = 'drop-shadow(0 0 30px rgba(201, 162, 39, 0.2))';
+                                            e.target.style.filter = 'drop-shadow(0 0 40px rgba(103, 232, 249, 0.2))';
                                         }}
                                         onError={(e) => { 
                                             console.warn('⚠️ Logo not found');
                                             e.target.style.display = 'none'; 
                                         }}
                                     />
-                                    {/* ✅ Gold Glow Behind Logo */}
+                                    {/* Cyan Glow Behind Logo */}
                                     <Box
                                         sx={{
                                             position: 'absolute',
@@ -242,7 +273,7 @@ const Login = () => {
                                             right: '-30px',
                                             bottom: '-30px',
                                             borderRadius: '50%',
-                                            background: `radial-gradient(circle, ${colors.accentGold}08 0%, transparent 70%)`,
+                                            background: `radial-gradient(circle, rgba(103, 232, 249, 0.08) 0%, transparent 70%)`,
                                             animation: 'pulseGlow 3s ease-in-out infinite',
                                             pointerEvents: 'none',
                                         }}
@@ -255,8 +286,22 @@ const Login = () => {
                                             right: '-50px',
                                             bottom: '-50px',
                                             borderRadius: '50%',
-                                            background: `radial-gradient(circle, ${colors.accentGold}04 0%, transparent 70%)`,
+                                            background: `radial-gradient(circle, rgba(103, 232, 249, 0.04) 0%, transparent 70%)`,
                                             animation: 'pulseGlow 3s ease-in-out infinite 1s',
+                                            pointerEvents: 'none',
+                                        }}
+                                    />
+                                    {/* Gold accent glow */}
+                                    <Box
+                                        sx={{
+                                            position: 'absolute',
+                                            top: '-40px',
+                                            left: '-40px',
+                                            right: '-40px',
+                                            bottom: '-40px',
+                                            borderRadius: '50%',
+                                            background: `radial-gradient(circle, rgba(201, 162, 39, 0.04) 0%, transparent 70%)`,
+                                            animation: 'pulseGlow 4s ease-in-out infinite 0.5s',
                                             pointerEvents: 'none',
                                         }}
                                     />
@@ -267,7 +312,7 @@ const Login = () => {
                                 variant="h5"
                                 sx={{
                                     fontWeight: 700,
-                                    color: colors.sidebar,
+                                    color: colors.darkNavy,
                                     fontSize: { xs: '1.2rem', sm: '1.4rem', md: '1.6rem' },
                                     letterSpacing: '0.5px',
                                     lineHeight: 1.3,
@@ -291,14 +336,14 @@ const Login = () => {
                             </Typography>
                         </Box>
 
-                        {/* Error Alert */}
+                        {/* Error Alert - Cyan themed */}
                         {error && (
                             <Alert 
                                 severity="error" 
                                 sx={{ 
                                     mb: 2.5, 
-                                    backgroundColor: 'rgba(211, 47, 47, 0.08)',
-                                    border: '1px solid rgba(211, 47, 47, 0.2)',
+                                    backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                                    border: '1px solid rgba(239, 68, 68, 0.2)',
                                     borderRadius: 2,
                                     fontWeight: 500,
                                 }}
@@ -325,13 +370,13 @@ const Login = () => {
                                         borderRadius: 2.5,
                                         transition: 'all 0.3s ease',
                                         '&:hover fieldset': {
-                                            borderColor: colors.sidebar,
+                                            borderColor: colors.lightCyan,
                                             borderWidth: 2,
                                         },
                                         '&.Mui-focused fieldset': {
-                                            borderColor: colors.accentGold,
+                                            borderColor: colors.lightCyanDark,
                                             borderWidth: 2.5,
-                                            boxShadow: `0 0 0 6px ${colors.accentGold}22`,
+                                            boxShadow: `0 0 0 6px ${colors.lightCyanGlow}`,
                                         },
                                     },
                                     '& .MuiInputLabel-root': {
@@ -340,7 +385,7 @@ const Login = () => {
                                         color: colors.lightText,
                                     },
                                     '& .MuiInputLabel-root.Mui-focused': {
-                                        color: colors.sidebar,
+                                        color: colors.darkNavy,
                                         fontWeight: 700,
                                     },
                                 }}
@@ -377,13 +422,13 @@ const Login = () => {
                                         borderRadius: 2.5,
                                         transition: 'all 0.3s ease',
                                         '&:hover fieldset': {
-                                            borderColor: colors.sidebar,
+                                            borderColor: colors.lightCyan,
                                             borderWidth: 2,
                                         },
                                         '&.Mui-focused fieldset': {
-                                            borderColor: colors.accentGold,
+                                            borderColor: colors.lightCyanDark,
                                             borderWidth: 2.5,
-                                            boxShadow: `0 0 0 6px ${colors.accentGold}22`,
+                                            boxShadow: `0 0 0 6px ${colors.lightCyanGlow}`,
                                         },
                                     },
                                     '& .MuiInputLabel-root': {
@@ -392,7 +437,7 @@ const Login = () => {
                                         color: colors.lightText,
                                     },
                                     '& .MuiInputLabel-root.Mui-focused': {
-                                        color: colors.sidebar,
+                                        color: colors.darkNavy,
                                         fontWeight: 700,
                                     },
                                 }}
@@ -410,8 +455,8 @@ const Login = () => {
                                                 sx={{ 
                                                     color: colors.lightText,
                                                     '&:hover': {
-                                                        color: colors.accentGold,
-                                                        backgroundColor: `${colors.accentGold}22`,
+                                                        color: colors.lightCyanDark,
+                                                        backgroundColor: `${colors.lightCyanGlow}`,
                                                     }
                                                 }}
                                             >
@@ -430,7 +475,7 @@ const Login = () => {
                                 }}
                             />
 
-                            {/* Login Button */}
+                            {/* Login Button - Dark Navy + Cyan */}
                             <Button
                                 fullWidth
                                 type="submit"
@@ -438,19 +483,19 @@ const Login = () => {
                                 disabled={loading}
                                 sx={{
                                     py: { xs: 1.5, sm: 1.8 },
-                                    background: `linear-gradient(135deg, ${colors.sidebar} 0%, ${colors.active} 50%, ${colors.sidebar} 100%)`,
+                                    background: `linear-gradient(135deg, ${colors.darkNavy} 0%, ${colors.darkNavyHover} 50%, ${colors.darkNavy} 100%)`,
                                     backgroundSize: '200% 200%',
                                     animation: 'buttonGradient 3s ease infinite',
                                     '&:hover': { 
-                                        background: `linear-gradient(135deg, ${colors.sidebarHover} 0%, ${colors.active} 50%, ${colors.sidebarHover} 100%)`,
+                                        background: `linear-gradient(135deg, ${colors.darkNavyHover} 0%, ${colors.lightCyanDark} 50%, ${colors.darkNavyHover} 100%)`,
                                         transform: 'translateY(-2px) scale(1.01)',
-                                        boxShadow: `0 10px 35px ${colors.sidebar}66`,
+                                        boxShadow: `0 10px 35px ${colors.lightCyanGlowStrong}`,
                                     },
                                     borderRadius: 2.5,
                                     fontSize: { xs: '16px', sm: '18px' },
                                     fontWeight: 700,
                                     mt: 1,
-                                    boxShadow: `0 6px 25px ${colors.sidebar}44`,
+                                    boxShadow: `0 6px 25px ${colors.lightCyanGlow}`,
                                     textTransform: 'none',
                                     letterSpacing: '0.8px',
                                     transition: 'all 0.3s ease',

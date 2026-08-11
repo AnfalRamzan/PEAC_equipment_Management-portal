@@ -1,5 +1,5 @@
 // src/pages/ErrorLogs.jsx
-// ✅ PAEC THEME - Green & Gold Colors
+// ✅ DARK NAVY + LIGHT CYAN THEME - Matching Sidebar
 
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -15,7 +15,7 @@ import {
   Button,
   IconButton,
   TextField,
-  InputAdornment,  // ✅ ADDED - Fixes the error
+  InputAdornment,
   Chip,
   Dialog,
   DialogTitle,
@@ -52,27 +52,45 @@ import api from '../api/axios'
 import AccessDenied from '../components/Auth/AccessDenied'
 
 // ============================================================
-// ✅ PAEC THEME COLORS
+// ✅ DARK NAVY + LIGHT CYAN THEME COLORS
 // ============================================================
 const colors = {
-  sidebar: '#01411C',
-  sidebarHover: '#0B542B',
-  active: '#0E6335',
+  // Dark Navy Base
+  darkNavy: '#0F172A',
+  darkNavyLight: '#1E293B',
+  darkNavyDark: '#0A0F1E',
+  darkNavyHover: '#1E3A5F',
+  
+  // Light Cyan Accents
+  lightCyan: '#67E8F9',
+  lightCyanBright: '#A5F3FC',
+  lightCyanDark: '#22D3EE',
+  lightCyanGlow: 'rgba(103, 232, 249, 0.15)',
+  lightCyanGlowStrong: 'rgba(103, 232, 249, 0.3)',
+  
+  // Gold accent (keeping PAEC branding)
   accentGold: '#C9A227',
   goldLight: '#E8C84A',
+  
+  // Text
   text: '#FFFFFF',
-  secondaryText: '#B8C8BE',
-  mainBg: '#F0F2F5',
-  white: '#FFFFFF',
-  darkText: '#1A2A3A',
-  lightText: '#5A7A8A',
-  error: '#D32F2F',
-  success: '#2E7D32',
-  warning: '#ED6C02',
-  info: '#0B5FA5',
-  borderColor: 'rgba(1, 65, 28, 0.08)',
-  shadowColor: 'rgba(1, 65, 28, 0.08)',
+  secondaryText: '#94A3B8',
+  textLight: '#CBD5E1',
+  cyanText: '#67E8F9',
+  darkText: '#0F172A',
+  lightText: '#64748B',
+  
+  // Cards/Background
   cardBg: '#FFFFFF',
+  borderColor: 'rgba(103, 232, 249, 0.1)',
+  shadowColor: 'rgba(15, 23, 42, 0.08)',
+  mainBg: '#F1F5F9',
+  
+  // Status colors
+  error: '#EF4444',
+  success: '#22C55E',
+  warning: '#F59E0B',
+  info: '#3B82F6',
 }
 
 const ErrorLogs = () => {
@@ -395,14 +413,29 @@ const ErrorLogs = () => {
   const resolvedErrors = errors.filter(e => e.status === 'Resolved' || e.status === 'Closed').length
 
   if (loading) {
-    return <LinearProgress sx={{ bgcolor: colors.borderColor, '& .MuiLinearProgress-bar': { bgcolor: colors.accentGold } }} />
+    return <LinearProgress sx={{ bgcolor: colors.borderColor, '& .MuiLinearProgress-bar': { bgcolor: colors.lightCyan } }} />
   }
 
   return (
     <Box>
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700, color: colors.sidebar }}>
+        <Typography 
+          variant="h5" 
+          sx={{ 
+            fontWeight: 700, 
+            color: colors.darkNavy,
+            '&::after': {
+              content: '""',
+              display: 'block',
+              width: '40px',
+              height: '3px',
+              background: `linear-gradient(90deg, ${colors.lightCyan}, ${colors.darkNavy})`,
+              borderRadius: '2px',
+              marginTop: '4px',
+            }
+          }}
+        >
           Error Logs
         </Typography>
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
@@ -412,9 +445,13 @@ const ErrorLogs = () => {
             onClick={fetchErrors}
             size="small"
             sx={{ 
-              borderColor: colors.sidebar, 
-              color: colors.sidebar,
-              '&:hover': { borderColor: colors.accentGold, color: colors.accentGold }
+              borderColor: colors.borderColor, 
+              color: colors.darkNavy,
+              '&:hover': { 
+                borderColor: colors.lightCyan, 
+                color: colors.lightCyanDark,
+                backgroundColor: 'rgba(103, 232, 249, 0.04)'
+              }
             }}
           >
             Refresh
@@ -425,9 +462,14 @@ const ErrorLogs = () => {
               startIcon={<Add />}
               onClick={() => handleOpenDialog()}
               sx={{ 
-                bgcolor: colors.sidebar, 
-                '&:hover': { bgcolor: colors.sidebarHover },
-                boxShadow: `0 4px 16px ${colors.sidebar}44`
+                bgcolor: colors.darkNavy, 
+                '&:hover': { 
+                  bgcolor: colors.darkNavyHover,
+                  boxShadow: `0 4px 20px ${colors.lightCyanGlowStrong}`
+                },
+                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+                borderRadius: 2,
+                textTransform: 'none',
               }}
             >
               Report Error
@@ -436,16 +478,20 @@ const ErrorLogs = () => {
         </Box>
       </Box>
 
-      {/* Stats Cards */}
+      {/* Stats Cards - DARK NAVY + CYAN THEMED */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={6} sm={3}>
           <Card sx={{ 
             borderRadius: 2, 
             border: `1px solid ${colors.borderColor}`,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.04)'
+            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+            '&:hover': {
+              borderColor: colors.lightCyan,
+              boxShadow: `0 4px 20px ${colors.lightCyanGlow}`
+            }
           }}>
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" sx={{ color: colors.sidebar, fontWeight: 700 }}>
+              <Typography variant="h4" sx={{ color: colors.darkNavy, fontWeight: 700 }}>
                 {totalErrors}
               </Typography>
               <Typography variant="body2" sx={{ color: colors.lightText }}>Total Errors</Typography>
@@ -457,7 +503,11 @@ const ErrorLogs = () => {
             borderRadius: 2, 
             border: `1px solid ${colors.warning}33`,
             boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-            bgcolor: `${colors.warning}08`
+            bgcolor: `${colors.warning}08`,
+            '&:hover': {
+              borderColor: colors.warning,
+              boxShadow: `0 4px 20px rgba(245, 158, 11, 0.15)`
+            }
           }}>
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
               <Typography variant="h4" sx={{ color: colors.warning, fontWeight: 700 }}>
@@ -472,7 +522,11 @@ const ErrorLogs = () => {
             borderRadius: 2, 
             border: `1px solid ${colors.info}33`,
             boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-            bgcolor: `${colors.info}08`
+            bgcolor: `${colors.info}08`,
+            '&:hover': {
+              borderColor: colors.info,
+              boxShadow: `0 4px 20px rgba(59, 130, 246, 0.15)`
+            }
           }}>
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
               <Typography variant="h4" sx={{ color: colors.info, fontWeight: 700 }}>
@@ -487,7 +541,11 @@ const ErrorLogs = () => {
             borderRadius: 2, 
             border: `1px solid ${colors.success}33`,
             boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-            bgcolor: `${colors.success}08`
+            bgcolor: `${colors.success}08`,
+            '&:hover': {
+              borderColor: colors.success,
+              boxShadow: `0 4px 20px rgba(34, 197, 94, 0.15)`
+            }
           }}>
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
               <Typography variant="h4" sx={{ color: colors.success, fontWeight: 700 }}>
@@ -505,7 +563,8 @@ const ErrorLogs = () => {
         mb: 3, 
         borderRadius: 2,
         border: `1px solid ${colors.borderColor}`,
-        boxShadow: '0 2px 12px rgba(0,0,0,0.04)'
+        boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+        bgcolor: colors.cardBg,
       }}>
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
           <TextField
@@ -522,8 +581,8 @@ const ErrorLogs = () => {
               ),
               sx: {
                 '& .MuiOutlinedInput-root': {
-                  '&:hover fieldset': { borderColor: colors.sidebar },
-                  '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  '&:hover fieldset': { borderColor: colors.lightCyan },
+                  '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                 }
               }
             }}
@@ -536,8 +595,8 @@ const ErrorLogs = () => {
               label="Severity"
               sx={{
                 '& .MuiOutlinedInput-root': {
-                  '&:hover fieldset': { borderColor: colors.sidebar },
-                  '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  '&:hover fieldset': { borderColor: colors.lightCyan },
+                  '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                 }
               }}
             >
@@ -551,10 +610,17 @@ const ErrorLogs = () => {
         </Box>
       </Paper>
 
-      {/* Table */}
-      <TableContainer component={Paper} sx={{ borderRadius: 2, border: `1px solid ${colors.borderColor}` }}>
+      {/* Table - DARK NAVY + LIGHT CYAN THEMED */}
+      <TableContainer 
+        component={Paper} 
+        sx={{ 
+          borderRadius: 2, 
+          border: `1px solid ${colors.borderColor}`,
+          boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+        }}
+      >
         <Table>
-          <TableHead sx={{ bgcolor: colors.sidebar }}>
+          <TableHead sx={{ bgcolor: colors.darkNavy }}>
             <TableRow>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Error</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Equipment</TableCell>
@@ -576,9 +642,18 @@ const ErrorLogs = () => {
               </TableRow>
             ) : (
               filteredErrors.map((error) => (
-                <TableRow key={error.id} hover>
+                <TableRow 
+                  key={error.id} 
+                  hover
+                  sx={{
+                    '&:hover': {
+                      backgroundColor: 'rgba(103, 232, 249, 0.04)',
+                    },
+                    '&:last-child td': { borderBottom: 0 }
+                  }}
+                >
                   <TableCell>
-                    <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkText }}>
+                    <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>
                       {error.error_title}
                     </Typography>
                     <Typography variant="caption" sx={{ color: colors.lightText }}>
@@ -635,7 +710,13 @@ const ErrorLogs = () => {
                         <IconButton 
                           size="small" 
                           onClick={() => handleViewError(error)}
-                          sx={{ color: colors.sidebar, '&:hover': { color: colors.accentGold } }}
+                          sx={{ 
+                            color: colors.darkNavy, 
+                            '&:hover': { 
+                              color: colors.lightCyanDark,
+                              backgroundColor: 'rgba(103, 232, 249, 0.08)'
+                            } 
+                          }}
                         >
                           <Visibility fontSize="small" />
                         </IconButton>
@@ -661,9 +742,25 @@ const ErrorLogs = () => {
         </Table>
       </TableContainer>
 
-      {/* REPORT ERROR DIALOG - THEMED */}
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ bgcolor: colors.sidebar, color: 'white' }}>
+      {/* REPORT ERROR DIALOG - DARK NAVY + CYAN THEMED */}
+      <Dialog 
+        open={openDialog} 
+        onClose={handleCloseDialog} 
+        maxWidth="md" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          bgcolor: colors.darkNavy, 
+          color: 'white',
+          borderRadius: '8px 8px 0 0',
+        }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6" fontWeight={600}>
               Report New Error
@@ -685,8 +782,8 @@ const ErrorLogs = () => {
                   label="Hospital"
                   sx={{
                     '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.sidebar },
-                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                     }
                   }}
                 >
@@ -708,8 +805,8 @@ const ErrorLogs = () => {
                   label="Department"
                   sx={{
                     '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.sidebar },
-                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                     }
                   }}
                 >
@@ -732,8 +829,8 @@ const ErrorLogs = () => {
                   label="Equipment *"
                   sx={{
                     '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.sidebar },
-                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                     }
                   }}
                 >
@@ -760,8 +857,8 @@ const ErrorLogs = () => {
                 placeholder="e.g., ERR-001"
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.sidebar },
-                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
@@ -778,8 +875,8 @@ const ErrorLogs = () => {
                   label="Severity *"
                   sx={{
                     '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.sidebar },
-                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                     }
                   }}
                 >
@@ -805,8 +902,8 @@ const ErrorLogs = () => {
                   label="Priority *"
                   sx={{
                     '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.sidebar },
-                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                     }
                   }}
                 >
@@ -835,8 +932,8 @@ const ErrorLogs = () => {
                 helperText={errors_validation.error_title}
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.sidebar },
-                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
@@ -854,8 +951,8 @@ const ErrorLogs = () => {
                 placeholder="Detailed description of the error"
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.sidebar },
-                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
@@ -876,8 +973,8 @@ const ErrorLogs = () => {
                 helperText={errors_validation.error_date}
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.sidebar },
-                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
@@ -926,14 +1023,30 @@ const ErrorLogs = () => {
           </Grid>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={handleCloseDialog} sx={{ color: colors.lightText }}>Cancel</Button>
+          <Button 
+            onClick={handleCloseDialog} 
+            sx={{ 
+              color: colors.darkNavy,
+              '&:hover': { 
+                backgroundColor: 'rgba(103, 232, 249, 0.04)'
+              },
+              textTransform: 'none',
+            }}
+          >
+            Cancel
+          </Button>
           <Button 
             variant="contained" 
             onClick={handleSubmit} 
             sx={{ 
-              bgcolor: colors.sidebar, 
-              '&:hover': { bgcolor: colors.sidebarHover },
-              boxShadow: `0 4px 16px ${colors.sidebar}44`
+              bgcolor: colors.darkNavy, 
+              '&:hover': { 
+                bgcolor: colors.darkNavyHover,
+                boxShadow: `0 4px 20px ${colors.lightCyanGlowStrong}`
+              },
+              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+              textTransform: 'none',
+              borderRadius: 2,
             }}
           >
             Report Error
@@ -941,20 +1054,24 @@ const ErrorLogs = () => {
         </DialogActions>
       </Dialog>
 
-      {/* VIEW ERROR DIALOG - THEMED */}
+      {/* VIEW ERROR DIALOG - DARK NAVY + CYAN THEMED */}
       <Dialog 
         open={openViewDialog} 
         onClose={handleCloseView} 
         maxWidth="md" 
         fullWidth
         PaperProps={{
-          sx: { borderRadius: 3 }
+          sx: { 
+            borderRadius: 3,
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+          }
         }}
       >
         <DialogTitle sx={{ 
-          bgcolor: colors.sidebar, 
+          bgcolor: colors.darkNavy, 
           color: 'white',
-          pb: 1
+          borderRadius: '8px 8px 0 0',
         }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <Box>
@@ -983,7 +1100,7 @@ const ErrorLogs = () => {
                 <CardContent>
                   <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
                     <Box flex={1}>
-                      <Typography variant="h6" fontWeight={700} sx={{ color: colors.darkText }}>
+                      <Typography variant="h6" fontWeight={700} sx={{ color: colors.darkNavy }}>
                         {viewingError.error_title}
                       </Typography>
                       <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 0.5 }}>
@@ -1035,7 +1152,7 @@ const ErrorLogs = () => {
                             label={`Code: ${viewingError.error_code}`} 
                             size="small"
                             sx={{
-                              bgcolor: colors.sidebar,
+                              bgcolor: colors.darkNavy,
                               color: 'white',
                               fontWeight: 500,
                               height: 22,
@@ -1058,7 +1175,7 @@ const ErrorLogs = () => {
                     border: `1px solid ${colors.borderColor}`
                   }}>
                     <Typography variant="caption" sx={{ color: colors.lightText }}>Equipment</Typography>
-                    <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkText }}>
+                    <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkNavy }}>
                       {viewingError.equipment_name || 'N/A'}
                     </Typography>
                   </Paper>
@@ -1071,7 +1188,7 @@ const ErrorLogs = () => {
                     border: `1px solid ${colors.borderColor}`
                   }}>
                     <Typography variant="caption" sx={{ color: colors.lightText }}>Hospital</Typography>
-                    <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkText }}>
+                    <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkNavy }}>
                       {viewingError.hospital_name || 'N/A'}
                     </Typography>
                   </Paper>
@@ -1084,7 +1201,7 @@ const ErrorLogs = () => {
                     border: `1px solid ${colors.borderColor}`
                   }}>
                     <Typography variant="caption" sx={{ color: colors.lightText }}>Reported By</Typography>
-                    <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkText }}>
+                    <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkNavy }}>
                       {viewingError.reported_by_name || 'Unknown'}
                     </Typography>
                   </Paper>
@@ -1097,7 +1214,7 @@ const ErrorLogs = () => {
                     border: `1px solid ${colors.borderColor}`
                   }}>
                     <Typography variant="caption" sx={{ color: colors.lightText }}>Error Date</Typography>
-                    <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkText }}>
+                    <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkNavy }}>
                       {viewingError.error_date ? new Date(viewingError.error_date).toLocaleString() : 'N/A'}
                     </Typography>
                   </Paper>
@@ -1110,14 +1227,14 @@ const ErrorLogs = () => {
                     border: `1px solid ${colors.borderColor}`
                   }}>
                     <Typography variant="caption" sx={{ color: colors.lightText }}>Department</Typography>
-                    <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkText }}>
+                    <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkNavy }}>
                       {viewingError.department_name || 'N/A'}
                     </Typography>
                   </Paper>
                 </Grid>
               </Grid>
 
-              <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1, color: colors.sidebar }}>
+              <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1, color: colors.darkNavy }}>
                 Error Description
               </Typography>
               <Paper sx={{ 
@@ -1127,14 +1244,14 @@ const ErrorLogs = () => {
                 mb: 3,
                 border: `1px solid ${colors.borderColor}`
               }}>
-                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', color: colors.darkText }}>
+                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', color: colors.darkNavy }}>
                   {viewingError.error_description || 'No description provided'}
                 </Typography>
               </Paper>
 
               {viewingError.attachments && viewingError.attachments.split(',').filter(Boolean).length > 0 && (
                 <Box sx={{ mb: 3 }}>
-                  <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1, color: colors.sidebar }}>
+                  <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1, color: colors.darkNavy }}>
                     Attachments ({viewingError.attachments.split(',').filter(Boolean).length})
                   </Typography>
                   <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
@@ -1205,7 +1322,18 @@ const ErrorLogs = () => {
         </DialogContent>
         
         <DialogActions sx={{ p: 3, justifyContent: 'space-between' }}>
-          <Button onClick={handleCloseView} sx={{ color: colors.lightText }}>Close</Button>
+          <Button 
+            onClick={handleCloseView} 
+            sx={{ 
+              color: colors.darkNavy,
+              '&:hover': { 
+                backgroundColor: 'rgba(103, 232, 249, 0.04)'
+              },
+              textTransform: 'none',
+            }}
+          >
+            Close
+          </Button>
           {isSuperAdmin && viewingError && (
             <Button
               variant="contained"
@@ -1217,7 +1345,11 @@ const ErrorLogs = () => {
                 }
               }}
               startIcon={<Delete />}
-              sx={{ boxShadow: `0 4px 16px ${colors.error}44` }}
+              sx={{ 
+                boxShadow: `0 4px 16px ${colors.error}44`,
+                textTransform: 'none',
+                borderRadius: 2,
+              }}
             >
               Delete
             </Button>

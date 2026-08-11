@@ -1,5 +1,5 @@
 // src/pages/ServiceDocumentation.jsx
-// ✅ PAEC THEME - Green & Gold Colors - Enhanced Cards
+// ✅ DARK NAVY + LIGHT CYAN THEME - Matching Sidebar
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -71,31 +71,49 @@ import api from '../api/axios'
 import AccessDenied from '../components/Auth/AccessDenied'
 
 // ============================================================
-// ✅ PAEC THEME COLORS
+// ✅ DARK NAVY + LIGHT CYAN THEME COLORS
 // ============================================================
 const colors = {
-  sidebar: '#01411C',
-  sidebarHover: '#0B542B',
-  active: '#0E6335',
+  // Dark Navy Base
+  darkNavy: '#0F172A',
+  darkNavyLight: '#1E293B',
+  darkNavyDark: '#0A0F1E',
+  darkNavyHover: '#1E3A5F',
+  
+  // Light Cyan Accents
+  lightCyan: '#67E8F9',
+  lightCyanBright: '#A5F3FC',
+  lightCyanDark: '#22D3EE',
+  lightCyanGlow: 'rgba(103, 232, 249, 0.15)',
+  lightCyanGlowStrong: 'rgba(103, 232, 249, 0.3)',
+  
+  // Gold accent (keeping PAEC branding)
   accentGold: '#C9A227',
   goldLight: '#E8C84A',
+  
+  // Text
   text: '#FFFFFF',
-  secondaryText: '#B8C8BE',
-  mainBg: '#F0F2F5',
-  white: '#FFFFFF',
-  darkText: '#1A2A3A',
-  lightText: '#5A7A8A',
-  error: '#D32F2F',
-  success: '#2E7D32',
-  warning: '#ED6C02',
-  info: '#0B5FA5',
-  borderColor: 'rgba(1, 65, 28, 0.08)',
-  shadowColor: 'rgba(1, 65, 28, 0.08)',
+  secondaryText: '#94A3B8',
+  textLight: '#CBD5E1',
+  cyanText: '#67E8F9',
+  darkText: '#0F172A',
+  lightText: '#64748B',
+  
+  // Cards/Background
   cardBg: '#FFFFFF',
+  borderColor: 'rgba(103, 232, 249, 0.1)',
+  shadowColor: 'rgba(15, 23, 42, 0.08)',
+  mainBg: '#F1F5F9',
+  
+  // Status colors
+  error: '#EF4444',
+  success: '#22C55E',
+  warning: '#F59E0B',
+  info: '#3B82F6',
 }
 
 // ============================================================
-// ✅ ENHANCED STAT CARD COMPONENT
+// ✅ ENHANCED STAT CARD COMPONENT - DARK NAVY + CYAN
 // ============================================================
 const StatCard = ({ title, value, icon, color, bgColor, subtext }) => (
   <Grow in timeout={300}>
@@ -108,8 +126,8 @@ const StatCard = ({ title, value, icon, color, bgColor, subtext }) => (
       overflow: 'hidden',
       '&:hover': {
         transform: 'translateY(-4px)',
-        boxShadow: `0 8px 30px ${colors.shadowColor}`,
-        borderColor: colors.accentGold,
+        boxShadow: `0 8px 30px ${colors.lightCyanGlow}`,
+        borderColor: colors.lightCyan,
       }
     }}>
       <CardContent sx={{ textAlign: 'center', py: 3, position: 'relative', zIndex: 1 }}>
@@ -120,15 +138,15 @@ const StatCard = ({ title, value, icon, color, bgColor, subtext }) => (
           mb: 1.5
         }}>
           <Avatar sx={{ 
-            bgcolor: bgColor || color || colors.sidebar,
+            bgcolor: bgColor || color || colors.darkNavy,
             width: 48,
             height: 48,
-            boxShadow: `0 4px 16px ${color || colors.sidebar}44`
+            boxShadow: `0 4px 16px ${color || colors.darkNavy}44`
           }}>
             {icon}
           </Avatar>
         </Box>
-        <Typography variant="h4" sx={{ color: colors.darkText, fontWeight: 700 }}>
+        <Typography variant="h4" sx={{ color: colors.darkNavy, fontWeight: 700 }}>
           {value}
         </Typography>
         <Typography variant="body2" sx={{ color: colors.lightText, fontWeight: 500 }}>
@@ -146,7 +164,7 @@ const StatCard = ({ title, value, icon, color, bgColor, subtext }) => (
           width: 100,
           height: 100,
           borderRadius: '50%',
-          background: `radial-gradient(circle, ${color || colors.sidebar}08 0%, transparent 70%)`,
+          background: `radial-gradient(circle, ${color || colors.darkNavy}08 0%, transparent 70%)`,
           pointerEvents: 'none',
         }} />
       </CardContent>
@@ -155,7 +173,7 @@ const StatCard = ({ title, value, icon, color, bgColor, subtext }) => (
 )
 
 // ============================================================
-// ✅ ENHANCED DOCUMENT CARD
+// ✅ ENHANCED DOCUMENT CARD - DARK NAVY + CYAN
 // ============================================================
 const DocumentCard = ({ doc, onView, onEdit, onDelete, onDownload, canEdit, canDelete }) => {
   const [isHovered, setIsHovered] = useState(false)
@@ -191,9 +209,9 @@ const DocumentCard = ({ doc, onView, onEdit, onDelete, onDownload, canEdit, canD
           position: 'relative',
           overflow: 'hidden',
           transform: isHovered ? 'translateY(-8px)' : 'translateY(0)',
-          boxShadow: isHovered ? `0 12px 40px ${colors.shadowColor}` : '0 2px 12px rgba(0,0,0,0.04)',
+          boxShadow: isHovered ? `0 12px 40px ${colors.lightCyanGlow}` : '0 2px 12px rgba(0,0,0,0.04)',
           '&:hover': {
-            borderColor: colors.accentGold,
+            borderColor: colors.lightCyan,
           },
           height: '100%',
           display: 'flex',
@@ -202,14 +220,14 @@ const DocumentCard = ({ doc, onView, onEdit, onDelete, onDownload, canEdit, canD
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        {/* Top Gradient Bar */}
+        {/* Top Gradient Bar - Dark Navy to Cyan */}
         <Box sx={{
           position: 'absolute',
           top: 0,
           left: 0,
           right: 0,
           height: 4,
-          background: `linear-gradient(90deg, ${colors.sidebar}, ${colors.accentGold})`,
+          background: `linear-gradient(90deg, ${colors.darkNavy}, ${colors.lightCyan})`,
         }} />
         
         {/* Decorative Background */}
@@ -220,7 +238,7 @@ const DocumentCard = ({ doc, onView, onEdit, onDelete, onDownload, canEdit, canD
           width: 80,
           height: 80,
           borderRadius: '50%',
-          background: `radial-gradient(circle, ${colors.sidebar}06 0%, transparent 70%)`,
+          background: `radial-gradient(circle, ${colors.darkNavy}06 0%, transparent 70%)`,
           pointerEvents: 'none',
         }} />
         
@@ -257,7 +275,7 @@ const DocumentCard = ({ doc, onView, onEdit, onDelete, onDownload, canEdit, canD
             </Badge>
             
             <Box sx={{ flex: 1, minWidth: 0 }}>
-              <Typography variant="h6" fontWeight={700} sx={{ color: colors.darkText, mb: 0.5 }}>
+              <Typography variant="h6" fontWeight={700} sx={{ color: colors.darkNavy, mb: 0.5 }}>
                 {doc.title}
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
@@ -265,12 +283,12 @@ const DocumentCard = ({ doc, onView, onEdit, onDelete, onDownload, canEdit, canD
                   label={doc.category}
                   size="small"
                   sx={{
-                    bgcolor: colors.sidebar + '10',
-                    color: colors.sidebar,
+                    bgcolor: colors.darkNavy + '10',
+                    color: colors.darkNavy,
                     fontWeight: 500,
                     fontSize: '10px',
                     height: 20,
-                    border: `1px solid ${colors.sidebar}20`
+                    border: `1px solid ${colors.darkNavy}20`
                   }}
                 />
                 <Box sx={{ width: 4, height: 4, borderRadius: '50%', bgcolor: colors.borderColor }} />
@@ -319,7 +337,7 @@ const DocumentCard = ({ doc, onView, onEdit, onDelete, onDownload, canEdit, canD
           )}
         </CardContent>
 
-        {/* Actions */}
+        {/* Actions - CYAN THEMED */}
         <CardActions sx={{ p: 2, pt: 0, gap: 0.5, flexWrap: 'wrap' }}>
           <Tooltip title="View Details">
             <Button 
@@ -327,8 +345,11 @@ const DocumentCard = ({ doc, onView, onEdit, onDelete, onDownload, canEdit, canD
               startIcon={<Visibility sx={{ fontSize: 18 }} />}
               onClick={() => onView(doc)}
               sx={{ 
-                color: colors.sidebar,
-                '&:hover': { color: colors.accentGold, bgcolor: `${colors.accentGold}10` },
+                color: colors.darkNavy,
+                '&:hover': { 
+                  color: colors.lightCyanDark, 
+                  bgcolor: 'rgba(103, 232, 249, 0.08)' 
+                },
                 borderRadius: 2,
                 textTransform: 'none',
                 fontWeight: 500,
@@ -345,8 +366,11 @@ const DocumentCard = ({ doc, onView, onEdit, onDelete, onDownload, canEdit, canD
               startIcon={<Download sx={{ fontSize: 18 }} />}
               onClick={() => onDownload(doc)}
               sx={{ 
-                color: colors.sidebar,
-                '&:hover': { color: colors.accentGold, bgcolor: `${colors.accentGold}10` },
+                color: colors.darkNavy,
+                '&:hover': { 
+                  color: colors.lightCyanDark, 
+                  bgcolor: 'rgba(103, 232, 249, 0.08)' 
+                },
                 borderRadius: 2,
                 textTransform: 'none',
                 fontWeight: 500,
@@ -363,8 +387,11 @@ const DocumentCard = ({ doc, onView, onEdit, onDelete, onDownload, canEdit, canD
                 size="small" 
                 onClick={() => onEdit(doc)}
                 sx={{ 
-                  color: colors.sidebar,
-                  '&:hover': { color: colors.accentGold, bgcolor: `${colors.accentGold}10` }
+                  color: colors.darkNavy,
+                  '&:hover': { 
+                    color: colors.lightCyanDark, 
+                    bgcolor: 'rgba(103, 232, 249, 0.08)' 
+                  }
                 }}
               >
                 <Edit fontSize="small" />
@@ -738,7 +765,7 @@ const ServiceDocumentation = () => {
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
-        <CircularProgress sx={{ color: colors.sidebar }} />
+        <CircularProgress sx={{ color: colors.darkNavy }} />
       </Box>
     )
   }
@@ -755,8 +782,13 @@ const ServiceDocumentation = () => {
           onClick={fetchDocuments} 
           sx={{ 
             mt: 2,
-            bgcolor: colors.sidebar,
-            '&:hover': { bgcolor: colors.sidebarHover }
+            bgcolor: colors.darkNavy,
+            '&:hover': { 
+              bgcolor: colors.darkNavyHover,
+              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`
+            },
+            textTransform: 'none',
+            borderRadius: 2,
           }}
         >
           Try Again
@@ -770,7 +802,22 @@ const ServiceDocumentation = () => {
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Typography variant="h5" sx={{ fontWeight: 700, color: colors.sidebar }}>
+          <Typography 
+            variant="h5" 
+            sx={{ 
+              fontWeight: 700, 
+              color: colors.darkNavy,
+              '&::after': {
+                content: '""',
+                display: 'block',
+                width: '40px',
+                height: '3px',
+                background: `linear-gradient(90deg, ${colors.lightCyan}, ${colors.darkNavy})`,
+                borderRadius: '2px',
+                marginTop: '4px',
+              }
+            }}
+          >
             Service Documentation
           </Typography>
           <Chip 
@@ -778,10 +825,10 @@ const ServiceDocumentation = () => {
             label={`${documents.length} Documents`}
             size="small"
             sx={{ 
-              bgcolor: colors.sidebar, 
+              bgcolor: colors.darkNavy, 
               color: 'white',
               fontWeight: 600,
-              '& .MuiChip-icon': { color: colors.accentGold }
+              '& .MuiChip-icon': { color: colors.lightCyan }
             }}
           />
         </Box>
@@ -792,9 +839,13 @@ const ServiceDocumentation = () => {
             onClick={fetchDocuments}
             size="small"
             sx={{ 
-              borderColor: colors.sidebar, 
-              color: colors.sidebar,
-              '&:hover': { borderColor: colors.accentGold, color: colors.accentGold }
+              borderColor: colors.borderColor, 
+              color: colors.darkNavy,
+              '&:hover': { 
+                borderColor: colors.lightCyan, 
+                color: colors.lightCyanDark,
+                backgroundColor: 'rgba(103, 232, 249, 0.04)'
+              }
             }}
           >
             Refresh
@@ -818,9 +869,14 @@ const ServiceDocumentation = () => {
                 setOpenDialog(true)
               }}
               sx={{
-                bgcolor: colors.sidebar,
-                '&:hover': { bgcolor: colors.sidebarHover },
-                boxShadow: `0 4px 16px ${colors.sidebar}44`
+                bgcolor: colors.darkNavy,
+                '&:hover': { 
+                  bgcolor: colors.darkNavyHover,
+                  boxShadow: `0 4px 20px ${colors.lightCyanGlowStrong}`
+                },
+                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+                borderRadius: 2,
+                textTransform: 'none',
               }}
             >
               Upload Document
@@ -829,15 +885,15 @@ const ServiceDocumentation = () => {
         </Box>
       </Box>
 
-      {/* Enhanced Stats Cards */}
+      {/* Enhanced Stats Cards - DARK NAVY + CYAN */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={6} sm={3}>
           <StatCard 
             title="Total Documents" 
             value={stats.total} 
             icon={<Description sx={{ fontSize: 24, color: 'white' }} />}
-            color={colors.sidebar}
-            bgColor={colors.sidebar}
+            color={colors.darkNavy}
+            bgColor={colors.darkNavy}
             subtext="All documentation"
           />
         </Grid>
@@ -873,13 +929,14 @@ const ServiceDocumentation = () => {
         </Grid>
       </Grid>
 
-      {/* Search & Filter */}
+      {/* Search & Filter - CYAN THEMED */}
       <Paper sx={{ 
         p: 2, 
         mb: 3, 
         borderRadius: 3,
         border: `1px solid ${colors.borderColor}`,
-        boxShadow: '0 2px 12px rgba(0,0,0,0.04)'
+        boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+        bgcolor: colors.cardBg,
       }}>
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
           <TextField
@@ -897,8 +954,8 @@ const ServiceDocumentation = () => {
               sx: {
                 '& .MuiOutlinedInput-root': {
                   borderRadius: 2,
-                  '&:hover fieldset': { borderColor: colors.sidebar },
-                  '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  '&:hover fieldset': { borderColor: colors.lightCyan },
+                  '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                 }
               }
             }}
@@ -913,8 +970,8 @@ const ServiceDocumentation = () => {
               sx={{
                 borderRadius: 2,
                 '& .MuiOutlinedInput-root': {
-                  '&:hover fieldset': { borderColor: colors.sidebar },
-                  '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  '&:hover fieldset': { borderColor: colors.lightCyan },
+                  '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                 }
               }}
             >
@@ -944,7 +1001,7 @@ const ServiceDocumentation = () => {
         ))}
       </Grid>
 
-      {/* Empty State */}
+      {/* Empty State - CYAN THEMED */}
       {filteredDocs.length === 0 && !loading && (
         <Paper sx={{ 
           p: 4, 
@@ -979,8 +1036,13 @@ const ServiceDocumentation = () => {
               }}
               sx={{ 
                 mt: 2,
-                bgcolor: colors.sidebar,
-                '&:hover': { bgcolor: colors.sidebarHover }
+                bgcolor: colors.darkNavy,
+                '&:hover': { 
+                  bgcolor: colors.darkNavyHover,
+                  boxShadow: `0 4px 16px ${colors.lightCyanGlow}`
+                },
+                textTransform: 'none',
+                borderRadius: 2,
               }}
             >
               Upload First Document
@@ -989,13 +1051,29 @@ const ServiceDocumentation = () => {
         </Paper>
       )}
 
-      {/* UPLOAD/EDIT DIALOG */}
+      {/* UPLOAD/EDIT DIALOG - DARK NAVY + CYAN */}
       {canUpload && (
-        <Dialog open={openDialog} onClose={() => {
-          setOpenDialog(false)
-          setEditingDocument(false)
-        }} maxWidth="sm" fullWidth>
-          <DialogTitle sx={{ bgcolor: colors.sidebar, color: 'white' }}>
+        <Dialog 
+          open={openDialog} 
+          onClose={() => {
+            setOpenDialog(false)
+            setEditingDocument(false)
+          }} 
+          maxWidth="sm" 
+          fullWidth
+          PaperProps={{
+            sx: {
+              borderRadius: 3,
+              border: `1px solid ${colors.borderColor}`,
+              boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+            }
+          }}
+        >
+          <DialogTitle sx={{ 
+            bgcolor: colors.darkNavy, 
+            color: 'white',
+            borderRadius: '8px 8px 0 0',
+          }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Typography variant="h6" fontWeight={600}>
                 {editingDocument ? 'Edit Document' : 'Upload Document'}
@@ -1022,8 +1100,8 @@ const ServiceDocumentation = () => {
                 InputProps={{
                   sx: {
                     '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.sidebar },
-                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                     }
                   }
                 }}
@@ -1038,8 +1116,8 @@ const ServiceDocumentation = () => {
                   label="Document Type"
                   sx={{
                     '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.sidebar },
-                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                     }
                   }}
                 >
@@ -1061,8 +1139,8 @@ const ServiceDocumentation = () => {
                   label="Category"
                   sx={{
                     '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.sidebar },
-                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                     }
                   }}
                 >
@@ -1085,8 +1163,8 @@ const ServiceDocumentation = () => {
                   required
                   sx={{
                     '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.sidebar },
-                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                     }
                   }}
                 >
@@ -1117,8 +1195,8 @@ const ServiceDocumentation = () => {
                 InputProps={{
                   sx: {
                     '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.sidebar },
-                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                     }
                   }
                 }}
@@ -1137,9 +1215,9 @@ const ServiceDocumentation = () => {
                       borderColor: colors.borderColor,
                       color: colors.lightText,
                       '&:hover': {
-                        borderColor: colors.accentGold,
+                        borderColor: colors.lightCyan,
                         borderStyle: 'dashed',
-                        color: colors.accentGold
+                        color: colors.lightCyanDark
                       }
                     }}
                   >
@@ -1155,7 +1233,7 @@ const ServiceDocumentation = () => {
                     Supported formats: PDF, DOC, DOCX, XLS, XLSX, MP4, JPG, PNG (Max: 50MB)
                   </Typography>
                   {formData.file && (
-                    <Alert severity="info" sx={{ mt: 2, borderRadius: 2, border: `1px solid ${colors.info}33` }}>
+                    <Alert severity="info" sx={{ mt: 2, borderRadius: 2, border: `1px solid rgba(103, 232, 249, 0.2)` }}>
                       Selected: {formData.file.name} ({(formData.file.size / 1024 / 1024).toFixed(2)} MB)
                     </Alert>
                   )}
@@ -1171,8 +1249,8 @@ const ServiceDocumentation = () => {
                     target="_blank"
                     sx={{ 
                       ml: 2,
-                      color: colors.sidebar,
-                      '&:hover': { color: colors.accentGold }
+                      color: colors.darkNavy,
+                      '&:hover': { color: colors.lightCyanDark }
                     }}
                   >
                     View
@@ -1197,7 +1275,7 @@ const ServiceDocumentation = () => {
                       height: 6, 
                       borderRadius: 3,
                       bgcolor: colors.borderColor,
-                      '& .MuiLinearProgress-bar': { bgcolor: colors.accentGold }
+                      '& .MuiLinearProgress-bar': { bgcolor: colors.lightCyan }
                     }} 
                   />
                 </Box>
@@ -1211,7 +1289,16 @@ const ServiceDocumentation = () => {
                 setEditingDocument(false)
               }}
               variant="outlined"
-              sx={{ color: colors.lightText, borderColor: colors.borderColor }}
+              sx={{ 
+                color: colors.darkNavy, 
+                borderColor: colors.borderColor,
+                '&:hover': { 
+                  borderColor: colors.lightCyan,
+                  backgroundColor: 'rgba(103, 232, 249, 0.04)'
+                },
+                textTransform: 'none',
+                borderRadius: 2,
+              }}
               disabled={uploading}
             >
               Cancel
@@ -1221,9 +1308,14 @@ const ServiceDocumentation = () => {
               onClick={handleUpload}
               disabled={uploading}
               sx={{
-                bgcolor: colors.sidebar,
-                '&:hover': { bgcolor: colors.sidebarHover },
-                boxShadow: `0 4px 16px ${colors.sidebar}44`
+                bgcolor: colors.darkNavy,
+                '&:hover': { 
+                  bgcolor: colors.darkNavyHover,
+                  boxShadow: `0 4px 20px ${colors.lightCyanGlowStrong}`
+                },
+                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+                textTransform: 'none',
+                borderRadius: 2,
               }}
               startIcon={editingDocument ? <Edit /> : <Upload />}
             >
@@ -1233,9 +1325,25 @@ const ServiceDocumentation = () => {
         </Dialog>
       )}
 
-      {/* View Document Dialog */}
-      <Dialog open={openViewDialog} onClose={() => setOpenViewDialog(false)} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ bgcolor: colors.sidebar, color: 'white' }}>
+      {/* View Document Dialog - DARK NAVY + CYAN */}
+      <Dialog 
+        open={openViewDialog} 
+        onClose={() => setOpenViewDialog(false)} 
+        maxWidth="md" 
+        fullWidth
+        PaperProps={{
+          sx: { 
+            borderRadius: 3,
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          bgcolor: colors.darkNavy, 
+          color: 'white',
+          borderRadius: '8px 8px 0 0',
+        }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6" fontWeight={600}>
               Document Details
@@ -1251,7 +1359,7 @@ const ServiceDocumentation = () => {
               <Grid container spacing={2}>
                 <Grid item xs={12} sx={{ display: 'flex', alignItems: 'center' }}>
                   <Box>
-                    <Typography variant="h6" fontWeight={600} sx={{ color: colors.darkText }}>
+                    <Typography variant="h6" fontWeight={600} sx={{ color: colors.darkNavy }}>
                       {selectedDoc.title}
                     </Typography>
                     <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
@@ -1282,25 +1390,25 @@ const ServiceDocumentation = () => {
 
                 <Grid item xs={12} md={6}>
                   <Typography variant="body2" sx={{ color: colors.lightText }}>Equipment</Typography>
-                  <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkText }}>
+                  <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy }}>
                     {selectedDoc.equipment || '-'}
                   </Typography>
                 </Grid>
                 <Grid item xs={12} md={6}>
                   <Typography variant="body2" sx={{ color: colors.lightText }}>Uploaded By</Typography>
-                  <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkText }}>
+                  <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy }}>
                     {selectedDoc.uploaded_by_name || selectedDoc.uploaded_by || 'System'}
                   </Typography>
                 </Grid>
                 <Grid item xs={12} md={6}>
                   <Typography variant="body2" sx={{ color: colors.lightText }}>Uploaded Date</Typography>
-                  <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkText }}>
+                  <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy }}>
                     {formatDate(selectedDoc.created_at || selectedDoc.uploaded_at)}
                   </Typography>
                 </Grid>
                 <Grid item xs={12} md={6}>
                   <Typography variant="body2" sx={{ color: colors.lightText }}>File Size</Typography>
-                  <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkText }}>
+                  <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy }}>
                     {selectedDoc.file_size || '-'}
                   </Typography>
                 </Grid>
@@ -1308,7 +1416,7 @@ const ServiceDocumentation = () => {
                 {selectedDoc.description && (
                   <Grid item xs={12}>
                     <Typography variant="body2" sx={{ color: colors.lightText }}>Description</Typography>
-                    <Typography variant="body1" sx={{ mt: 1, color: colors.darkText }}>
+                    <Typography variant="body1" sx={{ mt: 1, color: colors.darkNavy }}>
                       {selectedDoc.description}
                     </Typography>
                   </Grid>
@@ -1325,10 +1433,15 @@ const ServiceDocumentation = () => {
                       startIcon={<Download />}
                       onClick={() => handleDownload(selectedDoc)}
                       sx={{ 
-                        bgcolor: colors.sidebar, 
-                        '&:hover': { bgcolor: colors.sidebarHover }, 
+                        bgcolor: colors.darkNavy, 
+                        '&:hover': { 
+                          bgcolor: colors.darkNavyHover,
+                          boxShadow: `0 4px 16px ${colors.lightCyanGlow}`
+                        }, 
                         px: 4,
-                        boxShadow: `0 4px 16px ${colors.sidebar}44`
+                        boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+                        textTransform: 'none',
+                        borderRadius: 2,
                       }}
                     >
                       Download Document
@@ -1340,9 +1453,15 @@ const ServiceDocumentation = () => {
                         onClick={() => window.open(selectedDoc.file_url, '_blank')}
                         sx={{ 
                           px: 4,
-                          borderColor: colors.sidebar,
-                          color: colors.sidebar,
-                          '&:hover': { borderColor: colors.accentGold, color: colors.accentGold }
+                          borderColor: colors.darkNavy,
+                          color: colors.darkNavy,
+                          '&:hover': { 
+                            borderColor: colors.lightCyan, 
+                            color: colors.lightCyanDark,
+                            backgroundColor: 'rgba(103, 232, 249, 0.04)'
+                          },
+                          textTransform: 'none',
+                          borderRadius: 2,
                         }}
                       >
                         Open in Browser
@@ -1359,8 +1478,13 @@ const ServiceDocumentation = () => {
             onClick={() => setOpenViewDialog(false)}
             variant="contained"
             sx={{ 
-              bgcolor: colors.sidebar,
-              '&:hover': { bgcolor: colors.sidebarHover }
+              bgcolor: colors.darkNavy,
+              '&:hover': { 
+                bgcolor: colors.darkNavyHover,
+                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`
+              },
+              textTransform: 'none',
+              borderRadius: 2,
             }}
           >
             Close
@@ -1374,7 +1498,11 @@ const ServiceDocumentation = () => {
                 setOpenViewDialog(false)
               }}
               startIcon={<Delete />}
-              sx={{ boxShadow: `0 4px 16px ${colors.error}44` }}
+              sx={{ 
+                boxShadow: `0 4px 16px ${colors.error}44`,
+                textTransform: 'none',
+                borderRadius: 2,
+              }}
             >
               Delete
             </Button>

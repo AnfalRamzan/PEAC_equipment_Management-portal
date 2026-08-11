@@ -1,5 +1,5 @@
 // src/pages/KnowledgeBase.jsx
-// ✅ ENHANCED CARDS - Better Visual Appeal
+// ✅ DARK NAVY + LIGHT CYAN THEME - Matching Sidebar
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -90,7 +90,7 @@ import {
   FolderOpen,
   BackupTable,
   Analytics,
-  ChevronRight,  // ✅ ADDED - Fixes the error
+  ChevronRight,
 } from '@mui/icons-material'
 import { toast } from 'react-toastify'
 import { useSelector } from 'react-redux'
@@ -99,27 +99,45 @@ import FileUpload from '../components/FileUpload'
 import AccessDenied from '../components/Auth/AccessDenied'
 
 // ============================================================
-// ✅ PAEC THEME COLORS
+// ✅ DARK NAVY + LIGHT CYAN THEME COLORS
 // ============================================================
 const colors = {
-  sidebar: '#01411C',
-  sidebarHover: '#0B542B',
-  active: '#0E6335',
+  // Dark Navy Base
+  darkNavy: '#0F172A',
+  darkNavyLight: '#1E293B',
+  darkNavyDark: '#0A0F1E',
+  darkNavyHover: '#1E3A5F',
+  
+  // Light Cyan Accents
+  lightCyan: '#67E8F9',
+  lightCyanBright: '#A5F3FC',
+  lightCyanDark: '#22D3EE',
+  lightCyanGlow: 'rgba(103, 232, 249, 0.15)',
+  lightCyanGlowStrong: 'rgba(103, 232, 249, 0.3)',
+  
+  // Gold accent (keeping PAEC branding)
   accentGold: '#C9A227',
   goldLight: '#E8C84A',
+  
+  // Text
   text: '#FFFFFF',
-  secondaryText: '#B8C8BE',
-  mainBg: '#F0F2F5',
-  white: '#FFFFFF',
-  darkText: '#1A2A3A',
-  lightText: '#5A7A8A',
-  error: '#D32F2F',
-  success: '#2E7D32',
-  warning: '#ED6C02',
-  info: '#0B5FA5',
-  borderColor: 'rgba(1, 65, 28, 0.08)',
-  shadowColor: 'rgba(1, 65, 28, 0.08)',
+  secondaryText: '#94A3B8',
+  textLight: '#CBD5E1',
+  cyanText: '#67E8F9',
+  darkText: '#0F172A',
+  lightText: '#64748B',
+  
+  // Cards/Background
   cardBg: '#FFFFFF',
+  borderColor: 'rgba(103, 232, 249, 0.1)',
+  shadowColor: 'rgba(15, 23, 42, 0.08)',
+  mainBg: '#F1F5F9',
+  
+  // Status colors
+  error: '#EF4444',
+  success: '#22C55E',
+  warning: '#F59E0B',
+  info: '#3B82F6',
 }
 
 const getFullUrl = (url) => {
@@ -134,7 +152,7 @@ const getFullUrl = (url) => {
 }
 
 // ============================================================
-// ✅ ENHANCED STAT CARD COMPONENT
+// ✅ ENHANCED STAT CARD COMPONENT - DARK NAVY + CYAN
 // ============================================================
 const StatCard = ({ title, value, icon, color, bgColor, subtext }) => (
   <Grow in timeout={300}>
@@ -147,8 +165,8 @@ const StatCard = ({ title, value, icon, color, bgColor, subtext }) => (
       overflow: 'hidden',
       '&:hover': {
         transform: 'translateY(-4px)',
-        boxShadow: `0 8px 30px ${colors.shadowColor}`,
-        borderColor: colors.accentGold,
+        boxShadow: `0 8px 30px ${colors.lightCyanGlow}`,
+        borderColor: colors.lightCyan,
       }
     }}>
       <CardContent sx={{ textAlign: 'center', py: 3, position: 'relative', zIndex: 1 }}>
@@ -159,15 +177,15 @@ const StatCard = ({ title, value, icon, color, bgColor, subtext }) => (
           mb: 1.5
         }}>
           <Avatar sx={{ 
-            bgcolor: bgColor || color || colors.sidebar,
+            bgcolor: bgColor || color || colors.darkNavy,
             width: 48,
             height: 48,
-            boxShadow: `0 4px 16px ${color || colors.sidebar}44`
+            boxShadow: `0 4px 16px ${color || colors.darkNavy}44`
           }}>
             {icon}
           </Avatar>
         </Box>
-        <Typography variant="h4" sx={{ color: colors.darkText, fontWeight: 700 }}>
+        <Typography variant="h4" sx={{ color: colors.darkNavy, fontWeight: 700 }}>
           {value}
         </Typography>
         <Typography variant="body2" sx={{ color: colors.lightText, fontWeight: 500 }}>
@@ -178,7 +196,6 @@ const StatCard = ({ title, value, icon, color, bgColor, subtext }) => (
             {subtext}
           </Typography>
         )}
-        {/* Decorative Gradient */}
         <Box sx={{
           position: 'absolute',
           top: -50,
@@ -186,7 +203,7 @@ const StatCard = ({ title, value, icon, color, bgColor, subtext }) => (
           width: 100,
           height: 100,
           borderRadius: '50%',
-          background: `radial-gradient(circle, ${color || colors.sidebar}08 0%, transparent 70%)`,
+          background: `radial-gradient(circle, ${color || colors.darkNavy}08 0%, transparent 70%)`,
           pointerEvents: 'none',
         }} />
       </CardContent>
@@ -195,7 +212,7 @@ const StatCard = ({ title, value, icon, color, bgColor, subtext }) => (
 )
 
 // ============================================================
-// ✅ ENHANCED EQUIPMENT CARD
+// ✅ ENHANCED EQUIPMENT CARD - DARK NAVY + CYAN
 // ============================================================
 const EquipmentCard = ({ equipment, onClick }) => {
   const [isHovered, setIsHovered] = useState(false)
@@ -212,26 +229,24 @@ const EquipmentCard = ({ equipment, onClick }) => {
           position: 'relative',
           overflow: 'hidden',
           transform: isHovered ? 'translateY(-8px)' : 'translateY(0)',
-          boxShadow: isHovered ? `0 12px 40px ${colors.shadowColor}` : '0 2px 12px rgba(0,0,0,0.04)',
+          boxShadow: isHovered ? `0 12px 40px ${colors.lightCyanGlow}` : '0 2px 12px rgba(0,0,0,0.04)',
           '&:hover': {
-            borderColor: colors.accentGold,
+            borderColor: colors.lightCyan,
           }
         }}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
         onClick={onClick}
       >
-        {/* Top Gradient Bar */}
         <Box sx={{
           position: 'absolute',
           top: 0,
           left: 0,
           right: 0,
           height: 4,
-          background: `linear-gradient(90deg, ${colors.sidebar}, ${hasSolutions ? colors.accentGold : colors.lightText})`,
+          background: `linear-gradient(90deg, ${colors.darkNavy}, ${hasSolutions ? colors.lightCyan : colors.lightText})`,
         }} />
         
-        {/* Decorative Background */}
         <Box sx={{
           position: 'absolute',
           top: -30,
@@ -239,20 +254,19 @@ const EquipmentCard = ({ equipment, onClick }) => {
           width: 80,
           height: 80,
           borderRadius: '50%',
-          background: `radial-gradient(circle, ${colors.sidebar}06 0%, transparent 70%)`,
+          background: `radial-gradient(circle, ${colors.darkNavy}06 0%, transparent 70%)`,
           pointerEvents: 'none',
         }} />
         
         <CardContent sx={{ p: 3, position: 'relative', zIndex: 1 }}>
           <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-            {/* Equipment Icon with Badge */}
             <Badge
               badgeContent={equipment.solution_count || 0}
               color={hasSolutions ? 'primary' : 'default'}
               sx={{
                 '& .MuiBadge-badge': {
-                  bgcolor: hasSolutions ? colors.accentGold : colors.lightText,
-                  color: hasSolutions ? colors.white : colors.white,
+                  bgcolor: hasSolutions ? colors.lightCyan : colors.lightText,
+                  color: hasSolutions ? colors.darkNavy : colors.white,
                   fontWeight: 700,
                   fontSize: '10px',
                   height: 20,
@@ -262,10 +276,10 @@ const EquipmentCard = ({ equipment, onClick }) => {
               }}
             >
               <Avatar sx={{ 
-                bgcolor: hasSolutions ? colors.sidebar : colors.lightText,
+                bgcolor: hasSolutions ? colors.darkNavy : colors.lightText,
                 width: 56,
                 height: 56,
-                boxShadow: hasSolutions ? `0 4px 20px ${colors.sidebar}44` : 'none',
+                boxShadow: hasSolutions ? `0 4px 20px ${colors.darkNavy}44` : 'none',
                 transition: 'all 0.3s ease',
                 transform: isHovered ? 'scale(1.05)' : 'scale(1)',
               }}>
@@ -274,7 +288,7 @@ const EquipmentCard = ({ equipment, onClick }) => {
             </Badge>
             
             <Box sx={{ flex: 1, minWidth: 0 }}>
-              <Typography variant="h6" fontWeight={700} sx={{ color: colors.darkText, mb: 0.5 }}>
+              <Typography variant="h6" fontWeight={700} sx={{ color: colors.darkNavy, mb: 0.5 }}>
                 {equipment.name}
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
@@ -289,13 +303,12 @@ const EquipmentCard = ({ equipment, onClick }) => {
             </Box>
           </Box>
 
-          {/* Details Section */}
           <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
             <Chip
               label={`${equipment.solution_count || 0} Solutions`}
               size="small"
               sx={{
-                bgcolor: hasSolutions ? colors.sidebar : colors.lightText,
+                bgcolor: hasSolutions ? colors.darkNavy : colors.lightText,
                 color: 'white',
                 fontWeight: 600,
                 fontSize: '11px',
@@ -318,7 +331,6 @@ const EquipmentCard = ({ equipment, onClick }) => {
             )}
           </Box>
 
-          {/* Hospital Info */}
           <Box sx={{ 
             mt: 2, 
             pt: 1.5, 
@@ -333,7 +345,6 @@ const EquipmentCard = ({ equipment, onClick }) => {
             </Typography>
           </Box>
 
-          {/* Click Hint */}
           <Box sx={{ 
             mt: 1.5,
             display: 'flex',
@@ -354,7 +365,7 @@ const EquipmentCard = ({ equipment, onClick }) => {
 }
 
 // ============================================================
-// ✅ SOLUTION CARD COMPONENT
+// ✅ SOLUTION CARD COMPONENT - DARK NAVY + CYAN
 // ============================================================
 const SolutionCard = ({ solution, onView, onEdit, onDelete, isOwner, canEdit }) => {
   const [isHovered, setIsHovered] = useState(false)
@@ -368,10 +379,10 @@ const SolutionCard = ({ solution, onView, onEdit, onDelete, isOwner, canEdit }) 
           border: `1px solid ${colors.borderColor}`,
           transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
           bgcolor: isHovered ? colors.mainBg : colors.white,
-          boxShadow: isHovered ? `0 4px 20px ${colors.shadowColor}` : 'none',
+          boxShadow: isHovered ? `0 4px 20px ${colors.lightCyanGlow}` : 'none',
           transform: isHovered ? 'translateX(4px)' : 'translateX(0)',
           '&:hover': {
-            borderColor: colors.accentGold,
+            borderColor: colors.lightCyan,
           }
         }}
         onMouseEnter={() => setIsHovered(true)}
@@ -388,7 +399,7 @@ const SolutionCard = ({ solution, onView, onEdit, onDelete, isOwner, canEdit }) 
               }}>
                 <ErrorIcon sx={{ fontSize: 18, color: 'white' }} />
               </Avatar>
-              <Typography variant="subtitle1" fontWeight={600} sx={{ color: colors.darkText }}>
+              <Typography variant="subtitle1" fontWeight={600} sx={{ color: colors.darkNavy }}>
                 {solution.error_title}
               </Typography>
               {isOwner && (
@@ -396,8 +407,8 @@ const SolutionCard = ({ solution, onView, onEdit, onDelete, isOwner, canEdit }) 
                   label="My Solution" 
                   size="small" 
                   sx={{ 
-                    bgcolor: colors.accentGold, 
-                    color: 'white',
+                    bgcolor: colors.lightCyan, 
+                    color: colors.darkNavy,
                     height: 20,
                     fontSize: '9px',
                     fontWeight: 600
@@ -457,17 +468,16 @@ const SolutionCard = ({ solution, onView, onEdit, onDelete, isOwner, canEdit }) 
             </Box>
           </Box>
           
-          {/* Action Buttons */}
           <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
             <Tooltip title="View Details">
               <IconButton 
                 size="small" 
                 onClick={() => onView(solution)}
                 sx={{ 
-                  color: colors.sidebar,
+                  color: colors.darkNavy,
                   '&:hover': { 
-                    color: colors.accentGold,
-                    backgroundColor: `${colors.accentGold}22`
+                    color: colors.lightCyanDark,
+                    backgroundColor: 'rgba(103, 232, 249, 0.08)'
                   }
                 }}
               >
@@ -480,10 +490,10 @@ const SolutionCard = ({ solution, onView, onEdit, onDelete, isOwner, canEdit }) 
                   size="small" 
                   onClick={() => onEdit(solution)}
                   sx={{ 
-                    color: colors.sidebar,
+                    color: colors.darkNavy,
                     '&:hover': { 
-                      color: colors.accentGold,
-                      backgroundColor: `${colors.accentGold}22`
+                      color: colors.lightCyanDark,
+                      backgroundColor: 'rgba(103, 232, 249, 0.08)'
                     }
                   }}
                 >
@@ -933,7 +943,7 @@ const KnowledgeBase = () => {
   })
 
   if (loading) {
-    return <LinearProgress sx={{ bgcolor: colors.borderColor, '& .MuiLinearProgress-bar': { bgcolor: colors.accentGold } }} />
+    return <LinearProgress sx={{ bgcolor: colors.borderColor, '& .MuiLinearProgress-bar': { bgcolor: colors.lightCyan } }} />
   }
 
   return (
@@ -941,7 +951,22 @@ const KnowledgeBase = () => {
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Typography variant="h5" sx={{ fontWeight: 700, color: colors.sidebar }}>
+          <Typography 
+            variant="h5" 
+            sx={{ 
+              fontWeight: 700, 
+              color: colors.darkNavy,
+              '&::after': {
+                content: '""',
+                display: 'block',
+                width: '40px',
+                height: '3px',
+                background: `linear-gradient(90deg, ${colors.lightCyan}, ${colors.darkNavy})`,
+                borderRadius: '2px',
+                marginTop: '4px',
+              }
+            }}
+          >
             Knowledge Base
           </Typography>
           <Chip 
@@ -949,10 +974,10 @@ const KnowledgeBase = () => {
             label={`${totalSolutions} Solutions`}
             size="small"
             sx={{ 
-              bgcolor: colors.sidebar, 
+              bgcolor: colors.darkNavy, 
               color: 'white',
               fontWeight: 600,
-              '& .MuiChip-icon': { color: colors.accentGold }
+              '& .MuiChip-icon': { color: colors.lightCyan }
             }}
           />
         </Box>
@@ -963,9 +988,13 @@ const KnowledgeBase = () => {
             onClick={fetchEquipment} 
             size="small"
             sx={{ 
-              borderColor: colors.sidebar, 
-              color: colors.sidebar,
-              '&:hover': { borderColor: colors.accentGold, color: colors.accentGold }
+              borderColor: colors.borderColor, 
+              color: colors.darkNavy,
+              '&:hover': { 
+                borderColor: colors.lightCyan, 
+                color: colors.lightCyanDark,
+                backgroundColor: 'rgba(103, 232, 249, 0.04)'
+              }
             }}
           >
             Refresh
@@ -973,15 +1002,15 @@ const KnowledgeBase = () => {
         </Box>
       </Box>
 
-      {/* Enhanced Stats Cards */}
+      {/* Enhanced Stats Cards - DARK NAVY + CYAN */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={6} sm={3}>
           <StatCard 
             title="Total Solutions" 
             value={totalSolutions} 
             icon={<MenuBook sx={{ fontSize: 24, color: 'white' }} />}
-            color={colors.sidebar}
-            bgColor={colors.sidebar}
+            color={colors.darkNavy}
+            bgColor={colors.darkNavy}
             subtext="All knowledge entries"
           />
         </Grid>
@@ -1010,8 +1039,8 @@ const KnowledgeBase = () => {
             title="Recent Solutions" 
             value={solutions.length || 0} 
             icon={<Lightbulb sx={{ fontSize: 24, color: 'white' }} />}
-            color={colors.accentGold}
-            bgColor={colors.accentGold}
+            color={colors.lightCyan}
+            bgColor={colors.lightCyanDark}
             subtext={selectedEquipment ? `For ${selectedEquipment.name}` : 'Select equipment'}
           />
         </Grid>
@@ -1023,7 +1052,8 @@ const KnowledgeBase = () => {
         mb: 3, 
         borderRadius: 3,
         border: `1px solid ${colors.borderColor}`,
-        boxShadow: '0 2px 12px rgba(0,0,0,0.04)'
+        boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+        bgcolor: colors.cardBg,
       }}>
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
           <TextField
@@ -1041,8 +1071,8 @@ const KnowledgeBase = () => {
               sx: {
                 '& .MuiOutlinedInput-root': {
                   borderRadius: 2,
-                  '&:hover fieldset': { borderColor: colors.sidebar },
-                  '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  '&:hover fieldset': { borderColor: colors.lightCyan },
+                  '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                 }
               }
             }}
@@ -1056,8 +1086,8 @@ const KnowledgeBase = () => {
               sx={{
                 borderRadius: 2,
                 '& .MuiOutlinedInput-root': {
-                  '&:hover fieldset': { borderColor: colors.sidebar },
-                  '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  '&:hover fieldset': { borderColor: colors.lightCyan },
+                  '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                 }
               }}
             >
@@ -1098,9 +1128,25 @@ const KnowledgeBase = () => {
         </Paper>
       )}
 
-      {/* Solutions Dialog */}
-      <Dialog open={openSolutionsDialog} onClose={() => setOpenSolutionsDialog(false)} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ bgcolor: colors.sidebar, color: 'white' }}>
+      {/* Solutions Dialog - DARK NAVY + CYAN */}
+      <Dialog 
+        open={openSolutionsDialog} 
+        onClose={() => setOpenSolutionsDialog(false)} 
+        maxWidth="md" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          bgcolor: colors.darkNavy, 
+          color: 'white',
+          borderRadius: '8px 8px 0 0',
+        }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
               <Avatar sx={{ bgcolor: 'rgba(255,255,255,0.2)', width: 40, height: 40 }}>
@@ -1123,8 +1169,13 @@ const KnowledgeBase = () => {
                   onClick={handleAddSolution}
                   sx={{ 
                     bgcolor: 'white', 
-                    color: colors.sidebar, 
-                    '&:hover': { bgcolor: colors.goldLight, color: colors.sidebar } 
+                    color: colors.darkNavy, 
+                    '&:hover': { 
+                      bgcolor: colors.lightCyan, 
+                      color: colors.darkNavy 
+                    },
+                    textTransform: 'none',
+                    borderRadius: 2,
                   }}
                 >
                   Add Solution
@@ -1164,7 +1215,18 @@ const KnowledgeBase = () => {
           )}
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={() => setOpenSolutionsDialog(false)} sx={{ color: colors.lightText }}>Close</Button>
+          <Button 
+            onClick={() => setOpenSolutionsDialog(false)} 
+            sx={{ 
+              color: colors.darkNavy,
+              '&:hover': { 
+                backgroundColor: 'rgba(103, 232, 249, 0.04)'
+              },
+              textTransform: 'none',
+            }}
+          >
+            Close
+          </Button>
           {solutions.length > 0 && (
             <Typography variant="caption" sx={{ color: colors.lightText }}>
               {solutions.length} solution{solutions.length !== 1 ? 's' : ''}
@@ -1173,9 +1235,25 @@ const KnowledgeBase = () => {
         </DialogActions>
       </Dialog>
 
-      {/* View Dialog */}
-      <Dialog open={openViewDialog} onClose={() => setOpenViewDialog(false)} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ bgcolor: colors.sidebar, color: 'white' }}>
+      {/* View Dialog - DARK NAVY + CYAN */}
+      <Dialog 
+        open={openViewDialog} 
+        onClose={() => setOpenViewDialog(false)} 
+        maxWidth="md" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          bgcolor: colors.darkNavy, 
+          color: 'white',
+          borderRadius: '8px 8px 0 0',
+        }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6" fontWeight={600}>
               Solution Details
@@ -1188,13 +1266,12 @@ const KnowledgeBase = () => {
         <DialogContent dividers>
           {selectedSolution && (
             <Box>
-              {/* Header with Error Title */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3, p: 2, bgcolor: colors.mainBg, borderRadius: 2, border: `1px solid ${colors.borderColor}` }}>
                 <Avatar sx={{ bgcolor: colors.error, width: 56, height: 56 }}>
                   <ErrorIcon sx={{ fontSize: 28 }} />
                 </Avatar>
                 <Box>
-                  <Typography variant="h5" fontWeight={600} sx={{ color: colors.darkText }}>
+                  <Typography variant="h5" fontWeight={600} sx={{ color: colors.darkNavy }}>
                     {selectedSolution.error_title}
                   </Typography>
                   <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 0.5 }}>
@@ -1205,10 +1282,10 @@ const KnowledgeBase = () => {
                       <Chip label={`Time: ${selectedSolution.time_taken} min`} size="small" sx={{ bgcolor: colors.info, color: 'white' }} />
                     )}
                     {selectedSolution.repair_date && (
-                      <Chip label={`Repair: ${formatDate(selectedSolution.repair_date)}`} size="small" sx={{ bgcolor: colors.sidebar, color: 'white' }} />
+                      <Chip label={`Repair: ${formatDate(selectedSolution.repair_date)}`} size="small" sx={{ bgcolor: colors.darkNavy, color: 'white' }} />
                     )}
                     {isEngineer && selectedSolution.created_by === user?.id && (
-                      <Chip label="Your Solution" size="small" sx={{ bgcolor: colors.accentGold, color: 'white' }} />
+                      <Chip label="Your Solution" size="small" sx={{ bgcolor: colors.lightCyan, color: colors.darkNavy }} />
                     )}
                   </Box>
                 </Box>
@@ -1218,57 +1295,57 @@ const KnowledgeBase = () => {
 
               <Grid container spacing={3}>
                 <Grid item xs={12} md={6}>
-                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.sidebar }} gutterBottom>
+                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>
                     <MedicalServices fontSize="small" /> Equipment Information
                   </Typography>
                   <Paper sx={{ p: 2, bgcolor: colors.mainBg, borderRadius: 2, mb: 3, border: `1px solid ${colors.borderColor}` }}>
                     <Grid container spacing={1}>
                       <Grid item xs={6}>
                         <Typography variant="caption" sx={{ color: colors.lightText }}>Equipment</Typography>
-                        <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkText }}>{selectedSolution.equipment_name || 'N/A'}</Typography>
+                        <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>{selectedSolution.equipment_name || 'N/A'}</Typography>
                       </Grid>
                       <Grid item xs={6}>
                         <Typography variant="caption" sx={{ color: colors.lightText }}>Hospital</Typography>
-                        <Typography variant="body2" sx={{ color: colors.darkText }}>{selectedSolution.hospital_name || 'N/A'}</Typography>
+                        <Typography variant="body2" sx={{ color: colors.darkNavy }}>{selectedSolution.hospital_name || 'N/A'}</Typography>
                       </Grid>
                       <Grid item xs={6}>
                         <Typography variant="caption" sx={{ color: colors.lightText }}>Department</Typography>
-                        <Typography variant="body2" sx={{ color: colors.darkText }}>{selectedSolution.department_name || 'N/A'}</Typography>
+                        <Typography variant="body2" sx={{ color: colors.darkNavy }}>{selectedSolution.department_name || 'N/A'}</Typography>
                       </Grid>
                       <Grid item xs={6}>
                         <Typography variant="caption" sx={{ color: colors.lightText }}>Reported By</Typography>
-                        <Typography variant="body2" sx={{ color: colors.darkText }}>{selectedSolution.reported_by || selectedSolution.created_by_name || 'N/A'}</Typography>
+                        <Typography variant="body2" sx={{ color: colors.darkNavy }}>{selectedSolution.reported_by || selectedSolution.created_by_name || 'N/A'}</Typography>
                       </Grid>
                     </Grid>
                   </Paper>
 
-                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.sidebar }} gutterBottom>
+                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>
                     <ErrorIcon fontSize="small" /> Error Details
                   </Typography>
                   <Paper sx={{ p: 2, bgcolor: colors.mainBg, borderRadius: 2, mb: 3, border: `1px solid ${colors.borderColor}` }}>
                     <Typography variant="caption" sx={{ color: colors.lightText }}>Description</Typography>
-                    <Typography variant="body2" sx={{ mt: 0.5, color: colors.darkText }}>{selectedSolution.error_description || 'No description'}</Typography>
+                    <Typography variant="body2" sx={{ mt: 0.5, color: colors.darkNavy }}>{selectedSolution.error_description || 'No description'}</Typography>
                   </Paper>
                 </Grid>
 
                 <Grid item xs={12} md={6}>
-                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.sidebar }} gutterBottom>
+                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>
                     <Build fontSize="small" /> Solution Details
                   </Typography>
                   
                   <Paper sx={{ p: 2, bgcolor: colors.mainBg, borderRadius: 2, mb: 2, border: `1px solid ${colors.borderColor}` }}>
                     <Typography variant="caption" sx={{ color: colors.lightText }}>Root Cause</Typography>
-                    <Typography variant="body2" sx={{ mt: 0.5, color: colors.darkText }}>{selectedSolution.root_cause || 'Not specified'}</Typography>
+                    <Typography variant="body2" sx={{ mt: 0.5, color: colors.darkNavy }}>{selectedSolution.root_cause || 'Not specified'}</Typography>
                   </Paper>
 
                   <Paper sx={{ p: 2, bgcolor: colors.mainBg, borderRadius: 2, mb: 2, border: `1px solid ${colors.borderColor}` }}>
                     <Typography variant="caption" sx={{ color: colors.lightText }}>Solution</Typography>
-                    <Typography variant="body2" sx={{ mt: 0.5, color: colors.darkText }}>{selectedSolution.solution || 'Not specified'}</Typography>
+                    <Typography variant="body2" sx={{ mt: 0.5, color: colors.darkNavy }}>{selectedSolution.solution || 'Not specified'}</Typography>
                   </Paper>
 
                   <Paper sx={{ p: 2, bgcolor: colors.mainBg, borderRadius: 2, border: `1px solid ${colors.borderColor}` }}>
                     <Typography variant="caption" sx={{ color: colors.lightText }}>Repair Procedure</Typography>
-                    <Typography variant="body2" sx={{ mt: 0.5, whiteSpace: 'pre-line', color: colors.darkText }}>
+                    <Typography variant="body2" sx={{ mt: 0.5, whiteSpace: 'pre-line', color: colors.darkNavy }}>
                       {selectedSolution.repair_procedure || 'Not specified'}
                     </Typography>
                   </Paper>
@@ -1279,11 +1356,11 @@ const KnowledgeBase = () => {
               {selectedSolution.spare_parts_used && (
                 <>
                   <Divider sx={{ my: 3, borderColor: colors.borderColor }} />
-                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.sidebar }} gutterBottom>
+                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>
                     <Inventory fontSize="small" /> Spare Parts Used
                   </Typography>
                   <Paper sx={{ p: 2, bgcolor: colors.mainBg, borderRadius: 2, border: `1px solid ${colors.borderColor}` }}>
-                    <Typography variant="body2" sx={{ color: colors.darkText }}>{selectedSolution.spare_parts_used}</Typography>
+                    <Typography variant="body2" sx={{ color: colors.darkNavy }}>{selectedSolution.spare_parts_used}</Typography>
                   </Paper>
                 </>
               )}
@@ -1292,7 +1369,7 @@ const KnowledgeBase = () => {
               {(selectedSolution.spare_part_images || selectedSolution.before_repair_images || selectedSolution.after_repair_images || selectedSolution.images) && (
                 <>
                   <Divider sx={{ my: 3, borderColor: colors.borderColor }} />
-                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.sidebar }} gutterBottom>
+                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>
                     <Image fontSize="small" /> Images
                   </Typography>
                   
@@ -1392,31 +1469,31 @@ const KnowledgeBase = () => {
               {selectedSolution.remarks && (
                 <>
                   <Divider sx={{ my: 3, borderColor: colors.borderColor }} />
-                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.sidebar }} gutterBottom>
+                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>
                     <Description fontSize="small" /> Remarks
                   </Typography>
                   <Paper sx={{ p: 2, bgcolor: colors.mainBg, borderRadius: 2, border: `1px solid ${colors.borderColor}` }}>
-                    <Typography variant="body2" sx={{ color: colors.darkText }}>{selectedSolution.remarks}</Typography>
+                    <Typography variant="body2" sx={{ color: colors.darkNavy }}>{selectedSolution.remarks}</Typography>
                   </Paper>
                 </>
               )}
 
               {/* People Information */}
               <Divider sx={{ my: 3, borderColor: colors.borderColor }} />
-              <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.sidebar }} gutterBottom>
+              <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>
                 <Person fontSize="small" /> People Information
               </Typography>
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={6}>
                   <Paper sx={{ p: 2, bgcolor: colors.mainBg, borderRadius: 2, border: `1px solid ${colors.borderColor}` }}>
                     <Typography variant="caption" sx={{ color: colors.lightText }}>Engineer Name</Typography>
-                    <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkText }}>{selectedSolution.engineer_name || 'N/A'}</Typography>
+                    <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>{selectedSolution.engineer_name || 'N/A'}</Typography>
                   </Paper>
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <Paper sx={{ p: 2, bgcolor: colors.mainBg, borderRadius: 2, border: `1px solid ${colors.borderColor}` }}>
                     <Typography variant="caption" sx={{ color: colors.lightText }}>Created By</Typography>
-                    <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkText }}>{selectedSolution.created_by_name || 'Unknown'}</Typography>
+                    <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>{selectedSolution.created_by_name || 'Unknown'}</Typography>
                   </Paper>
                 </Grid>
               </Grid>
@@ -1424,7 +1501,18 @@ const KnowledgeBase = () => {
           )}
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={() => setOpenViewDialog(false)} sx={{ color: colors.lightText }}>Close</Button>
+          <Button 
+            onClick={() => setOpenViewDialog(false)} 
+            sx={{ 
+              color: colors.darkNavy,
+              '&:hover': { 
+                backgroundColor: 'rgba(103, 232, 249, 0.04)'
+              },
+              textTransform: 'none',
+            }}
+          >
+            Close
+          </Button>
           {isSuperAdmin && selectedSolution && (
             <Button
               variant="outlined"
@@ -1432,7 +1520,17 @@ const KnowledgeBase = () => {
                 setOpenViewDialog(false)
                 handleEditSolution(selectedSolution)
               }}
-              sx={{ borderColor: colors.sidebar, color: colors.sidebar, '&:hover': { borderColor: colors.accentGold, color: colors.accentGold } }}
+              sx={{ 
+                borderColor: colors.darkNavy, 
+                color: colors.darkNavy, 
+                '&:hover': { 
+                  borderColor: colors.lightCyan, 
+                  color: colors.lightCyanDark,
+                  backgroundColor: 'rgba(103, 232, 249, 0.04)'
+                },
+                textTransform: 'none',
+                borderRadius: 2,
+              }}
             >
               Edit
             </Button>
@@ -1446,6 +1544,10 @@ const KnowledgeBase = () => {
                 setOpenViewDialog(false)
                 handleDeleteClick(selectedSolution)
               }}
+              sx={{
+                textTransform: 'none',
+                borderRadius: 2,
+              }}
             >
               Delete
             </Button>
@@ -1453,21 +1555,35 @@ const KnowledgeBase = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Delete Dialog */}
-      <Dialog open={openDeleteDialog} onClose={() => setOpenDeleteDialog(false)}>
-        <DialogTitle sx={{ bgcolor: colors.error, color: 'white' }}>
+      {/* Delete Dialog - DARK NAVY + CYAN */}
+      <Dialog 
+        open={openDeleteDialog} 
+        onClose={() => setOpenDeleteDialog(false)}
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          bgcolor: colors.error, 
+          color: 'white',
+          borderRadius: '8px 8px 0 0',
+        }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <DeleteForever />
             <Typography variant="h6">Confirm Delete</Typography>
           </Box>
         </DialogTitle>
         <DialogContent sx={{ mt: 2 }}>
-          <Typography variant="body1" gutterBottom sx={{ color: colors.darkText }}>
+          <Typography variant="body1" gutterBottom sx={{ color: colors.darkNavy }}>
             Are you sure you want to delete this solution?
           </Typography>
           {deletingSolution && (
             <Box sx={{ mt: 1, p: 2, bgcolor: colors.mainBg, borderRadius: 1, border: `1px solid ${colors.borderColor}` }}>
-              <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkText }}>
+              <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }}>
                 {deletingSolution.error_title}
               </Typography>
               <Typography variant="body2" sx={{ color: colors.lightText }}>
@@ -1478,7 +1594,14 @@ const KnowledgeBase = () => {
               </Typography>
             </Box>
           )}
-          <Alert severity="warning" sx={{ mt: 2, borderRadius: 2 }}>
+          <Alert 
+            severity="warning" 
+            sx={{ 
+              mt: 2, 
+              borderRadius: 2,
+              border: `1px solid ${colors.warning}33`,
+            }}
+          >
             This action cannot be undone. All associated data will be permanently removed.
           </Alert>
         </DialogContent>
@@ -1486,7 +1609,13 @@ const KnowledgeBase = () => {
           <Button 
             onClick={() => setOpenDeleteDialog(false)} 
             disabled={deleteLoading}
-            sx={{ color: colors.lightText }}
+            sx={{ 
+              color: colors.darkNavy,
+              '&:hover': { 
+                backgroundColor: 'rgba(103, 232, 249, 0.04)'
+              },
+              textTransform: 'none',
+            }}
           >
             Cancel
           </Button>
@@ -1496,15 +1625,35 @@ const KnowledgeBase = () => {
             onClick={handleConfirmDelete}
             disabled={deleteLoading}
             startIcon={deleteLoading ? <CircularProgress size={20} /> : <DeleteForever />}
+            sx={{
+              textTransform: 'none',
+              borderRadius: 2,
+            }}
           >
             {deleteLoading ? 'Deleting...' : 'Delete Permanently'}
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Add/Edit Dialog */}
-      <Dialog open={openAddDialog} onClose={() => setOpenAddDialog(false)} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ bgcolor: colors.sidebar, color: 'white' }}>
+      {/* Add/Edit Dialog - DARK NAVY + CYAN */}
+      <Dialog 
+        open={openAddDialog} 
+        onClose={() => setOpenAddDialog(false)} 
+        maxWidth="md" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          bgcolor: colors.darkNavy, 
+          color: 'white',
+          borderRadius: '8px 8px 0 0',
+        }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6" fontWeight={600}>
               {editingSolution ? 'Edit Solution' : 'Add New Solution'}
@@ -1530,7 +1679,7 @@ const KnowledgeBase = () => {
                   ),
                   sx: {
                     '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.sidebar },
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
                     }
                   }
                 }}
@@ -1547,8 +1696,8 @@ const KnowledgeBase = () => {
                 placeholder="e.g., ERR-001"
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.sidebar },
-                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
@@ -1565,8 +1714,8 @@ const KnowledgeBase = () => {
                 placeholder="Brief error title"
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.sidebar },
-                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
@@ -1584,8 +1733,8 @@ const KnowledgeBase = () => {
                 placeholder="Detailed description of the error"
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.sidebar },
-                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
@@ -1593,7 +1742,7 @@ const KnowledgeBase = () => {
 
             <Grid item xs={12}>
               <Divider sx={{ my: 1, borderColor: colors.borderColor }} />
-              <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.sidebar }} gutterBottom>
+              <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>
                 Solution Details
               </Typography>
             </Grid>
@@ -1610,8 +1759,8 @@ const KnowledgeBase = () => {
                 placeholder="What caused the failure?"
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.sidebar },
-                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
@@ -1629,8 +1778,8 @@ const KnowledgeBase = () => {
                 placeholder="How was it fixed?"
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.sidebar },
-                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
@@ -1648,8 +1797,8 @@ const KnowledgeBase = () => {
                 placeholder="Step by step repair procedure"
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.sidebar },
-                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
@@ -1673,8 +1822,8 @@ const KnowledgeBase = () => {
                 }}
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.sidebar },
-                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
@@ -1698,8 +1847,8 @@ const KnowledgeBase = () => {
                 }}
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.sidebar },
-                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
@@ -1708,7 +1857,7 @@ const KnowledgeBase = () => {
             <Grid item xs={12}>
               <Divider sx={{ my: 1, borderColor: colors.borderColor }} />
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.sidebar }}>
+                <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }}>
                   <Inventory sx={{ mr: 1, verticalAlign: 'middle' }} />
                   Spare Parts Used
                 </Typography>
@@ -1727,7 +1876,7 @@ const KnowledgeBase = () => {
                     >
                       <FormControlLabel 
                         value="yes" 
-                        control={<Radio sx={{ color: colors.sidebar, '&.Mui-checked': { color: colors.sidebar } }} />} 
+                        control={<Radio sx={{ color: colors.darkNavy, '&.Mui-checked': { color: colors.darkNavy } }} />} 
                         label="Yes" 
                         sx={{ '& .MuiFormControlLabel-label': { fontSize: '0.9rem', fontWeight: 500 } }}
                       />
@@ -1772,8 +1921,8 @@ const KnowledgeBase = () => {
                           placeholder="e.g., Power Supply Module"
                           sx={{
                             '& .MuiOutlinedInput-root': {
-                              '&:hover fieldset': { borderColor: colors.sidebar },
-                              '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                              '&:hover fieldset': { borderColor: colors.lightCyan },
+                              '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                             }
                           }}
                         />
@@ -1790,8 +1939,8 @@ const KnowledgeBase = () => {
                           InputProps={{ inputProps: { min: 1 } }}
                           sx={{
                             '& .MuiOutlinedInput-root': {
-                              '&:hover fieldset': { borderColor: colors.sidebar },
-                              '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                              '&:hover fieldset': { borderColor: colors.lightCyan },
+                              '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                             }
                           }}
                         />
@@ -1808,8 +1957,8 @@ const KnowledgeBase = () => {
                           InputProps={{ inputProps: { min: 0 } }}
                           sx={{
                             '& .MuiOutlinedInput-root': {
-                              '&:hover fieldset': { borderColor: colors.sidebar },
-                              '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                              '&:hover fieldset': { borderColor: colors.lightCyan },
+                              '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                             }
                           }}
                         />
@@ -1821,9 +1970,14 @@ const KnowledgeBase = () => {
                           startIcon={<AddCircle />}
                           onClick={handleAddSparePart}
                           sx={{ 
-                            bgcolor: colors.sidebar, 
-                            '&:hover': { bgcolor: colors.sidebarHover },
-                            boxShadow: `0 4px 16px ${colors.sidebar}44`
+                            bgcolor: colors.darkNavy, 
+                            '&:hover': { 
+                              bgcolor: colors.darkNavyHover,
+                              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`
+                            },
+                            boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+                            textTransform: 'none',
+                            borderRadius: 2,
                           }}
                         >
                           Add Part
@@ -1842,20 +1996,20 @@ const KnowledgeBase = () => {
                       <Table size="small">
                         <TableHead sx={{ bgcolor: colors.mainBg }}>
                           <TableRow>
-                            <TableCell sx={{ fontWeight: 600, color: colors.sidebar }}>Part Name</TableCell>
-                            <TableCell sx={{ fontWeight: 600, color: colors.sidebar }} align="center">Qty</TableCell>
-                            <TableCell sx={{ fontWeight: 600, color: colors.sidebar }} align="right">Unit Cost</TableCell>
-                            <TableCell sx={{ fontWeight: 600, color: colors.sidebar }} align="right">Total</TableCell>
-                            <TableCell align="center" sx={{ fontWeight: 600, color: colors.sidebar }}>Action</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }}>Part Name</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }} align="center">Qty</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }} align="right">Unit Cost</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }} align="right">Total</TableCell>
+                            <TableCell align="center" sx={{ fontWeight: 600, color: colors.darkNavy }}>Action</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
                           {sparePartsList.map((part, idx) => (
                             <TableRow key={idx} hover>
-                              <TableCell sx={{ color: colors.darkText }}>{part.part_name}</TableCell>
-                              <TableCell align="center" sx={{ color: colors.darkText }}>{part.quantity}</TableCell>
-                              <TableCell align="right" sx={{ color: colors.darkText }}>Rs. {parseFloat(part.unit_cost).toFixed(0)}</TableCell>
-                              <TableCell align="right" sx={{ fontWeight: 600, color: colors.sidebar }}>
+                              <TableCell sx={{ color: colors.darkNavy }}>{part.part_name}</TableCell>
+                              <TableCell align="center" sx={{ color: colors.darkNavy }}>{part.quantity}</TableCell>
+                              <TableCell align="right" sx={{ color: colors.darkNavy }}>Rs. {parseFloat(part.unit_cost).toFixed(0)}</TableCell>
+                              <TableCell align="right" sx={{ fontWeight: 600, color: colors.darkNavy }}>
                                 Rs. {(parseFloat(part.quantity) * parseFloat(part.unit_cost)).toFixed(0)}
                               </TableCell>
                               <TableCell align="center">
@@ -1872,10 +2026,10 @@ const KnowledgeBase = () => {
                             </TableRow>
                           ))}
                           <TableRow sx={{ bgcolor: colors.mainBg }}>
-                            <TableCell colSpan={3} align="right" sx={{ fontWeight: 600, color: colors.sidebar }}>
+                            <TableCell colSpan={3} align="right" sx={{ fontWeight: 600, color: colors.darkNavy }}>
                               Total Spare Parts Cost:
                             </TableCell>
-                            <TableCell align="right" sx={{ fontWeight: 700, color: colors.accentGold }}>
+                            <TableCell align="right" sx={{ fontWeight: 700, color: colors.lightCyanDark }}>
                               Rs. {sparePartsList.reduce((sum, p) => sum + (parseFloat(p.quantity) * parseFloat(p.unit_cost)), 0).toFixed(0)}
                             </TableCell>
                             <TableCell />
@@ -1894,7 +2048,7 @@ const KnowledgeBase = () => {
 
             <Grid item xs={12}>
               <Divider sx={{ my: 1, borderColor: colors.borderColor }} />
-              <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.sidebar }} gutterBottom>
+              <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>
                 Images & Attachments
               </Typography>
             </Grid>
@@ -1996,7 +2150,7 @@ const KnowledgeBase = () => {
 
             <Grid item xs={12}>
               <Divider sx={{ my: 1, borderColor: colors.borderColor }} />
-              <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.sidebar }} gutterBottom>
+              <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>
                 People Information
               </Typography>
             </Grid>
@@ -2011,8 +2165,8 @@ const KnowledgeBase = () => {
                 placeholder="Name of person who reported"
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.sidebar },
-                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
@@ -2028,8 +2182,8 @@ const KnowledgeBase = () => {
                 placeholder="Name of engineer who fixed"
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.sidebar },
-                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
@@ -2052,8 +2206,8 @@ const KnowledgeBase = () => {
                 }}
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.sidebar },
-                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
@@ -2076,8 +2230,8 @@ const KnowledgeBase = () => {
                 }}
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.sidebar },
-                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
@@ -2102,8 +2256,8 @@ const KnowledgeBase = () => {
                 }}
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.sidebar },
-                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
@@ -2111,14 +2265,30 @@ const KnowledgeBase = () => {
           </Grid>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={() => setOpenAddDialog(false)} sx={{ color: colors.lightText }}>Cancel</Button>
+          <Button 
+            onClick={() => setOpenAddDialog(false)} 
+            sx={{ 
+              color: colors.darkNavy,
+              '&:hover': { 
+                backgroundColor: 'rgba(103, 232, 249, 0.04)'
+              },
+              textTransform: 'none',
+            }}
+          >
+            Cancel
+          </Button>
           <Button
             variant="contained"
             onClick={handleSubmitSolution}
             sx={{ 
-              bgcolor: colors.sidebar, 
-              '&:hover': { bgcolor: colors.sidebarHover },
-              boxShadow: `0 4px 16px ${colors.sidebar}44`
+              bgcolor: colors.darkNavy, 
+              '&:hover': { 
+                bgcolor: colors.darkNavyHover,
+                boxShadow: `0 4px 20px ${colors.lightCyanGlowStrong}`
+              },
+              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+              textTransform: 'none',
+              borderRadius: 2,
             }}
           >
             {editingSolution ? 'Update Solution' : 'Add Solution'}

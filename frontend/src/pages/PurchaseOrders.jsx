@@ -1,5 +1,5 @@
 // src/pages/PurchaseOrders.jsx
-// ✅ PAEC THEME - Enhanced Cards with Green & Gold Colors
+// ✅ DARK NAVY + LIGHT CYAN THEME - Matching Sidebar
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -72,7 +72,7 @@ import {
   FolderOpen,
   TrendingUp,
   TrendingDown,
-  ChevronRight,  // ✅ ADDED - Fixes the "ChevronRight is not defined" error
+  ChevronRight,
 } from '@mui/icons-material'
 import { purchaseOrderService, hospitalService } from '../api/services'
 import { toast } from 'react-toastify'
@@ -81,27 +81,45 @@ import AccessDenied from '../components/Auth/AccessDenied'
 import FileUpload from '../components/FileUpload'
 
 // ============================================================
-// ✅ PAEC THEME COLORS
+// ✅ DARK NAVY + LIGHT CYAN THEME COLORS
 // ============================================================
 const colors = {
-  sidebar: '#01411C',
-  sidebarHover: '#0B542B',
-  active: '#0E6335',
+  // Dark Navy Base
+  darkNavy: '#0F172A',
+  darkNavyLight: '#1E293B',
+  darkNavyDark: '#0A0F1E',
+  darkNavyHover: '#1E3A5F',
+  
+  // Light Cyan Accents
+  lightCyan: '#67E8F9',
+  lightCyanBright: '#A5F3FC',
+  lightCyanDark: '#22D3EE',
+  lightCyanGlow: 'rgba(103, 232, 249, 0.15)',
+  lightCyanGlowStrong: 'rgba(103, 232, 249, 0.3)',
+  
+  // Gold accent (keeping PAEC branding)
   accentGold: '#C9A227',
   goldLight: '#E8C84A',
+  
+  // Text
   text: '#FFFFFF',
-  secondaryText: '#B8C8BE',
-  mainBg: '#F0F2F5',
-  white: '#FFFFFF',
-  darkText: '#1A2A3A',
-  lightText: '#5A7A8A',
-  error: '#D32F2F',
-  success: '#2E7D32',
-  warning: '#ED6C02',
-  info: '#0B5FA5',
-  borderColor: 'rgba(1, 65, 28, 0.08)',
-  shadowColor: 'rgba(1, 65, 28, 0.08)',
+  secondaryText: '#94A3B8',
+  textLight: '#CBD5E1',
+  cyanText: '#67E8F9',
+  darkText: '#0F172A',
+  lightText: '#64748B',
+  
+  // Cards/Background
   cardBg: '#FFFFFF',
+  borderColor: 'rgba(103, 232, 249, 0.1)',
+  shadowColor: 'rgba(15, 23, 42, 0.08)',
+  mainBg: '#F1F5F9',
+  
+  // Status colors
+  error: '#EF4444',
+  success: '#22C55E',
+  warning: '#F59E0B',
+  info: '#3B82F6',
 }
 
 // ============================================================
@@ -118,8 +136,8 @@ const StatCard = ({ title, value, icon, color, bgColor, subtext }) => (
       overflow: 'hidden',
       '&:hover': {
         transform: 'translateY(-4px)',
-        boxShadow: `0 8px 30px ${colors.shadowColor}`,
-        borderColor: colors.accentGold,
+        boxShadow: `0 8px 30px ${colors.lightCyanGlow}`,
+        borderColor: colors.lightCyan,
       }
     }}>
       <CardContent sx={{ textAlign: 'center', py: 3, position: 'relative', zIndex: 1 }}>
@@ -130,15 +148,15 @@ const StatCard = ({ title, value, icon, color, bgColor, subtext }) => (
           mb: 1.5
         }}>
           <Avatar sx={{ 
-            bgcolor: bgColor || color || colors.sidebar,
+            bgcolor: bgColor || color || colors.darkNavy,
             width: 48,
             height: 48,
-            boxShadow: `0 4px 16px ${color || colors.sidebar}44`
+            boxShadow: `0 4px 16px ${color || colors.darkNavy}44`
           }}>
             {icon}
           </Avatar>
         </Box>
-        <Typography variant="h4" sx={{ color: colors.darkText, fontWeight: 700 }}>
+        <Typography variant="h4" sx={{ color: colors.darkNavy, fontWeight: 700 }}>
           {value}
         </Typography>
         <Typography variant="body2" sx={{ color: colors.lightText, fontWeight: 500 }}>
@@ -156,7 +174,7 @@ const StatCard = ({ title, value, icon, color, bgColor, subtext }) => (
           width: 100,
           height: 100,
           borderRadius: '50%',
-          background: `radial-gradient(circle, ${color || colors.sidebar}08 0%, transparent 70%)`,
+          background: `radial-gradient(circle, ${color || colors.darkNavy}08 0%, transparent 70%)`,
           pointerEvents: 'none',
         }} />
       </CardContent>
@@ -165,7 +183,7 @@ const StatCard = ({ title, value, icon, color, bgColor, subtext }) => (
 )
 
 // ============================================================
-// ✅ ENHANCED ORDER CARD
+// ✅ ENHANCED ORDER CARD - DARK NAVY + CYAN
 // ============================================================
 const OrderCard = ({ order, onView, onEdit, onDelete, onApprove, onReject, onPrint, canEdit, canDelete, canApprove }) => {
   const [isHovered, setIsHovered] = useState(false)
@@ -204,22 +222,22 @@ const OrderCard = ({ order, onView, onEdit, onDelete, onApprove, onReject, onPri
           position: 'relative',
           overflow: 'hidden',
           transform: isHovered ? 'translateY(-8px)' : 'translateY(0)',
-          boxShadow: isHovered ? `0 12px 40px ${colors.shadowColor}` : '0 2px 12px rgba(0,0,0,0.04)',
+          boxShadow: isHovered ? `0 12px 40px ${colors.lightCyanGlow}` : '0 2px 12px rgba(0,0,0,0.04)',
           '&:hover': {
-            borderColor: colors.accentGold,
+            borderColor: colors.lightCyan,
           }
         }}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        {/* Top Gradient Bar */}
+        {/* Top Gradient Bar - Dark Navy to Cyan */}
         <Box sx={{
           position: 'absolute',
           top: 0,
           left: 0,
           right: 0,
           height: 4,
-          background: `linear-gradient(90deg, ${getStatusColor(order.status)}, ${colors.accentGold})`,
+          background: `linear-gradient(90deg, ${getStatusColor(order.status)}, ${colors.lightCyan})`,
         }} />
         
         {/* Decorative Background */}
@@ -242,8 +260,8 @@ const OrderCard = ({ order, onView, onEdit, onDelete, onApprove, onReject, onPri
               color="primary"
               sx={{
                 '& .MuiBadge-badge': {
-                  bgcolor: colors.accentGold,
-                  color: 'white',
+                  bgcolor: colors.lightCyan,
+                  color: colors.darkNavy,
                   fontWeight: 700,
                   fontSize: '10px',
                   height: 20,
@@ -265,7 +283,7 @@ const OrderCard = ({ order, onView, onEdit, onDelete, onApprove, onReject, onPri
             </Badge>
             
             <Box sx={{ flex: 1, minWidth: 0 }}>
-              <Typography variant="h6" fontWeight={700} sx={{ color: colors.darkText, mb: 0.5, fontSize: '1rem' }} noWrap>
+              <Typography variant="h6" fontWeight={700} sx={{ color: colors.darkNavy, mb: 0.5, fontSize: '1rem' }} noWrap>
                 {order.po_number}
               </Typography>
               <Chip
@@ -287,15 +305,15 @@ const OrderCard = ({ order, onView, onEdit, onDelete, onApprove, onReject, onPri
           <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             <Typography variant="body2" sx={{ color: colors.lightText }}>
               <Business sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
-              Vendor: <strong style={{ color: colors.darkText }}>{order.vendor_name}</strong>
+              Vendor: <strong style={{ color: colors.darkNavy }}>{order.vendor_name}</strong>
             </Typography>
             <Typography variant="body2" sx={{ color: colors.lightText }}>
               <ShoppingCart sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
-              Hospital: <span style={{ color: colors.darkText }}>{order.hospital_name}</span>
+              Hospital: <span style={{ color: colors.darkNavy }}>{order.hospital_name}</span>
             </Typography>
-            <Typography variant="body2" sx={{ color: colors.darkText }}>
+            <Typography variant="body2" sx={{ color: colors.darkNavy }}>
               <Receipt sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
-              Amount: <strong style={{ color: colors.accentGold }}>${safeToFixed(order.total_amount)}</strong>
+              Amount: <strong style={{ color: colors.lightCyanDark }}>${safeToFixed(order.total_amount)}</strong>
             </Typography>
             <Typography variant="caption" sx={{ color: colors.lightText }}>
               <Description sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
@@ -328,8 +346,8 @@ const OrderCard = ({ order, onView, onEdit, onDelete, onApprove, onReject, onPri
               startIcon={<Visibility />} 
               onClick={() => onView(order)}
               sx={{ 
-                color: colors.sidebar,
-                '&:hover': { color: colors.accentGold },
+                color: colors.darkNavy,
+                '&:hover': { color: colors.lightCyanDark },
                 fontSize: '12px',
                 textTransform: 'none',
               }}
@@ -343,7 +361,13 @@ const OrderCard = ({ order, onView, onEdit, onDelete, onApprove, onReject, onPri
               <IconButton 
                 size="small" 
                 onClick={() => onEdit(order)}
-                sx={{ color: colors.sidebar, '&:hover': { color: colors.accentGold } }}
+                sx={{ 
+                  color: colors.darkNavy, 
+                  '&:hover': { 
+                    color: colors.lightCyanDark,
+                    backgroundColor: 'rgba(103, 232, 249, 0.08)'
+                  } 
+                }}
               >
                 <Edit fontSize="small" />
               </IconButton>
@@ -368,7 +392,13 @@ const OrderCard = ({ order, onView, onEdit, onDelete, onApprove, onReject, onPri
                 <IconButton 
                   size="small" 
                   onClick={() => onApprove(order.id)}
-                  sx={{ color: colors.success, '&:hover': { color: colors.accentGold } }}
+                  sx={{ 
+                    color: colors.success, 
+                    '&:hover': { 
+                      color: colors.lightCyanDark,
+                      backgroundColor: 'rgba(103, 232, 249, 0.08)'
+                    } 
+                  }}
                 >
                   <CheckCircle fontSize="small" />
                 </IconButton>
@@ -390,7 +420,13 @@ const OrderCard = ({ order, onView, onEdit, onDelete, onApprove, onReject, onPri
               <IconButton 
                 size="small" 
                 onClick={() => onPrint(order)}
-                sx={{ color: colors.sidebar, '&:hover': { color: colors.accentGold } }}
+                sx={{ 
+                  color: colors.darkNavy, 
+                  '&:hover': { 
+                    color: colors.lightCyanDark,
+                    backgroundColor: 'rgba(103, 232, 249, 0.08)'
+                  } 
+                }}
               >
                 <Print fontSize="small" />
               </IconButton>
@@ -854,21 +890,21 @@ const PurchaseOrders = () => {
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
           body { font-family: Arial, sans-serif; padding: 40px; color: #333; background: #fff; }
-          .header { text-align: center; border-bottom: 2px solid #01411C; padding-bottom: 20px; margin-bottom: 20px; }
-          .header h1 { color: #01411C; font-size: 28px; margin-bottom: 5px; }
+          .header { text-align: center; border-bottom: 2px solid #0F172A; padding-bottom: 20px; margin-bottom: 20px; }
+          .header h1 { color: #0F172A; font-size: 28px; margin-bottom: 5px; }
           .header p { color: #666; font-size: 14px; }
-          .po-number { text-align: right; font-size: 18px; font-weight: bold; color: #01411C; margin-bottom: 20px; }
+          .po-number { text-align: right; font-size: 18px; font-weight: bold; color: #0F172A; margin-bottom: 20px; }
           .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 30px; margin-bottom: 20px; }
           .info-item { display: flex; padding: 8px 0; border-bottom: 1px solid #eee; }
           .info-item .label { font-weight: 600; min-width: 120px; color: #666; }
           .info-item .value { color: #333; }
           .status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; background: ${getStatusColor(order.status)}; color: white; }
           table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-          th { background: #f8f9fa; padding: 12px; text-align: left; border-bottom: 2px solid #01411C; font-weight: 600; }
+          th { background: #f8f9fa; padding: 12px; text-align: left; border-bottom: 2px solid #0F172A; font-weight: 600; }
           td { padding: 10px 12px; border-bottom: 1px solid #eee; }
           .total-row { font-weight: 600; font-size: 16px; }
-          .total-row td { border-top: 2px solid #01411C; padding-top: 12px; }
-          .total-amount { font-size: 18px; color: #01411C; }
+          .total-row td { border-top: 2px solid #0F172A; padding-top: 12px; }
+          .total-amount { font-size: 18px; color: #0F172A; }
           .notes { margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 5px; }
           .footer { margin-top: 30px; text-align: center; font-size: 12px; color: #999; border-top: 1px solid #eee; padding-top: 20px; }
           .documents { margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 5px; }
@@ -893,7 +929,7 @@ const PurchaseOrders = () => {
           ${order.vendor_email ? `<div class="info-item"><span class="label">Email:</span><span class="value">${order.vendor_email}</span></div>` : ''}
           ${order.vendor_address ? `<div class="info-item" style="grid-column: span 2;"><span class="label">Address:</span><span class="value">${order.vendor_address}</span></div>` : ''}
         </div>
-        <h3 style="margin: 20px 0 10px 0; color: #01411C;">Order Items</h3>
+        <h3 style="margin: 20px 0 10px 0; color: #0F172A;">Order Items</h3>
         <table>
           <thead><tr><th>#</th><th>Description</th><th style="text-align: center;">Quantity</th><th style="text-align: right;">Unit Price</th><th style="text-align: right;">Total</th></tr></thead>
           <tbody>
@@ -949,7 +985,7 @@ const PurchaseOrders = () => {
   const cancelledOrders = orders.filter(o => o.status === 'Cancelled').length
 
   if (loading) {
-    return <LinearProgress sx={{ bgcolor: colors.borderColor, '& .MuiLinearProgress-bar': { bgcolor: colors.accentGold } }} />
+    return <LinearProgress sx={{ bgcolor: colors.borderColor, '& .MuiLinearProgress-bar': { bgcolor: colors.lightCyan } }} />
   }
 
   return (
@@ -957,7 +993,22 @@ const PurchaseOrders = () => {
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Typography variant="h5" sx={{ fontWeight: 700, color: colors.sidebar }}>
+          <Typography 
+            variant="h5" 
+            sx={{ 
+              fontWeight: 700, 
+              color: colors.darkNavy,
+              '&::after': {
+                content: '""',
+                display: 'block',
+                width: '40px',
+                height: '3px',
+                background: `linear-gradient(90deg, ${colors.lightCyan}, ${colors.darkNavy})`,
+                borderRadius: '2px',
+                marginTop: '4px',
+              }
+            }}
+          >
             Purchase Orders
           </Typography>
           <Chip 
@@ -965,10 +1016,10 @@ const PurchaseOrders = () => {
             label={`${orders.length} Orders`}
             size="small"
             sx={{ 
-              bgcolor: colors.sidebar, 
+              bgcolor: colors.darkNavy, 
               color: 'white',
               fontWeight: 600,
-              '& .MuiChip-icon': { color: colors.accentGold }
+              '& .MuiChip-icon': { color: colors.lightCyan }
             }}
           />
         </Box>
@@ -979,9 +1030,13 @@ const PurchaseOrders = () => {
             onClick={fetchOrders}
             size="small"
             sx={{ 
-              borderColor: colors.sidebar, 
-              color: colors.sidebar,
-              '&:hover': { borderColor: colors.accentGold, color: colors.accentGold }
+              borderColor: colors.borderColor, 
+              color: colors.darkNavy,
+              '&:hover': { 
+                borderColor: colors.lightCyan, 
+                color: colors.lightCyanDark,
+                backgroundColor: 'rgba(103, 232, 249, 0.04)'
+              }
             }}
           >
             Refresh
@@ -992,9 +1047,14 @@ const PurchaseOrders = () => {
               startIcon={<Add />}
               onClick={() => handleOpenDialog()}
               sx={{
-                bgcolor: colors.sidebar,
-                '&:hover': { bgcolor: colors.sidebarHover },
-                boxShadow: `0 4px 16px ${colors.sidebar}44`
+                bgcolor: colors.darkNavy,
+                '&:hover': { 
+                  bgcolor: colors.darkNavyHover,
+                  boxShadow: `0 4px 20px ${colors.lightCyanGlowStrong}`
+                },
+                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+                borderRadius: 2,
+                textTransform: 'none',
               }}
             >
               Create Purchase Order
@@ -1003,15 +1063,15 @@ const PurchaseOrders = () => {
         </Box>
       </Box>
 
-      {/* Enhanced Stats Cards */}
+      {/* Enhanced Stats Cards - DARK NAVY + CYAN */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={6} sm={2.4}>
           <StatCard 
             title="Total Orders" 
             value={totalOrders} 
             icon={<ShoppingCart sx={{ fontSize: 24, color: 'white' }} />}
-            color={colors.sidebar}
-            bgColor={colors.sidebar}
+            color={colors.darkNavy}
+            bgColor={colors.darkNavy}
             subtext="All purchase orders"
           />
         </Grid>
@@ -1057,13 +1117,14 @@ const PurchaseOrders = () => {
         </Grid>
       </Grid>
 
-      {/* Search & Filter */}
+      {/* Search & Filter - CYAN THEMED */}
       <Paper sx={{ 
         p: 2, 
         mb: 3, 
         borderRadius: 2,
         border: `1px solid ${colors.borderColor}`,
-        boxShadow: '0 2px 12px rgba(0,0,0,0.04)'
+        boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+        bgcolor: colors.cardBg,
       }}>
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
           <TextField
@@ -1080,8 +1141,8 @@ const PurchaseOrders = () => {
               ),
               sx: {
                 '& .MuiOutlinedInput-root': {
-                  '&:hover fieldset': { borderColor: colors.sidebar },
-                  '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  '&:hover fieldset': { borderColor: colors.lightCyan },
+                  '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                 }
               }
             }}
@@ -1095,8 +1156,8 @@ const PurchaseOrders = () => {
               label="Status"
               sx={{
                 '& .MuiOutlinedInput-root': {
-                  '&:hover fieldset': { borderColor: colors.sidebar },
-                  '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  '&:hover fieldset': { borderColor: colors.lightCyan },
+                  '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                 }
               }}
             >
@@ -1118,8 +1179,8 @@ const PurchaseOrders = () => {
               label="Hospital"
               sx={{
                 '& .MuiOutlinedInput-root': {
-                  '&:hover fieldset': { borderColor: colors.sidebar },
-                  '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  '&:hover fieldset': { borderColor: colors.lightCyan },
+                  '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                 }
               }}
             >
@@ -1152,7 +1213,7 @@ const PurchaseOrders = () => {
         ))}
       </Grid>
 
-      {/* Empty State */}
+      {/* Empty State - CYAN THEMED */}
       {filteredOrders.length === 0 && !loading && (
         <Paper sx={{ 
           p: 4, 
@@ -1174,8 +1235,13 @@ const PurchaseOrders = () => {
               onClick={() => handleOpenDialog()}
               sx={{ 
                 mt: 2,
-                bgcolor: colors.sidebar,
-                '&:hover': { bgcolor: colors.sidebarHover }
+                bgcolor: colors.darkNavy,
+                '&:hover': { 
+                  bgcolor: colors.darkNavyHover,
+                  boxShadow: `0 4px 16px ${colors.lightCyanGlow}`
+                },
+                textTransform: 'none',
+                borderRadius: 2,
               }}
             >
               Create First Purchase Order
@@ -1184,9 +1250,25 @@ const PurchaseOrders = () => {
         </Paper>
       )}
 
-      {/* Add/Edit Dialog - Same as before */}
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ bgcolor: colors.sidebar, color: 'white' }}>
+      {/* Add/Edit Dialog - DARK NAVY + CYAN */}
+      <Dialog 
+        open={openDialog} 
+        onClose={handleCloseDialog} 
+        maxWidth="md" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          bgcolor: colors.darkNavy, 
+          color: 'white',
+          borderRadius: '8px 8px 0 0',
+        }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <ShoppingCart sx={{ color: 'white' }} />
             <Typography variant="h6" fontWeight={600}>
@@ -1213,8 +1295,8 @@ const PurchaseOrders = () => {
                   required
                   sx={{
                     '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.sidebar },
-                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                     }
                   }}
                 >
@@ -1236,8 +1318,8 @@ const PurchaseOrders = () => {
                 disabled={editingOrder}
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.sidebar },
-                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
@@ -1261,8 +1343,8 @@ const PurchaseOrders = () => {
                 required
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.sidebar },
-                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
@@ -1276,8 +1358,8 @@ const PurchaseOrders = () => {
                 onChange={handleFormChange}
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.sidebar },
-                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
@@ -1292,8 +1374,8 @@ const PurchaseOrders = () => {
                 onChange={handleFormChange}
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.sidebar },
-                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
@@ -1307,8 +1389,8 @@ const PurchaseOrders = () => {
                 onChange={handleFormChange}
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.sidebar },
-                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
@@ -1324,8 +1406,8 @@ const PurchaseOrders = () => {
                 rows={2}
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.sidebar },
-                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
@@ -1350,8 +1432,8 @@ const PurchaseOrders = () => {
                 InputLabelProps={{ shrink: true }}
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.sidebar },
-                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
@@ -1367,8 +1449,8 @@ const PurchaseOrders = () => {
                 InputLabelProps={{ shrink: true }}
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.sidebar },
-                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
@@ -1383,8 +1465,8 @@ const PurchaseOrders = () => {
                   label="Status"
                   sx={{
                     '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.sidebar },
-                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                     }
                   }}
                 >
@@ -1407,8 +1489,8 @@ const PurchaseOrders = () => {
                 placeholder="Name of approver"
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.sidebar },
-                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
@@ -1435,8 +1517,8 @@ const PurchaseOrders = () => {
                         fullWidth
                         sx={{
                           '& .MuiOutlinedInput-root': {
-                            '&:hover fieldset': { borderColor: colors.sidebar },
-                            '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                            '&:hover fieldset': { borderColor: colors.lightCyan },
+                            '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                           }
                         }}
                       />
@@ -1452,8 +1534,8 @@ const PurchaseOrders = () => {
                         InputProps={{ inputProps: { min: 1, step: 1 } }}
                         sx={{
                           '& .MuiOutlinedInput-root': {
-                            '&:hover fieldset': { borderColor: colors.sidebar },
-                            '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                            '&:hover fieldset': { borderColor: colors.lightCyan },
+                            '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                           }
                         }}
                       />
@@ -1469,8 +1551,8 @@ const PurchaseOrders = () => {
                         InputProps={{ inputProps: { min: 0, step: 0.01 } }}
                         sx={{
                           '& .MuiOutlinedInput-root': {
-                            '&:hover fieldset': { borderColor: colors.sidebar },
-                            '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                            '&:hover fieldset': { borderColor: colors.lightCyan },
+                            '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                           }
                         }}
                       />
@@ -1485,8 +1567,8 @@ const PurchaseOrders = () => {
                         sx={{ 
                           '& .MuiInputBase-root': { bgcolor: colors.mainBg },
                           '& .MuiOutlinedInput-root': {
-                            '&:hover fieldset': { borderColor: colors.sidebar },
-                            '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                            '&:hover fieldset': { borderColor: colors.lightCyan },
+                            '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                           }
                         }}
                       />
@@ -1509,14 +1591,14 @@ const PurchaseOrders = () => {
                   onClick={addItem}
                   sx={{ 
                     mt: 1,
-                    color: colors.sidebar,
-                    '&:hover': { color: colors.accentGold }
+                    color: colors.darkNavy,
+                    '&:hover': { color: colors.lightCyanDark }
                   }}
                 >
                   Add Item
                 </Button>
                 <Box sx={{ mt: 2, textAlign: 'right' }}>
-                  <Typography variant="subtitle1" fontWeight={600} sx={{ color: colors.sidebar }}>
+                  <Typography variant="subtitle1" fontWeight={600} sx={{ color: colors.darkNavy }}>
                     Total Amount: ${calculateTotal().toFixed(2)}
                   </Typography>
                 </Box>
@@ -1535,8 +1617,8 @@ const PurchaseOrders = () => {
                 placeholder="Additional notes or special instructions..."
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.sidebar },
-                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
@@ -1595,14 +1677,30 @@ const PurchaseOrders = () => {
           </Grid>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={handleCloseDialog} sx={{ color: colors.lightText }}>Cancel</Button>
+          <Button 
+            onClick={handleCloseDialog} 
+            sx={{ 
+              color: colors.darkNavy,
+              '&:hover': { 
+                backgroundColor: 'rgba(103, 232, 249, 0.04)'
+              },
+              textTransform: 'none',
+            }}
+          >
+            Cancel
+          </Button>
           <Button
             variant="contained"
             onClick={handleSubmit}
             sx={{
-              bgcolor: colors.sidebar,
-              '&:hover': { bgcolor: colors.sidebarHover },
-              boxShadow: `0 4px 16px ${colors.sidebar}44`
+              bgcolor: colors.darkNavy,
+              '&:hover': { 
+                bgcolor: colors.darkNavyHover,
+                boxShadow: `0 4px 20px ${colors.lightCyanGlowStrong}`
+              },
+              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+              textTransform: 'none',
+              borderRadius: 2,
             }}
           >
             {editingOrder ? 'Update' : 'Create'}
@@ -1610,9 +1708,25 @@ const PurchaseOrders = () => {
         </DialogActions>
       </Dialog>
 
-      {/* View Dialog - Same as before */}
-      <Dialog open={openViewDialog} onClose={handleCloseView} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ bgcolor: colors.sidebar, color: 'white' }}>
+      {/* View Dialog - DARK NAVY + CYAN */}
+      <Dialog 
+        open={openViewDialog} 
+        onClose={handleCloseView} 
+        maxWidth="md" 
+        fullWidth
+        PaperProps={{
+          sx: { 
+            borderRadius: 3,
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          bgcolor: colors.darkNavy, 
+          color: 'white',
+          borderRadius: '8px 8px 0 0',
+        }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6" fontWeight={600}>
               Purchase Order Details
@@ -1627,7 +1741,7 @@ const PurchaseOrders = () => {
             <Grid container spacing={2}>
               <Grid item xs={12}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Typography variant="h6" fontWeight={600} sx={{ color: colors.darkText }}>
+                  <Typography variant="h6" fontWeight={600} sx={{ color: colors.darkNavy }}>
                     {viewingOrder.po_number}
                   </Typography>
                   <Chip 
@@ -1649,7 +1763,7 @@ const PurchaseOrders = () => {
               </Grid>
 
               <Grid item xs={12}>
-                <Typography variant="subtitle2" sx={{ color: colors.sidebar, mb: 2 }}>
+                <Typography variant="subtitle2" sx={{ color: colors.darkNavy, mb: 2 }}>
                   Order Status Timeline
                 </Typography>
                 <Stepper activeStep={getCurrentStep(viewingOrder.status)} orientation="vertical">
@@ -1696,20 +1810,20 @@ const PurchaseOrders = () => {
 
               <Grid item xs={12} md={6}>
                 <Typography variant="body2" sx={{ color: colors.lightText }}>Hospital</Typography>
-                <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkText }}>
+                <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy }}>
                   {viewingOrder.hospital_name}
                 </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
                 <Typography variant="body2" sx={{ color: colors.lightText }}>Vendor</Typography>
-                <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkText }}>
+                <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy }}>
                   {viewingOrder.vendor_name}
                 </Typography>
               </Grid>
               {viewingOrder.vendor_contact && (
                 <Grid item xs={12} md={6}>
                   <Typography variant="body2" sx={{ color: colors.lightText }}>Vendor Contact</Typography>
-                  <Typography variant="body1" sx={{ color: colors.darkText }}>
+                  <Typography variant="body1" sx={{ color: colors.darkNavy }}>
                     {viewingOrder.vendor_contact}
                   </Typography>
                 </Grid>
@@ -1717,7 +1831,7 @@ const PurchaseOrders = () => {
               {viewingOrder.vendor_email && (
                 <Grid item xs={12} md={6}>
                   <Typography variant="body2" sx={{ color: colors.lightText }}>Vendor Email</Typography>
-                  <Typography variant="body1" sx={{ color: colors.darkText }}>
+                  <Typography variant="body1" sx={{ color: colors.darkNavy }}>
                     {viewingOrder.vendor_email}
                   </Typography>
                 </Grid>
@@ -1725,7 +1839,7 @@ const PurchaseOrders = () => {
               {viewingOrder.vendor_address && (
                 <Grid item xs={12}>
                   <Typography variant="body2" sx={{ color: colors.lightText }}>Vendor Address</Typography>
-                  <Typography variant="body1" sx={{ color: colors.darkText }}>
+                  <Typography variant="body1" sx={{ color: colors.darkNavy }}>
                     {viewingOrder.vendor_address}
                   </Typography>
                 </Grid>
@@ -1737,19 +1851,19 @@ const PurchaseOrders = () => {
 
               <Grid item xs={12} md={4}>
                 <Typography variant="body2" sx={{ color: colors.lightText }}>Order Date</Typography>
-                <Typography variant="body1" sx={{ color: colors.darkText }}>
+                <Typography variant="body1" sx={{ color: colors.darkNavy }}>
                   {viewingOrder.order_date ? new Date(viewingOrder.order_date).toLocaleDateString() : '-'}
                 </Typography>
               </Grid>
               <Grid item xs={12} md={4}>
                 <Typography variant="body2" sx={{ color: colors.lightText }}>Delivery Date</Typography>
-                <Typography variant="body1" sx={{ color: colors.darkText }}>
+                <Typography variant="body1" sx={{ color: colors.darkNavy }}>
                   {viewingOrder.delivery_date ? new Date(viewingOrder.delivery_date).toLocaleDateString() : '-'}
                 </Typography>
               </Grid>
               <Grid item xs={12} md={4}>
                 <Typography variant="body2" sx={{ color: colors.lightText }}>Total Amount</Typography>
-                <Typography variant="body1" fontWeight={600} sx={{ color: colors.accentGold }}>
+                <Typography variant="body1" fontWeight={600} sx={{ color: colors.lightCyanDark }}>
                   {viewingOrder.total_amount ? `$${parseFloat(viewingOrder.total_amount).toFixed(2)}` : '-'}
                 </Typography>
               </Grid>
@@ -1758,7 +1872,7 @@ const PurchaseOrders = () => {
                 <>
                   <Grid item xs={12}>
                     <Divider sx={{ borderColor: colors.borderColor }} />
-                    <Typography variant="subtitle2" sx={{ color: colors.sidebar, mt: 2, mb: 1 }}>
+                    <Typography variant="subtitle2" sx={{ color: colors.darkNavy, mt: 2, mb: 1 }}>
                       Order Items
                     </Typography>
                   </Grid>
@@ -1767,11 +1881,11 @@ const PurchaseOrders = () => {
                       <Table size="small">
                         <TableHead sx={{ bgcolor: colors.mainBg }}>
                           <TableRow>
-                            <TableCell sx={{ fontWeight: 600, color: colors.sidebar }}>#</TableCell>
-                            <TableCell sx={{ fontWeight: 600, color: colors.sidebar }}>Description</TableCell>
-                            <TableCell sx={{ fontWeight: 600, color: colors.sidebar }} align="center">Quantity</TableCell>
-                            <TableCell sx={{ fontWeight: 600, color: colors.sidebar }} align="right">Unit Price</TableCell>
-                            <TableCell sx={{ fontWeight: 600, color: colors.sidebar }} align="right">Total</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }}>#</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }}>Description</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }} align="center">Quantity</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }} align="right">Unit Price</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }} align="right">Total</TableCell>
                           </TableRow>
                         </TableHead>
                         <TableBody>
@@ -1795,7 +1909,7 @@ const PurchaseOrders = () => {
                 <Grid item xs={12}>
                   <Divider sx={{ borderColor: colors.borderColor }} />
                   <Typography variant="body2" sx={{ color: colors.lightText, mt: 2 }}>Notes</Typography>
-                  <Typography variant="body1" sx={{ color: colors.darkText }}>{viewingOrder.notes}</Typography>
+                  <Typography variant="body1" sx={{ color: colors.darkNavy }}>{viewingOrder.notes}</Typography>
                 </Grid>
               )}
 
@@ -1822,8 +1936,8 @@ const PurchaseOrders = () => {
                           sx={{ 
                             textTransform: 'none',
                             borderColor: colors.borderColor,
-                            color: colors.darkText,
-                            '&:hover': { borderColor: colors.accentGold, color: colors.accentGold }
+                            color: colors.darkNavy,
+                            '&:hover': { borderColor: colors.lightCyan, color: colors.lightCyanDark }
                           }}
                         >
                           {url.split('/').pop().substring(0, 20)}
@@ -1837,7 +1951,7 @@ const PurchaseOrders = () => {
               {viewingOrder.status !== 'Cancelled' && viewingOrder.status !== 'Received' && canEdit && (
                 <Grid item xs={12}>
                   <Divider sx={{ borderColor: colors.borderColor }} />
-                  <Typography variant="subtitle2" sx={{ color: colors.sidebar, mt: 2, mb: 1 }}>
+                  <Typography variant="subtitle2" sx={{ color: colors.darkNavy, mt: 2, mb: 1 }}>
                     Update Status
                   </Typography>
                   <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
@@ -1849,7 +1963,13 @@ const PurchaseOrders = () => {
                         sx={{ 
                           borderColor: colors.warning,
                           color: colors.warning,
-                          '&:hover': { borderColor: colors.accentGold, color: colors.accentGold }
+                          '&:hover': { 
+                            borderColor: colors.lightCyan, 
+                            color: colors.lightCyanDark,
+                            backgroundColor: 'rgba(103, 232, 249, 0.04)'
+                          },
+                          textTransform: 'none',
+                          borderRadius: 2,
                         }}
                       >
                         Submit for Approval
@@ -1865,7 +1985,9 @@ const PurchaseOrders = () => {
                           sx={{ 
                             bgcolor: colors.success,
                             '&:hover': { bgcolor: '#1B5E20' },
-                            boxShadow: `0 4px 16px ${colors.success}44`
+                            boxShadow: `0 4px 16px ${colors.success}44`,
+                            textTransform: 'none',
+                            borderRadius: 2,
                           }}
                         >
                           Approve
@@ -1876,13 +1998,17 @@ const PurchaseOrders = () => {
                           color="error"
                           onClick={() => handleReject(viewingOrder.id)}
                           startIcon={<Cancel />}
+                          sx={{
+                            textTransform: 'none',
+                            borderRadius: 2,
+                          }}
                         >
                           Reject
                         </Button>
                       </>
                     )}
                     {viewingOrder.status === 'Pending Approval' && !canApprove && (
-                      <Alert severity="info" sx={{ mt: 1, width: '100%', borderRadius: 2, border: `1px solid ${colors.info}33` }}>
+                      <Alert severity="info" sx={{ mt: 1, width: '100%', borderRadius: 2, border: `1px solid rgba(103, 232, 249, 0.2)` }}>
                         <Typography variant="body2">
                           <strong>Waiting for Super Admin approval.</strong> Only Super Admin can approve or reject orders.
                         </Typography>
@@ -1897,7 +2023,9 @@ const PurchaseOrders = () => {
                         sx={{ 
                           bgcolor: colors.info,
                           '&:hover': { bgcolor: '#0D47A1' },
-                          boxShadow: `0 4px 16px ${colors.info}44`
+                          boxShadow: `0 4px 16px ${colors.info}44`,
+                          textTransform: 'none',
+                          borderRadius: 2,
                         }}
                       >
                         Mark as Ordered
@@ -1912,7 +2040,9 @@ const PurchaseOrders = () => {
                         sx={{ 
                           bgcolor: colors.success,
                           '&:hover': { bgcolor: '#1B5E20' },
-                          boxShadow: `0 4px 16px ${colors.success}44`
+                          boxShadow: `0 4px 16px ${colors.success}44`,
+                          textTransform: 'none',
+                          borderRadius: 2,
                         }}
                       >
                         Mark as Received
@@ -1945,14 +2075,30 @@ const PurchaseOrders = () => {
           )}
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={handleCloseView} sx={{ color: colors.lightText }}>Close</Button>
+          <Button 
+            onClick={handleCloseView} 
+            sx={{ 
+              color: colors.darkNavy,
+              '&:hover': { 
+                backgroundColor: 'rgba(103, 232, 249, 0.04)'
+              },
+              textTransform: 'none',
+            }}
+          >
+            Close
+          </Button>
           <Button 
             variant="contained" 
             startIcon={<Print />} 
             sx={{ 
-              bgcolor: colors.sidebar,
-              '&:hover': { bgcolor: colors.sidebarHover },
-              boxShadow: `0 4px 16px ${colors.sidebar}44`
+              bgcolor: colors.darkNavy,
+              '&:hover': { 
+                bgcolor: colors.darkNavyHover,
+                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`
+              },
+              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+              textTransform: 'none',
+              borderRadius: 2,
             }}
             onClick={() => handlePrint(viewingOrder)}
           >

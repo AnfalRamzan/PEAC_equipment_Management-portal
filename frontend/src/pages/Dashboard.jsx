@@ -1,5 +1,5 @@
 // src/pages/Dashboard.jsx
-// ✅ PAEC THEME - Subtle Background Color Behind Cards
+// ✅ DARK NAVY + LIGHT CYAN THEME - Matching Sidebar
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -36,29 +36,52 @@ import { useSelector } from 'react-redux'
 import { useNavigate } from 'react-router-dom'
 
 // ============================================================
-// ✅ PAEC THEME COLORS
+// ✅ DARK NAVY + LIGHT CYAN THEME COLORS
 // ============================================================
 const colors = {
-  sidebar: '#01411C',
-  sidebarHover: '#0B542B',
-  active: '#0E6335',
+  // Dark Navy Base
+  darkNavy: '#0F172A',
+  darkNavyLight: '#1E293B',
+  darkNavyDark: '#0A0F1E',
+  darkNavyHover: '#1E3A5F',
+  
+  // Light Cyan Accents
+  lightCyan: '#67E8F9',
+  lightCyanBright: '#A5F3FC',
+  lightCyanDark: '#22D3EE',
+  lightCyanGlow: 'rgba(103, 232, 249, 0.15)',
+  lightCyanGlowStrong: 'rgba(103, 232, 249, 0.3)',
+  
+  // Gold accent (keeping PAEC branding)
   accentGold: '#C9A227',
   goldLight: '#E8C84A',
+  
+  // Text
   text: '#FFFFFF',
-  secondaryText: '#B8C8BE',
-  mainBg: '#F0F2F5',
-  white: '#FFFFFF',
-  darkText: '#1A2A3A',
-  lightText: '#5A7A8A',
+  secondaryText: '#94A3B8',
+  textLight: '#CBD5E1',
+  cyanText: '#67E8F9',
+  darkText: '#0F172A',
+  lightText: '#64748B',
+  
+  // Cards
   cardBg: '#FFFFFF',
-  borderColor: 'rgba(1, 65, 28, 0.08)',
-  shadowColor: 'rgba(1, 65, 28, 0.08)',
-  // ✅ Dashboard Background Colors
-  bgGradientStart: '#E8F5E9',
-  bgGradientEnd: '#F5F5F5',
-  // ✅ Card Area Background - Subtle color behind cards
-  cardAreaBg: 'rgba(1, 65, 28, 0.03)',
-  cardAreaBorder: 'rgba(1, 65, 28, 0.05)',
+  borderColor: 'rgba(103, 232, 249, 0.1)',
+  shadowColor: 'rgba(15, 23, 42, 0.08)',
+  
+  // Dashboard Background - Light with cyan tint
+  bgGradientStart: '#F0F4F8',
+  bgGradientEnd: '#E8EEF5',
+  
+  // Card Area Background - Subtle cyan
+  cardAreaBg: 'rgba(103, 232, 249, 0.04)',
+  cardAreaBorder: 'rgba(103, 232, 249, 0.08)',
+  
+  // Status colors
+  error: '#EF4444',
+  success: '#22C55E',
+  warning: '#F59E0B',
+  info: '#3B82F6',
 }
 
 const Dashboard = () => {
@@ -159,76 +182,88 @@ const Dashboard = () => {
         title: 'Total Hospitals', 
         value: stats.totalHospitals, 
         icon: <LocalHospital />, 
-        path: '/hospitals'
+        path: '/hospitals',
+        color: colors.lightCyan
       },
       { 
         title: 'Total Engineers', 
         value: stats.totalEngineers, 
         icon: <Engineering />, 
-        path: '/users?role=ENGINEER'
+        path: '/users?role=ENGINEER',
+        color: colors.lightCyanBright
       },
       { 
         title: 'Total Equipment', 
         value: stats.totalEquipment, 
         icon: <MedicalServices />, 
-        path: '/equipment'
+        path: '/equipment',
+        color: colors.lightCyan
       },
       { 
         title: 'Open Errors', 
         value: stats.openErrors, 
         icon: <ErrorOutline />, 
-        path: '/errors?status=Pending,In Progress'
+        path: '/errors?status=Pending,In Progress',
+        color: colors.warning
       },
       { 
         title: 'Critical Errors',
         value: stats.criticalErrors || 0, 
         icon: <Warning />, 
-        path: '/errors?severity=Critical'
+        path: '/errors?severity=Critical',
+        color: colors.error
       },
       { 
         title: 'Resolved Errors', 
         value: stats.resolvedErrors, 
         icon: <CheckCircle />, 
-        path: '/errors?status=Resolved,Closed'
+        path: '/errors?status=Resolved,Closed',
+        color: colors.success
       },
       { 
         title: 'Repairs In Progress',
         value: stats.inProgressRepairs, 
         icon: <Build />, 
-        path: '/repairs?status=In Progress'
+        path: '/repairs?status=In Progress',
+        color: colors.info
       },
       { 
         title: 'Pending Purchase Requests',
         value: stats.pendingPurchaseOrders, 
         icon: <ShoppingCart />, 
-        path: '/purchase-orders?status=Pending'
+        path: '/purchase-orders?status=Pending',
+        color: colors.lightCyan
       },
       { 
         title: 'Maintenance Due', 
         value: stats.maintenanceDue, 
         icon: <CalendarToday />, 
-        path: '/maintenance?status=Overdue'
+        path: '/maintenance?status=Overdue',
+        color: colors.warning
       },
       { 
         title: 'Spare Parts Low Stock', 
         value: stats.sparePartsLow, 
         icon: <Inventory />, 
-        path: '/spare-parts?stock=low'
+        path: '/spare-parts?stock=low',
+        color: colors.error
       },
       { 
         title: 'Total Reports', 
         value: stats.totalReports, 
         icon: <Description />, 
-        path: '/reports'
+        path: '/reports',
+        color: colors.lightCyanBright
       }
     ]
   }
 
   // ============================================================
-  // ✅ STAT CARD
+  // ✅ STAT CARD - DARK NAVY + LIGHT CYAN STYLE
   // ============================================================
-  const StatCard = ({ title, value, icon, path, index }) => {
-    const iconBgGradient = `linear-gradient(135deg, ${colors.sidebar} 0%, ${colors.accentGold} 100%)`
+  const StatCard = ({ title, value, icon, path, index, color }) => {
+    // Gradient for icon background - Dark Navy to Cyan
+    const iconBgGradient = `linear-gradient(135deg, ${colors.darkNavy} 0%, ${colors.lightCyan} 100%)`
     
     return (
       <Grow in timeout={300 + (index || 0) * 50}>
@@ -236,7 +271,7 @@ const Dashboard = () => {
           sx={{ 
             height: '100%', 
             borderRadius: 3, 
-            boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
+            boxShadow: '0 4px 20px rgba(15, 23, 42, 0.06)',
             transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
             cursor: 'pointer',
             bgcolor: colors.cardBg,
@@ -245,23 +280,23 @@ const Dashboard = () => {
             overflow: 'hidden',
             '&:hover': {
               transform: isMobile ? 'none' : 'translateY(-8px) scale(1.02)',
-              boxShadow: `0 12px 40px ${colors.shadowColor}`,
-              borderColor: colors.accentGold,
+              boxShadow: `0 12px 40px rgba(103, 232, 249, 0.15)`,
+              borderColor: colors.lightCyan,
               '& .card-icon-wrapper': {
                 transform: 'scale(1.15) rotate(-8deg)',
-                boxShadow: `0 0 40px ${colors.accentGold}44`,
+                boxShadow: `0 0 40px ${colors.lightCyanGlowStrong}`,
               },
               '& .card-title': {
-                color: colors.sidebar,
+                color: colors.darkNavy,
               },
               '& .card-value': {
-                color: colors.sidebar,
+                color: colors.darkNavy,
               },
               '& .card-decoration': {
                 transform: 'scale(1.5)',
                 opacity: 0.1,
               },
-              '& .gold-dot': {
+              '& .cyan-dot': {
                 opacity: 0.8,
                 transform: 'scale(1.3)',
               }
@@ -270,17 +305,17 @@ const Dashboard = () => {
           }}
           onClick={() => path && handleCardClick(path)}
         >
-          {/* Decorative Top Bar */}
+          {/* Decorative Top Bar - Dark Navy to Cyan */}
           <Box sx={{ 
             position: 'absolute', 
             top: 0, 
             left: 0, 
             right: 0, 
             height: 4, 
-            background: `linear-gradient(90deg, ${colors.sidebar}, ${colors.accentGold})`,
+            background: `linear-gradient(90deg, ${colors.darkNavy}, ${colors.lightCyan}, ${colors.accentGold})`,
           }} />
           
-          {/* Decorative Background Pattern */}
+          {/* Decorative Background Pattern - Cyan tint */}
           <Box
             className="card-decoration"
             sx={{
@@ -290,7 +325,7 @@ const Dashboard = () => {
               width: 100,
               height: 100,
               borderRadius: '50%',
-              background: `radial-gradient(circle, ${colors.sidebar}12 0%, transparent 70%)`,
+              background: `radial-gradient(circle, ${colors.lightCyan}12 0%, transparent 70%)`,
               transition: 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
               pointerEvents: 'none',
             }}
@@ -306,7 +341,7 @@ const Dashboard = () => {
               width: 120,
               height: 120,
               borderRadius: '50%',
-              background: `radial-gradient(circle, ${colors.sidebar}08 0%, transparent 70%)`,
+              background: `radial-gradient(circle, ${colors.darkNavy}06 0%, transparent 70%)`,
               transition: 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
               pointerEvents: 'none',
               transitionDelay: '0.1s',
@@ -336,7 +371,7 @@ const Dashboard = () => {
                 {title}
               </Typography>
               
-              {/* Icon with Gold Gradient */}
+              {/* Icon with Dark Navy to Cyan Gradient */}
               <Box
                 className="card-icon-wrapper"
                 sx={{
@@ -350,14 +385,14 @@ const Dashboard = () => {
                   height: { xs: 36, sm: 42, md: 48 },
                   flexShrink: 0,
                   transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-                  boxShadow: `0 4px 16px ${colors.accentGold}44`,
+                  boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
                   position: 'relative',
                   '&::after': {
                     content: '""',
                     position: 'absolute',
                     inset: -2,
                     borderRadius: '16px',
-                    background: `linear-gradient(135deg, ${colors.accentGold}33, transparent)`,
+                    background: `linear-gradient(135deg, ${colors.lightCyan}33, transparent)`,
                     opacity: 0.3,
                     zIndex: -1,
                   }
@@ -372,7 +407,7 @@ const Dashboard = () => {
               </Box>
             </Box>
             
-            {/* Value */}
+            {/* Value - Dark Navy color */}
             <Typography 
               className="card-value"
               variant="h3" 
@@ -389,34 +424,34 @@ const Dashboard = () => {
               {value !== undefined && value !== null ? value : 0}
             </Typography>
             
-            {/* Gold Accent Dots */}
+            {/* Cyan Accent Dots */}
             <Box sx={{
               display: 'flex',
               gap: 0.5,
               mt: 0.5,
             }}>
-              <Box className="gold-dot" sx={{
+              <Box className="cyan-dot" sx={{
                 width: 6,
                 height: 6,
                 borderRadius: '50%',
-                bgcolor: colors.accentGold,
+                bgcolor: colors.lightCyan,
                 opacity: 0.4,
                 transition: 'all 0.3s ease',
               }} />
-              <Box className="gold-dot" sx={{
+              <Box className="cyan-dot" sx={{
                 width: 6,
                 height: 6,
                 borderRadius: '50%',
-                bgcolor: colors.accentGold,
+                bgcolor: colors.lightCyan,
                 opacity: 0.2,
                 transition: 'all 0.3s ease',
                 transitionDelay: '0.1s',
               }} />
-              <Box className="gold-dot" sx={{
+              <Box className="cyan-dot" sx={{
                 width: 6,
                 height: 6,
                 borderRadius: '50%',
-                bgcolor: colors.accentGold,
+                bgcolor: colors.lightCyan,
                 opacity: 0.1,
                 transition: 'all 0.3s ease',
                 transitionDelay: '0.2s',
@@ -429,7 +464,7 @@ const Dashboard = () => {
   }
 
   // ============================================================
-  // ✅ LOADING SKELETON
+  // ✅ LOADING SKELETON - Updated colors
   // ============================================================
   const LoadingSkeleton = () => (
     <Grid container spacing={{ xs: 1.5, sm: 2, md: 3 }}>
@@ -469,7 +504,7 @@ const Dashboard = () => {
           variant="h5" 
           sx={{ 
             fontWeight: 700, 
-            color: colors.sidebar,
+            color: colors.darkNavy,
             fontSize: { xs: '1.1rem', sm: '1.3rem', md: '1.5rem' },
             mb: 3,
             letterSpacing: '0.5px',
@@ -481,7 +516,7 @@ const Dashboard = () => {
               left: 0,
               width: '50px',
               height: '3px',
-              background: `linear-gradient(90deg, ${colors.accentGold}, ${colors.sidebar})`,
+              background: `linear-gradient(90deg, ${colors.lightCyan}, ${colors.darkNavy})`,
               borderRadius: '2px',
             }
           }}
@@ -510,9 +545,10 @@ const Dashboard = () => {
             onClick={fetchDashboardData}
             sx={{ 
               mt: 2,
-              bgcolor: colors.sidebar,
+              bgcolor: colors.darkNavy,
               '&:hover': {
-                bgcolor: colors.sidebarHover,
+                bgcolor: colors.darkNavyHover,
+                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`
               },
               borderRadius: 2,
               textTransform: 'none',
@@ -530,12 +566,12 @@ const Dashboard = () => {
   return (
     <Box sx={{ 
       p: { xs: 1, sm: 2, md: 3 },
-      // ✅ Light gradient background
+      // Light gradient with cyan tint
       background: `linear-gradient(135deg, ${colors.bgGradientStart} 0%, ${colors.bgGradientEnd} 50%, ${colors.bgGradientStart} 100%)`,
       minHeight: '100vh',
       borderRadius: 0,
       position: 'relative',
-      // ✅ Subtle decorative pattern overlay
+      // Subtle decorative pattern overlay with cyan
       '&::before': {
         content: '""',
         position: 'absolute',
@@ -543,18 +579,18 @@ const Dashboard = () => {
         left: 0,
         right: 0,
         bottom: 0,
-        background: `radial-gradient(circle at 10% 20%, rgba(1, 65, 28, 0.02) 0%, transparent 50%),
-                     radial-gradient(circle at 90% 80%, rgba(201, 162, 39, 0.02) 0%, transparent 50%)`,
+        background: `radial-gradient(circle at 10% 20%, rgba(103, 232, 249, 0.04) 0%, transparent 50%),
+                     radial-gradient(circle at 90% 80%, rgba(15, 23, 42, 0.03) 0%, transparent 50%)`,
         pointerEvents: 'none',
         zIndex: 0,
       }
     }}>
-      {/* Header */}
+      {/* Header - Dark Navy with Cyan underline */}
       <Typography 
         variant="h5" 
         sx={{ 
           fontWeight: 700, 
-          color: colors.sidebar,
+          color: colors.darkNavy,
           fontSize: { xs: '1.1rem', sm: '1.3rem', md: '1.5rem' },
           mb: { xs: 2, sm: 3 },
           letterSpacing: '0.5px',
@@ -567,7 +603,7 @@ const Dashboard = () => {
             left: 0,
             width: '50px',
             height: '3px',
-            background: `linear-gradient(90deg, ${colors.accentGold}, ${colors.sidebar})`,
+            background: `linear-gradient(90deg, ${colors.lightCyan}, ${colors.darkNavy})`,
             borderRadius: '2px',
           }
         }}
@@ -575,21 +611,20 @@ const Dashboard = () => {
         Dashboard
       </Typography>
 
-      {/* ✅ Card Area with Subtle Background Color */}
+      {/* Card Area with Subtle Cyan Background */}
       <Box
         sx={{
           position: 'relative',
           zIndex: 1,
           p: { xs: 1.5, sm: 2, md: 2.5 },
           borderRadius: 4,
-          // ✅ Subtle color behind cards
           background: colors.cardAreaBg,
           border: `1px solid ${colors.cardAreaBorder}`,
           backdropFilter: 'blur(2px)',
           transition: 'all 0.3s ease',
           '&:hover': {
-            background: 'rgba(1, 65, 28, 0.04)',
-            borderColor: 'rgba(1, 65, 28, 0.08)',
+            background: 'rgba(103, 232, 249, 0.06)',
+            borderColor: 'rgba(103, 232, 249, 0.12)',
           }
         }}
       >
@@ -625,7 +660,7 @@ const Dashboard = () => {
         </Paper>
       )}
 
-      {/* Snackbar */}
+      {/* Snackbar - Cyan theme */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={4000}

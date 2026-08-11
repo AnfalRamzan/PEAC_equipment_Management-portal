@@ -1,5 +1,5 @@
 // src/pages/Maintenance.jsx
-// ✅ PAEC THEME - Green & Gold Colors
+// ✅ DARK NAVY + LIGHT CYAN THEME - Matching Sidebar
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -55,27 +55,45 @@ import { useSelector } from 'react-redux'
 import AccessDenied from '../components/Auth/AccessDenied'
 
 // ============================================================
-// ✅ PAEC THEME COLORS
+// ✅ DARK NAVY + LIGHT CYAN THEME COLORS
 // ============================================================
 const colors = {
-  sidebar: '#01411C',
-  sidebarHover: '#0B542B',
-  active: '#0E6335',
+  // Dark Navy Base
+  darkNavy: '#0F172A',
+  darkNavyLight: '#1E293B',
+  darkNavyDark: '#0A0F1E',
+  darkNavyHover: '#1E3A5F',
+  
+  // Light Cyan Accents
+  lightCyan: '#67E8F9',
+  lightCyanBright: '#A5F3FC',
+  lightCyanDark: '#22D3EE',
+  lightCyanGlow: 'rgba(103, 232, 249, 0.15)',
+  lightCyanGlowStrong: 'rgba(103, 232, 249, 0.3)',
+  
+  // Gold accent (keeping PAEC branding)
   accentGold: '#C9A227',
   goldLight: '#E8C84A',
+  
+  // Text
   text: '#FFFFFF',
-  secondaryText: '#B8C8BE',
-  mainBg: '#F0F2F5',
-  white: '#FFFFFF',
-  darkText: '#1A2A3A',
-  lightText: '#5A7A8A',
-  error: '#D32F2F',
-  success: '#2E7D32',
-  warning: '#ED6C02',
-  info: '#0B5FA5',
-  borderColor: 'rgba(1, 65, 28, 0.08)',
-  shadowColor: 'rgba(1, 65, 28, 0.08)',
+  secondaryText: '#94A3B8',
+  textLight: '#CBD5E1',
+  cyanText: '#67E8F9',
+  darkText: '#0F172A',
+  lightText: '#64748B',
+  
+  // Cards/Background
   cardBg: '#FFFFFF',
+  borderColor: 'rgba(103, 232, 249, 0.1)',
+  shadowColor: 'rgba(15, 23, 42, 0.08)',
+  mainBg: '#F1F5F9',
+  
+  // Status colors
+  error: '#EF4444',
+  success: '#22C55E',
+  warning: '#F59E0B',
+  info: '#3B82F6',
 }
 
 const Maintenance = () => {
@@ -334,7 +352,7 @@ const Maintenance = () => {
   const overdueSchedules = schedules.filter(s => s.status === 'Overdue' || (s.next_due_date && new Date(s.next_due_date) < new Date() && s.status !== 'Completed')).length
 
   if (loading) {
-    return <LinearProgress sx={{ bgcolor: colors.borderColor, '& .MuiLinearProgress-bar': { bgcolor: colors.accentGold } }} />
+    return <LinearProgress sx={{ bgcolor: colors.borderColor, '& .MuiLinearProgress-bar': { bgcolor: colors.lightCyan } }} />
   }
 
   return (
@@ -342,7 +360,22 @@ const Maintenance = () => {
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Typography variant="h5" sx={{ fontWeight: 700, color: colors.sidebar }}>
+          <Typography 
+            variant="h5" 
+            sx={{ 
+              fontWeight: 700, 
+              color: colors.darkNavy,
+              '&::after': {
+                content: '""',
+                display: 'block',
+                width: '40px',
+                height: '3px',
+                background: `linear-gradient(90deg, ${colors.lightCyan}, ${colors.darkNavy})`,
+                borderRadius: '2px',
+                marginTop: '4px',
+              }
+            }}
+          >
             Maintenance
           </Typography>
         </Box>
@@ -353,9 +386,13 @@ const Maintenance = () => {
             onClick={fetchSchedules}
             size="small"
             sx={{ 
-              borderColor: colors.sidebar, 
-              color: colors.sidebar,
-              '&:hover': { borderColor: colors.accentGold, color: colors.accentGold }
+              borderColor: colors.borderColor, 
+              color: colors.darkNavy,
+              '&:hover': { 
+                borderColor: colors.lightCyan, 
+                color: colors.lightCyanDark,
+                backgroundColor: 'rgba(103, 232, 249, 0.04)'
+              }
             }}
           >
             Refresh
@@ -366,9 +403,14 @@ const Maintenance = () => {
               startIcon={<Add />}
               onClick={() => handleOpenDialog()}
               sx={{ 
-                bgcolor: colors.sidebar, 
-                '&:hover': { bgcolor: colors.sidebarHover },
-                boxShadow: `0 4px 16px ${colors.sidebar}44`
+                bgcolor: colors.darkNavy, 
+                '&:hover': { 
+                  bgcolor: colors.darkNavyHover,
+                  boxShadow: `0 4px 20px ${colors.lightCyanGlowStrong}`
+                },
+                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+                borderRadius: 2,
+                textTransform: 'none',
               }}
             >
               Add Schedule
@@ -377,16 +419,20 @@ const Maintenance = () => {
         </Box>
       </Box>
 
-      {/* Stats Cards */}
+      {/* Stats Cards - DARK NAVY + CYAN */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={6} sm={3}>
           <Card sx={{ 
             borderRadius: 2, 
             border: `1px solid ${colors.borderColor}`,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.04)'
+            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+            '&:hover': {
+              borderColor: colors.lightCyan,
+              boxShadow: `0 4px 20px ${colors.lightCyanGlow}`
+            }
           }}>
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" sx={{ color: colors.sidebar, fontWeight: 700 }}>
+              <Typography variant="h4" sx={{ color: colors.darkNavy, fontWeight: 700 }}>
                 {totalSchedules}
               </Typography>
               <Typography variant="body2" sx={{ color: colors.lightText }}>Total</Typography>
@@ -398,7 +444,11 @@ const Maintenance = () => {
             borderRadius: 2, 
             border: `1px solid ${colors.warning}33`,
             boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-            bgcolor: `${colors.warning}08`
+            bgcolor: `${colors.warning}08`,
+            '&:hover': {
+              borderColor: colors.warning,
+              boxShadow: `0 4px 20px rgba(245, 158, 11, 0.15)`
+            }
           }}>
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
               <Typography variant="h4" sx={{ color: colors.warning, fontWeight: 700 }}>
@@ -413,7 +463,11 @@ const Maintenance = () => {
             borderRadius: 2, 
             border: `1px solid ${colors.success}33`,
             boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-            bgcolor: `${colors.success}08`
+            bgcolor: `${colors.success}08`,
+            '&:hover': {
+              borderColor: colors.success,
+              boxShadow: `0 4px 20px rgba(34, 197, 94, 0.15)`
+            }
           }}>
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
               <Typography variant="h4" sx={{ color: colors.success, fontWeight: 700 }}>
@@ -428,7 +482,11 @@ const Maintenance = () => {
             borderRadius: 2, 
             border: `1px solid ${colors.error}33`,
             boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-            bgcolor: `${colors.error}08`
+            bgcolor: `${colors.error}08`,
+            '&:hover': {
+              borderColor: colors.error,
+              boxShadow: `0 4px 20px rgba(239, 68, 68, 0.15)`
+            }
           }}>
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
               <Typography variant="h4" sx={{ color: colors.error, fontWeight: 700 }}>
@@ -466,13 +524,14 @@ const Maintenance = () => {
         </Alert>
       )}
 
-      {/* Search & Filters */}
+      {/* Search & Filters - CYAN THEMED */}
       <Paper sx={{ 
         p: 2, 
         mb: 3, 
         borderRadius: 2,
         border: `1px solid ${colors.borderColor}`,
-        boxShadow: '0 2px 12px rgba(0,0,0,0.04)'
+        boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+        bgcolor: colors.cardBg,
       }}>
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
           <TextField
@@ -489,8 +548,8 @@ const Maintenance = () => {
               ),
               sx: {
                 '& .MuiOutlinedInput-root': {
-                  '&:hover fieldset': { borderColor: colors.sidebar },
-                  '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  '&:hover fieldset': { borderColor: colors.lightCyan },
+                  '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                 }
               }
             }}
@@ -503,8 +562,8 @@ const Maintenance = () => {
               label="Status"
               sx={{
                 '& .MuiOutlinedInput-root': {
-                  '&:hover fieldset': { borderColor: colors.sidebar },
-                  '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  '&:hover fieldset': { borderColor: colors.lightCyan },
+                  '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                 }
               }}
             >
@@ -524,8 +583,8 @@ const Maintenance = () => {
               label="Frequency"
               sx={{
                 '& .MuiOutlinedInput-root': {
-                  '&:hover fieldset': { borderColor: colors.sidebar },
-                  '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                  '&:hover fieldset': { borderColor: colors.lightCyan },
+                  '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                 }
               }}
             >
@@ -540,10 +599,17 @@ const Maintenance = () => {
         </Box>
       </Paper>
 
-      {/* Table - THEMED */}
-      <TableContainer component={Paper} sx={{ borderRadius: 2, border: `1px solid ${colors.borderColor}` }}>
+      {/* Table - DARK NAVY + CYAN THEMED */}
+      <TableContainer 
+        component={Paper} 
+        sx={{ 
+          borderRadius: 2, 
+          border: `1px solid ${colors.borderColor}`,
+          boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+        }}
+      >
         <Table>
-          <TableHead sx={{ bgcolor: colors.sidebar }}>
+          <TableHead sx={{ bgcolor: colors.darkNavy }}>
             <TableRow>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Equipment</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Type</TableCell>
@@ -569,9 +635,18 @@ const Maintenance = () => {
                 const isOwnSchedule = isEngineer && schedule.engineer_name === user?.full_name
                 
                 return (
-                  <TableRow key={schedule.id} hover>
+                  <TableRow 
+                    key={schedule.id} 
+                    hover
+                    sx={{
+                      '&:hover': {
+                        backgroundColor: 'rgba(103, 232, 249, 0.04)',
+                      },
+                      '&:last-child td': { borderBottom: 0 }
+                    }}
+                  >
                     <TableCell>
-                      <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkText }}>
+                      <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>
                         {schedule.equipment_name || 'N/A'}
                       </Typography>
                     </TableCell>
@@ -580,7 +655,7 @@ const Maintenance = () => {
                     </TableCell>
                     <TableCell>
                       {schedule.engineer_name ? (
-                        <Typography variant="body2" fontWeight={500} sx={{ color: colors.sidebar }}>
+                        <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>
                           {schedule.engineer_name}
                         </Typography>
                       ) : (
@@ -591,12 +666,12 @@ const Maintenance = () => {
                           label="My Schedule" 
                           size="small" 
                           sx={{ 
-                            bgcolor: colors.accentGold, 
-                            color: 'white',
+                            bgcolor: colors.lightCyan, 
+                            color: colors.darkNavy,
                             height: 18, 
                             fontSize: '9px', 
                             ml: 0.5,
-                            fontWeight: 500
+                            fontWeight: 600
                           }}
                         />
                       )}
@@ -609,7 +684,7 @@ const Maintenance = () => {
                     </TableCell>
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography sx={{ color: colors.darkText }}>
+                        <Typography sx={{ color: colors.darkNavy }}>
                           {schedule.next_due_date ? new Date(schedule.next_due_date).toLocaleDateString() : '-'}
                         </Typography>
                         {isOverdue(schedule.next_due_date) && schedule.status !== 'Completed' && (
@@ -627,7 +702,7 @@ const Maintenance = () => {
                         size="small"
                         sx={{
                           bgcolor: schedule.status === 'Completed' ? colors.success :
-                                   schedule.status === 'Scheduled' ? colors.sidebar :
+                                   schedule.status === 'Scheduled' ? colors.darkNavy :
                                    schedule.status === 'In Progress' ? colors.warning :
                                    schedule.status === 'Overdue' ? colors.error :
                                    schedule.status === 'Cancelled' ? colors.lightText : colors.lightText,
@@ -644,7 +719,13 @@ const Maintenance = () => {
                           <IconButton 
                             size="small" 
                             onClick={() => handleView(schedule)}
-                            sx={{ color: colors.sidebar, '&:hover': { color: colors.accentGold } }}
+                            sx={{ 
+                              color: colors.darkNavy, 
+                              '&:hover': { 
+                                color: colors.lightCyanDark,
+                                backgroundColor: 'rgba(103, 232, 249, 0.08)'
+                              } 
+                            }}
                           >
                             <Visibility fontSize="small" />
                           </IconButton>
@@ -655,7 +736,13 @@ const Maintenance = () => {
                             <IconButton 
                               size="small" 
                               onClick={() => handleOpenDialog(schedule)}
-                              sx={{ color: colors.sidebar, '&:hover': { color: colors.accentGold } }}
+                              sx={{ 
+                                color: colors.darkNavy, 
+                                '&:hover': { 
+                                  color: colors.lightCyanDark,
+                                  backgroundColor: 'rgba(103, 232, 249, 0.08)'
+                                } 
+                              }}
                             >
                               <Edit fontSize="small" />
                             </IconButton>
@@ -683,9 +770,25 @@ const Maintenance = () => {
         </Table>
       </TableContainer>
 
-      {/* Add/Edit Dialog - THEMED */}
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ bgcolor: colors.sidebar, color: 'white' }}>
+      {/* Add/Edit Dialog - DARK NAVY + CYAN */}
+      <Dialog 
+        open={openDialog} 
+        onClose={handleCloseDialog} 
+        maxWidth="md" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          bgcolor: colors.darkNavy, 
+          color: 'white',
+          borderRadius: '8px 8px 0 0',
+        }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Build sx={{ color: 'white' }} />
             <Typography variant="h6" fontWeight={600}>
@@ -695,7 +798,7 @@ const Maintenance = () => {
               <Chip 
                 label="Editing Your Schedule" 
                 size="small" 
-                sx={{ bgcolor: colors.accentGold, color: 'white', fontWeight: 500 }}
+                sx={{ bgcolor: colors.lightCyan, color: colors.darkNavy, fontWeight: 600 }}
               />
             )}
           </Box>
@@ -715,8 +818,8 @@ const Maintenance = () => {
                   label="Equipment *"
                   sx={{
                     '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.sidebar },
-                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                     }
                   }}
                 >
@@ -740,8 +843,8 @@ const Maintenance = () => {
                   label="Type"
                   sx={{
                     '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.sidebar },
-                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                     }
                   }}
                 >
@@ -761,8 +864,8 @@ const Maintenance = () => {
                   label="Frequency"
                   sx={{
                     '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.sidebar },
-                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                     }
                   }}
                 >
@@ -794,8 +897,8 @@ const Maintenance = () => {
                 }}
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.sidebar },
-                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
@@ -813,8 +916,8 @@ const Maintenance = () => {
                 helperText="YYYY-MM-DD"
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.sidebar },
-                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
@@ -833,8 +936,8 @@ const Maintenance = () => {
                 helperText="YYYY-MM-DD"
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.sidebar },
-                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
@@ -852,8 +955,8 @@ const Maintenance = () => {
                 placeholder="1. Check power supply&#10;2. Calibrate sensors&#10;3. Test functionality"
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.sidebar },
-                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
@@ -871,8 +974,8 @@ const Maintenance = () => {
                 helperText="YYYY-MM-DD"
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.sidebar },
-                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
@@ -889,8 +992,8 @@ const Maintenance = () => {
                 helperText="YYYY-MM-DD"
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.sidebar },
-                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
@@ -908,8 +1011,8 @@ const Maintenance = () => {
                 placeholder="AMC contract details, vendor information..."
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.sidebar },
-                    '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
@@ -926,8 +1029,8 @@ const Maintenance = () => {
                   disabled={true}
                   sx={{
                     '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.sidebar },
-                      '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                     }
                   }}
                 >
@@ -943,7 +1046,15 @@ const Maintenance = () => {
 
             {isEngineer && editingSchedule && (
               <Grid item xs={12}>
-                <Alert severity="info" sx={{ borderRadius: 2, border: `1px solid ${colors.info}33` }}>
+                <Alert 
+                  severity="info" 
+                  sx={{ 
+                    borderRadius: 2, 
+                    border: `1px solid rgba(103, 232, 249, 0.2)`,
+                    backgroundColor: 'rgba(103, 232, 249, 0.04)',
+                    '& .MuiAlert-icon': { color: colors.lightCyanDark }
+                  }}
+                >
                   <Typography variant="body2">
                     <strong>🔧 Engineer Mode:</strong> You can edit your schedule details, but <strong>Status</strong> cannot be changed here.
                   </Typography>
@@ -953,14 +1064,30 @@ const Maintenance = () => {
           </Grid>
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={handleCloseDialog} sx={{ color: colors.lightText }}>Cancel</Button>
+          <Button 
+            onClick={handleCloseDialog} 
+            sx={{ 
+              color: colors.darkNavy,
+              '&:hover': { 
+                backgroundColor: 'rgba(103, 232, 249, 0.04)'
+              },
+              textTransform: 'none',
+            }}
+          >
+            Cancel
+          </Button>
           <Button
             variant="contained"
             onClick={handleSubmit}
             sx={{ 
-              bgcolor: colors.sidebar, 
-              '&:hover': { bgcolor: colors.sidebarHover },
-              boxShadow: `0 4px 16px ${colors.sidebar}44`
+              bgcolor: colors.darkNavy, 
+              '&:hover': { 
+                bgcolor: colors.darkNavyHover,
+                boxShadow: `0 4px 20px ${colors.lightCyanGlowStrong}`
+              },
+              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+              textTransform: 'none',
+              borderRadius: 2,
             }}
           >
             {editingSchedule ? 'Update' : 'Create'}
@@ -968,9 +1095,25 @@ const Maintenance = () => {
         </DialogActions>
       </Dialog>
 
-      {/* View Dialog - THEMED */}
-      <Dialog open={openViewDialog} onClose={handleCloseView} maxWidth="md" fullWidth>
-        <DialogTitle sx={{ bgcolor: colors.sidebar, color: 'white' }}>
+      {/* View Dialog - DARK NAVY + CYAN */}
+      <Dialog 
+        open={openViewDialog} 
+        onClose={handleCloseView} 
+        maxWidth="md" 
+        fullWidth
+        PaperProps={{
+          sx: { 
+            borderRadius: 3,
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          bgcolor: colors.darkNavy, 
+          color: 'white',
+          borderRadius: '8px 8px 0 0',
+        }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6" fontWeight={600}>Schedule Details</Typography>
             <IconButton onClick={handleCloseView} sx={{ color: 'white' }}>
@@ -984,7 +1127,7 @@ const Maintenance = () => {
               <Grid container spacing={2}>
                 <Grid item xs={12} md={6}>
                   <Typography variant="body2" sx={{ color: colors.lightText }}>Equipment</Typography>
-                  <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkText }}>
+                  <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy }}>
                     {viewingSchedule.equipment_name || 'N/A'}
                   </Typography>
                 </Grid>
@@ -995,7 +1138,7 @@ const Maintenance = () => {
                     size="small"
                     sx={{
                       bgcolor: viewingSchedule.status === 'Completed' ? colors.success :
-                               viewingSchedule.status === 'Scheduled' ? colors.sidebar :
+                               viewingSchedule.status === 'Scheduled' ? colors.darkNavy :
                                viewingSchedule.status === 'In Progress' ? colors.warning :
                                viewingSchedule.status === 'Overdue' ? colors.error :
                                viewingSchedule.status === 'Cancelled' ? colors.lightText : colors.lightText,
@@ -1008,31 +1151,31 @@ const Maintenance = () => {
                 </Grid>
                 <Grid item xs={12} md={6}>
                   <Typography variant="body2" sx={{ color: colors.lightText }}>Type</Typography>
-                  <Typography variant="body1" sx={{ color: colors.darkText }}>
+                  <Typography variant="body1" sx={{ color: colors.darkNavy }}>
                     {viewingSchedule.maintenance_type || 'Preventive'}
                   </Typography>
                 </Grid>
                 <Grid item xs={12} md={6}>
                   <Typography variant="body2" sx={{ color: colors.lightText }}>Frequency</Typography>
-                  <Typography variant="body1" sx={{ color: colors.darkText }}>
+                  <Typography variant="body1" sx={{ color: colors.darkNavy }}>
                     {viewingSchedule.frequency || 'Monthly'}
                   </Typography>
                 </Grid>
                 <Grid item xs={12} md={6}>
                   <Typography variant="body2" sx={{ color: colors.lightText }}>Engineer</Typography>
-                  <Typography variant="body1" fontWeight={500} sx={{ color: colors.sidebar }}>
+                  <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy }}>
                     {viewingSchedule.engineer_name || 'Unassigned'}
                   </Typography>
                 </Grid>
                 <Grid item xs={12} md={6}>
                   <Typography variant="body2" sx={{ color: colors.lightText }}>Last Maintenance</Typography>
-                  <Typography variant="body1" sx={{ color: colors.darkText }}>
+                  <Typography variant="body1" sx={{ color: colors.darkNavy }}>
                     {viewingSchedule.last_maintenance_date ? new Date(viewingSchedule.last_maintenance_date).toLocaleDateString() : '-'}
                   </Typography>
                 </Grid>
                 <Grid item xs={12} md={6}>
                   <Typography variant="body2" sx={{ color: colors.lightText }}>Next Due</Typography>
-                  <Typography variant="body1" fontWeight={600} sx={{ color: colors.darkText }}>
+                  <Typography variant="body1" fontWeight={600} sx={{ color: colors.darkNavy }}>
                     {viewingSchedule.next_due_date ? new Date(viewingSchedule.next_due_date).toLocaleDateString() : '-'}
                   </Typography>
                 </Grid>
@@ -1045,7 +1188,7 @@ const Maintenance = () => {
                       borderRadius: 1,
                       border: `1px solid ${colors.borderColor}`
                     }}>
-                      <Typography variant="body2" sx={{ whiteSpace: 'pre-line', color: colors.darkText }}>
+                      <Typography variant="body2" sx={{ whiteSpace: 'pre-line', color: colors.darkNavy }}>
                         {viewingSchedule.maintenance_checklist}
                       </Typography>
                     </Paper>
@@ -1054,7 +1197,7 @@ const Maintenance = () => {
                 {viewingSchedule.calibration_date && (
                   <Grid item xs={12} md={6}>
                     <Typography variant="body2" sx={{ color: colors.lightText }}>Calibration Date</Typography>
-                    <Typography variant="body1" sx={{ color: colors.darkText }}>
+                    <Typography variant="body1" sx={{ color: colors.darkNavy }}>
                       {new Date(viewingSchedule.calibration_date).toLocaleDateString()}
                     </Typography>
                   </Grid>
@@ -1062,7 +1205,7 @@ const Maintenance = () => {
                 {viewingSchedule.warranty_expiry && (
                   <Grid item xs={12} md={6}>
                     <Typography variant="body2" sx={{ color: colors.lightText }}>Warranty Expiry</Typography>
-                    <Typography variant="body1" sx={{ color: colors.darkText }}>
+                    <Typography variant="body1" sx={{ color: colors.darkNavy }}>
                       {new Date(viewingSchedule.warranty_expiry).toLocaleDateString()}
                     </Typography>
                   </Grid>
@@ -1070,7 +1213,7 @@ const Maintenance = () => {
                 {viewingSchedule.amc_details && (
                   <Grid item xs={12}>
                     <Typography variant="body2" sx={{ color: colors.lightText }}>AMC/CMC Details</Typography>
-                    <Typography variant="body1" sx={{ color: colors.darkText }}>
+                    <Typography variant="body1" sx={{ color: colors.darkNavy }}>
                       {viewingSchedule.amc_details}
                     </Typography>
                   </Grid>
@@ -1078,7 +1221,7 @@ const Maintenance = () => {
                 {viewingSchedule.created_at && (
                   <Grid item xs={12}>
                     <Typography variant="body2" sx={{ color: colors.lightText }}>Created At</Typography>
-                    <Typography variant="body2" sx={{ color: colors.darkText }}>
+                    <Typography variant="body2" sx={{ color: colors.darkNavy }}>
                       {new Date(viewingSchedule.created_at).toLocaleString()}
                     </Typography>
                   </Grid>
@@ -1089,7 +1232,7 @@ const Maintenance = () => {
               {isSuperAdmin && (
                 <>
                   <Divider sx={{ my: 3, borderColor: colors.borderColor }} />
-                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.sidebar }} gutterBottom>
+                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>
                     <AdminPanelSettings sx={{ fontSize: 16, verticalAlign: 'middle', mr: 1 }} />
                     Update Status (Super Admin Only)
                   </Typography>
@@ -1103,8 +1246,8 @@ const Maintenance = () => {
                         label="Select Status"
                         sx={{
                           '& .MuiOutlinedInput-root': {
-                            '&:hover fieldset': { borderColor: colors.sidebar },
-                            '&.Mui-focused fieldset': { borderColor: colors.accentGold }
+                            '&:hover fieldset': { borderColor: colors.lightCyan },
+                            '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                           }
                         }}
                       >
@@ -1126,7 +1269,18 @@ const Maintenance = () => {
           )}
         </DialogContent>
         <DialogActions sx={{ p: 3 }}>
-          <Button onClick={handleCloseView} sx={{ color: colors.lightText }}>Close</Button>
+          <Button 
+            onClick={handleCloseView} 
+            sx={{ 
+              color: colors.darkNavy,
+              '&:hover': { 
+                backgroundColor: 'rgba(103, 232, 249, 0.04)'
+              },
+              textTransform: 'none',
+            }}
+          >
+            Close
+          </Button>
           {canDelete && viewingSchedule && (
             <Button
               variant="contained"
@@ -1136,7 +1290,11 @@ const Maintenance = () => {
                 handleCloseView()
               }}
               startIcon={<Delete />}
-              sx={{ boxShadow: `0 4px 16px ${colors.error}44` }}
+              sx={{ 
+                boxShadow: `0 4px 16px ${colors.error}44`,
+                textTransform: 'none',
+                borderRadius: 2,
+              }}
             >
               Delete
             </Button>

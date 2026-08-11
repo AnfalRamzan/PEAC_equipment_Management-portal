@@ -1,5 +1,5 @@
 // src/components/Layout/MainLayout.jsx
-// ✅ LARGER TEXT - NO SCROLL
+// ✅ DARK NAVY + LIGHT CYAN THEME - PREMIUM GLASS EFFECT
 
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -54,33 +54,60 @@ import GlobalSearch from '../GlobalSearch';
 import NotificationSound from '../NotificationSound';
 import { toast } from 'react-toastify';
 
-const drawerWidth = 240;
+const drawerWidth = 250;
 
 // ============================================================
-// ✅ PAEC THEME COLORS
+// ✅ DARK NAVY + LIGHT CYAN THEME COLORS
 // ============================================================
 const colors = {
-  sidebar: '#01411C',
-  sidebarHover: '#0B542B',
-  active: '#0E6335',
+  // Dark Navy Base
+  darkNavy: '#0F172A',
+  darkNavyLight: '#1E293B',
+  darkNavyDark: '#0A0F1E',
+  darkNavyHover: '#1E3A5F',
+  
+  // Light Cyan Accents
+  lightCyan: '#67E8F9',
+  lightCyanBright: '#A5F3FC',
+  lightCyanDark: '#22D3EE',
+  lightCyanGlow: 'rgba(103, 232, 249, 0.15)',
+  lightCyanGlowStrong: 'rgba(103, 232, 249, 0.3)',
+  
+  // Sidebar - Glass effect with Dark Navy
+  sidebar: 'rgba(15, 23, 42, 0.92)',
+  sidebarHover: 'rgba(30, 58, 95, 0.7)',
+  active: 'rgba(30, 58, 95, 0.8)',
+  
+  // Text - Cyan tinted for better readability
+  text: '#FFFFFF',
+  secondaryText: '#94A3B8',
+  textLight: '#CBD5E1',
+  cyanText: '#67E8F9',
+  
+  // Gold accent (keeping PAEC branding)
   accentGold: '#C9A227',
   goldLight: '#E8C84A',
-  text: '#FFFFFF',
-  secondaryText: '#B8C8BE',
-  mainBg: '#F0F2F5',
+  
+  // Other
+  mainBg: '#F1F5F9',
   white: '#FFFFFF',
-  darkText: '#1A2A3A',
-  lightText: '#5A7A8A',
-  error: '#D32F2F',
-  success: '#2E7D32',
-  warning: '#ED6C02',
-  info: '#0B5FA5',
-  borderColor: 'rgba(1, 65, 28, 0.08)',
-  shadowColor: 'rgba(1, 65, 28, 0.08)',
+  darkText: '#0F172A',
+  lightText: '#64748B',
+  error: '#EF4444',
+  success: '#22C55E',
+  warning: '#F59E0B',
+  info: '#3B82F6',
+  
+  // Glass effects
+  glassBorder: 'rgba(103, 232, 249, 0.1)',
+  glassBg: 'rgba(15, 23, 42, 0.7)',
+  glassShine: 'rgba(103, 232, 249, 0.03)',
+  shadowColor: 'rgba(0, 0, 0, 0.6)',
+  glowCyan: 'rgba(103, 232, 249, 0.15)',
 };
 
 // ============================================================
-// ✅ CSS ANIMATIONS
+// ✅ CSS ANIMATIONS WITH CYAN GLOW
 // ============================================================
 const badgeStyles = `
 @keyframes badgePulse {
@@ -100,8 +127,23 @@ const badgeStyles = `
 
 @keyframes glowPulse {
     0% { opacity: 0.3; }
-    50% { opacity: 0.8; }
+    50% { opacity: 0.9; }
     100% { opacity: 0.3; }
+}
+
+@keyframes cyanGlowPulse {
+    0% { 
+        box-shadow: 0 0 15px rgba(103, 232, 249, 0.2);
+        opacity: 0.6;
+    }
+    50% { 
+        box-shadow: 0 0 35px rgba(103, 232, 249, 0.5);
+        opacity: 1;
+    }
+    100% { 
+        box-shadow: 0 0 15px rgba(103, 232, 249, 0.2);
+        opacity: 0.6;
+    }
 }
 
 @keyframes iconFloat {
@@ -114,6 +156,17 @@ const badgeStyles = `
     0% { background-position: 0% 50%; }
     50% { background-position: 100% 50%; }
     100% { background-position: 0% 50%; }
+}
+
+@keyframes glassShimmer {
+    0% { background-position: -200% center; }
+    100% { background-position: 200% center; }
+}
+
+@keyframes cyanBorderPulse {
+    0% { border-color: rgba(103, 232, 249, 0.1); }
+    50% { border-color: rgba(103, 232, 249, 0.4); }
+    100% { border-color: rgba(103, 232, 249, 0.1); }
 }
 
 .bell-ring {
@@ -325,8 +378,8 @@ const MainLayout = () => {
         position: 'top-right',
         autoClose: 4000,
         style: {
-          background: colors.sidebar,
-          color: colors.accentGold,
+          background: colors.darkNavy,
+          color: colors.lightCyan,
         },
       });
     }
@@ -374,7 +427,16 @@ const MainLayout = () => {
   const handleNotificationClose = () => setNotificationAnchor(null);
 
   // ============================================================
-  // ✅ DRAWER CONTENT - LARGER TEXT, NO SCROLL
+  // ✅ DRAWER WIDTH
+  // ============================================================
+  const getDrawerWidth = () => {
+    if (isMobile) return 240;
+    if (isTablet) return 220;
+    return 250;
+  };
+
+  // ============================================================
+  // ✅ DRAWER CONTENT - DARK NAVY + LIGHT CYAN
   // ============================================================
   const drawer = (
     <Box
@@ -382,12 +444,22 @@ const MainLayout = () => {
         height: '100vh',
         display: 'flex',
         flexDirection: 'column',
-        bgcolor: colors.sidebar,
-        backgroundImage: `linear-gradient(180deg, ${colors.sidebar} 0%, ${colors.active} 40%, ${colors.sidebar} 100%)`,
+        bgcolor: 'transparent',
+        backdropFilter: 'blur(16px) saturate(200%)',
+        WebkitBackdropFilter: 'blur(16px) saturate(200%)',
+        background: `linear-gradient(180deg, 
+          rgba(15, 23, 42, 0.95) 0%,
+          rgba(30, 58, 95, 0.88) 30%,
+          rgba(10, 15, 30, 0.96) 60%,
+          rgba(15, 23, 42, 0.95) 100%)`,
         overflow: 'hidden',
         width: '100%',
-        borderRight: `1px solid rgba(201, 162, 39, 0.08)`,
-        boxShadow: '4px 0 30px rgba(0,0,0,0.3)',
+        borderRight: `1px solid rgba(103, 232, 249, 0.12)`,
+        boxShadow: `
+          4px 0 50px rgba(0, 0, 0, 0.7), 
+          inset 0 0 120px rgba(103, 232, 249, 0.02),
+          inset 0 0 200px rgba(0, 0, 0, 0.3)
+        `,
         position: 'relative',
         '&::before': {
           content: '""',
@@ -396,7 +468,7 @@ const MainLayout = () => {
           left: 0,
           right: 0,
           bottom: 0,
-          background: `radial-gradient(circle at 50% 0%, rgba(201, 162, 39, 0.03) 0%, transparent 70%)`,
+          background: `radial-gradient(circle at 50% 0%, rgba(103, 232, 249, 0.05) 0%, transparent 60%)`,
           pointerEvents: 'none',
         },
         '&::after': {
@@ -404,25 +476,73 @@ const MainLayout = () => {
           position: 'absolute',
           top: 0,
           right: 0,
-          width: '1px',
+          width: '2px',
           height: '100%',
-          background: `linear-gradient(180deg, transparent, rgba(201, 162, 39, 0.2), transparent)`,
+          background: `linear-gradient(180deg, 
+            transparent, 
+            rgba(103, 232, 249, 0.25), 
+            rgba(201, 162, 39, 0.1), 
+            transparent)`,
           animation: 'glowPulse 3s ease-in-out infinite',
           pointerEvents: 'none',
         },
+        '& .glass-shimmer': {
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: `linear-gradient(135deg, 
+            transparent 25%, 
+            rgba(103, 232, 249, 0.03) 50%, 
+            transparent 75%)`,
+          backgroundSize: '200% 200%',
+          animation: 'glassShimmer 8s ease-in-out infinite',
+          pointerEvents: 'none',
+        },
+        '& .cyan-glow': {
+          position: 'absolute',
+          top: '40%',
+          left: '30%',
+          width: '60%',
+          height: '60%',
+          background: `radial-gradient(circle, rgba(103, 232, 249, 0.04) 0%, transparent 70%)`,
+          pointerEvents: 'none',
+          borderRadius: '50%',
+          filter: 'blur(80px)',
+        },
       }}
     >
-      {/* Logo Section */}
+      {/* Overlays */}
+      <Box className="glass-shimmer" />
+      <Box className="cyan-glow" />
+
+      {/* Logo Section - Cyan accent */}
       <Box
         sx={{
-          p: { xs: 0.8, sm: 1.2 },
+          p: { xs: 1, sm: 1.5 },
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
-          borderBottom: `1px solid rgba(201, 162, 39, 0.08)`,
+          borderBottom: `1px solid rgba(103, 232, 249, 0.08)`,
           flexShrink: 0,
-          minHeight: { xs: 75, sm: 95 },
+          minHeight: { xs: 80, sm: 100 },
           position: 'relative',
+          background: 'rgba(15, 23, 42, 0.6)',
+          backdropFilter: 'blur(10px)',
+          '&::after': {
+            content: '""',
+            position: 'absolute',
+            bottom: 0,
+            left: '8%',
+            right: '8%',
+            height: '1px',
+            background: `linear-gradient(90deg, 
+              transparent, 
+              rgba(103, 232, 249, 0.3), 
+              rgba(201, 162, 39, 0.15), 
+              transparent)`,
+          },
         }}
       >
         <Box sx={{ position: 'relative' }}>
@@ -430,26 +550,25 @@ const MainLayout = () => {
             src="/logoo.png"
             alt="PAEC Logo"
             style={{
-              width: isMobile ? 80 : 105,
-              height: isMobile ? 80 : 105,
+              width: isMobile ? 85 : 110,
+              height: isMobile ? 85 : 110,
               objectFit: 'contain',
               backgroundColor: 'transparent',
-              filter: 'brightness(1.1) drop-shadow(0 0 25px rgba(201, 162, 39, 0.15))',
+              filter: 'brightness(1.2) drop-shadow(0 0 40px rgba(103, 232, 249, 0.2))',
             }}
             onError={(e) => {
-              console.warn('⚠️ logoo.png not found, falling back to logo.png');
               e.target.src = '/logo.png';
             }}
           />
           <Box
             sx={{
               position: 'absolute',
-              top: -25,
-              left: -25,
-              right: -25,
-              bottom: -25,
+              top: -30,
+              left: -30,
+              right: -30,
+              bottom: -30,
               borderRadius: '50%',
-              background: `radial-gradient(circle, rgba(201, 162, 39, 0.06) 0%, transparent 70%)`,
+              background: `radial-gradient(circle, rgba(103, 232, 249, 0.06) 0%, transparent 70%)`,
               animation: 'glowPulse 4s ease-in-out infinite',
               pointerEvents: 'none',
             }}
@@ -457,15 +576,17 @@ const MainLayout = () => {
         </Box>
       </Box>
 
-      {/* ✅ COMPACT MENU - LARGER TEXT, NO SCROLL */}
+      {/* ✅ MENU - DARK NAVY + LIGHT CYAN */}
       <Box
         sx={{
           flex: 1,
           overflow: 'hidden',
-          py: { xs: 0.1, sm: 0.2 },
-          px: { xs: 0.2, sm: 0.3 },
+          py: { xs: 0.3, sm: 0.5 },
+          px: { xs: 0.3, sm: 0.5 },
           display: 'flex',
           flexDirection: 'column',
+          background: 'rgba(15, 23, 42, 0.3)',
+          backdropFilter: 'blur(5px)',
         }}
       >
         <List sx={{ p: 0, m: 0 }}>
@@ -478,71 +599,90 @@ const MainLayout = () => {
                 if (isMobile) setMobileOpen(false);
               }}
               sx={{
-                mx: { xs: 0.1, sm: 0.2 },
-                mb: 0.1,
-                borderRadius: 1.5,
+                mx: { xs: 0.3, sm: 0.4 },
+                mb: 0.15,
+                borderRadius: 2,
                 color: colors.secondaryText,
-                py: { xs: 0.4, sm: 0.5 },
-                px: { xs: 0.8, sm: 1.2 },
-                minHeight: { xs: 32, sm: 36 },
-                transition: 'all 0.3s ease',
+                py: { xs: 0.5, sm: 0.6 },
+                px: { xs: 1, sm: 1.5 },
+                minHeight: { xs: 36, sm: 40 },
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 position: 'relative',
                 overflow: 'hidden',
-                '&::before': {
-                  content: '""',
-                  position: 'absolute',
-                  left: 0,
-                  top: '15%',
-                  height: '70%',
-                  width: '2px',
-                  background: colors.accentGold,
-                  transform: 'scaleX(0)',
-                  transition: 'transform 0.3s ease',
-                  boxShadow: `0 0 15px rgba(201, 162, 39, 0.3)`,
-                },
                 '&:hover': {
-                  bgcolor: colors.sidebarHover,
-                  color: colors.text,
-                  transform: 'translateX(3px)',
+                  bgcolor: 'rgba(30, 58, 95, 0.6)',
+                  backdropFilter: 'blur(15px)',
+                  color: '#FFFFFF',
+                  transform: 'translateX(4px) scale(1.02)',
+                  boxShadow: '0 4px 25px rgba(0,0,0,0.3)',
                   '&::before': {
-                    transform: 'scaleX(1)',
+                    content: '""',
+                    position: 'absolute',
+                    left: 0,
+                    top: '15%',
+                    height: '70%',
+                    width: '3px',
+                    background: colors.lightCyan,
+                    boxShadow: `0 0 30px ${colors.lightCyanGlowStrong}`,
+                    borderRadius: '0 2px 2px 0',
                   },
                   '& .MuiListItemIcon-root': {
-                    color: colors.accentGold,
-                    transform: 'scale(1.05)',
+                    color: colors.lightCyan,
+                    transform: 'scale(1.1)',
+                    filter: `drop-shadow(0 0 15px ${colors.lightCyanGlow})`,
                   },
                 },
                 '&.Mui-selected': {
-                  color: colors.text,
-                  background: `linear-gradient(135deg, ${colors.active} 0%, ${colors.accentGold}30 40%, ${colors.active} 80%, ${colors.active} 100%)`,
+                  color: '#FFFFFF',
+                  background: `linear-gradient(135deg, 
+                    rgba(30, 58, 95, 0.7) 0%, 
+                    rgba(103, 232, 249, 0.08) 35%, 
+                    rgba(15, 23, 42, 0.8) 70%, 
+                    rgba(30, 58, 95, 0.6) 100%)`,
                   backgroundSize: '200% 200%',
                   animation: 'gradientShine 3s ease-in-out infinite',
-                  boxShadow: `inset 0 0 30px rgba(201, 162, 39, 0.1)`,
+                  backdropFilter: 'blur(20px)',
+                  boxShadow: `
+                    inset 0 0 50px rgba(103, 232, 249, 0.03),
+                    0 4px 25px rgba(0,0,0,0.3),
+                    0 0 40px rgba(103, 232, 249, 0.04)
+                  `,
                   transform: 'scale(1.02)',
+                  border: `1px solid rgba(103, 232, 249, 0.15)`,
                   '&::before': {
-                    transform: 'scaleX(1)',
-                    boxShadow: `0 0 30px rgba(201, 162, 39, 0.5)`,
+                    content: '""',
+                    position: 'absolute',
+                    left: 0,
+                    top: '15%',
+                    height: '70%',
                     width: '3px',
+                    background: colors.lightCyan,
+                    boxShadow: `0 0 40px ${colors.lightCyanGlowStrong}`,
+                    borderRadius: '0 2px 2px 0',
                   },
                   '&::after': {
                     content: '""',
                     position: 'absolute',
                     inset: 0,
-                    borderRadius: 1.5,
-                    background: `radial-gradient(circle at 50% 50%, ${colors.accentGold}10 0%, transparent 70%)`,
+                    borderRadius: 2,
+                    background: `radial-gradient(circle at 50% 50%, rgba(103, 232, 249, 0.03) 0%, transparent 70%)`,
                     pointerEvents: 'none',
                   },
                   '& .MuiListItemIcon-root': {
-                    color: colors.accentGold,
+                    color: colors.lightCyan,
                     animation: 'iconFloat 3s ease-in-out infinite',
-                    filter: 'drop-shadow(0 0 15px rgba(201, 162, 39, 0.4))',
+                    filter: `drop-shadow(0 0 20px ${colors.lightCyanGlow})`,
                   },
                   '& .MuiTypography-root': {
                     fontWeight: 600,
-                    textShadow: `0 0 20px rgba(201, 162, 39, 0.2)`,
+                    textShadow: `0 0 30px rgba(103, 232, 249, 0.1)`,
                   },
                   '&:hover': {
-                    background: `linear-gradient(135deg, ${colors.active} 0%, ${colors.accentGold}40 40%, ${colors.active} 80%, ${colors.active} 100%)`,
+                    background: `linear-gradient(135deg, 
+                      rgba(30, 58, 95, 0.8) 0%, 
+                      rgba(103, 232, 249, 0.12) 35%, 
+                      rgba(15, 23, 42, 0.9) 70%, 
+                      rgba(30, 58, 95, 0.7) 100%)`,
                   },
                 },
               }}
@@ -551,7 +691,7 @@ const MainLayout = () => {
               <ListItemIcon
                 sx={{
                   color: colors.secondaryText,
-                  minWidth: { xs: 28, sm: 32 },
+                  minWidth: { xs: 32, sm: 36 },
                   transition: 'all 0.3s ease',
                   display: 'flex',
                   alignItems: 'center',
@@ -561,7 +701,7 @@ const MainLayout = () => {
                 {React.isValidElement(item.icon) ? (
                   React.cloneElement(item.icon, {
                     sx: {
-                      fontSize: { xs: 17, sm: 19 },
+                      fontSize: { xs: 18, sm: 20 },
                       transition: 'all 0.3s ease',
                       ...(item.icon.props.sx || {}),
                     }
@@ -573,10 +713,10 @@ const MainLayout = () => {
               <ListItemText
                 primary={item.text}
                 primaryTypographyProps={{
-                  fontSize: { xs: '11px', sm: '12px', md: '13px' },
+                  fontSize: { xs: '12px', sm: '13px', md: '14px' },
                   fontWeight: 500,
                   noWrap: true,
-                  letterSpacing: '0.2px',
+                  letterSpacing: '0.3px',
                   transition: 'all 0.3s ease',
                 }}
                 sx={{ margin: 0, flex: 1, minWidth: 0 }}
@@ -584,14 +724,14 @@ const MainLayout = () => {
               {window.location.pathname === item.path && (
                 <Box
                   sx={{
-                    width: 5,
-                    height: 5,
+                    width: 7,
+                    height: 7,
                     borderRadius: '50%',
-                    bgcolor: colors.accentGold,
+                    bgcolor: colors.lightCyan,
                     flexShrink: 0,
                     ml: 0.5,
-                    boxShadow: `0 0 20px rgba(201, 162, 39, 0.6)`,
-                    animation: 'glowPulse 2s ease-in-out infinite',
+                    boxShadow: `0 0 35px ${colors.lightCyanGlowStrong}`,
+                    animation: 'cyanGlowPulse 2s ease-in-out infinite',
                   }}
                 />
               )}
@@ -599,22 +739,10 @@ const MainLayout = () => {
           ))}
         </List>
         
-        {/* ✅ PUSH EXTRA SPACE TO BOTTOM - NO SCROLL */}
         <Box sx={{ flex: 1 }} />
       </Box>
-      
-      {/* ❌ FOOTER REMOVED */}
     </Box>
   );
-
-  // ============================================================
-  // ✅ DRAWER WIDTH
-  // ============================================================
-  const getDrawerWidth = () => {
-    if (isMobile) return 230;
-    if (isTablet) return 210;
-    return 240;
-  };
 
   const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'ENGINEER';
 
@@ -631,9 +759,10 @@ const MainLayout = () => {
         sx={{
           width: { sm: `calc(100% - ${getDrawerWidth()}px)` },
           ml: { sm: `${getDrawerWidth()}px` },
-          bgcolor: colors.white,
-          boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-          borderBottom: `1px solid rgba(1, 65, 28, 0.06)`,
+          bgcolor: 'rgba(255, 255, 255, 0.92)',
+          backdropFilter: 'blur(20px) saturate(180%)',
+          boxShadow: '0 1px 30px rgba(0,0,0,0.06)',
+          borderBottom: `1px solid rgba(103, 232, 249, 0.15)`,
           zIndex: 1200,
         }}
       >
@@ -641,19 +770,19 @@ const MainLayout = () => {
           sx={{
             display: 'flex',
             justifyContent: 'space-between',
-            px: { xs: 1.5, sm: 3 },
-            minHeight: { xs: 60, sm: 68 },
+            px: { xs: 2, sm: 3 },
+            minHeight: { xs: 64, sm: 72 },
           }}
         >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <IconButton
               edge="start"
               onClick={handleDrawerToggle}
               sx={{ 
                 display: { sm: 'none' },
-                color: colors.sidebar,
+                color: '#0F172A',
                 '&:hover': {
-                  color: colors.accentGold,
+                  color: colors.lightCyan,
                 },
               }}
             >
@@ -662,23 +791,21 @@ const MainLayout = () => {
             <Typography
               variant="h6"
               sx={{
-                color: colors.sidebar,
+                color: '#0F172A',
                 fontWeight: 700,
-                fontSize: { xs: '14px', sm: '18px', md: '20px' },
+                fontSize: { xs: '15px', sm: '18px', md: '21px' },
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
-                letterSpacing: '0.3px',
-                position: 'relative',
+                letterSpacing: '0.5px',
                 '&::after': {
                   content: '""',
-                  position: 'absolute',
-                  bottom: -2,
-                  left: 0,
+                  display: 'block',
                   width: '30%',
                   height: '2px',
-                  background: `linear-gradient(90deg, ${colors.sidebar}, ${colors.accentGold})`,
+                  background: `linear-gradient(90deg, #0F172A, ${colors.lightCyan})`,
                   borderRadius: '2px',
+                  marginTop: '2px',
                 },
               }}
             >
@@ -688,15 +815,15 @@ const MainLayout = () => {
 
           <GlobalSearch />
 
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 1.5 } }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1.5, sm: 2 } }}>
             <Tooltip title={unreadCount > 0 ? `${unreadCount} unread notifications` : 'No notifications'}>
               <IconButton
                 onClick={handleNotificationOpen}
                 sx={{
-                  padding: { xs: 0.8, sm: 1.2 },
+                  padding: { xs: 1, sm: 1.2 },
                   transition: 'all 0.3s ease',
                   '&:hover': {
-                    backgroundColor: `rgba(1, 65, 28, 0.08)`,
+                    backgroundColor: `rgba(103, 232, 249, 0.1)`,
                     transform: 'scale(1.05)',
                   },
                 }}
@@ -708,40 +835,40 @@ const MainLayout = () => {
                   className={bellRing ? 'bell-ring' : ''}
                   sx={{
                     '& .MuiBadge-badge': {
-                      bgcolor: colors.accentGold,
-                      color: colors.sidebar,
-                      fontSize: { xs: '8px', sm: '9px' },
+                      bgcolor: colors.lightCyan,
+                      color: '#0F172A',
+                      fontSize: { xs: '9px', sm: '10px' },
                       fontWeight: 800,
-                      minWidth: { xs: 14, sm: 18 },
-                      height: { xs: 14, sm: 18 },
+                      minWidth: { xs: 16, sm: 20 },
+                      height: { xs: 16, sm: 20 },
                       borderRadius: '50%',
-                      boxShadow: `0 0 15px rgba(201, 162, 39, 0.3)`,
-                      border: `2px solid ${colors.white}`,
-                      padding: '0 3px',
+                      boxShadow: `0 0 20px ${colors.lightCyanGlowStrong}`,
+                      border: `2px solid white`,
+                      padding: '0 4px',
                       animation: unreadCount > 0 ? 'badgePulse 2s ease-in-out infinite' : 'none',
                     },
                   }}
                 >
-                  <Notifications sx={{ fontSize: { xs: 22, sm: 28 }, color: colors.sidebar }} />
+                  <Notifications sx={{ fontSize: { xs: 24, sm: 30 }, color: '#0F172A' }} />
                 </Badge>
               </IconButton>
             </Tooltip>
 
-            <IconButton onClick={handleMenuOpen} sx={{ p: { xs: 0.3, sm: 0.5 } }}>
+            <IconButton onClick={handleMenuOpen} sx={{ p: { xs: 0.5, sm: 0.5 } }}>
               <Avatar
                 src={profileImageUrl}
                 sx={{
-                  bgcolor: colors.sidebar,
-                  width: { xs: 30, sm: 38 },
-                  height: { xs: 30, sm: 38 },
-                  fontSize: { xs: '12px', sm: '14px' },
+                  bgcolor: '#0F172A',
+                  width: { xs: 34, sm: 42 },
+                  height: { xs: 34, sm: 42 },
+                  fontSize: { xs: '13px', sm: '15px' },
                   fontWeight: 600,
-                  border: `2px solid ${colors.accentGold}`,
-                  boxShadow: `0 0 15px rgba(201, 162, 39, 0.1)`,
+                  border: `2px solid ${colors.lightCyan}`,
+                  boxShadow: `0 0 20px ${colors.lightCyanGlow}`,
                   transition: 'all 0.3s ease',
                   '&:hover': {
                     transform: 'scale(1.05)',
-                    boxShadow: `0 0 25px rgba(201, 162, 39, 0.2)`,
+                    boxShadow: `0 0 30px ${colors.lightCyanGlowStrong}`,
                   },
                 }}
               >
@@ -759,30 +886,32 @@ const MainLayout = () => {
                 sx: {
                   mt: 1,
                   borderRadius: 2,
-                  boxShadow: '0 8px 30px rgba(0,0,0,0.1)',
-                  minWidth: 160,
-                  border: `1px solid ${colors.borderColor}`,
+                  boxShadow: '0 8px 40px rgba(0,0,0,0.1)',
+                  minWidth: 180,
+                  border: `1px solid rgba(103, 232, 249, 0.1)`,
+                  backdropFilter: 'blur(10px)',
+                  bgcolor: 'rgba(255, 255, 255, 0.95)',
                 }
               }}
             >
-              <MenuItem onClick={handleProfileClick} sx={{ '&:hover': { bgcolor: `${colors.sidebar}08` } }}>
+              <MenuItem onClick={handleProfileClick} sx={{ '&:hover': { bgcolor: 'rgba(103, 232, 249, 0.05)' } }}>
                 <ListItemIcon>
-                  <AccountCircle sx={{ color: colors.sidebar }} fontSize="small" />
+                  <AccountCircle sx={{ color: '#0F172A' }} fontSize="small" />
                 </ListItemIcon>
                 Profile
               </MenuItem>
 
               {isAdmin && (
-                <MenuItem onClick={handleUsersClick} sx={{ '&:hover': { bgcolor: `${colors.sidebar}08` } }}>
+                <MenuItem onClick={handleUsersClick} sx={{ '&:hover': { bgcolor: 'rgba(103, 232, 249, 0.05)' } }}>
                   <ListItemIcon>
-                    <PersonAdd sx={{ color: colors.sidebar }} fontSize="small" />
+                    <PersonAdd sx={{ color: '#0F172A' }} fontSize="small" />
                   </ListItemIcon>
                   Users
                 </MenuItem>
               )}
 
-              <Divider sx={{ borderColor: colors.borderColor }} />
-              <MenuItem onClick={handleLogout} sx={{ color: colors.error, '&:hover': { bgcolor: `${colors.error}08` } }}>
+              <Divider sx={{ borderColor: 'rgba(103, 232, 249, 0.1)' }} />
+              <MenuItem onClick={handleLogout} sx={{ color: colors.error, '&:hover': { bgcolor: `${colors.error}06` } }}>
                 <ListItemIcon>
                   <ExitToApp sx={{ color: colors.error }} fontSize="small" />
                 </ListItemIcon>
@@ -809,9 +938,10 @@ const MainLayout = () => {
             display: { xs: 'block', sm: 'none' },
             '& .MuiDrawer-paper': {
               boxSizing: 'border-box',
-              width: 230,
+              width: 240,
               overflow: 'hidden',
-              bgcolor: colors.sidebar,
+              bgcolor: 'transparent',
+              backdropFilter: 'blur(16px) saturate(200%)',
             },
           }}
         >
@@ -826,8 +956,9 @@ const MainLayout = () => {
               boxSizing: 'border-box',
               width: getDrawerWidth(),
               border: 'none',
-              bgcolor: colors.sidebar,
+              bgcolor: 'transparent',
               overflow: 'hidden',
+              backdropFilter: 'blur(16px) saturate(200%)',
             },
           }}
           open
@@ -840,14 +971,14 @@ const MainLayout = () => {
         component="main"
         sx={{
           flexGrow: 1,
-          p: { xs: 1.5, sm: 2, md: 3 },
+          p: { xs: 2, sm: 2.5, md: 3.5 },
           width: { sm: `calc(100% - ${getDrawerWidth()}px)` },
           ml: { sm: `${getDrawerWidth()}px` },
-          mt: { xs: '56px', sm: '64px' },
+          mt: { xs: '64px', sm: '72px' },
           display: 'flex',
           flexDirection: 'column',
-          minHeight: { xs: 'calc(100vh - 56px)', sm: 'calc(100vh - 64px)' },
-          bgcolor: colors.mainBg,
+          minHeight: { xs: 'calc(100vh - 64px)', sm: 'calc(100vh - 72px)' },
+          bgcolor: '#F1F5F9',
         }}
       >
         <Box sx={{ flex: 1 }}>
