@@ -1,5 +1,5 @@
 // backend/server.js
-// ✅ COMPLETE FIXED VERSION - Profile Picture Upload with Vercel Blob
+// ✅ COMPLETE FIXED VERSION - All Uploads with Vercel Blob
 
 const express = require('express');
 const cors = require('cors');
@@ -2164,7 +2164,7 @@ app.delete('/api/errors/:id', authenticate, authorize('SUPER_ADMIN'), async (req
 // ✅ ERROR FILE UPLOAD - ✅ FIXED: Use Vercel Blob
 // ============================================================
 const errorUpload = multer({
-    storage: multer.memoryStorage(),
+    storage: multer.memoryStorage(),  // ✅ FIXED: Use memoryStorage for Vercel
     limits: { fileSize: 50 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
         const allowedTypes = ['image/', 'video/', 'application/pdf'];

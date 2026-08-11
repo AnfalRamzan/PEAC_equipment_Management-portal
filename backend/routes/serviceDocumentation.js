@@ -1,10 +1,14 @@
+// backend/routes/serviceDocumentation.js
+// ✅ COMPLETE FIXED VERSION - Uses Vercel Blob (No disk storage)
+
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
-const fs = require('fs');
 const jwt = require('jsonwebtoken');
+const { put, del } = require('@vercel/blob');
 const { query } = require('../config/database');
+require('dotenv').config();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-key-2024';
 
@@ -83,33 +87,11 @@ const authorize = (...allowedRoles) => {
 };
 
 // ============================================================
-// ✅ SERVICE DOCUMENTATION - MULTER CONFIGURATION (FIXED PATH)
+// ✅ ✅ FIXED: Use memoryStorage for Vercel (No disk writes)
 // ============================================================
-const serviceDocStorage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        // ✅ FIX: Use correct path from backend folder
-        // Since server.js is in backend/, uploads is at same level
-        const uploadPath = path.join(__dirname, '..', 'uploads', 'service-documentation');
-        console.log('📁 Upload destination:', uploadPath);
-        
-        if (!fs.existsSync(uploadPath)) {
-            fs.mkdirSync(uploadPath, { recursive: true });
-            console.log('📁 Created directory:', uploadPath);
-        }
-        cb(null, uploadPath);
-    },
-    filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        const ext = path.extname(file.originalname);
-        const filename = 'doc-' + uniqueSuffix + ext;
-        console.log('📎 Generated filename:', filename);
-        cb(null, filename);
-    }
-});
-
-const serviceDocUpload = multer({
-    storage: serviceDocStorage,
-    limits: { fileSize: 50 * 1024 * 1024 },
+const upload = multer({
+    storage: multer.memoryStorage(),  // ✅ Memory storage - Vercel compatible
+    limits: { fileSize: 50 * 1024 * 1024 },  // 50MB
     fileFilter: (req, file, cb) => {
         const allowedTypes = [
             'image/jpeg', 'image/png', 'image/gif', 'image/webp',
@@ -201,7 +183,7 @@ router.get('/:id', authenticate, async (req, res) => {
 });
 
 // ============================================================
-// ✅ DOWNLOAD file
+// ✅ DOWNLOAD file (For Vercel Blob - redirect to URL)
 // ============================================================
 router.get('/:id/download', authenticate, async (req, res) => {
     try {
@@ -231,33 +213,24 @@ router.get('/:id/download', authenticate, async (req, res) => {
             });
         }
 
+        // ✅ If it's a Vercel Blob URL, redirect to it
+        if (doc.file_url.startsWith('http://') || doc.file_url.startsWith('https://')) {
+            console.log('✅ Redirecting to Vercel Blob URL:', doc.file_url);
+            return res.redirect(doc.file_url);
+        }
+
+        // ✅ Fallback for local development
         const filename = doc.file_url.split('/').pop();
-        console.log('📎 Filename:', filename);
-        
-        // ✅ Check correct path
         const filePath = path.join(__dirname, '..', 'uploads', 'service-documentation', filename);
-        console.log('🔍 Checking path:', filePath);
         
-        if (!fs.existsSync(filePath)) {
-            console.log('❌ File not found:', filePath);
+        if (!require('fs').existsSync(filePath)) {
             return res.status(404).json({ 
                 success: false, 
                 message: 'File not found on server' 
             });
         }
 
-        console.log('✅ File found, sending download...');
-        res.download(filePath, doc.file_name || filename, (err) => {
-            if (err) {
-                console.error('❌ Download error:', err);
-                if (!res.headersSent) {
-                    res.status(500).json({ 
-                        success: false, 
-                        message: 'Error downloading file' 
-                    });
-                }
-            }
-        });
+        res.download(filePath, doc.file_name || filename);
 
     } catch (error) {
         console.error('❌ Download error:', error);
@@ -269,12 +242,12 @@ router.get('/:id/download', authenticate, async (req, res) => {
 });
 
 // ============================================================
-// ✅ UPLOAD file
+// ✅ ✅ FIXED: UPLOAD file - Vercel Blob
 // ============================================================
 router.post('/upload', authenticate, (req, res) => {
     console.log('📤 Upload request received');
     
-    serviceDocUpload.single('file')(req, res, function(err) {
+    upload.single('file')(req, res, async function(err) {
         if (err) {
             console.error('❌ Upload error:', err);
             return res.status(400).json({
@@ -290,23 +263,40 @@ router.post('/upload', authenticate, (req, res) => {
             });
         }
 
-        console.log('✅ File uploaded successfully:');
-        console.log('   📎 Filename:', req.file.filename);
-        console.log('   📁 Path:', req.file.path);
-        console.log('   📏 Size:', req.file.size, 'bytes');
+        try {
+            console.log('📎 File:', req.file.originalname);
+            console.log('📏 Size:', req.file.size, 'bytes');
+            console.log('📁 Type:', req.file.mimetype);
 
-        const fileUrl = `/uploads/service-documentation/${req.file.filename}`;
-        
-        res.json({
-            success: true,
-            message: 'File uploaded successfully',
-            file: {
-                url: fileUrl,
-                name: req.file.originalname,
-                size: req.file.size,
-                type: req.file.mimetype
-            }
-        });
+            // ✅ Generate unique filename
+            const ext = path.extname(req.file.originalname);
+            const filename = `doc-${Date.now()}-${Math.round(Math.random() * 1E9)}${ext}`;
+            
+            // ✅ Upload to Vercel Blob (NOT disk!)
+            const blob = await put(`service-documentation/${filename}`, req.file.buffer, {
+                access: 'public',
+                token: process.env.BLOB_READ_WRITE_TOKEN,
+            });
+
+            console.log('✅ Uploaded to Vercel Blob:', blob.url);
+
+            res.json({
+                success: true,
+                message: 'File uploaded successfully',
+                file: {
+                    url: blob.url,  // ✅ Vercel Blob URL
+                    name: req.file.originalname,
+                    size: req.file.size,
+                    type: req.file.mimetype
+                }
+            });
+        } catch (error) {
+            console.error('❌ Upload processing error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Upload failed: ' + error.message
+            });
+        }
     });
 });
 
@@ -401,7 +391,7 @@ router.post('/', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), async
 });
 
 // ============================================================
-// ✅ DELETE service documentation
+// ✅ DELETE service documentation (with Vercel Blob delete)
 // ============================================================
 router.delete('/:id', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), async (req, res) => {
     try {
@@ -415,16 +405,15 @@ router.delete('/:id', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), 
             });
         }
 
-        if (existing[0].file_url) {
+        // ✅ Delete from Vercel Blob if URL is a Blob URL
+        if (existing[0].file_url && existing[0].file_url.includes('blob.vercel-storage.com')) {
             try {
-                const filename = existing[0].file_url.split('/').pop();
-                const filePath = path.join(__dirname, '..', 'uploads', 'service-documentation', filename);
-                if (fs.existsSync(filePath)) {
-                    fs.unlinkSync(filePath);
-                    console.log('🗑️ File deleted:', filePath);
-                }
+                await del(existing[0].file_url, {
+                    token: process.env.BLOB_READ_WRITE_TOKEN,
+                });
+                console.log('🗑️ Deleted from Vercel Blob:', existing[0].file_url);
             } catch (fileError) {
-                console.log('⚠️ Could not delete file:', fileError.message);
+                console.log('⚠️ Could not delete from Vercel Blob:', fileError.message);
             }
         }
 
