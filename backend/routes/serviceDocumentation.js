@@ -1,5 +1,5 @@
 // backend/routes/serviceDocumentation.js
-// ✅ COMPLETE FIXED VERSION - Uses Vercel Blob (No disk storage)
+// ✅ COMPLETE FIXED VERSION - Uses Vercel Blob
 
 const express = require('express');
 const router = express.Router();
@@ -87,11 +87,33 @@ const authorize = (...allowedRoles) => {
 };
 
 // ============================================================
-// ✅ ✅ FIXED: Use memoryStorage for Vercel (No disk writes)
+// ✅ HELPER: Get Blob Token
+// ============================================================
+const getBlobToken = () => {
+    const token = process.env.BLOB_READ_WRITE_TOKEN;
+    const oidcToken = process.env.VERCEL_OIDC_TOKEN;
+    const storeId = process.env.BLOB_STORE_ID || 'default';
+    
+    if (token) {
+        console.log('✅ ServiceDoc: Using BLOB_READ_WRITE_TOKEN');
+        return { token, storeId };
+    }
+    
+    if (oidcToken) {
+        console.log('✅ ServiceDoc: Using VERCEL_OIDC_TOKEN');
+        return { oidcToken, storeId };
+    }
+    
+    console.error('❌ ServiceDoc: No blob credentials found!');
+    return null;
+};
+
+// ============================================================
+// ✅ FIXED: Use memoryStorage for Vercel
 // ============================================================
 const upload = multer({
     storage: multer.memoryStorage(),  // ✅ Memory storage - Vercel compatible
-    limits: { fileSize: 50 * 1024 * 1024 },  // 50MB
+    limits: { fileSize: 50 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
         const allowedTypes = [
             'image/jpeg', 'image/png', 'image/gif', 'image/webp',
@@ -183,7 +205,7 @@ router.get('/:id', authenticate, async (req, res) => {
 });
 
 // ============================================================
-// ✅ DOWNLOAD file (For Vercel Blob - redirect to URL)
+// ✅ DOWNLOAD file - Redirect to Vercel Blob
 // ============================================================
 router.get('/:id/download', authenticate, async (req, res) => {
     try {
@@ -242,10 +264,10 @@ router.get('/:id/download', authenticate, async (req, res) => {
 });
 
 // ============================================================
-// ✅ ✅ FIXED: UPLOAD file - Vercel Blob
+// ✅ FIXED: UPLOAD file - Vercel Blob
 // ============================================================
 router.post('/upload', authenticate, (req, res) => {
-    console.log('📤 Upload request received');
+    console.log('📤 ServiceDoc Upload request received');
     
     upload.single('file')(req, res, async function(err) {
         if (err) {
@@ -268,23 +290,31 @@ router.post('/upload', authenticate, (req, res) => {
             console.log('📏 Size:', req.file.size, 'bytes');
             console.log('📁 Type:', req.file.mimetype);
 
-            // ✅ Generate unique filename
+            // ✅ Get credentials
+            const credentials = getBlobToken();
+            if (!credentials) {
+                return res.status(500).json({
+                    success: false,
+                    message: 'Blob storage not configured. Please set BLOB_READ_WRITE_TOKEN in .env file.'
+                });
+            }
+
+            // ✅ Upload to Vercel Blob
             const ext = path.extname(req.file.originalname);
             const filename = `doc-${Date.now()}-${Math.round(Math.random() * 1E9)}${ext}`;
             
-            // ✅ Upload to Vercel Blob (NOT disk!)
             const blob = await put(`service-documentation/${filename}`, req.file.buffer, {
                 access: 'public',
-                token: process.env.BLOB_READ_WRITE_TOKEN,
+                ...credentials,
             });
 
-            console.log('✅ Uploaded to Vercel Blob:', blob.url);
+            console.log('✅ ServiceDoc uploaded to Vercel Blob:', blob.url);
 
             res.json({
                 success: true,
                 message: 'File uploaded successfully',
                 file: {
-                    url: blob.url,  // ✅ Vercel Blob URL
+                    url: blob.url,
                     name: req.file.originalname,
                     size: req.file.size,
                     type: req.file.mimetype
@@ -292,9 +322,18 @@ router.post('/upload', authenticate, (req, res) => {
             });
         } catch (error) {
             console.error('❌ Upload processing error:', error);
+            console.error('❌ Error details:', error.message);
+            
+            let errorMessage = 'Upload failed';
+            if (error.message.includes('blob credentials')) {
+                errorMessage = 'Blob storage not configured. Please check environment variables.';
+            } else {
+                errorMessage = error.message;
+            }
+            
             res.status(500).json({
                 success: false,
-                message: 'Upload failed: ' + error.message
+                message: errorMessage
             });
         }
     });
@@ -391,7 +430,7 @@ router.post('/', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), async
 });
 
 // ============================================================
-// ✅ DELETE service documentation (with Vercel Blob delete)
+// ✅ DELETE service documentation - with Vercel Blob delete
 // ============================================================
 router.delete('/:id', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), async (req, res) => {
     try {
@@ -408,10 +447,13 @@ router.delete('/:id', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), 
         // ✅ Delete from Vercel Blob if URL is a Blob URL
         if (existing[0].file_url && existing[0].file_url.includes('blob.vercel-storage.com')) {
             try {
-                await del(existing[0].file_url, {
-                    token: process.env.BLOB_READ_WRITE_TOKEN,
-                });
-                console.log('🗑️ Deleted from Vercel Blob:', existing[0].file_url);
+                const credentials = getBlobToken();
+                if (credentials) {
+                    await del(existing[0].file_url, {
+                        ...credentials,
+                    });
+                    console.log('🗑️ Deleted from Vercel Blob:', existing[0].file_url);
+                }
             } catch (fileError) {
                 console.log('⚠️ Could not delete from Vercel Blob:', fileError.message);
             }

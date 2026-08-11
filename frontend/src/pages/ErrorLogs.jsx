@@ -33,7 +33,10 @@ import {
   Card,
   CardContent,
   Stack,
-  FormHelperText
+  FormHelperText,
+  ImageList,
+  ImageListItem,
+  ImageListItemBar,
 } from '@mui/material'
 import {
   Add,
@@ -42,7 +45,12 @@ import {
   Delete,
   Visibility,
   Close,
-  Refresh
+  Refresh,
+  OpenInNew,
+  Image as ImageIcon,
+  VideoLibrary,
+  Description,
+  InsertDriveFile,
 } from '@mui/icons-material'
 import { errorService, equipmentService, hospitalService, userService } from '../api/services'
 import { toast } from 'react-toastify'
@@ -91,6 +99,195 @@ const colors = {
   success: '#22C55E',
   warning: '#F59E0B',
   info: '#3B82F6',
+}
+
+// Helper function to get full URL
+const getFullUrl = (url) => {
+  if (!url) return ''
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url
+  }
+  if (url.startsWith('/uploads')) {
+    return `http://localhost:5000${url}`
+  }
+  return url
+}
+
+// Helper function to check file type
+const isImageFile = (url) => {
+  if (!url) return false
+  const ext = url.split('.').pop()?.toLowerCase() || ''
+  return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(ext)
+}
+
+const isVideoFile = (url) => {
+  if (!url) return false
+  const ext = url.split('.').pop()?.toLowerCase() || ''
+  return ['mp4', 'mov', 'avi', 'mkv', 'wmv', 'flv', 'webm'].includes(ext)
+}
+
+const getFileName = (url) => {
+  if (!url) return 'File'
+  const parts = url.split('/')
+  return parts[parts.length - 1] || 'File'
+}
+
+// Component for displaying attachments in a grid
+const AttachmentGrid = ({ attachments, onFileClick }) => {
+  if (!attachments || attachments.length === 0) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 3, bgcolor: colors.mainBg, borderRadius: 2 }}>
+        <InsertDriveFile sx={{ fontSize: 40, color: colors.lightText, opacity: 0.3 }} />
+        <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
+          No attachments
+        </Typography>
+      </Box>
+    )
+  }
+
+  return (
+    <ImageList cols={3} gap={12} sx={{ mb: 0 }}>
+      {attachments.map((url, index) => {
+        const isImg = isImageFile(url)
+        const isVideo = isVideoFile(url)
+        const fileName = getFileName(url)
+        const fullUrl = getFullUrl(url)
+
+        return (
+          <ImageListItem 
+            key={index} 
+            sx={{ 
+              borderRadius: 2, 
+              overflow: 'hidden',
+              border: `1px solid ${colors.borderColor}`,
+              position: 'relative',
+              cursor: 'pointer',
+              '&:hover': {
+                boxShadow: `0 4px 20px ${colors.lightCyanGlow}`,
+                '& .attachment-overlay': {
+                  opacity: 1,
+                }
+              }
+            }}
+            onClick={() => onFileClick && onFileClick(fullUrl)}
+          >
+            {isImg ? (
+              <Box
+                component="img"
+                src={fullUrl}
+                alt={fileName}
+                sx={{
+                  width: '100%',
+                  height: 140,
+                  objectFit: 'cover',
+                  bgcolor: colors.mainBg,
+                }}
+                onError={(e) => {
+                  e.target.onerror = null
+                  e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="140"%3E%3Crect width="200" height="140" fill="%23f0f0f0"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23999" font-size="14"%3ENo Image%3C/text%3E%3C/svg%3E'
+                }}
+              />
+            ) : isVideo ? (
+              <Box sx={{ 
+                height: 140, 
+                bgcolor: colors.darkNavy,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                position: 'relative',
+              }}>
+                <VideoLibrary sx={{ fontSize: 48, color: colors.lightCyan, opacity: 0.7 }} />
+                <Typography variant="caption" sx={{ color: colors.textLight, mt: 1 }}>
+                  {fileName}
+                </Typography>
+                <Box sx={{ 
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  bgcolor: 'rgba(0,0,0,0.5)',
+                  borderRadius: '50%',
+                  p: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 40,
+                  height: 40,
+                }}>
+                  <OpenInNew sx={{ color: 'white', fontSize: 20 }} />
+                </Box>
+              </Box>
+            ) : (
+              <Box sx={{ 
+                height: 140, 
+                bgcolor: colors.mainBg,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                p: 1,
+              }}>
+                <Description sx={{ fontSize: 40, color: colors.lightText }} />
+                <Typography variant="caption" sx={{ 
+                  color: colors.lightText, 
+                  mt: 1, 
+                  textAlign: 'center',
+                  maxWidth: '90%',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap'
+                }}>
+                  {fileName}
+                </Typography>
+              </Box>
+            )}
+            
+            {/* Overlay with file name and open button */}
+            <Box 
+              className="attachment-overlay"
+              sx={{ 
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                bgcolor: 'rgba(0,0,0,0.7)',
+                color: 'white',
+                p: 1,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                opacity: 0,
+                transition: 'opacity 0.3s',
+              }}
+            >
+              <Typography variant="caption" sx={{ 
+                overflow: 'hidden', 
+                textOverflow: 'ellipsis', 
+                whiteSpace: 'nowrap', 
+                flex: 1, 
+                mr: 1 
+              }}>
+                {fileName}
+              </Typography>
+              <Tooltip title="Open in new tab">
+                <IconButton
+                  size="small"
+                  sx={{ color: 'white' }}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    window.open(fullUrl, '_blank')
+                  }}
+                >
+                  <OpenInNew fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          </ImageListItem>
+        )
+      })}
+    </ImageList>
+  )
 }
 
 const ErrorLogs = () => {
@@ -145,17 +342,6 @@ const ErrorLogs = () => {
     attachments: '',
     assigned_to: ''
   })
-
-  const getFullUrl = (url) => {
-    if (!url) return ''
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      return url
-    }
-    if (url.startsWith('/uploads')) {
-      return `http://localhost:5000${url}`
-    }
-    return url
-  }
 
   useEffect(() => {
     fetchErrors()
@@ -416,6 +602,12 @@ const ErrorLogs = () => {
     return <LinearProgress sx={{ bgcolor: colors.borderColor, '& .MuiLinearProgress-bar': { bgcolor: colors.lightCyan } }} />
   }
 
+  // Parse attachments for viewing
+  const getAttachmentsArray = (attachments) => {
+    if (!attachments) return []
+    return attachments.split(',').filter(Boolean)
+  }
+
   return (
     <Box>
       {/* Header */}
@@ -478,7 +670,7 @@ const ErrorLogs = () => {
         </Box>
       </Box>
 
-      {/* Stats Cards - DARK NAVY + CYAN THEMED */}
+      {/* Stats Cards */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={6} sm={3}>
           <Card sx={{ 
@@ -610,7 +802,7 @@ const ErrorLogs = () => {
         </Box>
       </Paper>
 
-      {/* Table - DARK NAVY + LIGHT CYAN THEMED */}
+      {/* Table */}
       <TableContainer 
         component={Paper} 
         sx={{ 
@@ -742,7 +934,7 @@ const ErrorLogs = () => {
         </Table>
       </TableContainer>
 
-      {/* REPORT ERROR DIALOG - DARK NAVY + CYAN THEMED */}
+      {/* REPORT ERROR DIALOG */}
       <Dialog 
         open={openDialog} 
         onClose={handleCloseDialog} 
@@ -1054,7 +1246,7 @@ const ErrorLogs = () => {
         </DialogActions>
       </Dialog>
 
-      {/* VIEW ERROR DIALOG - DARK NAVY + CYAN THEMED */}
+      {/* VIEW ERROR DIALOG - WITH ATTACHMENTS GRID */}
       <Dialog 
         open={openViewDialog} 
         onClose={handleCloseView} 
@@ -1249,72 +1441,20 @@ const ErrorLogs = () => {
                 </Typography>
               </Paper>
 
+              {/* ✅ ATTACHMENTS SECTION - UPDATED WITH GRID VIEW */}
               {viewingError.attachments && viewingError.attachments.split(',').filter(Boolean).length > 0 && (
                 <Box sx={{ mb: 3 }}>
-                  <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1, color: colors.darkNavy }}>
+                  <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2, color: colors.darkNavy }}>
                     Attachments ({viewingError.attachments.split(',').filter(Boolean).length})
                   </Typography>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
-                    {viewingError.attachments.split(',').filter(Boolean).map((url, index) => {
-                      const isImage = url.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i)
-                      const isVideo = url.match(/\.(mp4|webm|ogg|mov|avi)$/i)
-                      
-                      const fullUrl = getFullUrl(url)
-                      
-                      return (
-                        <Box 
-                          key={index} 
-                          sx={{ 
-                            position: 'relative',
-                            width: isImage ? 150 : 120,
-                            height: isImage ? 150 : 120,
-                            borderRadius: 2,
-                            overflow: 'hidden',
-                            border: `1px solid ${colors.borderColor}`,
-                            bgcolor: colors.mainBg,
-                            cursor: 'pointer',
-                            transition: 'transform 0.2s',
-                            '&:hover': { transform: 'scale(1.05)', boxShadow: 4 }
-                          }}
-                          onClick={() => window.open(fullUrl, '_blank')}
-                        >
-                          {isImage ? (
-                            <Box
-                              component="img"
-                              src={fullUrl}
-                              alt={`Attachment ${index + 1}`}
-                              sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                              onError={(e) => {
-                                e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="150" height="150" viewBox="0 0 24 24" fill="%23ccc"%3E%3Crect width="24" height="24" fill="%23f0f0f0"/%3E%3Ctext x="12" y="12" text-anchor="middle" dy=".3em" font-size="10" fill="%23999"%3ENo Image%3C/text%3E%3C/svg%3E'
-                              }}
-                            />
-                          ) : isVideo ? (
-                            <video style={{ width: '100%', height: '100%', objectFit: 'cover' }} onClick={(e) => e.stopPropagation()}>
-                              <source src={fullUrl} />
-                            </video>
-                          ) : (
-                            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', p: 1 }}>
-                              <Typography variant="caption" align="center" noWrap sx={{ color: colors.lightText }}>{url.split('/').pop()}</Typography>
-                            </Box>
-                          )}
-                          <Box sx={{ 
-                            position: 'absolute', 
-                            bottom: 0, 
-                            left: 0, 
-                            right: 0, 
-                            bgcolor: 'rgba(0,0,0,0.6)',
-                            color: 'white',
-                            p: 0.5,
-                            textAlign: 'center'
-                          }}>
-                            <Typography variant="caption" sx={{ fontSize: '9px', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                              {url.split('/').pop().substring(0, 20)}
-                            </Typography>
-                          </Box>
-                        </Box>
-                      )
-                    })}
-                  </Box>
+                  <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 2 }}>
+                    Click on any file to open it in a new tab
+                  </Typography>
+                  
+                  <AttachmentGrid 
+                    attachments={viewingError.attachments.split(',').filter(Boolean)}
+                    onFileClick={(url) => window.open(url, '_blank')}
+                  />
                 </Box>
               )}
             </Box>

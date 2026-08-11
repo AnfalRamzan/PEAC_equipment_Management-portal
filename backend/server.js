@@ -1,6 +1,22 @@
 // backend/server.js
-// ✅ COMPLETE FIXED VERSION - All Uploads with Vercel Blob
+// ✅ COMPLETE FIXED VERSION - With Proper Token Loading
 
+// ============================================================
+// ✅ LOAD ENVIRONMENT VARIABLES FIRST
+// ============================================================
+console.log('🔍 Loading environment variables...');
+require('dotenv').config();
+
+// ✅ Check if .env loaded properly
+console.log('✅ Environment loaded');
+console.log('🔐 BLOB_READ_WRITE_TOKEN status:', process.env.BLOB_READ_WRITE_TOKEN ? '✅ Set' : '❌ MISSING');
+console.log('🔐 BLOB_STORE_ID:', process.env.BLOB_STORE_ID || 'blob_store_default');
+console.log('🔐 JWT_SECRET status:', process.env.JWT_SECRET ? '✅ Set' : '❌ MISSING');
+console.log('🔐 DATABASE_URL status:', process.env.DATABASE_URL ? '✅ Set' : '❌ MISSING');
+
+// ============================================================
+// ✅ IMPORTS
+// ============================================================
 const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
@@ -10,8 +26,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const WebSocket = require('ws');
-const { put, del } = require('@vercel/blob');
-require('dotenv').config();
+const { put, del, head } = require('@vercel/blob');
 
 const app = express();
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-key-2024';
@@ -20,7 +35,36 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-key-2024';
 testConnection();
 
 // ============================================================
-// ✅ MIDDLEWARE - CORS FIXED FOR VERCEL
+// ✅ HELPER: Get Blob Token - WITH LOGGING
+// ============================================================
+const getBlobToken = () => {
+    // ✅ Direct check from process.env
+    const token = process.env.BLOB_READ_WRITE_TOKEN;
+    const oidcToken = process.env.VERCEL_OIDC_TOKEN;
+    const storeId = process.env.BLOB_STORE_ID || 'blob_store_default';
+    
+    console.log('🔐 Checking blob credentials...');
+    console.log('📌 BLOB_READ_WRITE_TOKEN from env:', token ? '✅ Found (length: ' + token.length + ')' : '❌ Not found');
+    console.log('📌 VERCEL_OIDC_TOKEN from env:', oidcToken ? '✅ Found' : '❌ Not found');
+    console.log('📌 BLOB_STORE_ID:', storeId);
+    
+    if (token) {
+        console.log('✅ Using BLOB_READ_WRITE_TOKEN');
+        return { token, storeId };
+    }
+    
+    if (oidcToken) {
+        console.log('✅ Using VERCEL_OIDC_TOKEN with storeId');
+        return { oidcToken, storeId };
+    }
+    
+    console.error('❌ No blob credentials found!');
+    console.error('❌ Please set BLOB_READ_WRITE_TOKEN in .env file');
+    return null;
+};
+
+// ============================================================
+// ✅ MIDDLEWARE
 // ============================================================
 app.use(cors({ 
     origin: function (origin, callback) {
@@ -44,7 +88,6 @@ app.use(cors({
 
 app.options('*', cors());
 
-// ✅ Increase limits for large file uploads
 app.use(express.json({ limit: '100mb' }));
 app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 
@@ -56,34 +99,32 @@ app.get('/', (req, res) => {
         success: true,
         message: '🏥 Hospital Equipment Management System API',
         version: '1.0.0',
-        endpoints: {
-            health: '/api/health',
-            auth: '/api/auth/login',
-            users: '/api/users',
-            equipment: '/api/equipment',
-            errors: '/api/errors',
-            repairs: '/api/repairs',
-            maintenance: '/api/maintenance',
-            knowledge: '/api/knowledge-base',
-            procurement: '/api/procurement',
-            purchaseOrders: '/api/purchase-orders',
-            amc: '/api/amc',
-            departments: '/api/departments',
-            hospitals: '/api/hospitals',
-            notifications: '/api/notifications',
-            upload: '/api/upload',
-            search: '/api/search',
-            websocket: '/api/websocket/status',
-            serviceDocumentation: '/api/service-documentation',
-            training: '/api/training'
+        environment: {
+            blob_token: process.env.BLOB_READ_WRITE_TOKEN ? '✅ Set' : '❌ Missing',
+            blob_store: process.env.BLOB_STORE_ID || 'default',
+            jwt_secret: process.env.JWT_SECRET ? '✅ Set' : '❌ Missing',
+            database: process.env.DATABASE_URL ? '✅ Set' : '❌ Missing',
+            node_env: process.env.NODE_ENV || 'development'
         },
-        docs: 'https://github.com/your-repo',
         timestamp: new Date().toISOString()
     });
 });
 
 // ============================================================
-// ✅ STATIC FILE SERVE (for local development - optional)
+// ✅ HEALTH CHECK - TO VERIFY BLOB TOKEN
+// ============================================================
+app.get('/api/health', (req, res) => {
+    const token = getBlobToken();
+    res.json({
+        success: true,
+        status: 'healthy',
+        blob_storage: token ? 'configured' : 'not configured',
+        timestamp: new Date().toISOString()
+    });
+});
+
+// ============================================================
+// ✅ STATIC FILE SERVE
 // ============================================================
 try {
     const uploadsPath = path.join(__dirname, 'uploads');
@@ -376,10 +417,10 @@ const fileFilter = (req, file, cb) => {
 };
 
 // ============================================================
-// ✅ PROFILE PICTURE UPLOAD - ✅ FIXED: Use Vercel Blob
+// ✅ PROFILE PICTURE UPLOAD
 // ============================================================
 const profileUpload = multer({
-    storage: multer.memoryStorage(),  // ✅ Use memory storage for Vercel
+    storage: multer.memoryStorage(),
     limits: { fileSize: 5 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
         const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
@@ -392,19 +433,21 @@ const profileUpload = multer({
 });
 
 // ============================================================
-// ✅ GENERAL FILE UPLOAD - VERCEL BLOB STORAGE (memoryStorage)
+// ✅ GENERAL FILE UPLOAD
 // ============================================================
 const storage = multer.memoryStorage();
 
 const uploadMulter = multer({
     storage: storage,
-    limits: { fileSize: 100 * 1024 * 1024 },  // ✅ 100MB
+    limits: { fileSize: 100 * 1024 * 1024 },
     fileFilter: fileFilter
 });
 
 // ============================================================
-// ✅ UPLOAD ROUTES - VERCEL BLOB
+// ✅ UPLOAD ROUTES - FIXED
 // ============================================================
+
+// ✅ SINGLE FILE UPLOAD - WITH DIRECT TOKEN ACCESS
 app.post('/api/upload', authenticate, async (req, res) => {
     uploadMulter.single('file')(req, res, async function(err) {
         if (err) {
@@ -423,12 +466,36 @@ app.post('/api/upload', authenticate, async (req, res) => {
                 });
             }
 
-            // ✅ Upload to Vercel Blob
+            // ✅ DIRECT TOKEN ACCESS - NOT FROM HELPER
+            const token = process.env.BLOB_READ_WRITE_TOKEN;
+            const storeId = process.env.BLOB_STORE_ID || 'blob_store_default';
+            
+            console.log('📤 Uploading to Vercel Blob:', req.file.originalname);
+            console.log('📤 File size:', req.file.size);
+            console.log('📌 Token from process.env:', token ? '✅ Found (length: ' + token.length + ')' : '❌ NOT FOUND');
+            console.log('📌 Store ID:', storeId);
+
+            if (!token) {
+                console.error('❌ BLOB_READ_WRITE_TOKEN is missing from process.env!');
+                console.error('❌ Please check your .env file');
+                return res.status(500).json({
+                    success: false,
+                    message: 'Blob storage not configured. Please set BLOB_READ_WRITE_TOKEN in .env file.'
+                });
+            }
+
             const filename = `${Date.now()}-${req.file.originalname}`;
+            
+            console.log('📤 Attempting to upload to Vercel Blob...');
+            console.log('📤 Filename:', filename);
+            
             const blob = await put(`uploads/${filename}`, req.file.buffer, {
                 access: 'public',
-                token: process.env.BLOB_READ_WRITE_TOKEN,
+                token: token,
+                storeId: storeId,
             });
+
+            console.log('✅ Uploaded to Vercel Blob:', blob.url);
 
             res.json({
                 success: true,
@@ -444,14 +511,19 @@ app.post('/api/upload', authenticate, async (req, res) => {
             });
         } catch (error) {
             console.error('❌ Upload processing error:', error);
+            console.error('❌ Error details:', error.message);
+            console.error('❌ Error stack:', error.stack);
+            
             res.status(500).json({
                 success: false,
-                message: 'Upload processing failed: ' + error.message
+                message: 'Upload failed: ' + error.message,
+                details: error.message
             });
         }
     });
 });
 
+// ✅ MULTIPLE FILE UPLOAD
 app.post('/api/upload/multiple', authenticate, async (req, res) => {
     const multipleUpload = multer({
         storage: multer.memoryStorage(),
@@ -476,13 +548,25 @@ app.post('/api/upload/multiple', authenticate, async (req, res) => {
                 });
             }
 
+            const token = process.env.BLOB_READ_WRITE_TOKEN;
+            const storeId = process.env.BLOB_STORE_ID || 'blob_store_default';
+
+            if (!token) {
+                console.error('❌ BLOB_READ_WRITE_TOKEN is missing!');
+                return res.status(500).json({
+                    success: false,
+                    message: 'Blob storage not configured. Please set BLOB_READ_WRITE_TOKEN.'
+                });
+            }
+
             const uploadedFiles = [];
             
             for (const file of req.files) {
                 const filename = `${Date.now()}-${file.originalname}`;
                 const blob = await put(`uploads/${filename}`, file.buffer, {
                     access: 'public',
-                    token: process.env.BLOB_READ_WRITE_TOKEN,
+                    token: token,
+                    storeId: storeId,
                 });
 
                 uploadedFiles.push({
@@ -510,6 +594,7 @@ app.post('/api/upload/multiple', authenticate, async (req, res) => {
     });
 });
 
+// ✅ DIRECTORY UPLOAD
 app.post('/api/upload-dir', authenticate, async (req, res) => {
     const { directory } = req.body;
     
@@ -543,10 +628,22 @@ app.post('/api/upload-dir', authenticate, async (req, res) => {
                 });
             }
 
+            const token = process.env.BLOB_READ_WRITE_TOKEN;
+            const storeId = process.env.BLOB_STORE_ID || 'blob_store_default';
+
+            if (!token) {
+                console.error('❌ BLOB_READ_WRITE_TOKEN is missing!');
+                return res.status(500).json({
+                    success: false,
+                    message: 'Blob storage not configured. Please set BLOB_READ_WRITE_TOKEN.'
+                });
+            }
+
             const filename = `${Date.now()}-${req.file.originalname}`;
             const blob = await put(`uploads/${directory}/${filename}`, req.file.buffer, {
                 access: 'public',
-                token: process.env.BLOB_READ_WRITE_TOKEN,
+                token: token,
+                storeId: storeId,
             });
 
             res.json({
@@ -571,6 +668,7 @@ app.post('/api/upload-dir', authenticate, async (req, res) => {
     });
 });
 
+// ✅ DELETE FILE
 app.delete('/api/upload', authenticate, async (req, res) => {
     try {
         const { fileUrl } = req.body;
@@ -582,10 +680,23 @@ app.delete('/api/upload', authenticate, async (req, res) => {
             });
         }
 
-        // ✅ Delete from Vercel Blob
+        const token = process.env.BLOB_READ_WRITE_TOKEN;
+        const storeId = process.env.BLOB_STORE_ID || 'blob_store_default';
+
+        if (!token) {
+            console.error('❌ BLOB_READ_WRITE_TOKEN is missing!');
+            return res.status(500).json({
+                success: false,
+                message: 'Blob storage not configured. Please set BLOB_READ_WRITE_TOKEN.'
+            });
+        }
+
         await del(fileUrl, {
-            token: process.env.BLOB_READ_WRITE_TOKEN,
+            token: token,
+            storeId: storeId,
         });
+
+        console.log('🗑️ File deleted from Vercel Blob:', fileUrl);
 
         res.json({
             success: true,
@@ -600,6 +711,7 @@ app.delete('/api/upload', authenticate, async (req, res) => {
     }
 });
 
+// ✅ GET UPLOADS LIST
 app.get('/api/uploads', authenticate, async (req, res) => {
     try {
         res.json({
@@ -616,7 +728,7 @@ app.get('/api/uploads', authenticate, async (req, res) => {
 });
 
 // ============================================================
-// ✅ PROFILE PICTURE UPLOAD ROUTES - ✅ FIXED: Vercel Blob
+// ✅ PROFILE PICTURE UPLOAD
 // ============================================================
 app.post('/api/users/profile-picture', authenticate, profileUpload.single('profileImage'), async (req, res) => {
     try {
@@ -627,16 +739,28 @@ app.post('/api/users/profile-picture', authenticate, profileUpload.single('profi
             });
         }
 
-        // ✅ Upload to Vercel Blob
+        const token = process.env.BLOB_READ_WRITE_TOKEN;
+        const storeId = process.env.BLOB_STORE_ID || 'blob_store_default';
+
+        if (!token) {
+            console.error('❌ BLOB_READ_WRITE_TOKEN is missing!');
+            return res.status(500).json({
+                success: false,
+                message: 'Blob storage not configured. Please set BLOB_READ_WRITE_TOKEN.'
+            });
+        }
+
+        console.log('📤 Uploading profile picture for user:', req.user.id);
+
         const filename = `profile-${req.user.id}-${Date.now()}.jpg`;
         const blob = await put(`uploads/profile/${filename}`, req.file.buffer, {
             access: 'public',
-            token: process.env.BLOB_READ_WRITE_TOKEN,
+            token: token,
+            storeId: storeId,
         });
 
         console.log('✅ Profile picture uploaded to Vercel Blob:', blob.url);
 
-        // ✅ Update user in database
         await query(
             'UPDATE users SET profile_image = ? WHERE id = ?',
             [blob.url, req.user.id]
@@ -649,24 +773,38 @@ app.post('/api/users/profile-picture', authenticate, profileUpload.single('profi
         });
     } catch (error) {
         console.error('❌ Profile picture upload error:', error);
+        
+        let errorMessage = 'Failed to upload profile picture';
+        if (error.message.includes('token')) {
+            errorMessage = 'Blob storage not configured. Please check environment variables.';
+        } else {
+            errorMessage = error.message;
+        }
+        
         res.status(500).json({
             success: false,
-            message: 'Failed to upload profile picture: ' + error.message
+            message: errorMessage
         });
     }
 });
 
+// ✅ DELETE PROFILE PICTURE
 app.delete('/api/users/profile-picture', authenticate, async (req, res) => {
     try {
         const users = await query('SELECT profile_image FROM users WHERE id = ?', [req.user.id]);
         
         if (users.length > 0 && users[0].profile_image) {
             try {
-                // ✅ Delete from Vercel Blob
-                await del(users[0].profile_image, {
-                    token: process.env.BLOB_READ_WRITE_TOKEN,
-                });
-                console.log('🗑️ Profile picture deleted from Vercel Blob');
+                const token = process.env.BLOB_READ_WRITE_TOKEN;
+                const storeId = process.env.BLOB_STORE_ID || 'blob_store_default';
+                
+                if (token) {
+                    await del(users[0].profile_image, {
+                        token: token,
+                        storeId: storeId,
+                    });
+                    console.log('🗑️ Profile picture deleted from Vercel Blob');
+                }
             } catch (error) {
                 console.log('⚠️ Could not delete profile picture from Vercel Blob:', error.message);
             }
@@ -1834,7 +1972,7 @@ app.delete('/api/equipment/:id', authenticate, authorize('SUPER_ADMIN'), async (
 });
 
 // ============================================================
-// ✅ ERRORS ROUTES - COMPLETELY REMOVED status AND assigned_to
+// ✅ ERRORS ROUTES
 // ============================================================
 app.get('/api/errors', authenticate, async (req, res) => {
     try {
@@ -2161,10 +2299,10 @@ app.delete('/api/errors/:id', authenticate, authorize('SUPER_ADMIN'), async (req
 });
 
 // ============================================================
-// ✅ ERROR FILE UPLOAD - ✅ FIXED: Use Vercel Blob
+// ✅ ERROR FILE UPLOAD
 // ============================================================
 const errorUpload = multer({
-    storage: multer.memoryStorage(),  // ✅ FIXED: Use memoryStorage for Vercel
+    storage: multer.memoryStorage(),
     limits: { fileSize: 50 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
         const allowedTypes = ['image/', 'video/', 'application/pdf'];
@@ -2185,11 +2323,22 @@ app.post('/api/errors/upload', authenticate, errorUpload.single('file'), async (
             });
         }
 
-        // ✅ Upload to Vercel Blob
+        const token = process.env.BLOB_READ_WRITE_TOKEN;
+        const storeId = process.env.BLOB_STORE_ID || 'blob_store_default';
+
+        if (!token) {
+            console.error('❌ BLOB_READ_WRITE_TOKEN is missing!');
+            return res.status(500).json({
+                success: false,
+                message: 'Blob storage not configured. Please set BLOB_READ_WRITE_TOKEN.'
+            });
+        }
+
         const filename = `error-${Date.now()}-${req.file.originalname}`;
         const blob = await put(`uploads/errors/${filename}`, req.file.buffer, {
             access: 'public',
-            token: process.env.BLOB_READ_WRITE_TOKEN,
+            token: token,
+            storeId: storeId,
         });
 
         console.log('✅ Error file uploaded to Vercel Blob:', blob.url);
@@ -3422,7 +3571,7 @@ app.get('/api/search', authenticate, async (req, res) => {
             LEFT JOIN equipment eq ON e.equipment_id = eq.id
             WHERE LOWER(r.root_cause) LIKE ? 
                OR LOWER(r.solution_description) LIKE ? 
-               OR LOWER(r.repair_procedure) LIKE ?
+               OR LOWER(r.repair_procedure) LIKE ? 
                OR LOWER(r.engineer_name) LIKE ?
         `;
         const repairParams = [searchTerm, searchTerm, searchTerm, searchTerm];
@@ -4790,11 +4939,8 @@ if (require.main === module) {
         console.log(`📡 Server running on: http://localhost:${PORT}`);
         console.log(`📊 API Health: http://localhost:${PORT}/api/health`);
         console.log(`🔐 Login: superadmin@paec.edu.pk / admin123`);
-        console.log(`📁 Uploads directory: ${path.join(__dirname, 'uploads')}`);
-        console.log(`📁 Static files served at: http://localhost:${PORT}/uploads/`);
-        console.log(`📚 Knowledge Base API: http://localhost:${PORT}/api/knowledge-base`);
-        console.log(`📄 Service Documentation API: http://localhost:${PORT}/api/service-documentation`);
-        console.log(`📚 Training API: http://localhost:${PORT}/api/training`);
+        console.log(`📁 Uploads: http://localhost:${PORT}/uploads/`);
+        console.log(`🔐 BLOB_TOKEN: ${process.env.BLOB_READ_WRITE_TOKEN ? '✅ Set' : '❌ MISSING'}`);
         console.log('========================================');
         console.log('🔌 WebSocket server initializing...');
     });

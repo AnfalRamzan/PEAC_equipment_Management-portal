@@ -1,5 +1,6 @@
 // src/pages/Equipment.jsx
 // ✅ DARK NAVY + LIGHT CYAN THEME - Matching Sidebar
+// ✅ FIXED: Upload endpoint changed from /service-documentation/upload to /upload
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -78,38 +79,27 @@ import AccessDenied from '../components/Auth/AccessDenied'
 // ✅ DARK NAVY + LIGHT CYAN THEME COLORS
 // ============================================================
 const colors = {
-  // Dark Navy Base
   darkNavy: '#0F172A',
   darkNavyLight: '#1E293B',
   darkNavyDark: '#0A0F1E',
   darkNavyHover: '#1E3A5F',
-  
-  // Light Cyan Accents
   lightCyan: '#67E8F9',
   lightCyanBright: '#A5F3FC',
   lightCyanDark: '#22D3EE',
   lightCyanGlow: 'rgba(103, 232, 249, 0.15)',
   lightCyanGlowStrong: 'rgba(103, 232, 249, 0.3)',
-  
-  // Gold accent (keeping PAEC branding)
   accentGold: '#C9A227',
   goldLight: '#E8C84A',
-  
-  // Text
   text: '#FFFFFF',
   secondaryText: '#94A3B8',
   textLight: '#CBD5E1',
   cyanText: '#67E8F9',
   darkText: '#0F172A',
   lightText: '#64748B',
-  
-  // Cards/Background
   cardBg: '#FFFFFF',
   borderColor: 'rgba(103, 232, 249, 0.1)',
   shadowColor: 'rgba(15, 23, 42, 0.08)',
   mainBg: '#F1F5F9',
-  
-  // Status colors
   error: '#EF4444',
   success: '#22C55E',
   warning: '#F59E0B',
@@ -134,7 +124,6 @@ const getFullImageUrl = (url) => {
   return url
 }
 
-// Helper function to get file type icon
 const getFileTypeIcon = (url) => {
   if (!url) return <Description />
   const ext = url.split('.').pop()?.toLowerCase() || ''
@@ -148,28 +137,24 @@ const getFileTypeIcon = (url) => {
   return <LinkIcon />
 }
 
-// Helper function to check if file is image
 const isImageFile = (url) => {
   if (!url) return false
   const ext = url.split('.').pop()?.toLowerCase() || ''
   return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(ext)
 }
 
-// Helper function to check if file is video
 const isVideoFile = (url) => {
   if (!url) return false
   const ext = url.split('.').pop()?.toLowerCase() || ''
   return ['mp4', 'mov', 'avi', 'mkv', 'wmv', 'flv', 'webm'].includes(ext)
 }
 
-// Helper function to get file name from URL
 const getFileNameFromUrl = (url) => {
   if (!url) return 'File'
   const parts = url.split('/')
   return parts[parts.length - 1] || 'File'
 }
 
-// Component to display media files in a grid
 const MediaGrid = ({ files, onImageClick }) => {
   if (!files || files.length === 0) {
     return (
@@ -581,7 +566,6 @@ const Equipment = () => {
   }
 
   const handleViewDetails = (equip) => {
-    // Parse image_url to get array of URLs
     const imageUrls = equip.image_url ? equip.image_url.split(',').filter(Boolean) : []
     
     setSelectedEquipment({
@@ -1423,7 +1407,6 @@ const Equipment = () => {
                 </Grid>
               )}
 
-              {/* ✅ NEW MEDIA TAB - Shows all uploaded files with click to open in new tab */}
               {viewTab === 1 && (
                 <Box>
                   <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy, mb: 2 }}>
@@ -1960,8 +1943,9 @@ const Equipment = () => {
                 <Typography variant="subtitle2" sx={{ color: colors.lightText }} gutterBottom>
                   Equipment Images
                 </Typography>
+                {/* ✅ FIXED: Changed endpoint from /service-documentation/upload to /upload */}
                 <FileUpload
-                  endpoint="/service-documentation/upload"
+                  endpoint="/upload"
                   accept="image/*"
                   multiple={true}
                   label="Click to upload equipment images"
