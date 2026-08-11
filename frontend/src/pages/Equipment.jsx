@@ -33,6 +33,16 @@ import {
   Tab,
   FormHelperText,
   Divider,
+  Chip,
+  Card,
+  CardMedia,
+  CardContent,
+  CardActions,
+  ImageList,
+  ImageListItem,
+  ImageListItemBar,
+  IconButton as MuiIconButton,
+  Stack,
 } from '@mui/material'
 import {
   Add,
@@ -46,7 +56,13 @@ import {
   FileDownload,
   Refresh,
   CheckCircle,
-  Cancel
+  Cancel,
+  Image as ImageIcon,
+  VideoLibrary,
+  Description,
+  Link as LinkIcon,
+  OpenInNew,
+  ZoomIn,
 } from '@mui/icons-material'
 import { equipmentService, hospitalService } from '../api/services'
 import { toast } from 'react-toastify'
@@ -118,6 +134,182 @@ const getFullImageUrl = (url) => {
   return url
 }
 
+// Helper function to get file type icon
+const getFileTypeIcon = (url) => {
+  if (!url) return <Description />
+  const ext = url.split('.').pop()?.toLowerCase() || ''
+  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(ext)) {
+    return <ImageIcon />
+  } else if (['mp4', 'mov', 'avi', 'mkv', 'wmv', 'flv', 'webm'].includes(ext)) {
+    return <VideoLibrary />
+  } else if (['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt'].includes(ext)) {
+    return <Description />
+  }
+  return <LinkIcon />
+}
+
+// Helper function to check if file is image
+const isImageFile = (url) => {
+  if (!url) return false
+  const ext = url.split('.').pop()?.toLowerCase() || ''
+  return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(ext)
+}
+
+// Helper function to check if file is video
+const isVideoFile = (url) => {
+  if (!url) return false
+  const ext = url.split('.').pop()?.toLowerCase() || ''
+  return ['mp4', 'mov', 'avi', 'mkv', 'wmv', 'flv', 'webm'].includes(ext)
+}
+
+// Helper function to get file name from URL
+const getFileNameFromUrl = (url) => {
+  if (!url) return 'File'
+  const parts = url.split('/')
+  return parts[parts.length - 1] || 'File'
+}
+
+// Component to display media files in a grid
+const MediaGrid = ({ files, onImageClick }) => {
+  if (!files || files.length === 0) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 4, bgcolor: colors.mainBg, borderRadius: 2 }}>
+        <Description sx={{ fontSize: 48, color: colors.lightText, opacity: 0.3 }} />
+        <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
+          No media files attached
+        </Typography>
+      </Box>
+    )
+  }
+
+  return (
+    <ImageList cols={3} gap={12} sx={{ mb: 0 }}>
+      {files.map((url, index) => {
+        const isImg = isImageFile(url)
+        const isVideo = isVideoFile(url)
+        const fileName = getFileNameFromUrl(url)
+        const fullUrl = getFullImageUrl(url)
+
+        return (
+          <ImageListItem key={index} sx={{ 
+            borderRadius: 2, 
+            overflow: 'hidden',
+            border: `1px solid ${colors.borderColor}`,
+            position: 'relative',
+            '&:hover': {
+              boxShadow: `0 4px 20px ${colors.lightCyanGlow}`,
+              '& .media-overlay': {
+                opacity: 1,
+              }
+            }
+          }}>
+            {isImg ? (
+              <CardMedia
+                component="img"
+                image={fullUrl}
+                alt={fileName}
+                sx={{ 
+                  height: 140,
+                  objectFit: 'cover',
+                  cursor: 'pointer',
+                  bgcolor: colors.mainBg,
+                }}
+                onClick={() => onImageClick && onImageClick(fullUrl)}
+                onError={(e) => {
+                  e.target.onerror = null
+                  e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="140"%3E%3Crect width="200" height="140" fill="%23f0f0f0"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23999" font-size="14"%3ENo Image%3C/text%3E%3C/svg%3E'
+                }}
+              />
+            ) : isVideo ? (
+              <Box sx={{ 
+                height: 140, 
+                bgcolor: colors.darkNavy,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                position: 'relative',
+                onClick: () => window.open(fullUrl, '_blank')
+              }}>
+                <VideoLibrary sx={{ fontSize: 48, color: colors.lightCyan, opacity: 0.7 }} />
+                <Typography variant="caption" sx={{ color: colors.textLight, mt: 1 }}>
+                  {fileName}
+                </Typography>
+                <Box sx={{ 
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  bgcolor: 'rgba(0,0,0,0.5)',
+                  borderRadius: '50%',
+                  p: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: 40,
+                  height: 40,
+                }}>
+                  <OpenInNew sx={{ color: 'white', fontSize: 20 }} />
+                </Box>
+              </Box>
+            ) : (
+              <Box sx={{ 
+                height: 140, 
+                bgcolor: colors.mainBg,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                onClick: () => window.open(fullUrl, '_blank')
+              }}>
+                {getFileTypeIcon(url)}
+                <Typography variant="caption" sx={{ color: colors.lightText, mt: 1, textAlign: 'center', maxWidth: '90%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {fileName}
+                </Typography>
+              </Box>
+            )}
+            <Box 
+              className="media-overlay"
+              sx={{ 
+                position: 'absolute',
+                bottom: 0,
+                left: 0,
+                right: 0,
+                bgcolor: 'rgba(0,0,0,0.6)',
+                color: 'white',
+                p: 1,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                opacity: 0,
+                transition: 'opacity 0.3s',
+              }}
+            >
+              <Typography variant="caption" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, mr: 1 }}>
+                {fileName}
+              </Typography>
+              <Tooltip title="Open in new tab">
+                <MuiIconButton
+                  size="small"
+                  sx={{ color: 'white' }}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    window.open(fullUrl, '_blank')
+                  }}
+                >
+                  <OpenInNew fontSize="small" />
+                </MuiIconButton>
+              </Tooltip>
+            </Box>
+          </ImageListItem>
+        )
+      })}
+    </ImageList>
+  )
+}
+
 const Equipment = () => {
   const { user } = useSelector((state) => state.auth)
   
@@ -147,6 +339,7 @@ const Equipment = () => {
   const [customDialogValue, setCustomDialogValue] = useState('')
   const [customDialogLoading, setCustomDialogLoading] = useState(false)
   const [uploadedImages, setUploadedImages] = useState([])
+  const [selectedImageForPreview, setSelectedImageForPreview] = useState(null)
 
   const [filters, setFilters] = useState({
     category: '',
@@ -388,9 +581,13 @@ const Equipment = () => {
   }
 
   const handleViewDetails = (equip) => {
+    // Parse image_url to get array of URLs
+    const imageUrls = equip.image_url ? equip.image_url.split(',').filter(Boolean) : []
+    
     setSelectedEquipment({
       ...equip,
       image_url: equip.image_url || '',
+      images: imageUrls,
       errors: [
         { id: 1, error_title: 'Power supply failure', created_at: '2024-01-15T10:30:00', status: 'Resolved' },
         { id: 2, error_title: 'Sensor calibration error', created_at: '2024-02-20T14:45:00', status: 'In Progress' },
@@ -415,6 +612,7 @@ const Equipment = () => {
     setOpenViewDialog(false)
     setSelectedEquipment(null)
     setViewTab(0)
+    setSelectedImageForPreview(null)
   }
 
   const handleFilterClick = (event) => setFilterAnchorEl(event.currentTarget)
@@ -1135,7 +1333,7 @@ const Equipment = () => {
         </Table>
       </TableContainer>
 
-      {/* View Dialog - DARK NAVY + CYAN THEMED */}
+      {/* View Dialog - DARK NAVY + CYAN THEMED with Media Tab */}
       <Dialog 
         open={openViewDialog} 
         onClose={handleCloseView} 
@@ -1176,6 +1374,7 @@ const Equipment = () => {
                 }}
               >
                 <Tab label="General" />
+                <Tab label="Media" />
                 <Tab label="Error History" />
                 <Tab label="Repair History" />
                 <Tab label="Maintenance" />
@@ -1224,7 +1423,33 @@ const Equipment = () => {
                 </Grid>
               )}
 
+              {/* ✅ NEW MEDIA TAB - Shows all uploaded files with click to open in new tab */}
               {viewTab === 1 && (
+                <Box>
+                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy, mb: 2 }}>
+                    Attached Media Files
+                  </Typography>
+                  <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 2 }}>
+                    Click on any file to open it in a new tab
+                  </Typography>
+                  
+                  {selectedEquipment.images && selectedEquipment.images.length > 0 ? (
+                    <MediaGrid 
+                      files={selectedEquipment.images} 
+                      onImageClick={(url) => window.open(url, '_blank')}
+                    />
+                  ) : (
+                    <Box sx={{ textAlign: 'center', py: 4, bgcolor: colors.mainBg, borderRadius: 2 }}>
+                      <ImageIcon sx={{ fontSize: 48, color: colors.lightText, opacity: 0.3 }} />
+                      <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
+                        No media files attached
+                      </Typography>
+                    </Box>
+                  )}
+                </Box>
+              )}
+
+              {viewTab === 2 && (
                 <Box>
                   <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>Error History</Typography>
                   {selectedEquipment.errors?.length > 0 ? (
@@ -1256,7 +1481,7 @@ const Equipment = () => {
                 </Box>
               )}
 
-              {viewTab === 2 && (
+              {viewTab === 3 && (
                 <Box>
                   <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>Repair History</Typography>
                   {selectedEquipment.repairs?.length > 0 ? (
@@ -1290,7 +1515,7 @@ const Equipment = () => {
                 </Box>
               )}
 
-              {viewTab === 3 && (
+              {viewTab === 4 && (
                 <Box>
                   <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>Maintenance History</Typography>
                   {selectedEquipment.maintenance?.length > 0 ? (
@@ -1322,7 +1547,7 @@ const Equipment = () => {
                 </Box>
               )}
 
-              {viewTab === 4 && (
+              {viewTab === 5 && (
                 <Box>
                   <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>Spare Parts</Typography>
                   {selectedEquipment.spareParts?.length > 0 ? (
@@ -1380,6 +1605,70 @@ const Equipment = () => {
             Close
           </Button>
         </DialogActions>
+      </Dialog>
+
+      {/* Image Preview Dialog */}
+      <Dialog
+        open={Boolean(selectedImageForPreview)}
+        onClose={() => setSelectedImageForPreview(null)}
+        maxWidth="lg"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            bgcolor: 'rgba(0,0,0,0.9)',
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 8px 40px rgba(0,0,0,0.5)',
+          }
+        }}
+      >
+        <DialogContent sx={{ p: 0, position: 'relative', minHeight: 300 }}>
+          <IconButton
+            onClick={() => setSelectedImageForPreview(null)}
+            sx={{
+              position: 'absolute',
+              top: 10,
+              right: 10,
+              color: 'white',
+              bgcolor: 'rgba(0,0,0,0.5)',
+              zIndex: 10,
+              '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' }
+            }}
+          >
+            <Close />
+          </IconButton>
+          <IconButton
+            onClick={() => window.open(selectedImageForPreview, '_blank')}
+            sx={{
+              position: 'absolute',
+              top: 10,
+              right: 60,
+              color: 'white',
+              bgcolor: 'rgba(0,0,0,0.5)',
+              zIndex: 10,
+              '&:hover': { bgcolor: 'rgba(0,0,0,0.7)' }
+            }}
+          >
+            <OpenInNew />
+          </IconButton>
+          <Box
+            component="img"
+            src={selectedImageForPreview || ''}
+            alt="Preview"
+            sx={{
+              width: '100%',
+              height: 'auto',
+              maxHeight: '90vh',
+              objectFit: 'contain',
+              display: 'block',
+              margin: '0 auto',
+            }}
+            onError={(e) => {
+              e.target.onerror = null
+              e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100%25" height="100%25"%3E%3Crect width="100%25" height="100%25" fill="%23333"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23999" font-size="20"%3ENo Image%3C/text%3E%3C/svg%3E'
+            }}
+          />
+        </DialogContent>
       </Dialog>
 
       {/* Add/Edit Dialog - DARK NAVY + CYAN THEMED */}
