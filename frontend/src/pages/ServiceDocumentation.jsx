@@ -1,5 +1,6 @@
 // src/pages/ServiceDocumentation.jsx
 // ✅ DARK NAVY + LIGHT CYAN THEME - Matching Sidebar
+// ✅ BOTH SUPER ADMIN AND ENGINEERS CAN UPLOAD DOCUMENTS
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -445,6 +446,7 @@ const ServiceDocumentation = () => {
     return null
   }
   
+  // ✅ HOSPITAL_ADMIN CANNOT ACCESS
   if (user?.role === 'HOSPITAL_ADMIN') {
     return <AccessDenied message="Hospital Administrators cannot access Service Documentation." />
   }
@@ -452,10 +454,11 @@ const ServiceDocumentation = () => {
   const isEngineer = user?.role === 'ENGINEER'
   const isSuperAdmin = user?.role === 'SUPER_ADMIN'
   
+  // ✅ BOTH ENGINEER AND SUPER ADMIN CAN VIEW AND UPLOAD
   const canView = isEngineer || isSuperAdmin
-  const canUpload = isEngineer || isSuperAdmin
-  const canEdit = isSuperAdmin
-  const canDelete = isSuperAdmin
+  const canUpload = isEngineer || isSuperAdmin  // ✅ CHANGED: Engineers can now upload
+  const canEdit = isSuperAdmin  // Only Super Admin can edit
+  const canDelete = isSuperAdmin  // Only Super Admin can delete
 
   const [documents, setDocuments] = useState([])
   const [equipmentList, setEquipmentList] = useState([])
@@ -639,6 +642,7 @@ const ServiceDocumentation = () => {
 
       let response
       if (editingDocument) {
+        // ✅ Only Super Admin can edit
         if (!isSuperAdmin) {
           toast.error('Only Super Admin can edit documents')
           return
@@ -681,6 +685,7 @@ const ServiceDocumentation = () => {
   }
 
   const handleEdit = (doc) => {
+    // ✅ Only Super Admin can edit
     if (!isSuperAdmin) {
       toast.error('Only Super Admin can edit documents')
       return
@@ -727,6 +732,7 @@ const ServiceDocumentation = () => {
   }
 
   const handleDelete = async (id) => {
+    // ✅ Only Super Admin can delete
     if (!isSuperAdmin) {
       toast.error('Only Super Admin can delete documents')
       return
@@ -850,6 +856,7 @@ const ServiceDocumentation = () => {
           >
             Refresh
           </Button>
+          {/* ✅ UPLOAD BUTTON VISIBLE TO BOTH SUPER ADMIN AND ENGINEER */}
           {canUpload && (
             <Button
               variant="contained"
