@@ -1,7 +1,7 @@
 // backend/server.js
 // ✅ COMPLETE FIXED VERSION - With Proper Token Loading & Fixed Login
 // ✅ REMOVED HOSPITAL FILTER FROM EQUIPMENT - ALL USERS SEE ALL EQUIPMENT
-// ✅ ALL ROUTES REGISTERED - Including Training Routes
+// ✅ ALL ROUTES REGISTERED - Including Training Routes & Downtime Report
 
 // ============================================================
 // ✅ LOAD ENVIRONMENT VARIABLES FIRST
@@ -167,6 +167,64 @@ const formatDateForMySQL = (date) => {
     } catch (e) {
         return null;
     }
+};
+
+// ============================================================
+// ✅ DOWNTIME REPORT HELPER FUNCTION
+// ============================================================
+const buildDowntimeRows = (equipment, errors, repairs) => {
+  return equipment.map((eq) => {
+    const eqErrors = errors.filter(e => e.equipment_id === eq.id);
+    const eqRepairs = repairs.filter(r => {
+      const error = errors.find(e => e.id === r.error_log_id);
+      return error && error.equipment_id === eq.id;
+    });
+
+    const resolved = eqErrors.filter(e => 
+      ['Resolved', 'Closed', 'Completed'].includes(e.status)
+    );
+    const open = eqErrors.filter(e => 
+      ['Pending', 'In Progress', 'Open'].includes(e.status)
+    );
+    const critical = eqErrors.filter(e => 
+      e.severity === 'Critical'
+    ).length;
+
+    // Calculate downtime (only for resolved errors)
+    let totalDowntime = 0;
+    resolved.forEach(e => {
+      if (e.created_at && e.updated_at) {
+        const start = new Date(e.created_at);
+        const end = new Date(e.updated_at);
+        const hours = (end - start) / (1000 * 60 * 60);
+        if (hours > 0) totalDowntime += hours;
+      }
+    });
+
+    // Calculate availability
+    const installationYear = eq.installation_year || 2023;
+    const ageInYears = new Date().getFullYear() - installationYear;
+    const monitoredHours = ageInYears * 365.25 * 24;
+    const availability = monitoredHours > 0 
+      ? Math.max(0, Math.min(100, ((monitoredHours - totalDowntime) / monitoredHours) * 100))
+      : 100;
+
+    return {
+      'Equipment Name': eq.name || 'N/A',
+      'Serial / Asset No.': eq.serial_number || 'N/A',
+      'Hospital': eq.hospital_name || 'N/A',
+      'Department': eq.department_name || 'N/A',
+      'Equipment Status': eq.status || 'Active',
+      'Total Failures': eqErrors.length,
+      'Critical Failures': critical,
+      'Open Errors': open.length,
+      'Resolved Errors': resolved.length,
+      'Resolution Rate': eqErrors.length > 0 ? `${((resolved.length / eqErrors.length) * 100).toFixed(1)}%` : '0.0%',
+      'Maintenance Events': eqRepairs.length,
+      'Total Downtime (Hours)': totalDowntime.toFixed(1),
+      'Availability %': `${availability.toFixed(1)}%`
+    };
+  }).filter(r => r['Total Failures'] > 0 || parseFloat(r['Total Downtime (Hours)']) > 0);
 };
 
 // ============================================================
@@ -2048,8 +2106,7 @@ app.get('/api/errors', authenticate, async (req, res) => {
                    d.name as department_name,
                    u.full_name as reported_by_name
             FROM error_logs e
-            LEFT JOIN equipment eq ON e.equipment_id = eq.id
-            LEFT JOIN hospitals h ON eq.hospital_id = h.id
+            LEFT JOIN equipment eq ON e.equipment_id = eq.id            LEFT JOIN hospitals h ON eq.hospital_id = h.id
             LEFT JOIN departments d ON eq.department_id = d.id
             LEFT JOIN users u ON e.reported_by = u.id
             WHERE 1=1
@@ -3544,6 +3601,96 @@ app.delete('/api/knowledge-base/:id', authenticate, async (req, res) => {
 });
 
 // ============================================================
+// ✅ DOWNTIME REPORT ROUTE
+// ============================================================
+app.post('/api/reports/downtime', authenticate, async (req, res) => {
+  try {
+    const { filters, period } = req.body;
+    
+    console.log('📊 Generating downtime report...');
+    console.log('📌 Filters:', filters);
+    console.log('📌 Period:', period);
+    
+    // Fetch data
+    const [equipmentRes, errorsRes, repairsRes] = await Promise.all([
+      query('SELECT e.*, h.name as hospital_name, d.name as department_name FROM equipment e LEFT JOIN hospitals h ON e.hospital_id = h.id LEFT JOIN departments d ON e.department_id = d.id WHERE e.status != "Inactive"'),
+      query('SELECT * FROM error_logs'),
+      query('SELECT * FROM repairs')
+    ]);
+
+    let equipment = equipmentRes;
+    let errors = errorsRes;
+    let repairs = repairsRes;
+
+    // Apply hospital filter
+    if (filters?.hospital) {
+      equipment = equipment.filter(e => String(e.hospital_id) === String(filters.hospital));
+    }
+
+    // Apply date filters
+    if (filters?.startDate) {
+      const start = new Date(`${filters.startDate}T00:00:00`);
+      errors = errors.filter(e => new Date(e.created_at) >= start);
+    }
+    if (filters?.endDate) {
+      const end = new Date(`${filters.endDate}T23:59:59`);
+      errors = errors.filter(e => new Date(e.created_at) <= end);
+    }
+
+    // Apply period filter (if provided)
+    if (period) {
+      const now = new Date();
+      let startDate = new Date();
+      
+      switch (period) {
+        case 'today':
+          startDate.setHours(0, 0, 0, 0);
+          break;
+        case 'week':
+          startDate.setDate(now.getDate() - 7);
+          break;
+        case 'month':
+          startDate.setMonth(now.getMonth() - 1);
+          break;
+        case 'quarter':
+          startDate.setMonth(now.getMonth() - 3);
+          break;
+        case 'year':
+          startDate.setFullYear(now.getFullYear() - 1);
+          break;
+        default:
+          startDate = null;
+      }
+      
+      if (startDate) {
+        errors = errors.filter(e => new Date(e.created_at) >= startDate);
+      }
+    }
+
+    // Build downtime rows
+    const data = buildDowntimeRows(equipment, errors, repairs);
+
+    console.log(`✅ Downtime report generated: ${data.length} rows`);
+
+    res.json({
+      success: true,
+      data,
+      total: data.length,
+      generatedAt: new Date().toISOString(),
+      filters: filters || {},
+      period: period || 'custom'
+    });
+  } catch (error) {
+    console.error('❌ Downtime report error:', error);
+    console.error('❌ Stack:', error.stack);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to generate downtime report: ' + error.message 
+    });
+  }
+});
+
+// ============================================================
 // ✅ SEARCH ROUTES
 // ============================================================
 app.get('/api/search', authenticate, async (req, res) => {
@@ -5021,5 +5168,6 @@ if (require.main === module) {
     console.log('========================================');
     console.log('📚 Training routes registered');
     console.log('📄 Service Documentation routes registered');
+    console.log('📊 Downtime Report route registered');
     console.log('========================================');
 }
