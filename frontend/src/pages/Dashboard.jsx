@@ -1,5 +1,5 @@
 // src/pages/Dashboard.jsx
-// ✅ DARK NAVY + LIGHT CYAN THEME - Matching Sidebar
+// ✅ FIXED: Engineer Dashboard Now Working
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -36,79 +36,38 @@ import { useSelector } from 'react-redux'
 import { useNavigate } from 'react-router-dom'
 
 // ============================================================
-// ✅ DARK NAVY + LIGHT CYAN THEME COLORS - MATCHING MAINLAYOUT
+// ✅ DARK NAVY + LIGHT CYAN THEME COLORS
 // ============================================================
 const colors = {
-  // Dark Navy Base
   darkNavy: '#0F172A',
   darkNavyLight: '#1E293B',
   darkNavyDark: '#0A0F1E',
   darkNavyHover: '#1E3A5F',
-  
-  // Light Cyan Accents
   lightCyan: '#67E8F9',
   lightCyanBright: '#A5F3FC',
   lightCyanDark: '#22D3EE',
   lightCyanGlow: 'rgba(103, 232, 249, 0.15)',
   lightCyanGlowStrong: 'rgba(103, 232, 249, 0.3)',
-  
-  // Gold accent (keeping PAEC branding)
   accentGold: '#C9A227',
   goldLight: '#E8C84A',
-  
-  // Text
   text: '#FFFFFF',
   secondaryText: '#94A3B8',
   textLight: '#CBD5E1',
   cyanText: '#67E8F9',
   darkText: '#0F172A',
   lightText: '#64748B',
-  
-  // Cards
   cardBg: '#FFFFFF',
   borderColor: 'rgba(103, 232, 249, 0.1)',
   shadowColor: 'rgba(15, 23, 42, 0.08)',
-  
-  // Dashboard Background - Light with cyan tint
   bgGradientStart: '#F0F4F8',
   bgGradientEnd: '#E8EEF5',
-  
-  // Card Area Background - Subtle cyan
   cardAreaBg: 'rgba(103, 232, 249, 0.04)',
   cardAreaBorder: 'rgba(103, 232, 249, 0.08)',
-  
-  // Status colors
   error: '#EF4444',
   success: '#22C55E',
   warning: '#F59E0B',
   info: '#3B82F6',
 }
-
-// ============================================================
-// ✅ ANIMATIONS - MATCHING MAINLAYOUT
-// ============================================================
-const cardStyles = `
-@keyframes cardFloat {
-    0% { transform: translateY(0px); }
-    50% { transform: translateY(-6px); }
-    100% { transform: translateY(0px); }
-}
-
-@keyframes cyanPulse {
-    0% { box-shadow: 0 4px 20px rgba(103, 232, 249, 0.06); }
-    50% { box-shadow: 0 8px 40px rgba(103, 232, 249, 0.15); }
-    100% { box-shadow: 0 4px 20px rgba(103, 232, 249, 0.06); }
-}
-
-@keyframes shimmerSlide {
-    0% { background-position: -200% center; }
-    100% { background-position: 200% center; }
-}
-
-.card-hover-glow {
-    animation: cyanPulse 3s ease-in-out infinite;
-}
-`
 
 const Dashboard = () => {
   const { user } = useSelector((state) => state.auth)
@@ -117,7 +76,9 @@ const Dashboard = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
   const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'))
 
+  // ✅ FIXED: Include all fields from backend
   const [stats, setStats] = useState({
+    // Common fields
     totalEquipment: 0,
     totalHospitals: 0,
     totalEngineers: 0,
@@ -131,14 +92,20 @@ const Dashboard = () => {
     pendingPurchaseOrders: 0,
     sparePartsLow: 0,
     totalUsers: 0,
-    totalReports: 0
+    totalReports: 0,
+    
+    // ✅ ENGINEER-SPECIFIC FIELDS
+    myAssignedRepairs: 0,
+    myMaintenanceTasks: 0,
+    myReportedErrors: 0,
+    totalErrors: 0,
+    totalRepairs: 0,
   })
   
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' })
 
-  // ✅ FETCH REAL DATA FROM API
   const fetchDashboardData = async () => {
     try {
       setLoading(true)
@@ -166,7 +133,15 @@ const Dashboard = () => {
           sparePartsLow: response.data.sparePartsLow || 0,
           totalUsers: response.data.totalUsers || 0,
           totalReports: response.data.totalReports || 0,
+          // ✅ ENGINEER FIELDS
+          myAssignedRepairs: response.data.myAssignedRepairs || 0,
+          myMaintenanceTasks: response.data.myMaintenanceTasks || 0,
+          myReportedErrors: response.data.myReportedErrors || 0,
+          totalErrors: response.data.totalErrors || 0,
+          totalRepairs: response.data.totalRepairs || 0,
         })
+        
+        console.log('✅ Stats updated:', stats)
       } else {
         console.warn('⚠️ API response not successful:', response.data)
       }
@@ -192,29 +167,17 @@ const Dashboard = () => {
     return () => clearInterval(interval)
   }, [])
 
-  // ============================================================
-  // ✅ CARD CLICK HANDLERS
-  // ============================================================
   const handleCardClick = (path, filter = '') => {
     navigate(path + filter)
   }
 
-  // ============================================================
-  // ✅ ALL CARDS
-  // ============================================================
   const getCards = () => {
     const userRole = user?.role || 'ENGINEER'
-    const isAdmin = userRole === 'SUPER_ADMIN' || userRole === 'ENGINEER'
+    const isAdmin = userRole === 'SUPER_ADMIN'
+    const isEngineer = userRole === 'ENGINEER'
     
+    // ✅ Base cards for ALL users
     const cards = [
-      { 
-        title: 'Total Hospitals', 
-        value: stats.totalHospitals, 
-        icon: <LocalHospital />, 
-        path: '/hospitals',
-        color: colors.lightCyan,
-        show: true
-      },
       { 
         title: 'Total Equipment', 
         value: stats.totalEquipment, 
@@ -223,62 +186,124 @@ const Dashboard = () => {
         color: colors.lightCyan,
         show: true
       },
-      { 
-        title: 'Open Errors', 
-        value: stats.openErrors, 
-        icon: <ErrorOutline />, 
-        path: '/errors?status=Pending,In Progress',
-        color: colors.warning,
-        show: true
-      },
-      { 
-        title: 'Critical Errors',
-        value: stats.criticalErrors || 0, 
-        icon: <Warning />, 
-        path: '/errors?severity=Critical',
-        color: colors.error,
-        show: true
-      },
-      { 
-        title: 'Resolved Errors', 
-        value: stats.resolvedErrors, 
-        icon: <CheckCircle />, 
-        path: '/errors?status=Resolved,Closed',
-        color: colors.success,
-        show: true
-      },
-      { 
-        title: 'Repairs In Progress',
-        value: stats.inProgressRepairs, 
-        icon: <Build />, 
-        path: '/repairs?status=In Progress',
-        color: colors.info,
-        show: true
-      },
-      { 
-        title: 'Maintenance Due', 
-        value: stats.maintenanceDue, 
-        icon: <CalendarToday />, 
-        path: '/maintenance?status=Overdue',
-        color: colors.warning,
-        show: true
-      },
     ]
 
-    // Admin/Engineer only cards
+    // ✅ Engineer-specific cards
+    if (isEngineer) {
+      cards.push(
+        { 
+          title: 'My Assigned Repairs', 
+          value: stats.myAssignedRepairs || 0, 
+          icon: <Engineering />, 
+          path: '/repairs?assigned=true',
+          color: colors.lightCyan,
+          show: true
+        },
+        { 
+          title: 'My Maintenance Tasks', 
+          value: stats.myMaintenanceTasks || 0, 
+          icon: <CalendarToday />, 
+          path: '/maintenance?assigned=true',
+          color: colors.lightCyanBright,
+          show: true
+        },
+        { 
+          title: 'My Reported Errors', 
+          value: stats.myReportedErrors || 0, 
+          icon: <ErrorOutline />, 
+          path: '/errors?reported=true',
+          color: colors.lightCyan,
+          show: true
+        },
+        { 
+          title: 'Total Errors', 
+          value: stats.totalErrors || 0, 
+          icon: <ErrorOutline />, 
+          path: '/errors',
+          color: colors.warning,
+          show: true
+        },
+        { 
+          title: 'Total Repairs', 
+          value: stats.totalRepairs || 0, 
+          icon: <Build />, 
+          path: '/repairs',
+          color: colors.info,
+          show: true
+        },
+        { 
+          title: 'Critical Errors',
+          value: stats.criticalErrors || 0, 
+          icon: <Warning />, 
+          path: '/errors?severity=Critical',
+          color: colors.error,
+          show: true
+        },
+        { 
+          title: 'Maintenance Due', 
+          value: stats.maintenanceDue || 0, 
+          icon: <CalendarToday />, 
+          path: '/maintenance?status=Overdue',
+          color: colors.warning,
+          show: true
+        }
+      )
+    }
+
+    // ✅ Admin-only cards (Super Admin)
     if (isAdmin) {
       cards.push(
         { 
+          title: 'Total Hospitals', 
+          value: stats.totalHospitals || 0, 
+          icon: <LocalHospital />, 
+          path: '/hospitals',
+          color: colors.lightCyan,
+          show: true
+        },
+        { 
           title: 'Total Engineers', 
-          value: stats.totalEngineers, 
+          value: stats.totalEngineers || 0, 
           icon: <Engineering />, 
           path: '/users?role=ENGINEER',
           color: colors.lightCyanBright,
           show: true
         },
         { 
-          title: 'Pending Purchase Requests',
-          value: stats.pendingPurchaseOrders, 
+          title: 'Total Errors', 
+          value: stats.totalErrors || 0, 
+          icon: <ErrorOutline />, 
+          path: '/errors',
+          color: colors.warning,
+          show: true
+        },
+        { 
+          title: 'Total Repairs', 
+          value: stats.totalRepairs || 0, 
+          icon: <Build />, 
+          path: '/repairs',
+          color: colors.info,
+          show: true
+        },
+        { 
+          title: 'Critical Errors',
+          value: stats.criticalErrors || 0, 
+          icon: <Warning />, 
+          path: '/errors?severity=Critical',
+          color: colors.error,
+          show: true
+        },
+        { 
+          title: 'Maintenance Due', 
+          value: stats.maintenanceDue || 0, 
+          icon: <CalendarToday />, 
+          path: '/maintenance?status=Overdue',
+          color: colors.warning,
+          show: true
+        },
+        { 
+          title: 'Pending Purchase Orders',
+          value: stats.pendingPurchaseOrders || 0, 
           icon: <ShoppingCart />, 
           path: '/purchase-orders?status=Pending',
           color: colors.lightCyan,
@@ -286,7 +311,7 @@ const Dashboard = () => {
         },
         { 
           title: 'Spare Parts Low Stock', 
-          value: stats.sparePartsLow, 
+          value: stats.sparePartsLow || 0, 
           icon: <Inventory />, 
           path: '/spare-parts?stock=low',
           color: colors.error,
@@ -294,7 +319,7 @@ const Dashboard = () => {
         },
         { 
           title: 'Total Reports', 
-          value: stats.totalReports, 
+          value: stats.totalReports || 0, 
           icon: <Description />, 
           path: '/reports',
           color: colors.lightCyanBright,
@@ -306,11 +331,7 @@ const Dashboard = () => {
     return cards.filter(card => card.show)
   }
 
-  // ============================================================
-  // ✅ STAT CARD - DARK NAVY + LIGHT CYAN STYLE (MATCHING SIDEBAR)
-  // ============================================================
   const StatCard = ({ title, value, icon, path, index, color }) => {
-    // Gradient for icon background - Dark Navy to Cyan (matching sidebar)
     const iconBgGradient = `linear-gradient(135deg, ${colors.darkNavy} 0%, ${colors.lightCyan} 100%)`
     
     return (
@@ -356,7 +377,6 @@ const Dashboard = () => {
           }}
           onClick={() => path && handleCardClick(path)}
         >
-          {/* Decorative Top Bar - Dark Navy to Cyan (matching sidebar) */}
           <Box sx={{ 
             position: 'absolute', 
             top: 0, 
@@ -366,7 +386,6 @@ const Dashboard = () => {
             background: `linear-gradient(90deg, ${colors.darkNavy}, ${colors.lightCyan}, ${colors.accentGold})`,
           }} />
           
-          {/* Glow Effect - Matching sidebar glow */}
           <Box
             className="glow-effect"
             sx={{
@@ -379,7 +398,6 @@ const Dashboard = () => {
             }}
           />
           
-          {/* Decorative Background Pattern - Cyan tint (matching sidebar) */}
           <Box
             className="card-decoration"
             sx={{
@@ -395,7 +413,6 @@ const Dashboard = () => {
             }}
           />
           
-          {/* Second Decorative Pattern */}
           <Box
             className="card-decoration"
             sx={{
@@ -435,7 +452,6 @@ const Dashboard = () => {
                 {title}
               </Typography>
               
-              {/* Icon with Dark Navy to Cyan Gradient (matching sidebar) */}
               <Box
                 className="card-icon-wrapper"
                 sx={{
@@ -471,7 +487,6 @@ const Dashboard = () => {
               </Box>
             </Box>
             
-            {/* Value - Dark Navy color (matching sidebar text) */}
             <Typography 
               className="card-value"
               variant="h3" 
@@ -488,7 +503,6 @@ const Dashboard = () => {
               {value !== undefined && value !== null ? value : 0}
             </Typography>
             
-            {/* Cyan Accent Dots (matching sidebar selected indicator) */}
             <Box sx={{
               display: 'flex',
               gap: 0.5,
@@ -530,9 +544,6 @@ const Dashboard = () => {
     )
   }
 
-  // ============================================================
-  // ✅ LOADING SKELETON - Updated colors
-  // ============================================================
   const LoadingSkeleton = () => (
     <Grid container spacing={{ xs: 1.5, sm: 2, md: 3 }}>
       {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
@@ -561,162 +572,150 @@ const Dashboard = () => {
     </Grid>
   )
 
-  // ============================================================
-  // ✅ RENDER
-  // ============================================================
   return (
-    <>
-      <style>{cardStyles}</style>
-      
-      <Box sx={{ 
-        p: { xs: 1, sm: 2, md: 3 },
-        background: `linear-gradient(135deg, ${colors.bgGradientStart} 0%, ${colors.bgGradientEnd} 50%, ${colors.bgGradientStart} 100%)`,
-        minHeight: '100vh',
-        borderRadius: 0,
-        position: 'relative',
-        '&::before': {
-          content: '""',
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: `radial-gradient(circle at 10% 20%, rgba(103, 232, 249, 0.04) 0%, transparent 50%),
-                       radial-gradient(circle at 90% 80%, rgba(15, 23, 42, 0.03) 0%, transparent 50%)`,
-          pointerEvents: 'none',
-          zIndex: 0,
-        }
-      }}>
-        {/* Header - Dark Navy with Cyan underline (matching sidebar) */}
-        <Typography 
-          variant="h5" 
-          sx={{ 
-            fontWeight: 700, 
-            color: colors.darkNavy,
-            fontSize: { xs: '1.1rem', sm: '1.3rem', md: '1.5rem' },
-            mb: { xs: 2, sm: 3 },
-            letterSpacing: '0.5px',
+    <Box sx={{ 
+      p: { xs: 1, sm: 2, md: 3 },
+      background: `linear-gradient(135deg, ${colors.bgGradientStart} 0%, ${colors.bgGradientEnd} 50%, ${colors.bgGradientStart} 100%)`,
+      minHeight: '100vh',
+      borderRadius: 0,
+      position: 'relative',
+      '&::before': {
+        content: '""',
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: `radial-gradient(circle at 10% 20%, rgba(103, 232, 249, 0.04) 0%, transparent 50%),
+                     radial-gradient(circle at 90% 80%, rgba(15, 23, 42, 0.03) 0%, transparent 50%)`,
+        pointerEvents: 'none',
+        zIndex: 0,
+      }
+    }}>
+      <Typography 
+        variant="h5" 
+        sx={{ 
+          fontWeight: 700, 
+          color: colors.darkNavy,
+          fontSize: { xs: '1.1rem', sm: '1.3rem', md: '1.5rem' },
+          mb: { xs: 2, sm: 3 },
+          letterSpacing: '0.5px',
+          position: 'relative',
+          zIndex: 1,
+          '&::after': {
+            content: '""',
+            position: 'absolute',
+            bottom: -6,
+            left: 0,
+            width: '50px',
+            height: '3px',
+            background: `linear-gradient(90deg, ${colors.lightCyan}, ${colors.darkNavy})`,
+            borderRadius: '2px',
+          }
+        }}
+      >
+        Dashboard
+      </Typography>
+
+      {loading ? (
+        <LoadingSkeleton />
+      ) : error ? (
+        <Paper sx={{ 
+          p: 3, 
+          bgcolor: '#FFF5F5', 
+          borderRadius: 3,
+          border: '1px solid #FFCDD2',
+          position: 'relative',
+          zIndex: 1,
+        }}>
+          <Alert severity="error" sx={{ borderRadius: 2 }}>
+            {error}
+          </Alert>
+          <Button 
+            variant="contained" 
+            onClick={fetchDashboardData}
+            sx={{ 
+              mt: 2,
+              bgcolor: colors.darkNavy,
+              '&:hover': {
+                bgcolor: colors.darkNavyHover,
+                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`
+              },
+              borderRadius: 2,
+              textTransform: 'none',
+            }}
+          >
+            Retry
+          </Button>
+        </Paper>
+      ) : (
+        <Box
+          sx={{
             position: 'relative',
             zIndex: 1,
-            '&::after': {
-              content: '""',
-              position: 'absolute',
-              bottom: -6,
-              left: 0,
-              width: '50px',
-              height: '3px',
-              background: `linear-gradient(90deg, ${colors.lightCyan}, ${colors.darkNavy})`,
-              borderRadius: '2px',
+            p: { xs: 1.5, sm: 2, md: 2.5 },
+            borderRadius: 4,
+            background: colors.cardAreaBg,
+            border: `1px solid ${colors.cardAreaBorder}`,
+            backdropFilter: 'blur(2px)',
+            transition: 'all 0.3s ease',
+            '&:hover': {
+              background: 'rgba(103, 232, 249, 0.06)',
+              borderColor: 'rgba(103, 232, 249, 0.12)',
             }
           }}
         >
-          Dashboard
-        </Typography>
+          <Grid container spacing={{ xs: 1.5, sm: 2, md: 3 }}>
+            {getCards().map((card, index) => (
+              <Grid 
+                item 
+                xs={6} 
+                sm={4} 
+                md={3} 
+                key={index}
+              >
+                <StatCard {...card} index={index} />
+              </Grid>
+            ))}
+          </Grid>
 
-        {loading ? (
-          <LoadingSkeleton />
-        ) : error ? (
-          <Paper sx={{ 
-            p: 3, 
-            bgcolor: '#FFF5F5', 
-            borderRadius: 3,
-            border: '1px solid #FFCDD2',
-            position: 'relative',
-            zIndex: 1,
-          }}>
-            <Alert severity="error" sx={{ borderRadius: 2 }}>
-              {error}
-            </Alert>
-            <Button 
-              variant="contained" 
-              onClick={fetchDashboardData}
-              sx={{ 
-                mt: 2,
-                bgcolor: colors.darkNavy,
-                '&:hover': {
-                  bgcolor: colors.darkNavyHover,
-                  boxShadow: `0 4px 16px ${colors.lightCyanGlow}`
-                },
-                borderRadius: 2,
-                textTransform: 'none',
-              }}
-            >
-              Retry
-            </Button>
-          </Paper>
-        ) : (
-          /* Card Area with Subtle Cyan Background (matching sidebar) */
-          <Box
-            sx={{
+          {getCards().length === 0 && (
+            <Paper sx={{ 
+              p: 4, 
+              textAlign: 'center', 
+              borderRadius: 3,
+              border: `1px solid ${colors.borderColor}`,
               position: 'relative',
               zIndex: 1,
-              p: { xs: 1.5, sm: 2, md: 2.5 },
-              borderRadius: 4,
-              background: colors.cardAreaBg,
-              border: `1px solid ${colors.cardAreaBorder}`,
-              backdropFilter: 'blur(2px)',
-              transition: 'all 0.3s ease',
-              '&:hover': {
-                background: 'rgba(103, 232, 249, 0.06)',
-                borderColor: 'rgba(103, 232, 249, 0.12)',
-              }
-            }}
-          >
-            {/* Stats Cards */}
-            <Grid container spacing={{ xs: 1.5, sm: 2, md: 3 }}>
-              {getCards().map((card, index) => (
-                <Grid 
-                  item 
-                  xs={6} 
-                  sm={4} 
-                  md={3} 
-                  key={index}
-                >
-                  <StatCard {...card} index={index} />
-                </Grid>
-              ))}
-            </Grid>
+            }}>
+              <Typography variant="h6" sx={{ color: colors.lightText }}>
+                No dashboard data available
+              </Typography>
+            </Paper>
+          )}
+        </Box>
+      )}
 
-            {/* Empty State */}
-            {getCards().length === 0 && (
-              <Paper sx={{ 
-                p: 4, 
-                textAlign: 'center', 
-                borderRadius: 3,
-                border: `1px solid ${colors.borderColor}`,
-                position: 'relative',
-                zIndex: 1,
-              }}>
-                <Typography variant="h6" sx={{ color: colors.lightText }}>
-                  No dashboard data available
-                </Typography>
-              </Paper>
-            )}
-          </Box>
-        )}
-
-        {/* Snackbar - Cyan theme */}
-        <Snackbar
-          open={snackbar.open}
-          autoHideDuration={4000}
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert 
+          severity={snackbar.severity} 
+          variant="filled"
+          sx={{ 
+            borderRadius: 2,
+            '& .MuiAlert-icon': {
+              color: 'white',
+            }
+          }}
         >
-          <Alert 
-            severity={snackbar.severity} 
-            variant="filled"
-            sx={{ 
-              borderRadius: 2,
-              '& .MuiAlert-icon': {
-                color: 'white',
-              }
-            }}
-          >
-            {snackbar.message}
-          </Alert>
-        </Snackbar>
-      </Box>
-    </>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+    </Box>
   )
 }
 
