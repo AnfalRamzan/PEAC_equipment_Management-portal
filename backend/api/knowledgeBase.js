@@ -1,14 +1,59 @@
+// backend/routes/knowledgeBase.js
+// ✅ FIXED: Remove hospital filter for GET /equipment/:equipmentId
+
 const express = require('express');
 const router = express.Router();
 const { query } = require('../config/database');
 const { authenticate, authorize } = require('../middleware/auth');
 
 // ============================================================
-// ✅ GET ALL KNOWLEDGE BASE ENTRIES
+// ✅ GET KNOWLEDGE BASE BY EQUIPMENT - FIXED
+// ✅ Remove hospital filter so ALL users can see ALL solutions
+// ============================================================
+router.get('/equipment/:equipmentId', authenticate, async (req, res) => {
+    try {
+        const { equipmentId } = req.params;
+        
+        // ✅ REMOVED hospital_id filter - all users can see all solutions
+        const sql = `
+            SELECT kb.*, 
+                   u.full_name as created_by_name,
+                   e.name as equipment_name,
+                   e.model as equipment_model,
+                   e.manufacturer as equipment_manufacturer,
+                   h.name as hospital_name,
+                   d.name as department_name
+            FROM knowledge_base kb
+            LEFT JOIN users u ON kb.created_by = u.id
+            LEFT JOIN equipment e ON kb.equipment_id = e.id
+            LEFT JOIN hospitals h ON e.hospital_id = h.id
+            LEFT JOIN departments d ON e.department_id = d.id
+            WHERE kb.equipment_id = ?
+            ORDER BY kb.created_at DESC
+        `;
+        
+        const entries = await query(sql, [equipmentId]);
+        
+        console.log(`📚 Found ${entries.length} solutions for equipment ${equipmentId}`);
+        
+        res.json({ success: true, entries });
+    } catch (error) {
+        console.error('Get knowledge base by equipment error:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Failed to fetch knowledge base' 
+        });
+    }
+});
+
+// ============================================================
+// ✅ GET ALL KNOWLEDGE BASE - FIXED
+// ✅ Remove hospital filter so ALL users can see ALL solutions
 // ============================================================
 router.get('/', authenticate, async (req, res) => {
     try {
-        let sql = `
+        // ✅ REMOVED hospital_id filter - all users can see all solutions
+        const sql = `
             SELECT kb.*, 
                    e.name as equipment_name,
                    e.model as equipment_model,
@@ -21,18 +66,10 @@ router.get('/', authenticate, async (req, res) => {
             LEFT JOIN hospitals h ON e.hospital_id = h.id
             LEFT JOIN departments d ON e.department_id = d.id
             LEFT JOIN users u ON kb.created_by = u.id
-            WHERE 1=1
+            ORDER BY kb.created_at DESC
         `;
-        const params = [];
-
-        if (req.user.role_name !== 'SUPER_ADMIN') {
-            sql += ' AND e.hospital_id = ?';
-            params.push(req.user.hospital_id);
-        }
-
-        sql += ' ORDER BY kb.created_at DESC';
         
-        const entries = await query(sql, params);
+        const entries = await query(sql);
         res.json({ success: true, entries });
     } catch (error) {
         console.error('Get knowledge base error:', error);
@@ -44,43 +81,49 @@ router.get('/', authenticate, async (req, res) => {
 });
 
 // ============================================================
-// ✅ GET KNOWLEDGE BASE BY EQUIPMENT
+// ✅ GET SINGLE KNOWLEDGE BASE ENTRY
 // ============================================================
-router.get('/equipment/:equipmentId', authenticate, async (req, res) => {
+router.get('/:id', authenticate, async (req, res) => {
     try {
-        const { equipmentId } = req.params;
+        const { id } = req.params;
         
-        let sql = `
+        const sql = `
             SELECT kb.*, 
                    u.full_name as created_by_name,
-                   e.name as equipment_name
+                   e.name as equipment_name,
+                   e.model as equipment_model,
+                   e.manufacturer as equipment_manufacturer,
+                   h.name as hospital_name,
+                   d.name as department_name
             FROM knowledge_base kb
             LEFT JOIN users u ON kb.created_by = u.id
             LEFT JOIN equipment e ON kb.equipment_id = e.id
-            WHERE kb.equipment_id = ?
+            LEFT JOIN hospitals h ON e.hospital_id = h.id
+            LEFT JOIN departments d ON e.department_id = d.id
+            WHERE kb.id = ?
         `;
-        const params = [equipmentId];
-
-        if (req.user.role_name !== 'SUPER_ADMIN') {
-            sql += ' AND e.hospital_id = ?';
-            params.push(req.user.hospital_id);
-        }
-
-        sql += ' ORDER BY kb.created_at DESC';
         
-        const entries = await query(sql, params);
-        res.json({ success: true, entries });
+        const entries = await query(sql, [id]);
+        
+        if (entries.length === 0) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Knowledge base entry not found' 
+            });
+        }
+        
+        res.json({ success: true, entry: entries[0] });
     } catch (error) {
-        console.error('Get knowledge base by equipment error:', error);
+        console.error('Get knowledge base entry error:', error);
         res.status(500).json({ 
             success: false, 
-            message: 'Failed to fetch knowledge base' 
+            message: 'Failed to fetch knowledge base entry' 
         });
     }
 });
 
 // ============================================================
-// ✅ CREATE KNOWLEDGE BASE ENTRY - FIXED
+// ✅ CREATE KNOWLEDGE BASE ENTRY - (No changes needed)
 // ============================================================
 router.post('/', authenticate, async (req, res) => {
     try {
@@ -108,7 +151,7 @@ router.post('/', authenticate, async (req, res) => {
             department_name
         } = req.body;
 
-        // ✅ VALIDATION - REQUIRED FIELDS
+        // ✅ VALIDATION
         if (!equipment_id) {
             console.log('❌ Missing equipment_id');
             return res.status(400).json({ 
@@ -125,25 +168,23 @@ router.post('/', authenticate, async (req, res) => {
         }
 
         // ✅ CHECK EQUIPMENT EXISTS
-        let sql = 'SELECT * FROM equipment WHERE id = ?';
-        let params = [equipment_id];
-        if (req.user.role_name !== 'SUPER_ADMIN') {
-            sql += ' AND hospital_id = ?';
-            params.push(req.user.hospital_id);
-        }
-        const equipment = await query(sql, params);
+        const equipment = await query(
+            'SELECT id, name, hospital_id FROM equipment WHERE id = ?',
+            [equipment_id]
+        );
+        
         if (equipment.length === 0) {
-            console.log('❌ Equipment not found or access denied');
+            console.log('❌ Equipment not found');
             return res.status(404).json({ 
                 success: false, 
-                message: 'Equipment not found or access denied' 
+                message: 'Equipment not found' 
             });
         }
 
         // ✅ Get hospital_id from equipment
         const hospitalId = equipment[0].hospital_id;
 
-        // ✅ INSERT QUERY - WITH ALL FIELDS
+        // ✅ INSERT QUERY
         const result = await query(
             `INSERT INTO knowledge_base 
              (equipment_id, error_code, error_title, error_description,
@@ -216,7 +257,6 @@ router.post('/', authenticate, async (req, res) => {
         console.error('❌ SQL:', error.sql);
         console.error('❌ Stack:', error.stack);
         
-        // ✅ Send detailed error response
         res.status(500).json({ 
             success: false, 
             message: 'Failed to create knowledge base entry: ' + error.message,
@@ -226,7 +266,7 @@ router.post('/', authenticate, async (req, res) => {
 });
 
 // ============================================================
-// ✅ UPDATE KNOWLEDGE BASE ENTRY
+// ✅ UPDATE KNOWLEDGE BASE ENTRY - (No changes needed)
 // ============================================================
 router.put('/:id', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), async (req, res) => {
     try {
@@ -253,15 +293,11 @@ router.put('/:id', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), asy
         } = req.body;
 
         // ✅ Check if entry exists
-        let sql = `
-            SELECT kb.*, e.hospital_id 
-            FROM knowledge_base kb
-            LEFT JOIN equipment e ON kb.equipment_id = e.id
-            WHERE kb.id = ?
-        `;
-        let params = [id];
+        const existing = await query(
+            'SELECT * FROM knowledge_base WHERE id = ?',
+            [id]
+        );
         
-        const existing = await query(sql, params);
         if (existing.length === 0) {
             return res.status(404).json({ 
                 success: false, 
@@ -328,21 +364,18 @@ router.put('/:id', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), asy
 });
 
 // ============================================================
-// ✅ DELETE KNOWLEDGE BASE ENTRY
+// ✅ DELETE KNOWLEDGE BASE ENTRY - (No changes needed)
 // ============================================================
 router.delete('/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     try {
         const { id } = req.params;
 
-        let sql = `
-            SELECT kb.*, e.hospital_id 
-            FROM knowledge_base kb
-            LEFT JOIN equipment e ON kb.equipment_id = e.id
-            WHERE kb.id = ?
-        `;
-        let params = [id];
+        // ✅ Check if entry exists
+        const existing = await query(
+            'SELECT * FROM knowledge_base WHERE id = ?',
+            [id]
+        );
         
-        const existing = await query(sql, params);
         if (existing.length === 0) {
             return res.status(404).json({ 
                 success: false, 

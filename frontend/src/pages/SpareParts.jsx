@@ -1,5 +1,6 @@
 // src/pages/SpareParts.jsx
 // ✅ DARK NAVY + LIGHT CYAN THEME - Matching Sidebar
+// ✅ WITH ATTACHMENT TAB VIEW + PREVIEW
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -32,7 +33,12 @@ import {
   Alert,
   Card,
   CardContent,
-  Divider
+  Divider,
+  Tabs,
+  Tab,
+  ImageList,
+  ImageListItem,
+  Dialog as PreviewDialog,
 } from '@mui/material'
 import {
   Add,
@@ -54,7 +60,13 @@ import {
   Remove,
   Add as AddIcon,
   Engineering as EngineeringIcon,
-  AdminPanelSettings
+  AdminPanelSettings,
+  ZoomIn,
+  OpenInNew,
+  VideoLibrary,
+  Description,
+  AttachFile,
+  InsertDriveFile,
 } from '@mui/icons-material'
 import { sparePartService, repairService } from '../api/services'
 import { toast } from 'react-toastify'
@@ -117,6 +129,310 @@ const getFullImageUrl = (url) => {
   return url
 }
 
+// ✅ Helper function to check file type
+const isImageFile = (url) => {
+  if (!url) return false
+  const ext = url.split('.').pop()?.toLowerCase() || ''
+  return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(ext)
+}
+
+const isVideoFile = (url) => {
+  if (!url) return false
+  const ext = url.split('.').pop()?.toLowerCase() || ''
+  return ['mp4', 'mov', 'avi', 'mkv', 'wmv', 'flv', 'webm'].includes(ext)
+}
+
+const getFileName = (url) => {
+  if (!url) return 'File'
+  const parts = url.split('/')
+  return parts[parts.length - 1] || 'File'
+}
+
+// ============================================================
+// ✅ COMPONENT: Attachment Grid with Preview
+// ============================================================
+const AttachmentGrid = ({ attachments, onFileClick }) => {
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [previewUrl, setPreviewUrl] = useState('')
+  const [previewType, setPreviewType] = useState('')
+
+  if (!attachments || attachments.length === 0) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 4, bgcolor: colors.mainBg, borderRadius: 2 }}>
+        <InsertDriveFile sx={{ fontSize: 48, color: colors.lightText, opacity: 0.3 }} />
+        <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
+          No attachments
+        </Typography>
+      </Box>
+    )
+  }
+
+  const handlePreview = (url) => {
+    const fullUrl = getFullImageUrl(url)
+    const isImg = isImageFile(url)
+    const isVideo = isVideoFile(url)
+    
+    setPreviewUrl(fullUrl)
+    setPreviewType(isImg ? 'image' : isVideo ? 'video' : 'document')
+    setPreviewOpen(true)
+  }
+
+  return (
+    <Box>
+      <ImageList cols={4} gap={12} sx={{ mb: 0 }}>
+        {attachments.map((url, index) => {
+          const isImg = isImageFile(url)
+          const isVideo = isVideoFile(url)
+          const fileName = getFileName(url)
+          const fullUrl = getFullImageUrl(url)
+
+          return (
+            <ImageListItem 
+              key={index} 
+              sx={{ 
+                borderRadius: 2, 
+                overflow: 'hidden',
+                border: `1px solid ${colors.borderColor}`,
+                position: 'relative',
+                cursor: 'pointer',
+                bgcolor: colors.mainBg,
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  transform: 'translateY(-4px)',
+                  boxShadow: `0 8px 30px ${colors.lightCyanGlow}`,
+                  '& .attachment-overlay': {
+                    opacity: 1,
+                  }
+                }
+              }}
+              onClick={() => handlePreview(url)}
+            >
+              {isImg ? (
+                <Box
+                  component="img"
+                  src={fullUrl}
+                  alt={fileName}
+                  sx={{
+                    width: '100%',
+                    height: 160,
+                    objectFit: 'cover',
+                    bgcolor: colors.mainBg,
+                  }}
+                  onError={(e) => {
+                    e.target.onerror = null
+                    e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="160"%3E%3Crect width="200" height="160" fill="%23f0f0f0"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23999" font-size="14"%3ENo Image%3C/text%3E%3C/svg%3E'
+                  }}
+                />
+              ) : isVideo ? (
+                <Box sx={{ 
+                  height: 160, 
+                  bgcolor: colors.darkNavy,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  position: 'relative',
+                }}>
+                  <VideoLibrary sx={{ fontSize: 48, color: colors.lightCyan, opacity: 0.7 }} />
+                  <Typography variant="caption" sx={{ color: colors.textLight, mt: 1, px: 1 }}>
+                    {fileName}
+                  </Typography>
+                  <Box sx={{ 
+                    position: 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    bgcolor: 'rgba(0,0,0,0.5)',
+                    borderRadius: '50%',
+                    p: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 44,
+                    height: 44,
+                  }}>
+                    <OpenInNew sx={{ color: 'white', fontSize: 22 }} />
+                  </Box>
+                </Box>
+              ) : (
+                <Box sx={{ 
+                  height: 160, 
+                  bgcolor: colors.mainBg,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  p: 2,
+                }}>
+                  <Description sx={{ fontSize: 48, color: colors.lightText, opacity: 0.6 }} />
+                  <Typography variant="caption" sx={{ 
+                    color: colors.lightText, 
+                    mt: 1, 
+                    textAlign: 'center',
+                    maxWidth: '90%',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                  }}>
+                    {fileName}
+                  </Typography>
+                </Box>
+              )}
+              
+              {/* Overlay with file name and open button */}
+              <Box 
+                className="attachment-overlay"
+                sx={{ 
+                  position: 'absolute',
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  bgcolor: 'rgba(0,0,0,0.7)',
+                  color: 'white',
+                  p: 1,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  opacity: 0,
+                  transition: 'opacity 0.3s',
+                }}
+              >
+                <Typography variant="caption" sx={{ 
+                  overflow: 'hidden', 
+                  textOverflow: 'ellipsis', 
+                  whiteSpace: 'nowrap', 
+                  flex: 1, 
+                  mr: 1 
+                }}>
+                  {fileName}
+                </Typography>
+                <Tooltip title="Preview">
+                  <IconButton
+                    size="small"
+                    sx={{ color: 'white' }}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handlePreview(url)
+                    }}
+                  >
+                    <ZoomIn fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Open in new tab">
+                  <IconButton
+                    size="small"
+                    sx={{ color: 'white' }}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      window.open(fullUrl, '_blank')
+                    }}
+                  >
+                    <OpenInNew fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+            </ImageListItem>
+          )
+        })}
+      </ImageList>
+
+      {/* ✅ Preview Dialog */}
+      <PreviewDialog
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        maxWidth="lg"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            bgcolor: 'rgba(0,0,0,0.92)',
+            border: `1px solid ${colors.borderColor}`,
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          color: 'white',
+        }}>
+          <Typography variant="h6">File Preview</Typography>
+          <Box>
+            <Button
+              size="small"
+              variant="outlined"
+              sx={{ color: 'white', borderColor: 'rgba(255,255,255,0.3)', mr: 1 }}
+              onClick={() => window.open(previewUrl, '_blank')}
+              startIcon={<OpenInNew />}
+            >
+              Open in New Tab
+            </Button>
+            <IconButton onClick={() => setPreviewOpen(false)} sx={{ color: 'white' }}>
+              <Close />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent sx={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          minHeight: '60vh',
+          p: 2,
+        }}>
+          {previewType === 'image' ? (
+            <Box
+              component="img"
+              src={previewUrl}
+              alt="Preview"
+              sx={{
+                maxWidth: '100%',
+                maxHeight: '70vh',
+                objectFit: 'contain',
+                borderRadius: 2,
+                boxShadow: '0 4px 40px rgba(0,0,0,0.5)',
+              }}
+              onError={(e) => {
+                e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 24 24" fill="%23ccc"%3E%3Crect width="24" height="24" fill="%23f0f0f0"/%3E%3Ctext x="12" y="12" text-anchor="middle" dy=".3em" font-size="10" fill="%23999"%3ENo Image%3C/text%3E%3C/svg%3E'
+              }}
+            />
+          ) : previewType === 'video' ? (
+            <video
+              src={previewUrl}
+              controls
+              autoPlay
+              style={{
+                maxWidth: '100%',
+                maxHeight: '70vh',
+                borderRadius: 2,
+              }}
+            />
+          ) : (
+            <Box sx={{ textAlign: 'center', color: 'white' }}>
+              <Description sx={{ fontSize: 80, color: colors.lightText, mb: 2 }} />
+              <Typography variant="h6" sx={{ mb: 1 }}>
+                Document Preview Not Available
+              </Typography>
+              <Typography variant="body2" sx={{ color: colors.textLight, mb: 2 }}>
+                This file type cannot be previewed directly.
+              </Typography>
+              <Button
+                variant="contained"
+                onClick={() => window.open(previewUrl, '_blank')}
+                sx={{
+                  bgcolor: colors.darkNavy,
+                  '&:hover': { bgcolor: colors.darkNavyHover },
+                }}
+              >
+                Download File
+              </Button>
+            </Box>
+          )}
+        </DialogContent>
+      </PreviewDialog>
+    </Box>
+  )
+}
+
 const SpareParts = () => {
   const navigate = useNavigate()
   
@@ -142,6 +458,7 @@ const SpareParts = () => {
   const [openViewDialog, setOpenViewDialog] = useState(false)
   const [editingPart, setEditingPart] = useState(null)
   const [viewingPart, setViewingPart] = useState(null)
+  const [viewTabValue, setViewTabValue] = useState(0)
   const [filters, setFilters] = useState({
     brand: '',
     compatible_equipment: ''
@@ -190,6 +507,22 @@ const SpareParts = () => {
 
   const lowStockItems = spareParts.filter(p => p.quantity <= (p.minimum_stock_level || 5))
   const outOfStockItems = spareParts.filter(p => p.quantity === 0)
+
+  const handleTabChange = (event, newValue) => {
+    setViewTabValue(newValue)
+  }
+
+  // ✅ Get all attachments from a spare part
+  const getAllAttachments = (part) => {
+    const all = []
+    if (part.image_url) {
+      all.push(part.image_url)
+    }
+    // Add any other attachment fields here if they exist
+    // if (part.attachments) { ... }
+    // if (part.documents) { ... }
+    return all
+  }
 
   const handleOpenDialog = (part = null) => {
     if (part) {
@@ -244,12 +577,14 @@ const SpareParts = () => {
       ]
     }
     setViewingPart(partWithMovements)
+    setViewTabValue(0)
     setOpenViewDialog(true)
   }
 
   const handleCloseView = () => {
     setOpenViewDialog(false)
     setViewingPart(null)
+    setViewTabValue(0)
   }
 
   const handleFormChange = (e) => {
@@ -467,7 +802,7 @@ const SpareParts = () => {
         </Box>
       </Box>
 
-      {/* LOW STOCK ALERT - CYAN THEMED */}
+      {/* LOW STOCK ALERT */}
       {lowStockItems.length > 0 && (
         <Alert 
           severity="warning" 
@@ -515,7 +850,7 @@ const SpareParts = () => {
         </Alert>
       )}
 
-      {/* OUT OF STOCK ALERT - CYAN THEMED */}
+      {/* OUT OF STOCK ALERT */}
       {outOfStockItems.length > 0 && (
         <Alert 
           severity="error" 
@@ -534,7 +869,7 @@ const SpareParts = () => {
         </Alert>
       )}
 
-      {/* Stats Cards - DARK NAVY + CYAN */}
+      {/* Stats Cards */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={6} sm={3}>
           <Card sx={{ 
@@ -613,7 +948,7 @@ const SpareParts = () => {
         </Grid>
       </Grid>
 
-      {/* Search & Filters - CYAN THEMED */}
+      {/* Search & Filters */}
       <Paper sx={{ 
         p: 2, 
         mb: 3, 
@@ -677,7 +1012,7 @@ const SpareParts = () => {
         </Box>
       </Paper>
 
-      {/* Table - DARK NAVY + CYAN THEMED */}
+      {/* Table */}
       <TableContainer 
         component={Paper} 
         sx={{ 
@@ -697,13 +1032,14 @@ const SpareParts = () => {
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Unit Cost</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Total Cost</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Compatible Equipment</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Image</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }} align="center">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {filteredParts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} align="center">
+                <TableCell colSpan={10} align="center">
                   <Typography variant="body1" sx={{ py: 4, color: colors.lightText }}>
                     No spare parts found
                   </Typography>
@@ -772,6 +1108,44 @@ const SpareParts = () => {
                     <TableCell sx={{ color: colors.darkNavy }}>{formatPKR(part.unit_cost)}</TableCell>
                     <TableCell sx={{ color: colors.darkNavy }}>{formatPKR(part.total_cost)}</TableCell>
                     <TableCell sx={{ color: colors.lightText }}>{part.compatible_equipment || '-'}</TableCell>
+                    <TableCell>
+                      {part.image_url ? (
+                        <Tooltip title="View Image">
+                          <Avatar 
+                            src={getFullImageUrl(part.image_url)} 
+                            alt={part.part_name}
+                            sx={{ 
+                              width: 36, 
+                              height: 36, 
+                              borderRadius: 1,
+                              border: `1px solid ${colors.borderColor}`,
+                              cursor: 'pointer',
+                              '&:hover': {
+                                transform: 'scale(1.1)',
+                                transition: 'transform 0.2s',
+                                borderColor: colors.lightCyan,
+                              }
+                            }}
+                            onClick={() => window.open(getFullImageUrl(part.image_url), '_blank')}
+                            onError={(e) => {
+                              e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="%23ccc"%3E%3Crect width="24" height="24" fill="%23f0f0f0"/%3E%3Ctext x="12" y="12" text-anchor="middle" dy=".3em" font-size="10" fill="%23999"%3ENo Image%3C/text%3E%3C/svg%3E'
+                            }}
+                          />
+                        </Tooltip>
+                      ) : (
+                        <Chip 
+                          icon={<Image sx={{ fontSize: 14 }} />}
+                          label="No Image" 
+                          size="small"
+                          sx={{ 
+                            bgcolor: colors.mainBg, 
+                            color: colors.lightText,
+                            height: 22,
+                            fontSize: '10px'
+                          }}
+                        />
+                      )}
+                    </TableCell>
                     <TableCell align="center">
                       <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5 }}>
                         <Tooltip title="View Details">
@@ -847,7 +1221,9 @@ const SpareParts = () => {
         </Table>
       </TableContainer>
 
-      {/* View Dialog - DARK NAVY + CYAN */}
+      {/* ============================================================
+          ✅ VIEW SPARE PART DIALOG WITH TABS
+          ============================================================ */}
       <Dialog 
         open={openViewDialog} 
         onClose={handleCloseView} 
@@ -858,6 +1234,7 @@ const SpareParts = () => {
             borderRadius: 3,
             border: `1px solid ${colors.borderColor}`,
             boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+            maxHeight: '90vh',
           }
         }}
       >
@@ -867,192 +1244,224 @@ const SpareParts = () => {
           borderRadius: '8px 8px 0 0',
         }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" fontWeight={600}>Spare Part Details</Typography>
+            <Box>
+              <Typography variant="h6" fontWeight={600}>
+                Spare Part Details
+              </Typography>
+              <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                {viewingPart?.part_name || 'N/A'}
+              </Typography>
+            </Box>
             <IconButton onClick={handleCloseView} sx={{ color: 'white' }}>
               <Close />
             </IconButton>
           </Box>
         </DialogTitle>
-        <DialogContent dividers>
+        
+        <DialogContent dividers sx={{ p: 0 }}>
           {viewingPart && (
             <Box>
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="body2" sx={{ color: colors.lightText }}>Part Name</Typography>
-                  <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy }}>
-                    {viewingPart.part_name}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="body2" sx={{ color: colors.lightText }}>Part Number</Typography>
-                  <Typography variant="body1" sx={{ color: colors.darkNavy }}>
-                    {viewingPart.part_number || '-'}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <Typography variant="body2" sx={{ color: colors.lightText }}>Brand</Typography>
-                  <Typography variant="body1" sx={{ color: colors.darkNavy }}>
-                    {viewingPart.brand || '-'}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <Typography variant="body2" sx={{ color: colors.lightText }}>Manufacturer</Typography>
-                  <Typography variant="body1" sx={{ color: colors.darkNavy }}>
-                    {viewingPart.manufacturer || '-'}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <Typography variant="body2" sx={{ color: colors.lightText }}>Quantity</Typography>
-                  <Typography variant="body1" sx={{ color: colors.darkNavy }}>
-                    {viewingPart.quantity}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <Typography variant="body2" sx={{ color: colors.lightText }}>Minimum Stock Level</Typography>
-                  <Typography variant="body1" sx={{ color: colors.darkNavy }}>
-                    {viewingPart.minimum_stock_level || 5}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <Typography variant="body2" sx={{ color: colors.lightText }}>Unit Cost</Typography>
-                  <Typography variant="body1" sx={{ color: colors.darkNavy }}>
-                    {formatPKR(viewingPart.unit_cost)}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} md={4}>
-                  <Typography variant="body2" sx={{ color: colors.lightText }}>Total Cost</Typography>
-                  <Typography variant="body1" fontWeight={600} sx={{ color: colors.lightCyanDark }}>
-                    {formatPKR(viewingPart.total_cost)}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="body2" sx={{ color: colors.lightText }}>Compatible Equipment</Typography>
-                  <Typography variant="body1" sx={{ color: colors.darkNavy }}>
-                    {viewingPart.compatible_equipment || '-'}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="body2" sx={{ color: colors.lightText }}>Status</Typography>
-                  <Chip 
-                    label={viewingPart.quantity <= (viewingPart.minimum_stock_level || 5) ? 'Low Stock' : 'In Stock'} 
-                    size="small"
-                    sx={{
-                      bgcolor: viewingPart.quantity <= (viewingPart.minimum_stock_level || 5) ? colors.warning : colors.success,
-                      color: 'white',
-                      fontWeight: 500
-                    }}
-                  />
-                </Grid>
+              {/* Tabs */}
+              <Tabs 
+                value={viewTabValue} 
+                onChange={handleTabChange}
+                sx={{
+                  borderBottom: `1px solid ${colors.borderColor}`,
+                  px: 2,
+                  pt: 1,
+                  '& .MuiTab-root': {
+                    textTransform: 'none',
+                    fontWeight: 500,
+                    color: colors.lightText,
+                    '&.Mui-selected': {
+                      color: colors.darkNavy,
+                    },
+                    '&:hover': {
+                      color: colors.lightCyanDark,
+                    }
+                  },
+                  '& .MuiTabs-indicator': {
+                    bgcolor: colors.lightCyanDark,
+                  }
+                }}
+              >
+                <Tab label="Details" />
+                <Tab 
+                  label={`Attachments (${getAllAttachments(viewingPart).length})`} 
+                  disabled={getAllAttachments(viewingPart).length === 0}
+                />
+              </Tabs>
 
-                {viewingPart.image_url && (
-                  <Grid item xs={12}>
-                    <Typography variant="body2" sx={{ color: colors.lightText }} gutterBottom>
-                      <Image sx={{ fontSize: 16, verticalAlign: 'middle', mr: 0.5 }} />
-                      Spare Part Image
-                    </Typography>
-                    <Box
-                      component="img"
-                      src={getFullImageUrl(viewingPart.image_url)}
-                      alt={viewingPart.part_name}
-                      sx={{
-                        width: 200,
-                        height: 200,
-                        objectFit: 'cover',
-                        borderRadius: 2,
-                        border: `1px solid ${colors.borderColor}`,
-                        cursor: 'pointer',
-                        '&:hover': {
-                          transform: 'scale(1.05)',
-                          transition: 'transform 0.2s'
-                        }
-                      }}
-                      onClick={() => window.open(getFullImageUrl(viewingPart.image_url), '_blank')}
-                      onError={(e) => {
-                        e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 24 24" fill="%23ccc"%3E%3Crect width="24" height="24" fill="%23f0f0f0"/%3E%3Ctext x="12" y="12" text-anchor="middle" dy=".3em" font-size="10" fill="%23999"%3ENo Image%3C/text%3E%3C/svg%3E'
-                      }}
-                    />
-                  </Grid>
-                )}
-
-                {viewingPart.installation_notes && (
-                  <Grid item xs={12}>
-                    <Typography variant="body2" sx={{ color: colors.lightText }}>Installation Notes</Typography>
-                    <Paper sx={{ 
-                      p: 2, 
-                      bgcolor: colors.mainBg, 
-                      borderRadius: 1,
-                      border: `1px solid ${colors.borderColor}`
-                    }}>
-                      <Typography variant="body2" sx={{ color: colors.darkNavy }}>
-                        {viewingPart.installation_notes}
+              {/* Tab 0: Details */}
+              {viewTabValue === 0 && (
+                <Box sx={{ p: 3 }}>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} md={6}>
+                      <Typography variant="body2" sx={{ color: colors.lightText }}>Part Name</Typography>
+                      <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy }}>
+                        {viewingPart.part_name}
                       </Typography>
-                    </Paper>
-                  </Grid>
-                )}
-                {viewingPart.repair_id && (
-                  <Grid item xs={12}>
-                    <Typography variant="body2" sx={{ color: colors.lightText }}>Associated Repair</Typography>
-                    <Typography variant="body1" sx={{ color: colors.darkNavy }}>Repair #{viewingPart.repair_id}</Typography>
-                  </Grid>
-                )}
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Typography variant="body2" sx={{ color: colors.lightText }}>Part Number</Typography>
+                      <Typography variant="body1" sx={{ color: colors.darkNavy }}>
+                        {viewingPart.part_number || '-'}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                      <Typography variant="body2" sx={{ color: colors.lightText }}>Brand</Typography>
+                      <Typography variant="body1" sx={{ color: colors.darkNavy }}>
+                        {viewingPart.brand || '-'}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                      <Typography variant="body2" sx={{ color: colors.lightText }}>Manufacturer</Typography>
+                      <Typography variant="body1" sx={{ color: colors.darkNavy }}>
+                        {viewingPart.manufacturer || '-'}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                      <Typography variant="body2" sx={{ color: colors.lightText }}>Quantity</Typography>
+                      <Typography variant="body1" sx={{ color: colors.darkNavy }}>
+                        {viewingPart.quantity}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                      <Typography variant="body2" sx={{ color: colors.lightText }}>Minimum Stock Level</Typography>
+                      <Typography variant="body1" sx={{ color: colors.darkNavy }}>
+                        {viewingPart.minimum_stock_level || 5}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                      <Typography variant="body2" sx={{ color: colors.lightText }}>Unit Cost</Typography>
+                      <Typography variant="body1" sx={{ color: colors.darkNavy }}>
+                        {formatPKR(viewingPart.unit_cost)}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                      <Typography variant="body2" sx={{ color: colors.lightText }}>Total Cost</Typography>
+                      <Typography variant="body1" fontWeight={600} sx={{ color: colors.lightCyanDark }}>
+                        {formatPKR(viewingPart.total_cost)}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Typography variant="body2" sx={{ color: colors.lightText }}>Compatible Equipment</Typography>
+                      <Typography variant="body1" sx={{ color: colors.darkNavy }}>
+                        {viewingPart.compatible_equipment || '-'}
+                      </Typography>
+                    </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Typography variant="body2" sx={{ color: colors.lightText }}>Status</Typography>
+                      <Chip 
+                        label={viewingPart.quantity <= (viewingPart.minimum_stock_level || 5) ? 'Low Stock' : 'In Stock'} 
+                        size="small"
+                        sx={{
+                          bgcolor: viewingPart.quantity <= (viewingPart.minimum_stock_level || 5) ? colors.warning : colors.success,
+                          color: 'white',
+                          fontWeight: 500
+                        }}
+                      />
+                    </Grid>
 
-                <Grid item xs={12}>
-                  <Divider sx={{ my: 2, borderColor: colors.borderColor }} />
-                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>
-                    <History sx={{ fontSize: 18, verticalAlign: 'middle', mr: 1 }} />
-                    Stock Movement History
+                    {viewingPart.installation_notes && (
+                      <Grid item xs={12}>
+                        <Typography variant="body2" sx={{ color: colors.lightText }}>Installation Notes</Typography>
+                        <Paper sx={{ 
+                          p: 2, 
+                          bgcolor: colors.mainBg, 
+                          borderRadius: 1,
+                          border: `1px solid ${colors.borderColor}`
+                        }}>
+                          <Typography variant="body2" sx={{ color: colors.darkNavy }}>
+                            {viewingPart.installation_notes}
+                          </Typography>
+                        </Paper>
+                      </Grid>
+                    )}
+                    
+                    {viewingPart.repair_id && (
+                      <Grid item xs={12}>
+                        <Typography variant="body2" sx={{ color: colors.lightText }}>Associated Repair</Typography>
+                        <Typography variant="body1" sx={{ color: colors.darkNavy }}>Repair #{viewingPart.repair_id}</Typography>
+                      </Grid>
+                    )}
+
+                    <Grid item xs={12}>
+                      <Divider sx={{ my: 2, borderColor: colors.borderColor }} />
+                      <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>
+                        <History sx={{ fontSize: 18, verticalAlign: 'middle', mr: 1 }} />
+                        Stock Movement History
+                      </Typography>
+                      {viewingPart.movements && viewingPart.movements.length > 0 ? (
+                        <TableContainer component={Paper} variant="outlined" sx={{ mt: 1, borderColor: colors.borderColor }}>
+                          <Table size="small">
+                            <TableHead sx={{ bgcolor: colors.mainBg }}>
+                              <TableRow>
+                                <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }}>Date</TableCell>
+                                <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }}>Action</TableCell>
+                                <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }}>Quantity</TableCell>
+                                <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }}>Reference</TableCell>
+                              </TableRow>
+                            </TableHead>
+                            <TableBody>
+                              {viewingPart.movements.map((mov, idx) => (
+                                <TableRow key={idx} hover>
+                                  <TableCell sx={{ color: colors.darkNavy }}>
+                                    {new Date(mov.created_at).toLocaleString()}
+                                  </TableCell>
+                                  <TableCell sx={{ color: colors.darkNavy }}>
+                                    {mov.type === 'IN' ? 'Stock In' : 'Stock Out'}
+                                  </TableCell>
+                                  <TableCell>
+                                    <Typography 
+                                      sx={{ 
+                                        color: mov.type === 'IN' ? colors.success : colors.error,
+                                        fontWeight: 600
+                                      }}
+                                    >
+                                      {mov.type === 'IN' ? '+' : '-'}{mov.quantity}
+                                    </Typography>
+                                  </TableCell>
+                                  <TableCell sx={{ color: colors.darkNavy }}>
+                                    {mov.reference_type === 'purchase' ? `PO #${mov.reference_id}` : 
+                                     mov.reference_type === 'repair' ? `Repair #${mov.reference_id}` : 
+                                     mov.reference_type || 'N/A'}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </TableContainer>
+                      ) : (
+                        <Typography variant="body2" sx={{ color: colors.lightText, py: 2 }}>
+                          No stock movements recorded
+                        </Typography>
+                      )}
+                    </Grid>
+                  </Grid>
+                </Box>
+              )}
+
+              {/* Tab 1: Attachments */}
+              {viewTabValue === 1 && (
+                <Box sx={{ p: 3 }}>
+                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy, mb: 2 }}>
+                    Attachments ({getAllAttachments(viewingPart).length})
                   </Typography>
-                  {viewingPart.movements && viewingPart.movements.length > 0 ? (
-                    <TableContainer component={Paper} variant="outlined" sx={{ mt: 1, borderColor: colors.borderColor }}>
-                      <Table size="small">
-                        <TableHead sx={{ bgcolor: colors.mainBg }}>
-                          <TableRow>
-                            <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }}>Date</TableCell>
-                            <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }}>Action</TableCell>
-                            <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }}>Quantity</TableCell>
-                            <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }}>Reference</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {viewingPart.movements.map((mov, idx) => (
-                            <TableRow key={idx} hover>
-                              <TableCell sx={{ color: colors.darkNavy }}>
-                                {new Date(mov.created_at).toLocaleString()}
-                              </TableCell>
-                              <TableCell sx={{ color: colors.darkNavy }}>
-                                {mov.type === 'IN' ? 'Stock In' : 'Stock Out'}
-                              </TableCell>
-                              <TableCell>
-                                <Typography 
-                                  sx={{ 
-                                    color: mov.type === 'IN' ? colors.success : colors.error,
-                                    fontWeight: 600
-                                  }}
-                                >
-                                  {mov.type === 'IN' ? '+' : '-'}{mov.quantity}
-                                </Typography>
-                              </TableCell>
-                              <TableCell sx={{ color: colors.darkNavy }}>
-                                {mov.reference_type === 'purchase' ? `PO #${mov.reference_id}` : 
-                                 mov.reference_type === 'repair' ? `Repair #${mov.reference_id}` : 
-                                 mov.reference_type || 'N/A'}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
-                  ) : (
-                    <Typography variant="body2" sx={{ color: colors.lightText, py: 2 }}>
-                      No stock movements recorded
-                    </Typography>
-                  )}
-                </Grid>
-              </Grid>
+                  <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 2 }}>
+                    Click on any file to preview it. Images and videos will open in a preview dialog.
+                  </Typography>
+                  
+                  <AttachmentGrid 
+                    attachments={getAllAttachments(viewingPart)}
+                  />
+                </Box>
+              )}
             </Box>
           )}
         </DialogContent>
-        <DialogActions sx={{ p: 3 }}>
+        
+        <DialogActions sx={{ p: 3, justifyContent: 'space-between' }}>
           <Button 
             onClick={handleCloseView} 
             sx={{ 
@@ -1065,6 +1474,51 @@ const SpareParts = () => {
           >
             Close
           </Button>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            {canEdit && viewingPart && (
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  setOpenViewDialog(false)
+                  handleOpenDialog(viewingPart)
+                }}
+                sx={{ 
+                  borderColor: colors.darkNavy, 
+                  color: colors.darkNavy, 
+                  '&:hover': { 
+                    borderColor: colors.lightCyan, 
+                    color: colors.lightCyanDark,
+                    backgroundColor: 'rgba(103, 232, 249, 0.04)'
+                  },
+                  textTransform: 'none',
+                  borderRadius: 2,
+                }}
+              >
+                Edit
+              </Button>
+            )}
+            {canUseInRepair && viewingPart && (
+              <Button
+                variant="contained"
+                onClick={() => {
+                  setOpenViewDialog(false)
+                  handleUseInRepair(viewingPart)
+                }}
+                sx={{ 
+                  bgcolor: colors.darkNavy, 
+                  '&:hover': { 
+                    bgcolor: colors.darkNavyHover,
+                    boxShadow: `0 4px 20px ${colors.lightCyanGlowStrong}`
+                  },
+                  textTransform: 'none',
+                  borderRadius: 2,
+                }}
+                startIcon={<Build />}
+              >
+                Use in Repair
+              </Button>
+            )}
+          </Box>
         </DialogActions>
       </Dialog>
 

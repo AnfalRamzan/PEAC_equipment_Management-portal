@@ -1,4 +1,5 @@
 // src/pages/ErrorLogs.jsx
+// ✅ COMPLETE FIXED VERSION - With Attachment Grid View
 // ✅ DARK NAVY + LIGHT CYAN THEME - Matching Sidebar
 
 import React, { useState, useEffect } from 'react'
@@ -37,6 +38,7 @@ import {
   ImageList,
   ImageListItem,
   ImageListItemBar,
+  Dialog as PreviewDialog,
 } from '@mui/material'
 import {
   Add,
@@ -51,6 +53,7 @@ import {
   VideoLibrary,
   Description,
   InsertDriveFile,
+  ZoomIn,
 } from '@mui/icons-material'
 import { errorService, equipmentService, hospitalService, userService } from '../api/services'
 import { toast } from 'react-toastify'
@@ -63,45 +66,34 @@ import AccessDenied from '../components/Auth/AccessDenied'
 // ✅ DARK NAVY + LIGHT CYAN THEME COLORS
 // ============================================================
 const colors = {
-  // Dark Navy Base
   darkNavy: '#0F172A',
   darkNavyLight: '#1E293B',
   darkNavyDark: '#0A0F1E',
   darkNavyHover: '#1E3A5F',
-  
-  // Light Cyan Accents
   lightCyan: '#67E8F9',
   lightCyanBright: '#A5F3FC',
   lightCyanDark: '#22D3EE',
   lightCyanGlow: 'rgba(103, 232, 249, 0.15)',
   lightCyanGlowStrong: 'rgba(103, 232, 249, 0.3)',
-  
-  // Gold accent (keeping PAEC branding)
   accentGold: '#C9A227',
   goldLight: '#E8C84A',
-  
-  // Text
   text: '#FFFFFF',
   secondaryText: '#94A3B8',
   textLight: '#CBD5E1',
   cyanText: '#67E8F9',
   darkText: '#0F172A',
   lightText: '#64748B',
-  
-  // Cards/Background
   cardBg: '#FFFFFF',
   borderColor: 'rgba(103, 232, 249, 0.1)',
   shadowColor: 'rgba(15, 23, 42, 0.08)',
   mainBg: '#F1F5F9',
-  
-  // Status colors
   error: '#EF4444',
   success: '#22C55E',
   warning: '#F59E0B',
   info: '#3B82F6',
 }
 
-// Helper function to get full URL
+// ✅ Helper function to get full URL
 const getFullUrl = (url) => {
   if (!url) return ''
   if (url.startsWith('http://') || url.startsWith('https://')) {
@@ -113,7 +105,7 @@ const getFullUrl = (url) => {
   return url
 }
 
-// Helper function to check file type
+// ✅ Helper function to check file type
 const isImageFile = (url) => {
   if (!url) return false
   const ext = url.split('.').pop()?.toLowerCase() || ''
@@ -132,8 +124,12 @@ const getFileName = (url) => {
   return parts[parts.length - 1] || 'File'
 }
 
-// Component for displaying attachments in a grid
+// ✅ COMPONENT: Attachment Grid with Preview
 const AttachmentGrid = ({ attachments, onFileClick }) => {
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [previewUrl, setPreviewUrl] = useState('')
+  const [previewType, setPreviewType] = useState('')
+
   if (!attachments || attachments.length === 0) {
     return (
       <Box sx={{ textAlign: 'center', py: 3, bgcolor: colors.mainBg, borderRadius: 2 }}>
@@ -145,148 +141,266 @@ const AttachmentGrid = ({ attachments, onFileClick }) => {
     )
   }
 
-  return (
-    <ImageList cols={3} gap={12} sx={{ mb: 0 }}>
-      {attachments.map((url, index) => {
-        const isImg = isImageFile(url)
-        const isVideo = isVideoFile(url)
-        const fileName = getFileName(url)
-        const fullUrl = getFullUrl(url)
+  const handlePreview = (url) => {
+    const fullUrl = getFullUrl(url)
+    const isImg = isImageFile(url)
+    const isVideo = isVideoFile(url)
+    
+    setPreviewUrl(fullUrl)
+    setPreviewType(isImg ? 'image' : isVideo ? 'video' : 'document')
+    setPreviewOpen(true)
+  }
 
-        return (
-          <ImageListItem 
-            key={index} 
-            sx={{ 
-              borderRadius: 2, 
-              overflow: 'hidden',
-              border: `1px solid ${colors.borderColor}`,
-              position: 'relative',
-              cursor: 'pointer',
-              '&:hover': {
-                boxShadow: `0 4px 20px ${colors.lightCyanGlow}`,
-                '& .attachment-overlay': {
-                  opacity: 1,
-                }
-              }
-            }}
-            onClick={() => onFileClick && onFileClick(fullUrl)}
-          >
-            {isImg ? (
-              <Box
-                component="img"
-                src={fullUrl}
-                alt={fileName}
-                sx={{
-                  width: '100%',
-                  height: 140,
-                  objectFit: 'cover',
-                  bgcolor: colors.mainBg,
-                }}
-                onError={(e) => {
-                  e.target.onerror = null
-                  e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="140"%3E%3Crect width="200" height="140" fill="%23f0f0f0"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23999" font-size="14"%3ENo Image%3C/text%3E%3C/svg%3E'
-                }}
-              />
-            ) : isVideo ? (
-              <Box sx={{ 
-                height: 140, 
-                bgcolor: colors.darkNavy,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
+  return (
+    <Box>
+      <ImageList cols={3} gap={12} sx={{ mb: 0 }}>
+        {attachments.map((url, index) => {
+          const isImg = isImageFile(url)
+          const isVideo = isVideoFile(url)
+          const fileName = getFileName(url)
+          const fullUrl = getFullUrl(url)
+
+          return (
+            <ImageListItem 
+              key={index} 
+              sx={{ 
+                borderRadius: 2, 
+                overflow: 'hidden',
+                border: `1px solid ${colors.borderColor}`,
                 position: 'relative',
-              }}>
-                <VideoLibrary sx={{ fontSize: 48, color: colors.lightCyan, opacity: 0.7 }} />
-                <Typography variant="caption" sx={{ color: colors.textLight, mt: 1 }}>
-                  {fileName}
-                </Typography>
+                cursor: 'pointer',
+                bgcolor: colors.mainBg,
+                '&:hover': {
+                  boxShadow: `0 4px 20px ${colors.lightCyanGlow}`,
+                  '& .attachment-overlay': {
+                    opacity: 1,
+                  }
+                }
+              }}
+              onClick={() => handlePreview(url)}
+            >
+              {isImg ? (
+                <Box
+                  component="img"
+                  src={fullUrl}
+                  alt={fileName}
+                  sx={{
+                    width: '100%',
+                    height: 140,
+                    objectFit: 'cover',
+                    bgcolor: colors.mainBg,
+                  }}
+                  onError={(e) => {
+                    e.target.onerror = null
+                    e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="140"%3E%3Crect width="200" height="140" fill="%23f0f0f0"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23999" font-size="14"%3ENo Image%3C/text%3E%3C/svg%3E'
+                  }}
+                />
+              ) : isVideo ? (
                 <Box sx={{ 
-                  position: 'absolute',
-                  top: '50%',
-                  left: '50%',
-                  transform: 'translate(-50%, -50%)',
-                  bgcolor: 'rgba(0,0,0,0.5)',
-                  borderRadius: '50%',
-                  p: 1,
+                  height: 140, 
+                  bgcolor: colors.darkNavy,
                   display: 'flex',
+                  flexDirection: 'column',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  width: 40,
-                  height: 40,
+                  position: 'relative',
                 }}>
-                  <OpenInNew sx={{ color: 'white', fontSize: 20 }} />
+                  <VideoLibrary sx={{ fontSize: 48, color: colors.lightCyan, opacity: 0.7 }} />
+                  <Typography variant="caption" sx={{ color: colors.textLight, mt: 1 }}>
+                    {fileName}
+                  </Typography>
+                  <Box sx={{ 
+                    position: 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    bgcolor: 'rgba(0,0,0,0.5)',
+                    borderRadius: '50%',
+                    p: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 40,
+                    height: 40,
+                  }}>
+                    <OpenInNew sx={{ color: 'white', fontSize: 20 }} />
+                  </Box>
                 </Box>
-              </Box>
-            ) : (
-              <Box sx={{ 
-                height: 140, 
-                bgcolor: colors.mainBg,
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                p: 1,
-              }}>
-                <Description sx={{ fontSize: 40, color: colors.lightText }} />
+              ) : (
+                <Box sx={{ 
+                  height: 140, 
+                  bgcolor: colors.mainBg,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  p: 1,
+                }}>
+                  <Description sx={{ fontSize: 40, color: colors.lightText }} />
+                  <Typography variant="caption" sx={{ 
+                    color: colors.lightText, 
+                    mt: 1, 
+                    textAlign: 'center',
+                    maxWidth: '90%',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                  }}>
+                    {fileName}
+                  </Typography>
+                </Box>
+              )}
+              
+              {/* Overlay with file name and open button */}
+              <Box 
+                className="attachment-overlay"
+                sx={{ 
+                  position: 'absolute',
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  bgcolor: 'rgba(0,0,0,0.7)',
+                  color: 'white',
+                  p: 1,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  opacity: 0,
+                  transition: 'opacity 0.3s',
+                }}
+              >
                 <Typography variant="caption" sx={{ 
-                  color: colors.lightText, 
-                  mt: 1, 
-                  textAlign: 'center',
-                  maxWidth: '90%',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap'
+                  overflow: 'hidden', 
+                  textOverflow: 'ellipsis', 
+                  whiteSpace: 'nowrap', 
+                  flex: 1, 
+                  mr: 1 
                 }}>
                   {fileName}
                 </Typography>
+                <Tooltip title="Preview">
+                  <IconButton
+                    size="small"
+                    sx={{ color: 'white' }}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handlePreview(url)
+                    }}
+                  >
+                    <ZoomIn fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Open in new tab">
+                  <IconButton
+                    size="small"
+                    sx={{ color: 'white' }}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      window.open(fullUrl, '_blank')
+                    }}
+                  >
+                    <OpenInNew fontSize="small" />
+                  </IconButton>
+                </Tooltip>
               </Box>
-            )}
-            
-            {/* Overlay with file name and open button */}
-            <Box 
-              className="attachment-overlay"
-              sx={{ 
-                position: 'absolute',
-                bottom: 0,
-                left: 0,
-                right: 0,
-                bgcolor: 'rgba(0,0,0,0.7)',
-                color: 'white',
-                p: 1,
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                opacity: 0,
-                transition: 'opacity 0.3s',
-              }}
+            </ImageListItem>
+          )
+        })}
+      </ImageList>
+
+      {/* ✅ Preview Dialog */}
+      <PreviewDialog
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        maxWidth="lg"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            bgcolor: 'rgba(0,0,0,0.92)',
+            border: `1px solid ${colors.borderColor}`,
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          color: 'white',
+        }}>
+          <Typography variant="h6">File Preview</Typography>
+          <Box>
+            <Button
+              size="small"
+              variant="outlined"
+              sx={{ color: 'white', borderColor: 'rgba(255,255,255,0.3)', mr: 1 }}
+              onClick={() => window.open(previewUrl, '_blank')}
+              startIcon={<OpenInNew />}
             >
-              <Typography variant="caption" sx={{ 
-                overflow: 'hidden', 
-                textOverflow: 'ellipsis', 
-                whiteSpace: 'nowrap', 
-                flex: 1, 
-                mr: 1 
-              }}>
-                {fileName}
+              Open in New Tab
+            </Button>
+            <IconButton onClick={() => setPreviewOpen(false)} sx={{ color: 'white' }}>
+              <Close />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent sx={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          minHeight: '60vh',
+          p: 2,
+        }}>
+          {previewType === 'image' ? (
+            <Box
+              component="img"
+              src={previewUrl}
+              alt="Preview"
+              sx={{
+                maxWidth: '100%',
+                maxHeight: '70vh',
+                objectFit: 'contain',
+                borderRadius: 2,
+                boxShadow: '0 4px 40px rgba(0,0,0,0.5)',
+              }}
+              onError={(e) => {
+                e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 24 24" fill="%23ccc"%3E%3Crect width="24" height="24" fill="%23f0f0f0"/%3E%3Ctext x="12" y="12" text-anchor="middle" dy=".3em" font-size="10" fill="%23999"%3ENo Image%3C/text%3E%3C/svg%3E'
+              }}
+            />
+          ) : previewType === 'video' ? (
+            <video
+              src={previewUrl}
+              controls
+              style={{
+                maxWidth: '100%',
+                maxHeight: '70vh',
+                borderRadius: 2,
+              }}
+            />
+          ) : (
+            <Box sx={{ textAlign: 'center', color: 'white' }}>
+              <Description sx={{ fontSize: 80, color: colors.lightText, mb: 2 }} />
+              <Typography variant="h6" sx={{ mb: 1 }}>
+                Document Preview Not Available
               </Typography>
-              <Tooltip title="Open in new tab">
-                <IconButton
-                  size="small"
-                  sx={{ color: 'white' }}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    window.open(fullUrl, '_blank')
-                  }}
-                >
-                  <OpenInNew fontSize="small" />
-                </IconButton>
-              </Tooltip>
+              <Typography variant="body2" sx={{ color: colors.textLight, mb: 2 }}>
+                This file type cannot be previewed directly.
+              </Typography>
+              <Button
+                variant="contained"
+                onClick={() => window.open(previewUrl, '_blank')}
+                sx={{
+                  bgcolor: colors.darkNavy,
+                  '&:hover': { bgcolor: colors.darkNavyHover },
+                }}
+              >
+                Download File
+              </Button>
             </Box>
-          </ImageListItem>
-        )
-      })}
-    </ImageList>
+          )}
+        </DialogContent>
+      </PreviewDialog>
+    </Box>
   )
 }
 
@@ -600,12 +714,6 @@ const ErrorLogs = () => {
 
   if (loading) {
     return <LinearProgress sx={{ bgcolor: colors.borderColor, '& .MuiLinearProgress-bar': { bgcolor: colors.lightCyan } }} />
-  }
-
-  // Parse attachments for viewing
-  const getAttachmentsArray = (attachments) => {
-    if (!attachments) return []
-    return attachments.split(',').filter(Boolean)
   }
 
   return (
@@ -1246,7 +1354,7 @@ const ErrorLogs = () => {
         </DialogActions>
       </Dialog>
 
-      {/* VIEW ERROR DIALOG - WITH ATTACHMENTS GRID */}
+      {/* ✅ VIEW ERROR DIALOG - WITH ATTACHMENTS GRID AND PREVIEW */}
       <Dialog 
         open={openViewDialog} 
         onClose={handleCloseView} 
@@ -1441,14 +1549,14 @@ const ErrorLogs = () => {
                 </Typography>
               </Paper>
 
-              {/* ✅ ATTACHMENTS SECTION - UPDATED WITH GRID VIEW */}
+              {/* ✅ ATTACHMENTS SECTION - UPDATED WITH GRID VIEW AND PREVIEW */}
               {viewingError.attachments && viewingError.attachments.split(',').filter(Boolean).length > 0 && (
                 <Box sx={{ mb: 3 }}>
                   <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2, color: colors.darkNavy }}>
                     Attachments ({viewingError.attachments.split(',').filter(Boolean).length})
                   </Typography>
                   <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 2 }}>
-                    Click on any file to open it in a new tab
+                    Click on any file to preview it
                   </Typography>
                   
                   <AttachmentGrid 

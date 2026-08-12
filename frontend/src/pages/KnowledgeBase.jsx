@@ -1,5 +1,9 @@
 // src/pages/KnowledgeBase.jsx
 // ✅ DARK NAVY + LIGHT CYAN THEME - Matching Sidebar
+// ✅ ANY USER CAN VIEW + ADD SOLUTIONS (except Hospital Admin)
+// ✅ WITH ATTACHMENT TAB VIEW + PREVIEW
+// ✅ FIXED: Equipment ID handling and permission checks
+// ✅ FIXED: Using new /knowledge-base/equipment-list endpoint
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -45,6 +49,11 @@ import {
   Zoom,
   Badge,
   Stack,
+  Tabs,
+  Tab,
+  ImageList,
+  ImageListItem,
+  Dialog as PreviewDialog,
 } from '@mui/material'
 import {
   Search,
@@ -91,6 +100,12 @@ import {
   BackupTable,
   Analytics,
   ChevronRight,
+  ZoomIn,
+  OpenInNew,
+  VideoLibrary,
+  Lock,
+  LockOpen,
+  People,
 } from '@mui/icons-material'
 import { toast } from 'react-toastify'
 import { useSelector } from 'react-redux'
@@ -102,44 +117,34 @@ import AccessDenied from '../components/Auth/AccessDenied'
 // ✅ DARK NAVY + LIGHT CYAN THEME COLORS
 // ============================================================
 const colors = {
-  // Dark Navy Base
   darkNavy: '#0F172A',
   darkNavyLight: '#1E293B',
   darkNavyDark: '#0A0F1E',
   darkNavyHover: '#1E3A5F',
-  
-  // Light Cyan Accents
   lightCyan: '#67E8F9',
   lightCyanBright: '#A5F3FC',
   lightCyanDark: '#22D3EE',
   lightCyanGlow: 'rgba(103, 232, 249, 0.15)',
   lightCyanGlowStrong: 'rgba(103, 232, 249, 0.3)',
-  
-  // Gold accent (keeping PAEC branding)
   accentGold: '#C9A227',
   goldLight: '#E8C84A',
-  
-  // Text
   text: '#FFFFFF',
   secondaryText: '#94A3B8',
   textLight: '#CBD5E1',
   cyanText: '#67E8F9',
   darkText: '#0F172A',
   lightText: '#64748B',
-  
-  // Cards/Background
   cardBg: '#FFFFFF',
   borderColor: 'rgba(103, 232, 249, 0.1)',
   shadowColor: 'rgba(15, 23, 42, 0.08)',
   mainBg: '#F1F5F9',
-  
-  // Status colors
   error: '#EF4444',
   success: '#22C55E',
   warning: '#F59E0B',
   info: '#3B82F6',
 }
 
+// ✅ Helper function for image URLs
 const getFullUrl = (url) => {
   if (!url) return ''
   if (url.startsWith('http://') || url.startsWith('https://')) {
@@ -151,8 +156,325 @@ const getFullUrl = (url) => {
   return url
 }
 
+// ✅ Helper function to check file type
+const isImageFile = (url) => {
+  if (!url) return false
+  const ext = url.split('.').pop()?.toLowerCase() || ''
+  return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(ext)
+}
+
+const isVideoFile = (url) => {
+  if (!url) return false
+  const ext = url.split('.').pop()?.toLowerCase() || ''
+  return ['mp4', 'mov', 'avi', 'mkv', 'wmv', 'flv', 'webm'].includes(ext)
+}
+
+const getFileName = (url) => {
+  if (!url) return 'File'
+  const parts = url.split('/')
+  return parts[parts.length - 1] || 'File'
+}
+
 // ============================================================
-// ✅ ENHANCED STAT CARD COMPONENT - DARK NAVY + CYAN
+// ✅ COMPONENT: Attachment Grid with Preview
+// ============================================================
+const AttachmentGrid = ({ attachments, onFileClick }) => {
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [previewUrl, setPreviewUrl] = useState('')
+  const [previewType, setPreviewType] = useState('')
+
+  if (!attachments || attachments.length === 0) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 4, bgcolor: colors.mainBg, borderRadius: 2 }}>
+        <AttachFile sx={{ fontSize: 48, color: colors.lightText, opacity: 0.3 }} />
+        <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
+          No attachments
+        </Typography>
+      </Box>
+    )
+  }
+
+  const handlePreview = (url) => {
+    const fullUrl = getFullUrl(url)
+    const isImg = isImageFile(url)
+    const isVideo = isVideoFile(url)
+    
+    setPreviewUrl(fullUrl)
+    setPreviewType(isImg ? 'image' : isVideo ? 'video' : 'document')
+    setPreviewOpen(true)
+  }
+
+  return (
+    <Box>
+      <ImageList cols={4} gap={12} sx={{ mb: 0 }}>
+        {attachments.map((url, index) => {
+          const isImg = isImageFile(url)
+          const isVideo = isVideoFile(url)
+          const fileName = getFileName(url)
+          const fullUrl = getFullUrl(url)
+
+          return (
+            <ImageListItem 
+              key={index} 
+              sx={{ 
+                borderRadius: 2, 
+                overflow: 'hidden',
+                border: `1px solid ${colors.borderColor}`,
+                position: 'relative',
+                cursor: 'pointer',
+                bgcolor: colors.mainBg,
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  transform: 'translateY(-4px)',
+                  boxShadow: `0 8px 30px ${colors.lightCyanGlow}`,
+                  '& .attachment-overlay': {
+                    opacity: 1,
+                  }
+                }
+              }}
+              onClick={() => handlePreview(url)}
+            >
+              {isImg ? (
+                <Box
+                  component="img"
+                  src={fullUrl}
+                  alt={fileName}
+                  sx={{
+                    width: '100%',
+                    height: 160,
+                    objectFit: 'cover',
+                    bgcolor: colors.mainBg,
+                  }}
+                  onError={(e) => {
+                    e.target.onerror = null
+                    e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="200" height="160"%3E%3Crect width="200" height="160" fill="%23f0f0f0"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23999" font-size="14"%3ENo Image%3C/text%3E%3C/svg%3E'
+                  }}
+                />
+              ) : isVideo ? (
+                <Box sx={{ 
+                  height: 160, 
+                  bgcolor: colors.darkNavy,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  position: 'relative',
+                }}>
+                  <VideoLibrary sx={{ fontSize: 48, color: colors.lightCyan, opacity: 0.7 }} />
+                  <Typography variant="caption" sx={{ color: colors.textLight, mt: 1, px: 1 }}>
+                    {fileName}
+                  </Typography>
+                  <Box sx={{ 
+                    position: 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    bgcolor: 'rgba(0,0,0,0.5)',
+                    borderRadius: '50%',
+                    p: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: 44,
+                    height: 44,
+                  }}>
+                    <OpenInNew sx={{ color: 'white', fontSize: 22 }} />
+                  </Box>
+                </Box>
+              ) : (
+                <Box sx={{ 
+                  height: 160, 
+                  bgcolor: colors.mainBg,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  p: 2,
+                }}>
+                  <Description sx={{ fontSize: 48, color: colors.lightText, opacity: 0.6 }} />
+                  <Typography variant="caption" sx={{ 
+                    color: colors.lightText, 
+                    mt: 1, 
+                    textAlign: 'center',
+                    maxWidth: '90%',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                  }}>
+                    {fileName}
+                  </Typography>
+                </Box>
+              )}
+              
+              {/* Overlay with file name and open button */}
+              <Box 
+                className="attachment-overlay"
+                sx={{ 
+                  position: 'absolute',
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  bgcolor: 'rgba(0,0,0,0.7)',
+                  color: 'white',
+                  p: 1,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  opacity: 0,
+                  transition: 'opacity 0.3s',
+                }}
+              >
+                <Typography variant="caption" sx={{ 
+                  overflow: 'hidden', 
+                  textOverflow: 'ellipsis', 
+                  whiteSpace: 'nowrap', 
+                  flex: 1, 
+                  mr: 1 
+                }}>
+                  {fileName}
+                </Typography>
+                <Tooltip title="Preview">
+                  <IconButton
+                    size="small"
+                    sx={{ color: 'white' }}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handlePreview(url)
+                    }}
+                  >
+                    <ZoomIn fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Open in new tab">
+                  <IconButton
+                    size="small"
+                    sx={{ color: 'white' }}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      window.open(fullUrl, '_blank')
+                    }}
+                  >
+                    <OpenInNew fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </Box>
+            </ImageListItem>
+          )
+        })}
+      </ImageList>
+
+      {/* Preview Dialog */}
+      <PreviewDialog
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        maxWidth="lg"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            bgcolor: 'rgba(0,0,0,0.92)',
+            border: `1px solid ${colors.borderColor}`,
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          color: 'white',
+        }}>
+          <Typography variant="h6">File Preview</Typography>
+          <Box>
+            <Button
+              size="small"
+              variant="outlined"
+              sx={{ color: 'white', borderColor: 'rgba(255,255,255,0.3)', mr: 1 }}
+              onClick={() => window.open(previewUrl, '_blank')}
+              startIcon={<OpenInNew />}
+            >
+              Open in New Tab
+            </Button>
+            <IconButton onClick={() => setPreviewOpen(false)} sx={{ color: 'white' }}>
+              <Close />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent sx={{ 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          minHeight: '60vh',
+          p: 2,
+        }}>
+          {previewType === 'image' ? (
+            <Box
+              component="img"
+              src={previewUrl}
+              alt="Preview"
+              sx={{
+                maxWidth: '100%',
+                maxHeight: '70vh',
+                objectFit: 'contain',
+                borderRadius: 2,
+                boxShadow: '0 4px 40px rgba(0,0,0,0.5)',
+              }}
+              onError={(e) => {
+                e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 24 24" fill="%23ccc"%3E%3Crect width="24" height="24" fill="%23f0f0f0"/%3E%3Ctext x="12" y="12" text-anchor="middle" dy=".3em" font-size="10" fill="%23999"%3ENo Image%3C/text%3E%3C/svg%3E'
+              }}
+            />
+          ) : previewType === 'video' ? (
+            <video
+              src={previewUrl}
+              controls
+              autoPlay
+              style={{
+                maxWidth: '100%',
+                maxHeight: '70vh',
+                borderRadius: 2,
+              }}
+            />
+          ) : (
+            <Box sx={{ textAlign: 'center', color: 'white' }}>
+              <Description sx={{ fontSize: 80, color: colors.lightText, mb: 2 }} />
+              <Typography variant="h6" sx={{ mb: 1 }}>
+                Document Preview Not Available
+              </Typography>
+              <Typography variant="body2" sx={{ color: colors.textLight, mb: 2 }}>
+                This file type cannot be previewed directly.
+              </Typography>
+              <Button
+                variant="contained"
+                onClick={() => window.open(previewUrl, '_blank')}
+                sx={{
+                  bgcolor: colors.darkNavy,
+                  '&:hover': { bgcolor: colors.darkNavyHover },
+                }}
+              >
+                Download File
+              </Button>
+            </Box>
+          )}
+        </DialogContent>
+      </PreviewDialog>
+    </Box>
+  )
+}
+
+// ============================================================
+// ✅ FORMAT DATE HELPER
+// ============================================================
+const formatDate = (dateString) => {
+  if (!dateString) return '-'
+  const date = new Date(dateString)
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  })
+}
+
+// ============================================================
+// ✅ ENHANCED STAT CARD COMPONENT
 // ============================================================
 const StatCard = ({ title, value, icon, color, bgColor, subtext }) => (
   <Grow in timeout={300}>
@@ -212,7 +534,7 @@ const StatCard = ({ title, value, icon, color, bgColor, subtext }) => (
 )
 
 // ============================================================
-// ✅ ENHANCED EQUIPMENT CARD - DARK NAVY + CYAN
+// ✅ ENHANCED EQUIPMENT CARD
 // ============================================================
 const EquipmentCard = ({ equipment, onClick }) => {
   const [isHovered, setIsHovered] = useState(false)
@@ -365,10 +687,23 @@ const EquipmentCard = ({ equipment, onClick }) => {
 }
 
 // ============================================================
-// ✅ SOLUTION CARD COMPONENT - DARK NAVY + CYAN
+// ✅ SOLUTION CARD COMPONENT - UPDATED PERMISSIONS
 // ============================================================
-const SolutionCard = ({ solution, onView, onEdit, onDelete, isOwner, canEdit }) => {
+const SolutionCard = ({ solution, onView, onEdit, onDelete, isOwner, canEdit, canDelete, userRole, canAdd }) => {
   const [isHovered, setIsHovered] = useState(false)
+  
+  // Count attachments
+  const getAttachmentCount = (value) => {
+    if (!value) return 0
+    return value.split(',').filter(Boolean).length
+  }
+  
+  const totalAttachments = 
+    getAttachmentCount(solution.spare_part_images) +
+    getAttachmentCount(solution.before_repair_images) +
+    getAttachmentCount(solution.after_repair_images) +
+    getAttachmentCount(solution.images) +
+    getAttachmentCount(solution.attachments)
   
   return (
     <Fade in timeout={300}>
@@ -415,6 +750,20 @@ const SolutionCard = ({ solution, onView, onEdit, onDelete, isOwner, canEdit }) 
                   }}
                 />
               )}
+              {totalAttachments > 0 && (
+                <Chip
+                  icon={<AttachFile sx={{ fontSize: 12 }} />}
+                  label={totalAttachments}
+                  size="small"
+                  sx={{
+                    bgcolor: colors.info + '15',
+                    color: colors.info,
+                    height: 20,
+                    fontSize: '9px',
+                    fontWeight: 600
+                  }}
+                />
+              )}
             </Box>
             
             <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', ml: 5 }}>
@@ -451,24 +800,11 @@ const SolutionCard = ({ solution, onView, onEdit, onDelete, isOwner, canEdit }) 
                   </Typography>
                 </Box>
               )}
-              {solution.images && (
-                <Chip
-                  icon={<Image sx={{ fontSize: 12 }} />}
-                  label="Has Images"
-                  size="small"
-                  sx={{
-                    bgcolor: colors.success + '15',
-                    color: colors.success,
-                    height: 20,
-                    fontSize: '9px',
-                    fontWeight: 500
-                  }}
-                />
-              )}
             </Box>
           </Box>
           
           <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
+            {/* View - Available to ALL users */}
             <Tooltip title="View Details">
               <IconButton 
                 size="small" 
@@ -484,8 +820,10 @@ const SolutionCard = ({ solution, onView, onEdit, onDelete, isOwner, canEdit }) 
                 <Visibility fontSize="small" />
               </IconButton>
             </Tooltip>
+            
+            {/* Edit - Only Super Admin */}
             {canEdit && (
-              <Tooltip title="Edit">
+              <Tooltip title="Edit (Super Admin Only)">
                 <IconButton 
                   size="small" 
                   onClick={() => onEdit(solution)}
@@ -501,8 +839,10 @@ const SolutionCard = ({ solution, onView, onEdit, onDelete, isOwner, canEdit }) 
                 </IconButton>
               </Tooltip>
             )}
-            {canEdit && (
-              <Tooltip title="Delete">
+            
+            {/* Delete - Only Super Admin */}
+            {canDelete && (
+              <Tooltip title="Delete (Super Admin Only)">
                 <IconButton 
                   size="small" 
                   color="error" 
@@ -520,34 +860,26 @@ const SolutionCard = ({ solution, onView, onEdit, onDelete, isOwner, canEdit }) 
 }
 
 // ============================================================
-// ✅ FORMAT DATE HELPER
-// ============================================================
-const formatDate = (dateString) => {
-  if (!dateString) return '-'
-  const date = new Date(dateString)
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  })
-}
-
-// ============================================================
 // ✅ MAIN KNOWLEDGE BASE COMPONENT
 // ============================================================
 const KnowledgeBase = () => {
   const { user } = useSelector((state) => state.auth)
   
-  if (user?.role === 'HOSPITAL_ADMIN') {
+  // ✅ Permission Checks
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN'
+  const isEngineer = user?.role === 'ENGINEER'
+  const isHospitalAdmin = user?.role === 'HOSPITAL_ADMIN'
+  
+  // ✅ UPDATED: ANY user (except Hospital Admin) can view and add
+  const canView = !isHospitalAdmin  // ✅ All non-Hospital-Admin users can view
+  const canAdd = !isHospitalAdmin   // ✅ All non-Hospital-Admin users can add
+  const canEdit = isSuperAdmin     // ✅ Only Super Admin can edit
+  const canDelete = isSuperAdmin   // ✅ Only Super Admin can delete
+  
+  // If Hospital Admin - show access denied
+  if (isHospitalAdmin) {
     return <AccessDenied message="Hospital Administrators cannot access Knowledge Base." />
   }
-  
-  const isEngineer = user?.role === 'ENGINEER'
-  const isSuperAdmin = user?.role === 'SUPER_ADMIN'
-  
-  const canAdd = isEngineer || isSuperAdmin
-  const canEdit = isSuperAdmin
-  const canDelete = isSuperAdmin
 
   const [loading, setLoading] = useState(true)
   const [equipmentList, setEquipmentList] = useState([])
@@ -563,6 +895,7 @@ const KnowledgeBase = () => {
   const [editingSolution, setEditingSolution] = useState(null)
   const [deletingSolution, setDeletingSolution] = useState(null)
   const [deleteLoading, setDeleteLoading] = useState(false)
+  const [viewTabValue, setViewTabValue] = useState(0)
 
   const [totalSolutions, setTotalSolutions] = useState(0)
   const [equipmentWithSolutions, setEquipmentWithSolutions] = useState(0)
@@ -607,10 +940,38 @@ const KnowledgeBase = () => {
     fetchEquipment()
   }, [])
 
+  // ✅ Helper to count attachments
+  const getAttachmentCount = (value) => {
+    if (!value) return 0
+    return value.split(',').filter(Boolean).length
+  }
+
+  // ✅ Get all attachments from a solution
+  const getAllAttachments = (solution) => {
+    const all = []
+    if (solution.spare_part_images) {
+      solution.spare_part_images.split(',').filter(Boolean).forEach(url => all.push(url))
+    }
+    if (solution.before_repair_images) {
+      solution.before_repair_images.split(',').filter(Boolean).forEach(url => all.push(url))
+    }
+    if (solution.after_repair_images) {
+      solution.after_repair_images.split(',').filter(Boolean).forEach(url => all.push(url))
+    }
+    if (solution.images) {
+      solution.images.split(',').filter(Boolean).forEach(url => all.push(url))
+    }
+    if (solution.attachments) {
+      solution.attachments.split(',').filter(Boolean).forEach(url => all.push(url))
+    }
+    return all  }
+
+  // ✅ FIXED: Using new /knowledge-base/equipment-list endpoint
   const fetchEquipment = async () => {
     setLoading(true)
     try {
-      const response = await api.get('/equipment')
+      // ✅ Use new endpoint that shows ALL equipment
+      const response = await api.get('/knowledge-base/equipment-list')
       const equipment = response.data.equipment || []
       setEquipmentList(equipment)
       
@@ -662,15 +1023,35 @@ const KnowledgeBase = () => {
 
   const handleViewSolution = (solution) => {
     setSelectedSolution(solution)
+    setViewTabValue(0)
     setOpenViewDialog(true)
   }
 
+  const handleTabChange = (event, newValue) => {
+    setViewTabValue(newValue)
+  }
+
+  // ✅ FIXED: handleAddSolution - Ensure equipment_id is set
   const handleAddSolution = () => {
+    if (!canAdd) {
+      toast.error('You do not have permission to add solutions')
+      return
+    }
+    
+    // ✅ Make sure equipment_id is set
+    const equipmentId = selectedEquipment?.id || ''
+    console.log('📌 Opening Add Dialog for equipment:', selectedEquipment?.name, 'ID:', equipmentId)
+    
+    if (!equipmentId) {
+      toast.error('Please select an equipment first')
+      return
+    }
+    
     setEditingSolution(null)
     setSparePartsList([])
     setHasSpareParts(false)
     setAddFormData({
-      equipment_id: selectedEquipment?.id || '',
+      equipment_id: equipmentId,  // ✅ Set from selectedEquipment
       error_code: '',
       error_title: '',
       error_description: '',
@@ -697,7 +1078,8 @@ const KnowledgeBase = () => {
   }
 
   const handleEditSolution = (solution) => {
-    if (!isSuperAdmin) {
+    // ✅ Only Super Admin can edit
+    if (!canEdit) {
       toast.error('Only Super Admin can edit solutions')
       return
     }
@@ -798,7 +1180,8 @@ const KnowledgeBase = () => {
   }
 
   const handleDeleteClick = (solution) => {
-    if (!isSuperAdmin) {
+    // ✅ Only Super Admin can delete
+    if (!canDelete) {
       toast.error('Only Super Admin can delete solutions')
       return
     }
@@ -873,21 +1256,44 @@ const KnowledgeBase = () => {
     }))
   }
 
+  // ✅ FIXED: handleSubmitSolution with better error handling
   const handleSubmitSolution = async () => {
     try {
-      if (!addFormData.equipment_id) {
+      console.log('📤 Submitting solution...')
+      console.log('📌 Equipment ID from form:', addFormData.equipment_id)
+      console.log('📌 Selected Equipment:', selectedEquipment)
+      
+      // ✅ Get equipment_id from selectedEquipment if form is empty
+      let equipmentId = addFormData.equipment_id
+      if (!equipmentId && selectedEquipment) {
+        equipmentId = selectedEquipment.id
+        console.log('📌 Using equipment_id from selectedEquipment:', equipmentId)
+      }
+      
+      if (!equipmentId) {
         toast.error('Equipment is required')
         return
       }
+      
       if (!addFormData.error_title) {
         toast.error('Error title is required')
+        return
+      }
+
+      // ✅ First check if equipment exists
+      try {
+        const checkEquip = await api.get(`/equipment/${equipmentId}`)
+        console.log('✅ Equipment exists:', checkEquip.data.equipment?.name)
+      } catch (checkError) {
+        console.error('❌ Equipment check failed:', checkError)
+        toast.error('Equipment not found. Please refresh and try again.')
         return
       }
 
       const sparePartsString = hasSpareParts ? formatSparePartsForDB() : ''
 
       const payload = {
-        equipment_id: addFormData.equipment_id,
+        equipment_id: parseInt(equipmentId),  // ✅ Ensure it's a number
         error_code: addFormData.error_code || null,
         error_title: addFormData.error_title,
         error_description: addFormData.error_description || null,
@@ -911,26 +1317,39 @@ const KnowledgeBase = () => {
         created_by_name: user?.full_name || ''
       }
 
-      console.log('📤 Submitting solution:', payload)
+      console.log('📤 Sending payload:', payload)
 
+      let response
       if (editingSolution) {
-        await api.put(`/knowledge-base/${editingSolution.id}`, payload)
+        response = await api.put(`/knowledge-base/${editingSolution.id}`, payload)
         toast.success('Solution updated successfully')
       } else {
-        await api.post('/knowledge-base', payload)
+        response = await api.post('/knowledge-base', payload)
         toast.success('Solution added successfully')
       }
+
+      console.log('✅ Response:', response.data)
 
       setOpenAddDialog(false)
       setSparePartsList([])
       setHasSpareParts(false)
       if (selectedEquipment) {
-        fetchSolutions(selectedEquipment.id)
-        fetchEquipment()
+        await fetchSolutions(selectedEquipment.id)
+        await fetchEquipment()
       }
     } catch (error) {
-      console.error('Error saving solution:', error)
-      toast.error(error.response?.data?.message || 'Failed to save solution')
+      console.error('❌ Error saving solution:', error)
+      console.error('❌ Error response:', error.response?.data)
+      console.error('❌ Error status:', error.response?.status)
+      
+      // ✅ Better error messages
+      if (error.response?.status === 404) {
+        toast.error('Equipment not found. Please refresh and try again.')
+      } else if (error.response?.data?.message) {
+        toast.error(error.response.data.message)
+      } else {
+        toast.error('Failed to save solution: ' + error.message)
+      }
     }
   }
 
@@ -980,6 +1399,16 @@ const KnowledgeBase = () => {
               '& .MuiChip-icon': { color: colors.lightCyan }
             }}
           />
+          {/* Show user role badge */}
+          <Chip
+            label={isSuperAdmin ? 'Super Admin' : isEngineer ? 'Engineer' : 'Contributor'}
+            size="small"
+            sx={{
+              bgcolor: isSuperAdmin ? colors.success : isEngineer ? colors.info : colors.lightCyan,
+              color: isSuperAdmin || isEngineer ? 'white' : colors.darkNavy,
+              fontWeight: 600,
+            }}
+          />
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button 
@@ -1002,7 +1431,7 @@ const KnowledgeBase = () => {
         </Box>
       </Box>
 
-      {/* Enhanced Stats Cards - DARK NAVY + CYAN */}
+      {/* Enhanced Stats Cards */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={6} sm={3}>
           <StatCard 
@@ -1162,6 +1591,7 @@ const KnowledgeBase = () => {
               </Box>
             </Box>
             <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+              {/* ✅ Add Solution - Available to ALL users (except Hospital Admin) */}
               {canAdd && (
                 <Button
                   variant="contained"
@@ -1195,7 +1625,7 @@ const KnowledgeBase = () => {
                 No solutions found
               </Typography>
               <Typography variant="body2" sx={{ color: colors.lightText }}>
-                Click "Add Solution" to add a new solution
+                {canAdd ? 'Click "Add Solution" to add a new solution' : 'No solutions available for this equipment'}
               </Typography>
             </Box>
           ) : (
@@ -1208,7 +1638,10 @@ const KnowledgeBase = () => {
                   onEdit={handleEditSolution}
                   onDelete={handleDeleteClick}
                   isOwner={isEngineer && (sol.created_by === user?.id || sol.created_by_name === user?.full_name)}
-                  canEdit={isSuperAdmin}
+                  canEdit={canEdit}
+                  canDelete={canDelete}
+                  userRole={user?.role}
+                  canAdd={canAdd}
                 />
               ))}
             </Box>
@@ -1235,7 +1668,7 @@ const KnowledgeBase = () => {
         </DialogActions>
       </Dialog>
 
-      {/* View Dialog - DARK NAVY + CYAN */}
+      {/* VIEW SOLUTION DIALOG WITH TABS */}
       <Dialog 
         open={openViewDialog} 
         onClose={() => setOpenViewDialog(false)} 
@@ -1246,6 +1679,7 @@ const KnowledgeBase = () => {
             borderRadius: 3,
             border: `1px solid ${colors.borderColor}`,
             boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+            maxHeight: '90vh',
           }
         }}
       >
@@ -1255,252 +1689,214 @@ const KnowledgeBase = () => {
           borderRadius: '8px 8px 0 0',
         }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" fontWeight={600}>
-              Solution Details
-            </Typography>
-            <IconButton onClick={() => setOpenViewDialog(false)} sx={{ color: 'white' }}>
-              <Close />
-            </IconButton>
+            <Box>
+              <Typography variant="h6" fontWeight={600}>
+                Solution Details
+              </Typography>
+              <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                {selectedSolution?.error_title || 'N/A'}
+              </Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <IconButton onClick={() => setOpenViewDialog(false)} sx={{ color: 'white' }}>
+                <Close />
+              </IconButton>
+            </Box>
           </Box>
         </DialogTitle>
-        <DialogContent dividers>
+        
+        <DialogContent dividers sx={{ p: 0 }}>
           {selectedSolution && (
             <Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3, p: 2, bgcolor: colors.mainBg, borderRadius: 2, border: `1px solid ${colors.borderColor}` }}>
-                <Avatar sx={{ bgcolor: colors.error, width: 56, height: 56 }}>
-                  <ErrorIcon sx={{ fontSize: 28 }} />
-                </Avatar>
-                <Box>
-                  <Typography variant="h5" fontWeight={600} sx={{ color: colors.darkNavy }}>
-                    {selectedSolution.error_title}
-                  </Typography>
-                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 0.5 }}>
-                    {selectedSolution.error_code && (
-                      <Chip label={`Code: ${selectedSolution.error_code}`} size="small" sx={{ bgcolor: colors.error, color: 'white' }} />
-                    )}
-                    {selectedSolution.time_taken && (
-                      <Chip label={`Time: ${selectedSolution.time_taken} min`} size="small" sx={{ bgcolor: colors.info, color: 'white' }} />
-                    )}
-                    {selectedSolution.repair_date && (
-                      <Chip label={`Repair: ${formatDate(selectedSolution.repair_date)}`} size="small" sx={{ bgcolor: colors.darkNavy, color: 'white' }} />
-                    )}
-                    {isEngineer && selectedSolution.created_by === user?.id && (
-                      <Chip label="Your Solution" size="small" sx={{ bgcolor: colors.lightCyan, color: colors.darkNavy }} />
-                    )}
+              {/* Tabs */}
+              <Tabs 
+                value={viewTabValue} 
+                onChange={handleTabChange}
+                sx={{
+                  borderBottom: `1px solid ${colors.borderColor}`,
+                  px: 2,
+                  pt: 1,
+                  '& .MuiTab-root': {
+                    textTransform: 'none',
+                    fontWeight: 500,
+                    color: colors.lightText,
+                    '&.Mui-selected': {
+                      color: colors.darkNavy,
+                    },
+                    '&:hover': {
+                      color: colors.lightCyanDark,
+                    }
+                  },
+                  '& .MuiTabs-indicator': {
+                    bgcolor: colors.lightCyanDark,
+                  }
+                }}
+              >
+                <Tab label="Details" />
+                <Tab 
+                  label={`Attachments (${getAllAttachments(selectedSolution).length})`} 
+                  disabled={getAllAttachments(selectedSolution).length === 0}
+                />
+              </Tabs>
+
+              {/* Tab 0: Details - Available to ALL users */}
+              {viewTabValue === 0 && (
+                <Box sx={{ p: 3 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3, p: 2, bgcolor: colors.mainBg, borderRadius: 2, border: `1px solid ${colors.borderColor}` }}>
+                    <Avatar sx={{ bgcolor: colors.error, width: 56, height: 56 }}>
+                      <ErrorIcon sx={{ fontSize: 28 }} />
+                    </Avatar>
+                    <Box>
+                      <Typography variant="h5" fontWeight={600} sx={{ color: colors.darkNavy }}>
+                        {selectedSolution.error_title}
+                      </Typography>
+                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 0.5 }}>
+                        {selectedSolution.error_code && (
+                          <Chip label={`Code: ${selectedSolution.error_code}`} size="small" sx={{ bgcolor: colors.error, color: 'white' }} />
+                        )}
+                        {selectedSolution.time_taken && (
+                          <Chip label={`Time: ${selectedSolution.time_taken} min`} size="small" sx={{ bgcolor: colors.info, color: 'white' }} />
+                        )}
+                        {selectedSolution.repair_date && (
+                          <Chip label={`Repair: ${formatDate(selectedSolution.repair_date)}`} size="small" sx={{ bgcolor: colors.darkNavy, color: 'white' }} />
+                        )}
+                        {isEngineer && selectedSolution.created_by === user?.id && (
+                          <Chip label="Your Solution" size="small" sx={{ bgcolor: colors.lightCyan, color: colors.darkNavy }} />
+                        )}
+                      </Box>
+                    </Box>
                   </Box>
-                </Box>
-              </Box>
 
-              <Divider sx={{ mb: 3, borderColor: colors.borderColor }} />
+                  <Divider sx={{ mb: 3, borderColor: colors.borderColor }} />
 
-              <Grid container spacing={3}>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>
-                    <MedicalServices fontSize="small" /> Equipment Information
-                  </Typography>
-                  <Paper sx={{ p: 2, bgcolor: colors.mainBg, borderRadius: 2, mb: 3, border: `1px solid ${colors.borderColor}` }}>
-                    <Grid container spacing={1}>
-                      <Grid item xs={6}>
-                        <Typography variant="caption" sx={{ color: colors.lightText }}>Equipment</Typography>
-                        <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>{selectedSolution.equipment_name || 'N/A'}</Typography>
-                      </Grid>
-                      <Grid item xs={6}>
-                        <Typography variant="caption" sx={{ color: colors.lightText }}>Hospital</Typography>
-                        <Typography variant="body2" sx={{ color: colors.darkNavy }}>{selectedSolution.hospital_name || 'N/A'}</Typography>
-                      </Grid>
-                      <Grid item xs={6}>
-                        <Typography variant="caption" sx={{ color: colors.lightText }}>Department</Typography>
-                        <Typography variant="body2" sx={{ color: colors.darkNavy }}>{selectedSolution.department_name || 'N/A'}</Typography>
-                      </Grid>
-                      <Grid item xs={6}>
-                        <Typography variant="caption" sx={{ color: colors.lightText }}>Reported By</Typography>
-                        <Typography variant="body2" sx={{ color: colors.darkNavy }}>{selectedSolution.reported_by || selectedSolution.created_by_name || 'N/A'}</Typography>
-                      </Grid>
+                  <Grid container spacing={3}>
+                    <Grid item xs={12} md={6}>
+                      <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>
+                        <MedicalServices fontSize="small" /> Equipment Information
+                      </Typography>
+                      <Paper sx={{ p: 2, bgcolor: colors.mainBg, borderRadius: 2, mb: 3, border: `1px solid ${colors.borderColor}` }}>
+                        <Grid container spacing={1}>
+                          <Grid item xs={6}>
+                            <Typography variant="caption" sx={{ color: colors.lightText }}>Equipment</Typography>
+                            <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>{selectedSolution.equipment_name || 'N/A'}</Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="caption" sx={{ color: colors.lightText }}>Hospital</Typography>
+                            <Typography variant="body2" sx={{ color: colors.darkNavy }}>{selectedSolution.hospital_name || 'N/A'}</Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="caption" sx={{ color: colors.lightText }}>Department</Typography>
+                            <Typography variant="body2" sx={{ color: colors.darkNavy }}>{selectedSolution.department_name || 'N/A'}</Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="caption" sx={{ color: colors.lightText }}>Reported By</Typography>
+                            <Typography variant="body2" sx={{ color: colors.darkNavy }}>{selectedSolution.reported_by || selectedSolution.created_by_name || 'N/A'}</Typography>
+                          </Grid>
+                        </Grid>
+                      </Paper>
+
+                      <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>
+                        <ErrorIcon fontSize="small" /> Error Details
+                      </Typography>
+                      <Paper sx={{ p: 2, bgcolor: colors.mainBg, borderRadius: 2, mb: 3, border: `1px solid ${colors.borderColor}` }}>
+                        <Typography variant="caption" sx={{ color: colors.lightText }}>Description</Typography>
+                        <Typography variant="body2" sx={{ mt: 0.5, color: colors.darkNavy }}>{selectedSolution.error_description || 'No description'}</Typography>
+                      </Paper>
                     </Grid>
-                  </Paper>
 
-                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>
-                    <ErrorIcon fontSize="small" /> Error Details
-                  </Typography>
-                  <Paper sx={{ p: 2, bgcolor: colors.mainBg, borderRadius: 2, mb: 3, border: `1px solid ${colors.borderColor}` }}>
-                    <Typography variant="caption" sx={{ color: colors.lightText }}>Description</Typography>
-                    <Typography variant="body2" sx={{ mt: 0.5, color: colors.darkNavy }}>{selectedSolution.error_description || 'No description'}</Typography>
-                  </Paper>
-                </Grid>
+                    <Grid item xs={12} md={6}>
+                      <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>
+                        <Build fontSize="small" /> Solution Details
+                      </Typography>
+                      
+                      <Paper sx={{ p: 2, bgcolor: colors.mainBg, borderRadius: 2, mb: 2, border: `1px solid ${colors.borderColor}` }}>
+                        <Typography variant="caption" sx={{ color: colors.lightText }}>Root Cause</Typography>
+                        <Typography variant="body2" sx={{ mt: 0.5, color: colors.darkNavy }}>{selectedSolution.root_cause || 'Not specified'}</Typography>
+                      </Paper>
 
-                <Grid item xs={12} md={6}>
-                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>
-                    <Build fontSize="small" /> Solution Details
-                  </Typography>
-                  
-                  <Paper sx={{ p: 2, bgcolor: colors.mainBg, borderRadius: 2, mb: 2, border: `1px solid ${colors.borderColor}` }}>
-                    <Typography variant="caption" sx={{ color: colors.lightText }}>Root Cause</Typography>
-                    <Typography variant="body2" sx={{ mt: 0.5, color: colors.darkNavy }}>{selectedSolution.root_cause || 'Not specified'}</Typography>
-                  </Paper>
+                      <Paper sx={{ p: 2, bgcolor: colors.mainBg, borderRadius: 2, mb: 2, border: `1px solid ${colors.borderColor}` }}>
+                        <Typography variant="caption" sx={{ color: colors.lightText }}>Solution</Typography>
+                        <Typography variant="body2" sx={{ mt: 0.5, color: colors.darkNavy }}>{selectedSolution.solution || 'Not specified'}</Typography>
+                      </Paper>
 
-                  <Paper sx={{ p: 2, bgcolor: colors.mainBg, borderRadius: 2, mb: 2, border: `1px solid ${colors.borderColor}` }}>
-                    <Typography variant="caption" sx={{ color: colors.lightText }}>Solution</Typography>
-                    <Typography variant="body2" sx={{ mt: 0.5, color: colors.darkNavy }}>{selectedSolution.solution || 'Not specified'}</Typography>
-                  </Paper>
-
-                  <Paper sx={{ p: 2, bgcolor: colors.mainBg, borderRadius: 2, border: `1px solid ${colors.borderColor}` }}>
-                    <Typography variant="caption" sx={{ color: colors.lightText }}>Repair Procedure</Typography>
-                    <Typography variant="body2" sx={{ mt: 0.5, whiteSpace: 'pre-line', color: colors.darkNavy }}>
-                      {selectedSolution.repair_procedure || 'Not specified'}
-                    </Typography>
-                  </Paper>
-                </Grid>
-              </Grid>
-
-              {/* Spare Parts Section */}
-              {selectedSolution.spare_parts_used && (
-                <>
-                  <Divider sx={{ my: 3, borderColor: colors.borderColor }} />
-                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>
-                    <Inventory fontSize="small" /> Spare Parts Used
-                  </Typography>
-                  <Paper sx={{ p: 2, bgcolor: colors.mainBg, borderRadius: 2, border: `1px solid ${colors.borderColor}` }}>
-                    <Typography variant="body2" sx={{ color: colors.darkNavy }}>{selectedSolution.spare_parts_used}</Typography>
-                  </Paper>
-                </>
-              )}
-
-              {/* Images Section */}
-              {(selectedSolution.spare_part_images || selectedSolution.before_repair_images || selectedSolution.after_repair_images || selectedSolution.images) && (
-                <>
-                  <Divider sx={{ my: 3, borderColor: colors.borderColor }} />
-                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>
-                    <Image fontSize="small" /> Images
-                  </Typography>
-                  
-                  <Grid container spacing={2}>
-                    {selectedSolution.spare_part_images && (
-                      <Grid item xs={12}>
-                        <Typography variant="caption" sx={{ color: colors.lightText }}>Spare Part Images</Typography>
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 0.5 }}>
-                          {selectedSolution.spare_part_images.split(',').filter(Boolean).map((url, idx) => {
-                            const fullUrl = getFullUrl(url.trim())
-                            return (
-                              <Box
-                                key={idx}
-                                component="img"
-                                src={fullUrl}
-                                alt={`Spare part ${idx + 1}`}
-                                sx={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 1, cursor: 'pointer' }}
-                                onClick={() => window.open(fullUrl, '_blank')}
-                                onError={(e) => { e.target.style.display = 'none' }}
-                              />
-                            )
-                          })}
-                        </Box>
-                      </Grid>
-                    )}
-
-                    {selectedSolution.before_repair_images && (
-                      <Grid item xs={12}>
-                        <Typography variant="caption" sx={{ color: colors.lightText }}>Before Repair</Typography>
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 0.5 }}>
-                          {selectedSolution.before_repair_images.split(',').filter(Boolean).map((url, idx) => {
-                            const fullUrl = getFullUrl(url.trim())
-                            return (
-                              <Box
-                                key={idx}
-                                component="img"
-                                src={fullUrl}
-                                alt={`Before repair ${idx + 1}`}
-                                sx={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 1, cursor: 'pointer' }}
-                                onClick={() => window.open(fullUrl, '_blank')}
-                                onError={(e) => { e.target.style.display = 'none' }}
-                              />
-                            )
-                          })}
-                        </Box>
-                      </Grid>
-                    )}
-
-                    {selectedSolution.after_repair_images && (
-                      <Grid item xs={12}>
-                        <Typography variant="caption" sx={{ color: colors.lightText }}>After Repair</Typography>
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 0.5 }}>
-                          {selectedSolution.after_repair_images.split(',').filter(Boolean).map((url, idx) => {
-                            const fullUrl = getFullUrl(url.trim())
-                            return (
-                              <Box
-                                key={idx}
-                                component="img"
-                                src={fullUrl}
-                                alt={`After repair ${idx + 1}`}
-                                sx={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 1, cursor: 'pointer' }}
-                                onClick={() => window.open(fullUrl, '_blank')}
-                                onError={(e) => { e.target.style.display = 'none' }}
-                              />
-                            )
-                          })}
-                        </Box>
-                      </Grid>
-                    )}
-
-                    {selectedSolution.images && (
-                      <Grid item xs={12}>
-                        <Typography variant="caption" sx={{ color: colors.lightText }}>General Images</Typography>
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 0.5 }}>
-                          {selectedSolution.images.split(',').filter(Boolean).map((url, idx) => {
-                            const fullUrl = getFullUrl(url.trim())
-                            return (
-                              <Box
-                                key={idx}
-                                component="img"
-                                src={fullUrl}
-                                alt={`Image ${idx + 1}`}
-                                sx={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 1, cursor: 'pointer' }}
-                                onClick={() => window.open(fullUrl, '_blank')}
-                                onError={(e) => { e.target.style.display = 'none' }}
-                              />
-                            )
-                          })}
-                        </Box>
-                      </Grid>
-                    )}
+                      <Paper sx={{ p: 2, bgcolor: colors.mainBg, borderRadius: 2, border: `1px solid ${colors.borderColor}` }}>
+                        <Typography variant="caption" sx={{ color: colors.lightText }}>Repair Procedure</Typography>
+                        <Typography variant="body2" sx={{ mt: 0.5, whiteSpace: 'pre-line', color: colors.darkNavy }}>
+                          {selectedSolution.repair_procedure || 'Not specified'}
+                        </Typography>
+                      </Paper>
+                    </Grid>
                   </Grid>
-                </>
-              )}
 
-              {/* Remarks */}
-              {selectedSolution.remarks && (
-                <>
+                  {/* Spare Parts Section */}
+                  {selectedSolution.spare_parts_used && (
+                    <>
+                      <Divider sx={{ my: 3, borderColor: colors.borderColor }} />
+                      <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>
+                        <Inventory fontSize="small" /> Spare Parts Used
+                      </Typography>
+                      <Paper sx={{ p: 2, bgcolor: colors.mainBg, borderRadius: 2, border: `1px solid ${colors.borderColor}` }}>
+                        <Typography variant="body2" sx={{ color: colors.darkNavy }}>{selectedSolution.spare_parts_used}</Typography>
+                      </Paper>
+                    </>
+                  )}
+
+                  {/* Remarks */}
+                  {selectedSolution.remarks && (
+                    <>
+                      <Divider sx={{ my: 3, borderColor: colors.borderColor }} />
+                      <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>
+                        <Description fontSize="small" /> Remarks
+                      </Typography>
+                      <Paper sx={{ p: 2, bgcolor: colors.mainBg, borderRadius: 2, border: `1px solid ${colors.borderColor}` }}>
+                        <Typography variant="body2" sx={{ color: colors.darkNavy }}>{selectedSolution.remarks}</Typography>
+                      </Paper>
+                    </>
+                  )}
+
+                  {/* People Information */}
                   <Divider sx={{ my: 3, borderColor: colors.borderColor }} />
                   <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>
-                    <Description fontSize="small" /> Remarks
+                    <Person fontSize="small" /> People Information
                   </Typography>
-                  <Paper sx={{ p: 2, bgcolor: colors.mainBg, borderRadius: 2, border: `1px solid ${colors.borderColor}` }}>
-                    <Typography variant="body2" sx={{ color: colors.darkNavy }}>{selectedSolution.remarks}</Typography>
-                  </Paper>
-                </>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} sm={6}>
+                      <Paper sx={{ p: 2, bgcolor: colors.mainBg, borderRadius: 2, border: `1px solid ${colors.borderColor}` }}>
+                        <Typography variant="caption" sx={{ color: colors.lightText }}>Engineer Name</Typography>
+                        <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>{selectedSolution.engineer_name || 'N/A'}</Typography>
+                      </Paper>
+                    </Grid>
+                    <Grid item xs={12} sm={6}>
+                      <Paper sx={{ p: 2, bgcolor: colors.mainBg, borderRadius: 2, border: `1px solid ${colors.borderColor}` }}>
+                        <Typography variant="caption" sx={{ color: colors.lightText }}>Created By</Typography>
+                        <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>{selectedSolution.created_by_name || 'Unknown'}</Typography>
+                      </Paper>
+                    </Grid>
+                  </Grid>
+                </Box>
               )}
 
-              {/* People Information */}
-              <Divider sx={{ my: 3, borderColor: colors.borderColor }} />
-              <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>
-                <Person fontSize="small" /> People Information
-              </Typography>
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
-                  <Paper sx={{ p: 2, bgcolor: colors.mainBg, borderRadius: 2, border: `1px solid ${colors.borderColor}` }}>
-                    <Typography variant="caption" sx={{ color: colors.lightText }}>Engineer Name</Typography>
-                    <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>{selectedSolution.engineer_name || 'N/A'}</Typography>
-                  </Paper>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Paper sx={{ p: 2, bgcolor: colors.mainBg, borderRadius: 2, border: `1px solid ${colors.borderColor}` }}>
-                    <Typography variant="caption" sx={{ color: colors.lightText }}>Created By</Typography>
-                    <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>{selectedSolution.created_by_name || 'Unknown'}</Typography>
-                  </Paper>
-                </Grid>
-              </Grid>
+              {/* Tab 1: Attachments - Available to ALL users */}
+              {viewTabValue === 1 && (
+                <Box sx={{ p: 3 }}>
+                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy, mb: 2 }}>
+                    Attachments ({getAllAttachments(selectedSolution).length})
+                  </Typography>
+                  <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 2 }}>
+                    Click on any file to preview it. Images and videos will open in a preview dialog.
+                  </Typography>
+                  
+                  {/* ✅ Attachment Grid - Available to ALL users */}
+                  <AttachmentGrid 
+                    attachments={getAllAttachments(selectedSolution)}
+                  />
+                </Box>
+              )}
             </Box>
           )}
         </DialogContent>
-        <DialogActions sx={{ p: 3 }}>
+        
+        <DialogActions sx={{ p: 3, justifyContent: 'space-between' }}>
           <Button 
             onClick={() => setOpenViewDialog(false)} 
             sx={{ 
@@ -1513,49 +1909,53 @@ const KnowledgeBase = () => {
           >
             Close
           </Button>
-          {isSuperAdmin && selectedSolution && (
-            <Button
-              variant="outlined"
-              onClick={() => {
-                setOpenViewDialog(false)
-                handleEditSolution(selectedSolution)
-              }}
-              sx={{ 
-                borderColor: colors.darkNavy, 
-                color: colors.darkNavy, 
-                '&:hover': { 
-                  borderColor: colors.lightCyan, 
-                  color: colors.lightCyanDark,
-                  backgroundColor: 'rgba(103, 232, 249, 0.04)'
-                },
-                textTransform: 'none',
-                borderRadius: 2,
-              }}
-            >
-              Edit
-            </Button>
-          )}
-          {isSuperAdmin && selectedSolution && (
-            <Button
-              variant="contained"
-              color="error"
-              startIcon={<DeleteForever />}
-              onClick={() => {
-                setOpenViewDialog(false)
-                handleDeleteClick(selectedSolution)
-              }}
-              sx={{
-                textTransform: 'none',
-                borderRadius: 2,
-              }}
-            >
-              Delete
-            </Button>
-          )}
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            {/* ✅ Edit - Only Super Admin */}
+            {canEdit && selectedSolution && (
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  setOpenViewDialog(false)
+                  handleEditSolution(selectedSolution)
+                }}
+                sx={{ 
+                  borderColor: colors.darkNavy, 
+                  color: colors.darkNavy, 
+                  '&:hover': { 
+                    borderColor: colors.lightCyan, 
+                    color: colors.lightCyanDark,
+                    backgroundColor: 'rgba(103, 232, 249, 0.04)'
+                  },
+                  textTransform: 'none',
+                  borderRadius: 2,
+                }}
+              >
+                Edit
+              </Button>
+            )}
+            {/* ✅ Delete - Only Super Admin */}
+            {canDelete && selectedSolution && (
+              <Button
+                variant="contained"
+                color="error"
+                startIcon={<DeleteForever />}
+                onClick={() => {
+                  setOpenViewDialog(false)
+                  handleDeleteClick(selectedSolution)
+                }}
+                sx={{
+                  textTransform: 'none',
+                  borderRadius: 2,
+                }}
+              >
+                Delete
+              </Button>
+            )}
+          </Box>
         </DialogActions>
       </Dialog>
 
-      {/* Delete Dialog - DARK NAVY + CYAN */}
+      {/* Delete Dialog */}
       <Dialog 
         open={openDeleteDialog} 
         onClose={() => setOpenDeleteDialog(false)}
@@ -1635,7 +2035,7 @@ const KnowledgeBase = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Add/Edit Dialog - DARK NAVY + CYAN */}
+      {/* Add/Edit Dialog - Available to ALL users (except Hospital Admin) */}
       <Dialog 
         open={openAddDialog} 
         onClose={() => setOpenAddDialog(false)} 
