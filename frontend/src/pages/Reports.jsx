@@ -3,6 +3,9 @@
 // ✅ Engineer Performance with Avg Days
 // ✅ Super Admin can see all engineers
 // ✅ Engineer can see own performance
+// ✅ AMC: Closed removed, only Resolved for downtime calculation
+// ✅ Data persists on refresh with localStorage caching
+// ✅ Proper useEffect dependencies
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import {
@@ -98,6 +101,7 @@ import {
   CloudOff,
   TimerOff,
   PowerOff,
+  Receipt,
 } from '@mui/icons-material'
 import { useSelector } from 'react-redux'
 import { toast } from 'react-toastify'
@@ -354,6 +358,38 @@ const getCleanExportData = (data, reportType) => {
     }))
   }
 
+  if (reportType === 'amc') {
+    return data.map(r => ({
+      'Contract': r.contract_number || 'N/A',
+      'Vendor': r.vendor_name || 'N/A',
+      'Equipment': r.equipment_name || 'N/A',
+      'Hospital': r.hospital_name || 'N/A',
+      'Status': r.status || 'N/A',
+      'Total Errors': r.total_errors || 0,
+      'Pending': r.pending_errors || 0,
+      'In Progress': r.in_progress_errors || 0,
+      'Completed': r.completed_errors || 0,
+      'Resolved': r.resolved_errors || 0,
+      'Downtime (Days)': r.total_downtime_days || '0.0',
+      'Days Left': r.days_remaining !== null && r.days_remaining !== undefined ? r.days_remaining : 'N/A'
+    }))
+  }
+
+  if (reportType === 'engineer-performance') {
+    return data.map(r => ({
+      'Engineer': r.engineer_name || 'N/A',
+      'Email': r.email || 'N/A',
+      'Hospital': r.hospital_name || 'N/A',
+      'Total Repairs': r.total_repairs || 0,
+      'Completed': r.completed || 0,
+      'Pending': r.pending || 0,
+      'Critical': r.critical || 0,
+      'Avg Days': r.avg_days || '0.0',
+      'Completion Rate': r.completion_rate || '0.0%',
+      'Status': r.status || 'N/A'
+    }))
+  }
+
   return data.map(r => ({
     'Title': r.title || r.name || r.error_title || r.equipment_name || 'N/A',
     'Type': r.type || r.category || reportType || 'Report',
@@ -385,6 +421,30 @@ const calculateExportSummary = (rows, reportType) => {
       'Resolved': resolved,
       'Open': open,
       'Critical': critical
+    }
+  }
+
+  if (reportType === 'amc') {
+    const totalDowntime = rows.reduce((s, r) => s + parseFloat(r['Downtime (Days)'] || 0), 0)
+    const totalErrors = rows.reduce((s, r) => s + num(r['Total Errors']), 0)
+    const resolved = rows.reduce((s, r) => s + num(r['Resolved']), 0)
+    return {
+      'Total Contracts': rows.length,
+      'Total Errors': totalErrors,
+      'Resolved Errors': resolved,
+      'Total Downtime (Days)': `${totalDowntime.toFixed(1)}`
+    }
+  }
+
+  if (reportType === 'engineer-performance') {
+    const totalRepairs = rows.reduce((s, r) => s + num(r['Total Repairs']), 0)
+    const completed = rows.reduce((s, r) => s + num(r['Completed']), 0)
+    const pending = rows.reduce((s, r) => s + num(r['Pending']), 0)
+    return {
+      'Total Engineers': rows.length,
+      'Total Repairs': totalRepairs,
+      'Completed': completed,
+      'Pending': pending
     }
   }
 
@@ -912,6 +972,7 @@ const SuperAdminReports = () => {
   const [error, setError] = useState(null)
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' })
   const [hospitalOptions, setHospitalOptions] = useState([])
+  const [initialLoadDone, setInitialLoadDone] = useState(false)
 
   useEffect(() => {
     const fetchHospitals = async () => {
@@ -928,6 +989,65 @@ const SuperAdminReports = () => {
     }
     fetchHospitals()
   }, [])
+
+  // ✅ Load cached data on mount
+  useEffect(() => {
+    const loadCachedData = () => {
+      try {
+        const cached = localStorage.getItem('reportData_cache')
+        if (cached) {
+          const parsed = JSON.parse(cached)
+          // ✅ Check if cache is not too old (5 minutes)
+          if (Date.now() - parsed.timestamp < 5 * 60 * 1000) {
+            console.log('📦 Loading cached report data...')
+            setReportData({
+              success: true,
+              data: parsed.data,
+              total: parsed.data.length,
+              generatedAt: parsed.timestamp,
+              period: parsed.period || 'monthly',
+              filters: parsed.filters || {},
+              type: parsed.type || 'downtime'
+            })
+            setReportType(parsed.type || 'downtime')
+            setPeriod(parsed.period || 'monthly')
+            if (parsed.filters) {
+              setFilters(prev => ({ ...prev, ...parsed.filters }))
+            }
+            return true
+          }
+        }
+      } catch (e) {
+        console.error('Failed to load cached data:', e)
+      }
+      return false
+    }
+
+    const cachedLoaded = loadCachedData()
+    setInitialLoadDone(true)
+    
+    // ✅ If no cache or cache expired, generate fresh data
+    if (!cachedLoaded) {
+      generateReport('downtime', 'monthly')
+    }
+  }, [])
+
+  // ✅ Save data to localStorage when it changes
+  useEffect(() => {
+    if (reportData?.data?.length > 0) {
+      try {
+        localStorage.setItem('reportData_cache', JSON.stringify({
+          data: reportData.data,
+          timestamp: Date.now(),
+          type: reportData.type || reportType,
+          period: reportData.period || period,
+          filters: reportData.filters || filters
+        }))
+      } catch (e) {
+        console.error('Failed to cache data:', e)
+      }
+    }
+  }, [reportData, reportType, period, filters])
 
   const periodOptions = [
     { value: 'daily', label: 'Daily' },
@@ -958,6 +1078,7 @@ const SuperAdminReports = () => {
     }
   ]
 
+  // ✅ generateReport with useCallback and proper dependencies
   const generateReport = useCallback(async (type, periodVal) => {
     const reportTypeVal = type || reportType
     const periodValActual = periodVal || period
@@ -1216,9 +1337,73 @@ const SuperAdminReports = () => {
           break
         }
 
+        // ✅ AMC CASE - CLOSED REMOVED, SIRF RESOLVED SE DOWNTIME
         case 'amc': {
+          // ✅ AMC contracts fetch karein
           const response = await api.get('/amc')
-          data = response.data.contracts || []
+          const contracts = response.data.contracts || []
+          
+          // ✅ Equipment fetch karein
+          const equipmentRes = await api.get('/equipment')
+          const equipment = equipmentRes.data.equipment || []
+          
+          // ✅ Errors fetch karein
+          const errorsRes = await api.get('/errors')
+          const allErrors = errorsRes.data.errors || []
+
+          // ✅ Data ko map karein
+          const mappedData = contracts.map(contract => {
+            const equip = equipment.find(e => e.id === contract.equipment_id)
+            const eqErrors = allErrors.filter(e => e.equipment_id === contract.equipment_id)
+            
+            const pendingErrors = eqErrors.filter(e => e.status === 'Pending')
+            const inProgressErrors = eqErrors.filter(e => e.status === 'In Progress')
+            const completedErrors = eqErrors.filter(e => e.status === 'Completed')
+            // ✅ SIRF RESOLVED (CLOSED REMOVED)
+            const resolvedErrors = eqErrors.filter(e => e.status === 'Resolved')
+            
+            // ✅ TOTAL DOWNTIME - SIRF RESOLVED SE CALCULATE (CLOSED REMOVED)
+            let totalDowntimeHours = 0
+            resolvedErrors.forEach(e => {
+              if (e.created_at && e.updated_at) {
+                const start = new Date(e.created_at)
+                const end = new Date(e.updated_at)
+                const hours = (end - start) / (1000 * 60 * 60)
+                if (hours > 0) totalDowntimeHours += hours
+              }
+            })
+            
+            const downtimeDays = totalDowntimeHours / 24
+
+            return {
+              id: contract.id,
+              contract_number: contract.contract_number || 'N/A',
+              vendor_name: contract.vendor_name || 'N/A',
+              equipment_name: equip?.name || 'N/A',
+              equipment_model: equip?.model || 'N/A',
+              hospital_name: equip?.hospital_name || 'N/A',
+              start_date: contract.start_date,
+              end_date: contract.end_date,
+              status: contract.status || 'Pending',
+              cost: contract.cost || 0,
+              is_active: contract.is_active,
+              total_errors: eqErrors.length,
+              pending_errors: pendingErrors.length,
+              in_progress_errors: inProgressErrors.length,
+              completed_errors: completedErrors.length,
+              resolved_errors: resolvedErrors.length,
+              total_downtime_hours: totalDowntimeHours,
+              total_downtime_days: downtimeDays.toFixed(1),
+              days_remaining: contract.end_date ? 
+                Math.ceil((new Date(contract.end_date) - new Date()) / (1000 * 60 * 60 * 24)) : null,
+              document_url: contract.document_url,
+              notes: contract.notes,
+              contact_person: contract.contact_person,
+              contact_phone: contract.contact_phone
+            }
+          })
+
+          data = mappedData
           break
         }
 
@@ -1248,16 +1433,21 @@ const SuperAdminReports = () => {
     }
   }, [reportType, period, filters])
 
+  // ✅ Fixed useEffect with proper dependencies
   useEffect(() => {
-    generateReport('downtime', 'monthly')
+    // ✅ Only run if initial load is done and no cached data was loaded
+    if (initialLoadDone && !reportData) {
+      generateReport(reportType, period)
+    }
 
+    // ✅ Auto-refresh interval every 30 seconds
     const interval = setInterval(() => {
       console.log('🔄 Auto-refreshing report data...')
       generateReport(reportType, period)
     }, 30000)
 
     return () => clearInterval(interval)
-  }, [])
+  }, [reportType, period, initialLoadDone, generateReport]) // ✅ Dependencies properly set
 
   const handleView = (item) => {
     setSelectedItem(item)
@@ -1347,7 +1537,9 @@ const SuperAdminReports = () => {
         item.period,
         item['Serial / Asset No.'],
         item['Equipment ID'],
-        item['Department']
+        item['Department'],
+        item.contract_number,
+        item.vendor_name
       ]
         .filter(Boolean)
         .map(value => String(value).toLowerCase())
@@ -1418,6 +1610,7 @@ const SuperAdminReports = () => {
   }
 
   const isErrorReport = ['monthly', 'weekly', 'daily', 'yearly'].includes(reportType)
+  const isAMCReport = reportType === 'amc'
 
   return (
     <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
@@ -1563,224 +1756,274 @@ const SuperAdminReports = () => {
         </MenuItem>
       </Menu>
 
-      {/* STATS CARDS */}
-      <Grid container spacing={isMobile ? 1 : 2} sx={{ mb: 3 }}>
-        {reportType === 'downtime' ? (
-          <>
-            <Grid item xs={6} sm={2.4}>
-              <StatsCard
-                title="Equipment"
-                value={filteredData.length}
-                color="#0F172A"
-                icon={<MedicalServices sx={{ fontSize: 20, color: 'white' }} />}
-                loading={loading}
-              />
-            </Grid>
-            <Grid item xs={6} sm={2.4}>
-              <StatsCard
-                title="Total Failures"
-                value={filteredData.reduce((sum, row) => sum + num(row['Total Failures']), 0)}
-                color="#F59E0B"
-                bgColor="#F59E0B10"
-                icon={<ErrorOutline sx={{ fontSize: 20, color: 'white' }} />}
-                loading={loading}
-              />
-            </Grid>
-            <Grid item xs={6} sm={2.4}>
-              <StatsCard
-                title="Critical Failures"
-                value={filteredData.reduce((sum, row) => sum + num(row['Critical Failures']), 0)}
-                color="#EF4444"
-                bgColor="#EF444410"
-                icon={<Warning sx={{ fontSize: 20, color: 'white' }} />}
-                loading={loading}
-              />
-            </Grid>
-            <Grid item xs={6} sm={2.4}>
-              <StatsCard
-                title="Total Downtime"
-                value={`${filteredData.reduce((sum, row) => sum + parseFloat(row['Total Downtime (Days)'] || 0), 0).toFixed(1)} days`}
-                color="#EF4444"
-                bgColor="#EF444410"
-                icon={<TimerOff sx={{ fontSize: 20, color: 'white' }} />}
-                loading={loading}
-              />
-            </Grid>
-            <Grid item xs={6} sm={2.4}>
-              <StatsCard
-                title="Avg Availability"
-                value={`${average(
-                  filteredData
-                    .map(row => parseFloat(String(row['Availability %'] || '').replace('%', '')))
-                    .filter(Number.isFinite)
-                ).toFixed(1)}%`}
-                color="#6f42c1"
-                bgColor="#f3e5f5"
-                icon={<TrendingUp sx={{ fontSize: 20, color: 'white' }} />}
-                loading={loading}
-              />
-            </Grid>
-          </>
-        ) : reportType === 'engineer-performance' ? (
-          <>
-            <Grid item xs={6} sm={2.4}>
-              <StatsCard
-                title="Total Engineers"
-                value={filteredData.length}
-                color="#0F172A"
-                icon={<Engineering sx={{ fontSize: 20, color: 'white' }} />}
-                loading={loading}
-              />
-            </Grid>
-            <Grid item xs={6} sm={2.4}>
-              <StatsCard
-                title="Total Repairs"
-                value={filteredData.reduce((sum, row) => sum + row.total_repairs, 0)}
-                color="#0F172A"
-                icon={<Build sx={{ fontSize: 20, color: 'white' }} />}
-                loading={loading}
-              />
-            </Grid>
-            <Grid item xs={6} sm={2.4}>
-              <StatsCard
-                title="Completed"
-                value={filteredData.reduce((sum, row) => sum + row.completed, 0)}
-                color="#22C55E"
-                bgColor="#22C55E10"
-                icon={<CheckCircle sx={{ fontSize: 20, color: 'white' }} />}
-                loading={loading}
-              />
-            </Grid>
-            <Grid item xs={6} sm={2.4}>
-              <StatsCard
-                title="Pending"
-                value={filteredData.reduce((sum, row) => sum + row.pending, 0)}
-                color="#F59E0B"
-                bgColor="#F59E0B10"
-                icon={<Schedule sx={{ fontSize: 20, color: 'white' }} />}
-                loading={loading}
-              />
-            </Grid>
-            <Grid item xs={6} sm={2.4}>
-              <StatsCard
-                title="Avg Days"
-                value={`${(filteredData.reduce((sum, row) => sum + parseFloat(row.avg_days || 0), 0) / (filteredData.length || 1)).toFixed(1)} days`}
-                color="#6f42c1"
-                bgColor="#f3e5f5"
-                icon={<TimerOff sx={{ fontSize: 20, color: 'white' }} />}
-                loading={loading}
-              />
-            </Grid>
-          </>
-        ) : isErrorReport ? (
-          <>
-            <Grid item xs={6} sm={2.4}>
-              <StatsCard
-                title="Total Errors"
-                value={filteredData.reduce((sum, row) => sum + num(row.total_errors), 0)}
-                color="#0F172A"
-                icon={<Assessment sx={{ fontSize: 20, color: 'white' }} />}
-                loading={loading}
-              />
-            </Grid>
-            <Grid item xs={6} sm={2.4}>
-              <StatsCard
-                title="Resolved"
-                value={filteredData.reduce((sum, row) => sum + num(row.resolved), 0)}
-                color="#22C55E"
-                bgColor="#22C55E10"
-                icon={<CheckCircle sx={{ fontSize: 20, color: 'white' }} />}
-                loading={loading}
-              />
-            </Grid>
-            <Grid item xs={6} sm={2.4}>
-              <StatsCard
-                title="Open"
-                value={filteredData.reduce((sum, row) => sum + num(row.open), 0)}
-                color="#F59E0B"
-                bgColor="#F59E0B10"
-                icon={<Schedule sx={{ fontSize: 20, color: 'white' }} />}
-                loading={loading}
-              />
-            </Grid>
-            <Grid item xs={6} sm={2.4}>
-              <StatsCard
-                title="Critical"
-                value={filteredData.reduce((sum, row) => sum + num(row.critical), 0)}
-                color="#EF4444"
-                bgColor="#EF444410"
-                icon={<Warning sx={{ fontSize: 20, color: 'white' }} />}
-                loading={loading}
-              />
-            </Grid>
-            <Grid item xs={6} sm={2.4}>
-              <StatsCard
-                title="Resolution Rate"
-                value={percentage(
-                  filteredData.reduce((sum, row) => sum + num(row.resolved), 0),
-                  filteredData.reduce((sum, row) => sum + num(row.total_errors), 0)
-                )}
-                color="#6f42c1"
-                bgColor="#f3e5f5"
-                icon={<BarChart sx={{ fontSize: 20, color: 'white' }} />}
-                loading={loading}
-              />
-            </Grid>
-          </>
-        ) : (
-          <>
-            <Grid item xs={6} sm={2.4}>
-              <StatsCard
-                title="Total Records"
-                value={totalRecords}
-                color="#0F172A"
-                icon={<Assessment sx={{ fontSize: 20, color: 'white' }} />}
-                loading={loading}
-              />
-            </Grid>
-            <Grid item xs={6} sm={2.4}>
-              <StatsCard
-                title="Active"
-                value={filteredData.filter(d => d.status === 'Active' || d.status === 'Completed' || d.status === 'Resolved').length}
-                color="#22C55E"
-                bgColor="#22C55E10"
-                icon={<CheckCircle sx={{ fontSize: 20, color: 'white' }} />}
-                loading={loading}
-              />
-            </Grid>
-            <Grid item xs={6} sm={2.4}>
-              <StatsCard
-                title="Pending"
-                value={filteredData.filter(d => d.status === 'Pending' || d.status === 'In Progress' || d.status === 'Scheduled').length}
-                color="#F59E0B"
-                bgColor="#F59E0B10"
-                icon={<Schedule sx={{ fontSize: 20, color: 'white' }} />}
-                loading={loading}
-              />
-            </Grid>
-            <Grid item xs={6} sm={2.4}>
-              <StatsCard
-                title="Critical"
-                value={filteredData.filter(d => d.severity === 'Critical' || d.priority === 'Critical' || d.critical_errors > 0).length}
-                color="#EF4444"
-                bgColor="#EF444410"
-                icon={<Warning sx={{ fontSize: 20, color: 'white' }} />}
-                loading={loading}
-              />
-            </Grid>
-            <Grid item xs={6} sm={2.4}>
-              <StatsCard
-                title="Downtime"
-                value={`${filteredData.reduce((sum, row) => sum + parseFloat(row['Total Downtime (Days)'] || row.downtime_days || 0), 0).toFixed(1)} days`}
-                color="#EF4444"
-                bgColor="#EF444410"
-                icon={<TimerOff sx={{ fontSize: 20, color: 'white' }} />}
-                loading={loading}
-              />
-            </Grid>
-          </>
-        )}
-      </Grid>
+      {/* ✅ STATS CARDS - AMC STATS ADDED */}
+      {isAMCReport ? (
+        <Grid container spacing={isMobile ? 1 : 2} sx={{ mb: 3 }}>
+          <Grid item xs={6} sm={2.4}>
+            <StatsCard
+              title="Total Contracts"
+              value={filteredData.length}
+              color="#0F172A"
+              icon={<Receipt sx={{ fontSize: 20, color: 'white' }} />}
+              loading={loading}
+            />
+          </Grid>
+          <Grid item xs={6} sm={2.4}>
+            <StatsCard
+              title="Active"
+              value={filteredData.filter(d => d.status === 'Active' || d.status === 'In Progress').length}
+              color="#22C55E"
+              bgColor="#22C55E10"
+              icon={<CheckCircle sx={{ fontSize: 20, color: 'white' }} />}
+              loading={loading}
+            />
+          </Grid>
+          <Grid item xs={6} sm={2.4}>
+            <StatsCard
+              title="Expired"
+              value={filteredData.filter(d => d.status === 'Expired').length}
+              color="#EF4444"
+              bgColor="#EF444410"
+              icon={<Cancel sx={{ fontSize: 20, color: 'white' }} />}
+              loading={loading}
+            />
+          </Grid>
+          <Grid item xs={6} sm={2.4}>
+            <StatsCard
+              title="Total Errors"
+              value={filteredData.reduce((sum, row) => sum + (row.total_errors || 0), 0)}
+              color="#F59E0B"
+              bgColor="#F59E0B10"
+              icon={<ErrorOutline sx={{ fontSize: 20, color: 'white' }} />}
+              loading={loading}
+            />
+          </Grid>
+          <Grid item xs={6} sm={2.4}>
+            <StatsCard
+              title="Total Downtime"
+              value={`${filteredData.reduce((sum, row) => sum + parseFloat(row.total_downtime_days || 0), 0).toFixed(1)} days`}
+              color="#EF4444"
+              bgColor="#EF444410"
+              icon={<TimerOff sx={{ fontSize: 20, color: 'white' }} />}
+              loading={loading}
+            />
+          </Grid>
+        </Grid>
+      ) : reportType === 'downtime' ? (
+        <Grid container spacing={isMobile ? 1 : 2} sx={{ mb: 3 }}>
+          <Grid item xs={6} sm={2.4}>
+            <StatsCard
+              title="Equipment"
+              value={filteredData.length}
+              color="#0F172A"
+              icon={<MedicalServices sx={{ fontSize: 20, color: 'white' }} />}
+              loading={loading}
+            />
+          </Grid>
+          <Grid item xs={6} sm={2.4}>
+            <StatsCard
+              title="Total Failures"
+              value={filteredData.reduce((sum, row) => sum + num(row['Total Failures']), 0)}
+              color="#F59E0B"
+              bgColor="#F59E0B10"
+              icon={<ErrorOutline sx={{ fontSize: 20, color: 'white' }} />}
+              loading={loading}
+            />
+          </Grid>
+          <Grid item xs={6} sm={2.4}>
+            <StatsCard
+              title="Critical Failures"
+              value={filteredData.reduce((sum, row) => sum + num(row['Critical Failures']), 0)}
+              color="#EF4444"
+              bgColor="#EF444410"
+              icon={<Warning sx={{ fontSize: 20, color: 'white' }} />}
+              loading={loading}
+            />
+          </Grid>
+          <Grid item xs={6} sm={2.4}>
+            <StatsCard
+              title="Total Downtime"
+              value={`${filteredData.reduce((sum, row) => sum + parseFloat(row['Total Downtime (Days)'] || 0), 0).toFixed(1)} days`}
+              color="#EF4444"
+              bgColor="#EF444410"
+              icon={<TimerOff sx={{ fontSize: 20, color: 'white' }} />}
+              loading={loading}
+            />
+          </Grid>
+          <Grid item xs={6} sm={2.4}>
+            <StatsCard
+              title="Avg Availability"
+              value={`${average(
+                filteredData
+                  .map(row => parseFloat(String(row['Availability %'] || '').replace('%', '')))
+                  .filter(Number.isFinite)
+              ).toFixed(1)}%`}
+              color="#6f42c1"
+              bgColor="#f3e5f5"
+              icon={<TrendingUp sx={{ fontSize: 20, color: 'white' }} />}
+              loading={loading}
+            />
+          </Grid>
+        </Grid>
+      ) : reportType === 'engineer-performance' ? (
+        <Grid container spacing={isMobile ? 1 : 2} sx={{ mb: 3 }}>
+          <Grid item xs={6} sm={2.4}>
+            <StatsCard
+              title="Total Engineers"
+              value={filteredData.length}
+              color="#0F172A"
+              icon={<Engineering sx={{ fontSize: 20, color: 'white' }} />}
+              loading={loading}
+            />
+          </Grid>
+          <Grid item xs={6} sm={2.4}>
+            <StatsCard
+              title="Total Repairs"
+              value={filteredData.reduce((sum, row) => sum + row.total_repairs, 0)}
+              color="#0F172A"
+              icon={<Build sx={{ fontSize: 20, color: 'white' }} />}
+              loading={loading}
+            />
+          </Grid>
+          <Grid item xs={6} sm={2.4}>
+            <StatsCard
+              title="Completed"
+              value={filteredData.reduce((sum, row) => sum + row.completed, 0)}
+              color="#22C55E"
+              bgColor="#22C55E10"
+              icon={<CheckCircle sx={{ fontSize: 20, color: 'white' }} />}
+              loading={loading}
+            />
+          </Grid>
+          <Grid item xs={6} sm={2.4}>
+            <StatsCard
+              title="Pending"
+              value={filteredData.reduce((sum, row) => sum + row.pending, 0)}
+              color="#F59E0B"
+              bgColor="#F59E0B10"
+              icon={<Schedule sx={{ fontSize: 20, color: 'white' }} />}
+              loading={loading}
+            />
+          </Grid>
+          <Grid item xs={6} sm={2.4}>
+            <StatsCard
+              title="Avg Days"
+              value={`${(filteredData.reduce((sum, row) => sum + parseFloat(row.avg_days || 0), 0) / (filteredData.length || 1)).toFixed(1)} days`}
+              color="#6f42c1"
+              bgColor="#f3e5f5"
+              icon={<TimerOff sx={{ fontSize: 20, color: 'white' }} />}
+              loading={loading}
+            />
+          </Grid>
+        </Grid>
+      ) : isErrorReport ? (
+        <Grid container spacing={isMobile ? 1 : 2} sx={{ mb: 3 }}>
+          <Grid item xs={6} sm={2.4}>
+            <StatsCard
+              title="Total Errors"
+              value={filteredData.reduce((sum, row) => sum + num(row.total_errors), 0)}
+              color="#0F172A"
+              icon={<Assessment sx={{ fontSize: 20, color: 'white' }} />}
+              loading={loading}
+            />
+          </Grid>
+          <Grid item xs={6} sm={2.4}>
+            <StatsCard
+              title="Resolved"
+              value={filteredData.reduce((sum, row) => sum + num(row.resolved), 0)}
+              color="#22C55E"
+              bgColor="#22C55E10"
+              icon={<CheckCircle sx={{ fontSize: 20, color: 'white' }} />}
+              loading={loading}
+            />
+          </Grid>
+          <Grid item xs={6} sm={2.4}>
+            <StatsCard
+              title="Open"
+              value={filteredData.reduce((sum, row) => sum + num(row.open), 0)}
+              color="#F59E0B"
+              bgColor="#F59E0B10"
+              icon={<Schedule sx={{ fontSize: 20, color: 'white' }} />}
+              loading={loading}
+            />
+          </Grid>
+          <Grid item xs={6} sm={2.4}>
+            <StatsCard
+              title="Critical"
+              value={filteredData.reduce((sum, row) => sum + num(row.critical), 0)}
+              color="#EF4444"
+              bgColor="#EF444410"
+              icon={<Warning sx={{ fontSize: 20, color: 'white' }} />}
+              loading={loading}
+            />
+          </Grid>
+          <Grid item xs={6} sm={2.4}>
+            <StatsCard
+              title="Resolution Rate"
+              value={percentage(
+                filteredData.reduce((sum, row) => sum + num(row.resolved), 0),
+                filteredData.reduce((sum, row) => sum + num(row.total_errors), 0)
+              )}
+              color="#6f42c1"
+              bgColor="#f3e5f5"
+              icon={<BarChart sx={{ fontSize: 20, color: 'white' }} />}
+              loading={loading}
+            />
+          </Grid>
+        </Grid>
+      ) : (
+        <Grid container spacing={isMobile ? 1 : 2} sx={{ mb: 3 }}>
+          <Grid item xs={6} sm={2.4}>
+            <StatsCard
+              title="Total Records"
+              value={totalRecords}
+              color="#0F172A"
+              icon={<Assessment sx={{ fontSize: 20, color: 'white' }} />}
+              loading={loading}
+            />
+          </Grid>
+          <Grid item xs={6} sm={2.4}>
+            <StatsCard
+              title="Active"
+              value={filteredData.filter(d => d.status === 'Active' || d.status === 'Completed' || d.status === 'Resolved').length}
+              color="#22C55E"
+              bgColor="#22C55E10"
+              icon={<CheckCircle sx={{ fontSize: 20, color: 'white' }} />}
+              loading={loading}
+            />
+          </Grid>
+          <Grid item xs={6} sm={2.4}>
+            <StatsCard
+              title="Pending"
+              value={filteredData.filter(d => d.status === 'Pending' || d.status === 'In Progress' || d.status === 'Scheduled').length}
+              color="#F59E0B"
+              bgColor="#F59E0B10"
+              icon={<Schedule sx={{ fontSize: 20, color: 'white' }} />}
+              loading={loading}
+            />
+          </Grid>
+          <Grid item xs={6} sm={2.4}>
+            <StatsCard
+              title="Critical"
+              value={filteredData.filter(d => d.severity === 'Critical' || d.priority === 'Critical' || d.critical_errors > 0).length}
+              color="#EF4444"
+              bgColor="#EF444410"
+              icon={<Warning sx={{ fontSize: 20, color: 'white' }} />}
+              loading={loading}
+            />
+          </Grid>
+          <Grid item xs={6} sm={2.4}>
+            <StatsCard
+              title="Downtime"
+              value={`${filteredData.reduce((sum, row) => sum + parseFloat(row['Total Downtime (Days)'] || row.downtime_days || 0), 0).toFixed(1)} days`}
+              color="#EF4444"
+              bgColor="#EF444410"
+              icon={<TimerOff sx={{ fontSize: 20, color: 'white' }} />}
+              loading={loading}
+            />
+          </Grid>
+        </Grid>
+      )}
 
       {/* SEARCH & FILTER */}
       <Paper sx={{ 
@@ -2063,7 +2306,7 @@ const SuperAdminReports = () => {
         additionalFilters={additionalFilters}
       />
 
-      {/* TABLE */}
+      {/* ✅ TABLE - AMC TABLE WITH RESOLVED ONLY (CLOSED REMOVED) */}
       <Paper sx={{ 
         borderRadius: 3, 
         overflow: 'hidden', 
@@ -2077,7 +2320,22 @@ const SuperAdminReports = () => {
               background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)',
             }}>
               <TableRow>
-                {reportType === 'downtime' ? (
+                {isAMCReport ? (
+                  // ✅ AMC Table Headers - SIRF RESOLVED (CLOSED REMOVED)
+                  <>
+                    <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Contract</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Equipment</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Hospital</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Status</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Errors</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Pending</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>In Progress</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Resolved</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Downtime (Days)</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Days Left</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Actions</TableCell>
+                  </>
+                ) : reportType === 'downtime' ? (
                   <>
                     <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Equipment</TableCell>
                     <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Hospital</TableCell>
@@ -2173,7 +2431,130 @@ const SuperAdminReports = () => {
                       }
                     }}
                   >
-                    {reportType === 'downtime' ? (
+                    {isAMCReport ? (
+                      // ✅ AMC Table Rows - SIRF RESOLVED (CLOSED REMOVED)
+                      <>
+                        <TableCell>
+                          <Typography variant="body2" fontWeight={600} sx={{ color: '#0F172A' }}>
+                            {item.contract_number}
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: '#64748B' }}>
+                            {item.vendor_name}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ color: '#0F172A' }}>
+                            {item.equipment_name}
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: '#64748B' }}>
+                            {item.equipment_model || ''}
+                          </Typography>
+                        </TableCell>
+                        <TableCell sx={{ color: '#64748B' }}>{item.hospital_name}</TableCell>
+                        <TableCell align="center">
+                          <Chip
+                            label={item.status}
+                            size="small"
+                            sx={{
+                              bgcolor: item.status === 'Active' ? '#22C55E' :
+                                       item.status === 'In Progress' ? '#3B82F6' :
+                                       item.status === 'Expired' ? '#EF4444' :
+                                       item.status === 'Pending' ? '#F59E0B' : '#64748B',
+                              color: 'white',
+                              fontWeight: 600
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell align="center">
+                          <Chip
+                            label={item.total_errors}
+                            size="small"
+                            sx={{
+                              bgcolor: item.total_errors > 0 ? '#EF4444' : '#22C55E',
+                              color: 'white',
+                              fontWeight: 600,
+                              minWidth: 30
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell align="center">
+                          <Chip
+                            label={item.pending_errors}
+                            size="small"
+                            sx={{
+                              bgcolor: item.pending_errors > 0 ? '#F59E0B' : '#64748B',
+                              color: 'white',
+                              fontWeight: 600,
+                              minWidth: 30
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell align="center">
+                          <Chip
+                            label={item.in_progress_errors}
+                            size="small"
+                            sx={{
+                              bgcolor: item.in_progress_errors > 0 ? '#3B82F6' : '#64748B',
+                              color: 'white',
+                              fontWeight: 600,
+                              minWidth: 30
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell align="center">
+                          <Chip
+                            label={item.resolved_errors}
+                            size="small"
+                            sx={{
+                              bgcolor: item.resolved_errors > 0 ? '#22C55E' : '#64748B',
+                              color: 'white',
+                              fontWeight: 600,
+                              minWidth: 30
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell align="center" sx={{ 
+                          color: parseFloat(item.total_downtime_days) > 10 ? '#EF4444' : 
+                                 parseFloat(item.total_downtime_days) > 5 ? '#F59E0B' : '#0F172A',
+                          fontWeight: 700 
+                        }}>
+                          {item.total_downtime_days} days
+                        </TableCell>
+                        <TableCell align="center">
+                          {item.days_remaining !== null && item.days_remaining !== undefined ? (
+                            <Chip
+                              label={`${item.days_remaining} days`}
+                              size="small"
+                              sx={{
+                                bgcolor: item.days_remaining < 0 ? '#EF4444' :
+                                         item.days_remaining < 30 ? '#F59E0B' : '#22C55E',
+                                color: 'white',
+                                fontWeight: 600
+                              }}
+                            />
+                          ) : '-'}
+                        </TableCell>
+                        <TableCell align="center">
+                          <Tooltip title="View Details">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleView(item)}
+                              sx={{ 
+                                color: '#0F172A', 
+                                '&:hover': { 
+                                  color: '#67E8F9',
+                                  bgcolor: 'rgba(103, 232, 249, 0.1)',
+                                  transform: 'scale(1.1)',
+                                },
+                                transition: 'all 0.3s ease',
+                              }}
+                            >
+                              <Visibility fontSize={isMobile ? 'small' : 'medium'} />
+                            </IconButton>
+                          </Tooltip>
+                        </TableCell>
+                      </>
+                    ) : reportType === 'downtime' ? (
                       <>
                         <TableCell>
                           <Typography variant="body2" fontWeight={600} sx={{ color: '#0F172A' }}>
@@ -2434,7 +2815,7 @@ const SuperAdminReports = () => {
                   border: `1px solid #67E8F9`,
                 }}>
                   <Typography variant="h6" sx={{ color: '#0F172A', fontWeight: 600 }}>
-                    {selectedItem.title || selectedItem.name || selectedItem['Equipment Name'] || selectedItem.engineer_name || 'Report'}
+                    {selectedItem.title || selectedItem.name || selectedItem['Equipment Name'] || selectedItem.engineer_name || selectedItem.contract_number || 'Report'}
                   </Typography>
                   <Chip
                     label={selectedItem.type || selectedItem.category || reportType || 'Report'}
@@ -2479,6 +2860,47 @@ const SuperAdminReports = () => {
                       <Typography variant="body2" sx={{ color: '#64748B' }}>Downtime</Typography>
                       <Typography variant="body2" fontWeight={500} sx={{ color: '#EF4444' }}>
                         {selectedItem['Total Downtime (Days)']} days
+                      </Typography>
+                    </Box>
+                  )}
+                  {/* ✅ AMC Fields */}
+                  {selectedItem.contract_number && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
+                      <Typography variant="body2" sx={{ color: '#64748B' }}>Contract</Typography>
+                      <Typography variant="body2" fontWeight={500} sx={{ color: '#0F172A' }}>
+                        {selectedItem.contract_number}
+                      </Typography>
+                    </Box>
+                  )}
+                  {selectedItem.vendor_name && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
+                      <Typography variant="body2" sx={{ color: '#64748B' }}>Vendor</Typography>
+                      <Typography variant="body2" fontWeight={500} sx={{ color: '#0F172A' }}>
+                        {selectedItem.vendor_name}
+                      </Typography>
+                    </Box>
+                  )}
+                  {selectedItem.resolved_errors !== undefined && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
+                      <Typography variant="body2" sx={{ color: '#64748B' }}>Resolved Errors</Typography>
+                      <Typography variant="body2" fontWeight={500} sx={{ color: '#22C55E' }}>
+                        {selectedItem.resolved_errors}
+                      </Typography>
+                    </Box>
+                  )}
+                  {selectedItem.pending_errors !== undefined && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
+                      <Typography variant="body2" sx={{ color: '#64748B' }}>Pending Errors</Typography>
+                      <Typography variant="body2" fontWeight={500} sx={{ color: '#F59E0B' }}>
+                        {selectedItem.pending_errors}
+                      </Typography>
+                    </Box>
+                  )}
+                  {selectedItem.in_progress_errors !== undefined && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
+                      <Typography variant="body2" sx={{ color: '#64748B' }}>In Progress Errors</Typography>
+                      <Typography variant="body2" fontWeight={500} sx={{ color: '#3B82F6' }}>
+                        {selectedItem.in_progress_errors}
                       </Typography>
                     </Box>
                   )}
@@ -2560,6 +2982,30 @@ const SuperAdminReports = () => {
                       </Typography>
                     </Box>
                   )}
+                  {selectedItem.contact_person && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
+                      <Typography variant="body2" sx={{ color: '#64748B' }}>Contact Person</Typography>
+                      <Typography variant="body2" fontWeight={500} sx={{ color: '#0F172A' }}>
+                        {selectedItem.contact_person}
+                      </Typography>
+                    </Box>
+                  )}
+                  {selectedItem.contact_phone && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
+                      <Typography variant="body2" sx={{ color: '#64748B' }}>Contact Phone</Typography>
+                      <Typography variant="body2" fontWeight={500} sx={{ color: '#0F172A' }}>
+                        {selectedItem.contact_phone}
+                      </Typography>
+                    </Box>
+                  )}
+                  {selectedItem.cost !== undefined && selectedItem.cost !== null && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
+                      <Typography variant="body2" sx={{ color: '#64748B' }}>Contract Cost</Typography>
+                      <Typography variant="body2" fontWeight={500} sx={{ color: '#0F172A' }}>
+                        ${selectedItem.cost.toLocaleString()}
+                      </Typography>
+                    </Box>
+                  )}
                 </Paper>
               </Grid>
 
@@ -2574,8 +3020,38 @@ const SuperAdminReports = () => {
                       {formatDateTime(selectedItem.created_at || selectedItem.date || selectedItem.repair_date)}
                     </Typography>
                   </Box>
+                  {selectedItem.start_date && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
+                      <Typography variant="body2" sx={{ color: '#64748B' }}>Start Date</Typography>
+                      <Typography variant="body2" fontWeight={500} sx={{ color: '#0F172A' }}>
+                        {formatDate(selectedItem.start_date)}
+                      </Typography>
+                    </Box>
+                  )}
+                  {selectedItem.end_date && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
+                      <Typography variant="body2" sx={{ color: '#64748B' }}>End Date</Typography>
+                      <Typography variant="body2" fontWeight={500} sx={{ color: '#0F172A' }}>
+                        {formatDate(selectedItem.end_date)}
+                      </Typography>
+                    </Box>
+                  )}
                 </Paper>
               </Grid>
+
+              {/* ✅ AMC Notes */}
+              {selectedItem.notes && (
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" sx={{ color: '#64748B', mb: 1, fontWeight: 600 }}>
+                    Notes
+                  </Typography>
+                  <Paper sx={{ p: 2, bgcolor: 'rgba(103, 232, 249, 0.02)', borderRadius: 2, border: `1px solid rgba(103, 232, 249, 0.1)` }}>
+                    <Typography variant="body2" sx={{ color: '#64748B' }}>
+                      {selectedItem.notes}
+                    </Typography>
+                  </Paper>
+                </Grid>
+              )}
 
               <Grid item xs={12}>
                 <Divider sx={{ my: 1, borderColor: 'rgba(103, 232, 249, 0.1)' }} />
