@@ -1,15 +1,8 @@
 // src/pages/Reports.jsx
-// ✅ DARK NAVY + LIGHT CYAN THEME - Matching Sidebar
 // ✅ COMPLETE FIXED VERSION
-// ✅ Downtime calculation fixed (only resolved errors)
-// ✅ Availability % fixed (100% if no downtime)
-// ✅ Days/Weeks/Months added in export
-// ✅ Charts on screen for downtime reports
-// ✅ Charts in Excel/PDF exports
-// ✅ Super Admin + Engineer roles supported
-// ✅ buildDowntimeRows function added
-// ✅ Availability calculation with default 1 year
-// ✅ DOWNTIME SHOW ONLY IN DAYS (not hours)
+// ✅ Engineer Performance with Avg Days
+// ✅ Super Admin can see all engineers
+// ✅ Engineer can see own performance
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import {
@@ -112,89 +105,38 @@ import AccessDenied from '../components/Auth/AccessDenied'
 import api from '../api/axios'
 
 // ============================================================
-// ✅ DARK NAVY + LIGHT CYAN THEME COLORS - MATCHING MAINLAYOUT
+// ✅ DARK NAVY + LIGHT CYAN THEME COLORS
 // ============================================================
 const colors = {
-  // Dark Navy Base
   darkNavy: '#0F172A',
   darkNavyLight: '#1E293B',
   darkNavyDark: '#0A0F1E',
   darkNavyHover: '#1E3A5F',
-  
-  // Light Cyan Accents
   lightCyan: '#67E8F9',
   lightCyanBright: '#A5F3FC',
   lightCyanDark: '#22D3EE',
   lightCyanGlow: 'rgba(103, 232, 249, 0.15)',
   lightCyanGlowStrong: 'rgba(103, 232, 249, 0.3)',
-  
-  // Gold accent (keeping PAEC branding)
   accentGold: '#C9A227',
   goldLight: '#E8C84A',
-  
-  // Text
   text: '#FFFFFF',
   secondaryText: '#94A3B8',
   textLight: '#CBD5E1',
   cyanText: '#67E8F9',
   darkText: '#0F172A',
   lightText: '#64748B',
-  
-  // Cards
   cardBg: '#FFFFFF',
   borderColor: 'rgba(103, 232, 249, 0.1)',
   shadowColor: 'rgba(15, 23, 42, 0.08)',
-  
-  // Dashboard Background - Light with cyan tint
   bgGradientStart: '#F0F4F8',
   bgGradientEnd: '#E8EEF5',
-  
-  // Card Area Background - Subtle cyan
   cardAreaBg: 'rgba(103, 232, 249, 0.04)',
   cardAreaBorder: 'rgba(103, 232, 249, 0.08)',
-  
-  // Status colors
   error: '#EF4444',
   success: '#22C55E',
   warning: '#F59E0B',
   info: '#3B82F6',
 }
-
-// ============================================================
-// ✅ ANIMATIONS - MATCHING MAINLAYOUT
-// ============================================================
-const reportStyles = `
-@keyframes cyanPulse {
-    0% { box-shadow: 0 4px 20px rgba(103, 232, 249, 0.06); }
-    50% { box-shadow: 0 8px 40px rgba(103, 232, 249, 0.15); }
-    100% { box-shadow: 0 4px 20px rgba(103, 232, 249, 0.06); }
-}
-
-@keyframes shimmerSlide {
-    0% { background-position: -200% center; }
-    100% { background-position: 200% center; }
-}
-
-.table-row-hover {
-    transition: all 0.3s ease;
-}
-
-.table-row-hover:hover {
-    background: rgba(103, 232, 249, 0.04) !important;
-    transform: scale(1.01);
-    box-shadow: 0 2px 12px rgba(103, 232, 249, 0.08);
-}
-
-.report-card {
-    transition: all 0.3s ease;
-}
-
-.report-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 8px 30px rgba(103, 232, 249, 0.12);
-    border-color: ${colors.lightCyan} !important;
-}
-`
 
 // ============================================================
 // ✅ UTILITY HELPERS
@@ -248,196 +190,112 @@ const getRecordDate = (item) =>
   item?.created_at || item?.reported_at || item?.date || item?.repair_date || item?.scheduled_date
 
 // ============================================================
-// ✅ DOWNTIME CALCULATION - FIXED ✅
+// ✅ BUILD DOWNTIME ROWS
 // ============================================================
-const getDowntimeHours = (item) => {
-  // ✅ SIRF RESOLVED ERRORS KA DOWNTIME COUNT KAREIN
-  const status = String(item.status || '').toLowerCase()
-  if (!['resolved', 'closed', 'completed'].includes(status)) {
-    return 0
-  }
-
-  const start = firstValue(item, ['created_at', 'reported_at', 'breakdown_at'])
-  const end = firstValue(item, ['updated_at', 'resolved_at', 'completed_at', 'closed_at'])
-
-  if (!start || !end) return 0
-
-  const startDate = new Date(start)
-  const endDate = new Date(end)
-  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) return 0
-
-  const hours = Math.max(0, (endDate.getTime() - startDate.getTime()) / 3600000)
-  
-  return hours
-}
-
-// ✅ GET DOWNTIME WITH DAYS/WEEKS/MONTHS
-const getDowntimeBreakdown = (hours) => {
-  return {
-    hours: hours,
-    days: hours / 24,
-    weeks: hours / 24 / 7,
-    months: hours / 24 / 30.44
-  }
-}
-
-// ============================================================
-// ✅ BUILD EQUIPMENT LIFECYCLE ROWS - FIXED ✅
-// ============================================================
-const buildEquipmentLifecycleRows = (equipment, errors, repairs) => {
-  console.log('🔧 buildEquipmentLifecycleRows called');
-  console.log('📌 Equipment:', equipment?.length || 0);
-  console.log('📌 Errors:', errors?.length || 0);
-  console.log('📌 Repairs:', repairs?.length || 0);
-  
-  if (!Array.isArray(equipment)) {
-    console.log('❌ Equipment is not an array');
-    return [];
-  }
+const buildDowntimeRows = (equipment, errors, repairs) => {
+  if (!Array.isArray(equipment)) return []
   
   return equipment.map((eq) => {
-    const id = eq.id;
-    const name = eq.name || 'N/A';
-    const serial = eq.serial_number || 'N/A';
-
-    // Filter errors for this equipment
-    const eqErrors = errors.filter(e => {
-      if (e.equipment_id && e.equipment_id === id) return true;
-      if (e.equipment && e.equipment.id === id) return true;
-      if (e.equipment_name && e.equipment_name === name) return true;
-      return false;
-    });
-
-    // Filter repairs for this equipment
+    const eqErrors = errors.filter(e => e.equipment_id === eq.id)
     const eqRepairs = repairs.filter(r => {
-      if (r.equipment_id && r.equipment_id === id) return true;
-      if (r.equipment && r.equipment.id === id) return true;
-      if (r.equipment_name && r.equipment_name === name) return true;
-      if (r.error_log_id) {
-        const error = errors.find(e => e.id === r.error_log_id);
-        if (error && (error.equipment_id === id || error.equipment?.id === id)) return true;
-      }
-      return false;
-    });
+      const error = errors.find(e => e.id === r.error_log_id)
+      return error && error.equipment_id === eq.id
+    })
 
-    const resolved = eqErrors.filter(e => {
-      const status = String(e.status || '').toLowerCase();
-      return ['resolved', 'closed', 'completed'].includes(status);
-    });
-    
-    const open = eqErrors.filter(e => {
-      const status = String(e.status || '').toLowerCase();
-      return ['pending', 'in progress', 'open'].includes(status);
-    });
-    
-    const critical = eqErrors.filter(e => {
-      const severity = String(e.severity || '').toLowerCase();
-      return severity === 'critical';
-    }).length;
-    
-    const high = eqErrors.filter(e => {
-      const severity = String(e.severity || '').toLowerCase();
-      return severity === 'high';
-    }).length;
+    const resolved = eqErrors.filter(e => 
+      ['Resolved', 'Closed', 'Completed'].includes(e.status)
+    )
+    const open = eqErrors.filter(e => 
+      ['Pending', 'In Progress', 'Open'].includes(e.status)
+    )
+    const critical = eqErrors.filter(e => 
+      e.severity === 'Critical'
+    ).length
 
-    // ✅ DOWNTIME - SIRF RESOLVED ERRORS (DAYS ONLY)
-    let downtimeHours = 0;
+    let totalDowntime = 0
     resolved.forEach(e => {
-      const start = firstValue(e, ['created_at', 'reported_at', 'breakdown_at']);
-      const end = firstValue(e, ['updated_at', 'resolved_at', 'completed_at', 'closed_at']);
-      if (start && end) {
-        const startDate = new Date(start);
-        const endDate = new Date(end);
-        if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
-          const hours = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
-          if (hours > 0) downtimeHours += hours;
-        }
+      if (e.created_at && e.updated_at) {
+        const start = new Date(e.created_at)
+        const end = new Date(e.updated_at)
+        const hours = (end - start) / (1000 * 60 * 60)
+        if (hours > 0) totalDowntime += hours
       }
-    });
+    })
 
-    // ✅ Convert to days (1 day = 24 hours)
-    const downtimeDays = downtimeHours / 24;
-
-    // ✅ AGE - INSTALLATION YEAR WITH DEFAULT 1 YEAR
-    const installation = firstValue(eq, ['installation_year', 'installation_date', 'purchase_date']);
-    const baseDate = installation ? new Date(installation) : null;
-    const age = baseDate && !isNaN(baseDate.getTime())
-      ? Math.max(0, (Date.now() - baseDate.getTime()) / (365.25 * 24 * 3600000))
-      : 0;
-
-    // ✅ If no installation year, use 1 year as default
-    const effectiveAge = age > 0 ? age : 1;
-    const monitoredHours = effectiveAge * 365.25 * 24;
-    const finalAvailability = monitoredHours > 0
-      ? Math.max(0, Math.min(100, ((monitoredHours - downtimeHours) / monitoredHours) * 100))
-      : 100;
-
-    console.log(`📊 ${name}: Age=${effectiveAge.toFixed(1)}y, Downtime=${downtimeDays.toFixed(1)}d, Availability=${finalAvailability.toFixed(1)}%`);
+    const installationYear = eq.installation_year || 2023
+    const ageInYears = new Date().getFullYear() - installationYear
+    const monitoredHours = ageInYears * 365.25 * 24
+    const availability = monitoredHours > 0 
+      ? Math.max(0, Math.min(100, ((monitoredHours - totalDowntime) / monitoredHours) * 100))
+      : 100
 
     return {
-      'Equipment Name': name,
-      'Serial / Asset No.': serial,
-      'Hospital': eq.hospital_name || eq.hospital || 'N/A',
-      'Department': eq.department_name || eq.department || eq.location || 'N/A',
+      'Equipment Name': eq.name || 'N/A',
+      'Serial / Asset No.': eq.serial_number || 'N/A',
+      'Hospital': eq.hospital_name || 'N/A',
+      'Department': eq.department_name || 'N/A',
       'Equipment Status': eq.status || 'Active',
       'Total Failures': eqErrors.length,
       'Critical Failures': critical,
-      'High Failures': high,
       'Open Errors': open.length,
       'Resolved Errors': resolved.length,
       'Resolution Rate': eqErrors.length > 0 ? `${((resolved.length / eqErrors.length) * 100).toFixed(1)}%` : '0.0%',
       'Maintenance Events': eqRepairs.length,
-      'Total Downtime (Days)': downtimeDays.toFixed(1),  // ✅ Days only
-      'Availability %': `${finalAvailability.toFixed(1)}%`,
-      'Age (Years)': effectiveAge.toFixed(1)
-    };
-  });
-};
+      'Total Downtime (Days)': (totalDowntime / 24).toFixed(1),
+      'Availability %': `${availability.toFixed(1)}%`
+    }
+  }).filter(r => r['Total Failures'] > 0 || parseFloat(r['Total Downtime (Days)']) > 0)
+}
 
 // ============================================================
-// ✅ BUILD DOWNTIME ROWS - WITH BREAKDOWN ✅
+// ✅ BUILD ERROR SUMMARY ROWS
 // ============================================================
-const buildDowntimeRows = (equipment, errors, repairs) => {
-  console.log('🔧 buildDowntimeRows called');
-  console.log('📌 Equipment:', equipment?.length || 0);
-  console.log('📌 Errors:', errors?.length || 0);
-  console.log('📌 Repairs:', repairs?.length || 0);
-  
-  if (!Array.isArray(equipment)) {
-    console.log('❌ Equipment is not an array');
-    return [];
-  }
-  
-  const rows = buildEquipmentLifecycleRows(equipment, errors, repairs)
-    .filter(r => parseFloat(r['Total Downtime (Days)']) > 0 || r['Total Failures'] > 0)
-    .sort((a, b) => parseFloat(b['Total Downtime (Days)']) - parseFloat(a['Total Downtime (Days)']))
-    .map(r => {
-      const days = parseFloat(r['Total Downtime (Days)']) || 0;
-      
-      return {
-        'Equipment Name': r['Equipment Name'],
-        'Serial / Asset No.': r['Serial / Asset No.'],
-        'Hospital': r.Hospital,
-        'Department': r.Department,
-        'Equipment Status': r['Equipment Status'],
-        'Total Failures': r['Total Failures'],
-        'Critical Failures': r['Critical Failures'],
-        'Open Errors': r['Open Errors'],
-        'Resolved Errors': r['Resolved Errors'],
-        'Resolution Rate': r['Resolution Rate'],
-        'Maintenance Events': r['Maintenance Events'],
-        'Total Downtime (Days)': r['Total Downtime (Days)'],  // ✅ Days only
-        'Availability %': r['Availability %']
-      };
-    });
-  
-  console.log('✅ buildDowntimeRows returning:', rows.length, 'rows');
-  return rows;
-};
+const buildErrorSummaryRows = (errors, period) => {
+  const groups = new Map()
 
-const equipmentId = (x) => firstValue(x, ['id', 'equipment_id', 'equipmentId', 'asset_id', 'assetId'])
-const equipmentName = (x) => firstValue(x, ['equipment_name', 'name', 'equipment', 'asset_name'], 'N/A')
-const serialNo = (x) => firstValue(x, ['serial_number', 'serial_no', 'serial', 'asset_tag', 'asset_code'], 'N/A')
+  errors.forEach((error) => {
+    const key = getPeriodKey(getRecordDate(error), period)
+
+    if (!groups.has(key)) {
+      groups.set(key, {
+        period: formatPeriodLabel(key, period),
+        total_errors: 0, resolved: 0, open: 0,
+        critical: 0, high: 0, medium: 0, low: 0,
+        resolution_hours: []
+      })
+    }
+
+    const row = groups.get(key)
+    const status = String(error.status || '').toLowerCase()
+    const severity = String(error.severity || '').toLowerCase()
+
+    row.total_errors += 1
+    if (['resolved', 'closed', 'completed'].includes(status)) row.resolved += 1
+    if (['pending', 'in progress', 'open'].includes(status)) row.open += 1
+
+    if (severity === 'critical') row.critical += 1
+    if (severity === 'high') row.high += 1
+    if (severity === 'medium') row.medium += 1
+    if (severity === 'low') row.low += 1
+  })
+
+  return Array.from(groups.values())
+    .sort((a, b) => String(a.period).localeCompare(String(b.period)))
+    .map((row) => ({
+      period: row.period,
+      total_errors: row.total_errors,
+      resolved: row.resolved,
+      open: row.open,
+      critical: row.critical,
+      high: row.high,
+      medium: row.medium,
+      low: row.low,
+      resolution_rate: percentage(row.resolved, row.total_errors),
+      avg_resolution_time: row.resolution_hours.length
+        ? `${average(row.resolution_hours).toFixed(1)} hrs`
+        : 'N/A'
+    }))
+}
 
 const getPeriodKey = (date, period) => {
   if (!date) return 'Unknown'
@@ -472,245 +330,27 @@ const formatPeriodLabel = (key, period) => {
   return formatDate(key)
 }
 
-// ============================================================
-// ✅ BUILD ERROR SUMMARY ROWS
-// ============================================================
-const buildErrorSummaryRows = (errors, period) => {
-  const groups = new Map()
-
-  errors.forEach((error) => {
-    const key = getPeriodKey(getRecordDate(error), period)
-
-    if (!groups.has(key)) {
-      groups.set(key, {
-        period: formatPeriodLabel(key, period),
-        total_errors: 0, resolved: 0, open: 0,
-        critical: 0, high: 0, medium: 0, low: 0,
-        resolution_hours: []
-      })
-    }
-
-    const row = groups.get(key)
-    const status = String(error.status || '').toLowerCase()
-    const severity = String(error.severity || '').toLowerCase()
-
-    row.total_errors += 1
-    if (['resolved', 'closed', 'completed'].includes(status)) row.resolved += 1
-    if (['pending', 'in progress', 'open'].includes(status)) row.open += 1
-
-    if (severity === 'critical') row.critical += 1
-    if (severity === 'high') row.high += 1
-    if (severity === 'medium') row.medium += 1
-    if (severity === 'low') row.low += 1
-
-    const hours = getDowntimeHours(error)
-    if (hours > 0) row.resolution_hours.push(hours)
-  })
-
-  return Array.from(groups.values())
-    .sort((a, b) => String(a.period).localeCompare(String(b.period)))
-    .map((row) => ({
-      period: row.period,
-      total_errors: row.total_errors,
-      resolved: row.resolved,
-      open: row.open,
-      critical: row.critical,
-      high: row.high,
-      medium: row.medium,
-      low: row.low,
-      resolution_rate: percentage(row.resolved, row.total_errors),
-      avg_resolution_time: row.resolution_hours.length
-        ? `${average(row.resolution_hours).toFixed(1)} hrs`
-        : 'N/A'
-    }))
-}
-
-// ============================================================
-// ✅ GET CHART DATA - AVAILABILITY PERCENTAGE ✅
-// ============================================================
-const getAvailabilityChartData = (data) => {
-  if (!Array.isArray(data)) return []
-  return data.map(item => ({
-    name: item['Equipment Name'] || 'N/A',
-    availability: parseFloat(String(item['Availability %'] || '0').replace('%', '')) || 0
-  }))
-}
-
-// ✅ GET CHART DATA - DOWNTIME BREAKDOWN ✅
-const getDowntimeChartData = (data) => {
-  if (!Array.isArray(data)) return null
-  const totalDays = data.reduce((sum, item) => sum + num(item['Total Downtime (Days)']), 0)
-  const totalHours = totalDays * 24
-  const breakdown = getDowntimeBreakdown(totalHours)
-  return {
-    hours: breakdown.hours,
-    days: breakdown.days,
-    weeks: breakdown.weeks,
-    months: breakdown.months
-  }
-}
-
-// ============================================================
-// ✅ FILTER HELPERS
-// ============================================================
-const dateInRange = (value, filters) => {
-  const recordDate = getRecordDate(value)
-  if (!recordDate) return true
-
-  const d = new Date(recordDate)
-  if (Number.isNaN(d.getTime())) return true
-
-  if (filters?.startDate) {
-    const start = new Date(`${filters.startDate}T00:00:00`)
-    if (d < start) return false
-  }
-  if (filters?.endDate) {
-    const end = new Date(`${filters.endDate}T23:59:59`)
-    if (d > end) return false
-  }
-  return true
-}
-
-const statusMatches = (item, filters) => {
-  if (!filters?.status) return true
-  const wanted = String(filters.status).toLowerCase()
-  const actual = String(
-    firstValue(item, ['status', 'equipment_status', 'maintenance_status'], '')
-  ).toLowerCase()
-  return !actual || actual === wanted
-}
-
-const hospitalMatches = (item, filters) => {
-  if (!filters?.hospital) return true
-  const wanted = String(filters.hospital)
-  const ids = [item?.hospital_id, item?.hospitalId, item?.hospital?.id]
-    .filter(v => v !== undefined && v !== null)
-    .map(String)
-  return ids.length ? ids.includes(wanted) : false
-}
-
-const applyCommonFilters = (items, filters) => {
-  if (!Array.isArray(items)) return []
-  return items.filter(item =>
-    statusMatches(item, filters) &&
-    hospitalMatches(item, filters) &&
-    dateInRange(item, filters)
-  )
-}
-
-const getReportTitle = (type) => ({
-  monthly: 'Monthly Error Summary',
-  weekly: 'Weekly Error Summary',
-  daily: 'Daily Error Summary',
-  yearly: 'Yearly Error Summary',
-  'my-errors': 'My Error Report',
-  'my-downtime': 'My Downtime Report',
-  'my-maintenance': 'My Maintenance Report',
-  'my-equipment': 'My Equipment Performance',
-  'my-performance': 'My Performance',
-  hospital: 'Hospital Performance Report',
-  equipment: 'Equipment Lifecycle Report',
-  downtime: 'Equipment Downtime & Availability Report',
-  'spare-parts': 'Spare Parts Usage Report',
-  maintenance: 'Maintenance Performance Report',
-  'engineer-performance': 'Engineer Performance Report',
-  amc: 'AMC Status Report'
-}[type] || 'Equipment Management Report')
-
-// ============================================================
-// ✅ EXPORT FUNCTIONS - WITH CHART
-// ============================================================
 const getCleanExportData = (data, reportType) => {
   if (!Array.isArray(data)) return []
 
   if (['downtime', 'my-downtime'].includes(reportType)) {
-    return data.map(r => {
-      const days = num(r['Total Downtime (Days)'] || 0)  // ✅ Days only
-      const hours = days * 24
-      const weeks = days / 7
-      const months = days / 30.44
-      
-      return {
-        'Equipment': r['Equipment Name'] || 'N/A',
-        'Hospital': r.Hospital || 'N/A',
-        'Failures': r['Total Failures'] || 0,
-        'Critical': r['Critical Failures'] || 0,
-        'Downtime (Days)': days.toFixed(1),  // ✅ Days only
-        'Downtime (Weeks)': weeks.toFixed(1),
-        'Downtime (Months)': months.toFixed(1),
-        'Availability %': r['Availability %'] || '100.0%'
-      }
-    })
-  }
-
-  if (['equipment', 'my-equipment'].includes(reportType)) {
     return data.map(r => ({
       'Equipment': r['Equipment Name'] || 'N/A',
       'Hospital': r.Hospital || 'N/A',
-      'Status': r['Equipment Status'] || 'N/A',
       'Failures': r['Total Failures'] || 0,
       'Critical': r['Critical Failures'] || 0,
+      'Downtime (Days)': r['Total Downtime (Days)'] || '0.0',
       'Availability %': r['Availability %'] || '100.0%'
     }))
   }
 
-  if (['monthly', 'weekly', 'daily', 'yearly', 'my-errors'].includes(reportType)) {
+  if (['monthly', 'weekly', 'daily', 'yearly'].includes(reportType)) {
     return data.map(r => ({
       'Period': r.period || 'N/A',
       'Total': r.total_errors || 0,
       'Resolved': r.resolved || 0,
       'Open': r.open || 0,
       'Critical': r.critical || 0
-    }))
-  }
-
-  if (['maintenance', 'my-maintenance'].includes(reportType)) {
-    return data.map(r => ({
-      'Equipment': r.equipment_name || r.name || 'N/A',
-      'Hospital': r.hospital_name || 'N/A',
-      'Type': r.maintenance_type || r.type || 'N/A',
-      'Status': r.status || 'N/A',
-      'Next Due': formatDate(r.next_due_date)
-    }))
-  }
-
-  if (reportType === 'spare-parts') {
-    return data.map(r => ({
-      'Part Name': r.part_name || r.name || 'N/A',
-      'Equipment': r.equipment_name || 'N/A',
-      'Quantity': r.quantity || 0,
-      'Unit Cost': r.unit_cost || 0,
-      'Total Cost': r.total_cost || 0
-    }))
-  }
-
-  if (reportType === 'amc') {
-    return data.map(r => ({
-      'Contract': r.contract_number || r.title || 'N/A',
-      'Vendor': r.vendor_name || r.vendor || 'N/A',
-      'Equipment': r.equipment_name || 'N/A',
-      'Status': r.status || 'N/A',
-      'Expiry': formatDate(r.end_date)
-    }))
-  }
-
-  if (reportType === 'hospital') {
-    return data.map(r => ({
-      'Hospital': r.name || 'N/A',
-      'City': r.city || 'N/A',
-      'Equipment': r.equipment_count || 0,
-      'Errors': r.error_count || 0,
-      'Downtime (Days)': (r.downtime_hours || 0) / 24
-    }))
-  }
-
-  if (['my-performance', 'engineer-performance'].includes(reportType)) {
-    return data.map(r => ({
-      'Engineer': r.name || r.full_name || 'N/A',
-      'Completed': r.completed || 0,
-      'Pending': r.pending || 0,
-      'Critical': r.critical || 0,
-      'Rate %': r.completion_rate || '0.0%'
     }))
   }
 
@@ -724,18 +364,18 @@ const getCleanExportData = (data, reportType) => {
 
 const calculateExportSummary = (rows, reportType) => {
   if (['downtime', 'my-downtime'].includes(reportType)) {
-    const days = rows.reduce((s, r) => s + num(r['Downtime (Days)']), 0)  // ✅ Days only
+    const days = rows.reduce((s, r) => s + parseFloat(r['Downtime (Days)'] || 0), 0)
     const failures = rows.reduce((s, r) => s + num(r['Failures']), 0)
     const critical = rows.reduce((s, r) => s + num(r['Critical']), 0)
     return {
       'Equipment Count': rows.length,
       'Total Failures': failures,
       'Critical Failures': critical,
-      'Total Downtime (Days)': `${days.toFixed(1)}`  // ✅ Days only
+      'Total Downtime (Days)': `${days.toFixed(1)}`
     }
   }
 
-  if (['monthly', 'weekly', 'daily', 'yearly', 'my-errors'].includes(reportType)) {
+  if (['monthly', 'weekly', 'daily', 'yearly'].includes(reportType)) {
     const total = rows.reduce((s, r) => s + num(r.Total), 0)
     const resolved = rows.reduce((s, r) => s + num(r.Resolved), 0)
     const open = rows.reduce((s, r) => s + num(r.Open), 0)
@@ -752,7 +392,7 @@ const calculateExportSummary = (rows, reportType) => {
 }
 
 // ============================================================
-// ✅ CSV EXPORT
+// ✅ EXPORT FUNCTIONS
 // ============================================================
 const exportToCSV = (data, filename = 'report') => {
   if (!data || data.length === 0) {
@@ -784,7 +424,6 @@ const exportToCSV = (data, filename = 'report') => {
   }
 }
 
-// ✅ EXCEL EXPORT WITH CHART
 const exportToExcel = (data, filename = 'report', reportType = '') => {
   if (!data || data.length === 0) {
     toast.warning('No data to export')
@@ -794,52 +433,6 @@ const exportToExcel = (data, filename = 'report', reportType = '') => {
   try {
     const headers = Object.keys(data[0])
     const summary = calculateExportSummary(data, reportType)
-    
-    let chartHtml = ''
-    if (reportType === 'downtime' || reportType === 'my-downtime') {
-      const chartData = data
-        .map(row => ({
-          name: row['Equipment'] || row['Equipment Name'] || 'N/A',
-          value: parseFloat(row['Downtime (Days)'] || row['Downtime'] || 0)
-        }))
-        .sort((a, b) => b.value - a.value)
-        .slice(0, 10)
-      
-      const maxValue = Math.max(...chartData.map(d => d.value), 1)
-      
-      let bars = chartData.map((item, index) => {
-        const barHeight = (item.value / maxValue) * 150
-        const color = item.value > 10 ? '#EF4444' : 
-                      item.value > 5 ? '#F59E0B' : '#0F172A'
-        return `
-          <td style="text-align:center;vertical-align:bottom;padding:2px;width:${100/chartData.length}%;">
-            <div style="height:${barHeight + 20}px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;">
-              <div style="height:${barHeight}px;width:80%;max-width:35px;background:${color};border-radius:4px 4px 0 0;min-height:5px;"></div>
-              <div style="font-size:8px;color:#64748B;margin-top:2px;max-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-                ${item.name.length > 10 ? item.name.substring(0, 8) + '..' : item.name}
-              </div>
-              <div style="font-size:8px;font-weight:600;color:#0F172A;">${item.value.toFixed(1)}d</div>
-            </div>
-          </td>
-        `
-      }).join('')
-      
-      chartHtml = `
-        <tr>
-          <td colspan="${headers.length}" style="padding:10px;background:#F8FAFB;border:1px solid rgba(103, 232, 249, 0.1);">
-            <div style="font-size:12px;font-weight:600;color:#0F172A;text-align:center;margin-bottom:8px;">
-              📊 Top Equipment by Downtime (Days)
-            </div>
-            <table style="width:100%;border:none;">
-              <tr>${bars}</tr>
-            </table>
-            <div style="font-size:8px;color:#64748B;text-align:center;margin-top:4px;">
-              🔴 High (&gt;10d) • 🟠 Medium (5-10d) • 🟢 Low (&lt;5d)
-            </div>
-          </td>
-        </tr>
-      `
-    }
 
     const html = `
       <html><head><meta charset="UTF-8"><style>
@@ -852,7 +445,6 @@ const exportToExcel = (data, filename = 'report', reportType = '') => {
         th{background:#0F172A;color:white;padding:8px;border:1px solid #1E293B;text-align:center}
         td{padding:7px;border:1px solid rgba(103, 232, 249, 0.1);text-align:center;vertical-align:middle;word-break:break-word}
         tr:nth-child(even){background:#F5F7F6}
-        .chart-row td{background:#F8FAFB;padding:12px}
       </style></head><body>
         <h1>${escapeHtml(filename.replace(/_/g, ' ').toUpperCase())}</h1>
         <div class="sub">PAEC Equipment Management System • ${escapeHtml(new Date().toLocaleString())}</div>
@@ -860,8 +452,6 @@ const exportToExcel = (data, filename = 'report', reportType = '') => {
         <table class="summary"><tr>
           ${Object.entries(summary).map(([k, v]) => `<td><strong>${escapeHtml(k)}</strong><br>${escapeHtml(v)}</td>`).join('')}
         </tr></table>
-        
-        ${chartHtml}
         
         <table><thead><tr>${headers.map((h) => `<th>${escapeHtml(h)}</th>`).join('')}</tr></thead>
         <tbody>${data.map((row) => `<tr>${headers.map((h) => `<td>${escapeHtml(row[h])}</td>`).join('')}</tr>`).join('')}</tbody></table>
@@ -885,7 +475,6 @@ const exportToExcel = (data, filename = 'report', reportType = '') => {
   }
 }
 
-// ✅ PDF EXPORT WITH CHART
 const exportToPDF = (data, filename = 'report', reportType = '') => {
   if (!data || data.length === 0) {
     toast.warning('No data to export')
@@ -895,48 +484,6 @@ const exportToPDF = (data, filename = 'report', reportType = '') => {
   try {
     const headers = Object.keys(data[0])
     const summary = calculateExportSummary(data, reportType)
-    
-    let chartHtml = ''
-    if (reportType === 'downtime' || reportType === 'my-downtime') {
-      const chartData = data
-        .map(row => ({
-          name: row['Equipment'] || row['Equipment Name'] || 'N/A',
-          value: parseFloat(row['Downtime (Days)'] || row['Downtime'] || 0)
-        }))
-        .sort((a, b) => b.value - a.value)
-        .slice(0, 10)
-      
-      const maxValue = Math.max(...chartData.map(d => d.value), 1)
-      
-      let bars = chartData.map((item) => {
-        const barHeight = Math.max((item.value / maxValue) * 120, 5)
-        const color = item.value > 10 ? '#EF4444' : 
-                      item.value > 5 ? '#F59E0B' : '#0F172A'
-        return `
-          <div style="flex:1;text-align:center;min-width:25px;">
-            <div style="height:${barHeight}px;background:${color};border-radius:4px 4px 0 0;min-height:5px;width:100%;max-width:30px;margin:0 auto;"></div>
-            <div style="font-size:7px;color:#64748B;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:50px;">
-              ${item.name.length > 12 ? item.name.substring(0, 10) + '..' : item.name}
-            </div>
-            <div style="font-size:7px;font-weight:600;color:#0F172A;">${item.value.toFixed(1)}d</div>
-          </div>
-        `
-      }).join('')
-      
-      chartHtml = `
-        <div style="border:1px solid rgba(103, 232, 249, 0.1);border-radius:4px;padding:12px;margin:12px 0;background:#F8FAFB;">
-          <div style="font-size:11px;font-weight:600;color:#0F172A;text-align:center;margin-bottom:8px;">
-            📊 Top Equipment by Downtime (Days)
-          </div>
-          <div style="display:flex;align-items:flex-end;height:160px;gap:3px;padding:4px;">
-            ${bars}
-          </div>
-          <div style="font-size:7px;color:#64748B;text-align:center;margin-top:4px;">
-            🔴 High (&gt;10d) • 🟠 Medium (5-10d) • 🟢 Low (&lt;5d)
-          </div>
-        </div>
-      `
-    }
 
     const printWindow = window.open('', '_blank', 'width=1200,height=800')
 
@@ -955,19 +502,11 @@ const exportToPDF = (data, filename = 'report', reportType = '') => {
         .summary{display:grid;grid-template-columns:repeat(${Math.min(Object.keys(summary).length, 6)},1fr);gap:6px;margin-bottom:10px}
         .card{border:1px solid rgba(103, 232, 249, 0.1);border-radius:4px;padding:6px;text-align:center;background:#FAFBFC}
         .label{font-size:7px;color:#64748B}.value{font-size:11px;font-weight:700;color:#0F172A;margin-top:2px}
-        .chart-container{border:1px solid rgba(103, 232, 249, 0.1);border-radius:4px;padding:10px;margin:10px 0;background:#F8FAFB}
-        .chart-title{font-size:10px;font-weight:600;color:#0F172A;text-align:center;margin-bottom:6px}
-        .chart-bars{display:flex;align-items:flex-end;height:140px;gap:3px;padding:3px;justify-content:center}
-        .chart-bar{flex:1;text-align:center;min-width:25px}
-        .bar{height:var(--bar-height);background:var(--bar-color);border-radius:3px 3px 0 0;min-height:4px;width:100%;max-width:30px;margin:0 auto}
-        .bar-label{font-size:6px;color:#64748B;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:40px}
-        .bar-value{font-size:6px;font-weight:600;color:#0F172A}
         table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:7px}
         th{background:#0F172A;color:#fff;padding:5px 3px;border:1px solid #1E293B;text-align:center}
         td{padding:4px 3px;border:1px solid rgba(103, 232, 249, 0.1);text-align:center;vertical-align:middle;overflow-wrap:anywhere}
         tr:nth-child(even){background:#F5F7F6}
         .footer{margin-top:8px;text-align:center;font-size:7px;color:#7A8580}
-        .legend{font-size:7px;color:#64748B;text-align:center;margin-top:3px}
       </style></head><body>
         <h1>${escapeHtml(filename.replace(/_/g, ' ').toUpperCase())}</h1>
         <div class="sub">PAEC Equipment Management System • ${escapeHtml(new Date().toLocaleString())}</div>
@@ -975,8 +514,6 @@ const exportToPDF = (data, filename = 'report', reportType = '') => {
         <div class="summary">
           ${Object.entries(summary).map(([k, v]) => `<div class="card"><div class="label">${escapeHtml(k)}</div><div class="value">${escapeHtml(v)}</div></div>`).join('')}
         </div>
-        
-        ${chartHtml}
         
         <table><thead><tr>${headers.map((h) => `<th>${escapeHtml(h)}</th>`).join('')}</tr></thead>
         <tbody>${data.map((row) => `<tr>${headers.map((h) => `<td>${escapeHtml(row[h])}</td>`).join('')}</tr>`).join('')}</tbody></table>
@@ -1000,266 +537,7 @@ const exportToPDF = (data, filename = 'report', reportType = '') => {
 }
 
 // ============================================================
-// ✅ CHART COMPONENTS - THEMED
-// ============================================================
-
-// 📊 Chart 1: Bar Chart - Downtime by Equipment (Days)
-const DowntimeBarChart = ({ data }) => {
-  if (!data || data.length === 0) return null
-  
-  const maxValue = Math.max(...data.map(d => d.downtime), 1)
-  const sortedData = [...data].sort((a, b) => b.downtime - a.downtime).slice(0, 8)
-  
-  return (
-    <Card sx={{ 
-      p: 3, 
-      borderRadius: 3, 
-      border: `1px solid rgba(103, 232, 249, 0.1)`,
-      height: '100%',
-      transition: 'all 0.3s ease',
-      '&:hover': {
-        borderColor: 'rgba(103, 232, 249, 0.3)',
-        boxShadow: '0 8px 30px rgba(103, 232, 249, 0.08)',
-      }
-    }}>
-      <Typography variant="subtitle1" fontWeight={600} sx={{ color: '#0F172A', mb: 2 }}>
-        📊 Top Equipment by Downtime (Days)
-      </Typography>
-      <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1.5, height: 180, pt: 1 }}>
-        {sortedData.map((item, index) => {
-          const height = Math.max((item.downtime / maxValue) * 150, 5)
-          const barColor = item.downtime > 10 ? '#EF4444' : 
-                          item.downtime > 5 ? '#F59E0B' : '#0F172A'
-          return (
-            <Box key={index} sx={{ flex: 1, textAlign: 'center', minWidth: 0 }}>
-              <Tooltip title={`${item.name}: ${item.downtime.toFixed(1)} days`}>
-                <Box sx={{ 
-                  height: height,
-                  bgcolor: barColor,
-                  borderRadius: '4px 4px 0 0',
-                  width: '100%',
-                  transition: 'all 0.3s ease',
-                  position: 'relative',
-                  boxShadow: `0 4px 12px ${barColor}33`,
-                  '&:hover': {
-                    opacity: 0.8,
-                    transform: 'scaleY(1.05)',
-                    transformOrigin: 'bottom'
-                  }
-                }} />
-              </Tooltip>
-              <Typography variant="caption" sx={{ 
-                display: 'block', mt: 0.5, 
-                fontSize: '8px', color: '#64748B',
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-              }}>
-                {item.name.length > 12 ? item.name.substring(0, 10) + '…' : item.name}
-              </Typography>
-              <Typography variant="caption" sx={{ 
-                display: 'block', fontWeight: 600, color: '#0F172A', fontSize: '8px' 
-              }}>
-                {item.downtime.toFixed(1)}d
-              </Typography>
-            </Box>
-          )
-        })}
-      </Box>
-    </Card>
-  )
-}
-
-// 📊 Chart 2: Availability Gauge
-const AvailabilityGauge = ({ value }) => {
-  const color = value >= 95 ? '#22C55E' : 
-                value >= 80 ? '#F59E0B' : '#EF4444'
-  
-  return (
-    <Card sx={{ 
-      p: 3, 
-      borderRadius: 3, 
-      border: `1px solid rgba(103, 232, 249, 0.1)`,
-      height: '100%',
-      textAlign: 'center',
-      transition: 'all 0.3s ease',
-      '&:hover': {
-        borderColor: 'rgba(103, 232, 249, 0.3)',
-        boxShadow: '0 8px 30px rgba(103, 232, 249, 0.08)',
-      }
-    }}>
-      <Typography variant="subtitle1" fontWeight={600} sx={{ color: '#0F172A', mb: 1 }}>
-        📈 Average Availability
-      </Typography>
-      <Box sx={{ position: 'relative', display: 'inline-block' }}>
-        <CircularProgress
-          variant="determinate"
-          value={Math.min(value, 100)}
-          size={120}
-          thickness={8}
-          sx={{
-            color: color,
-            '& .MuiCircularProgress-circle': {
-              strokeLinecap: 'round',
-            },
-          }}
-        />
-        <Box sx={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          bottom: 0,
-          right: 0,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexDirection: 'column'
-        }}>
-          <Typography variant="h4" sx={{ fontWeight: 700, color: color }}>
-            {value.toFixed(1)}%
-          </Typography>
-          <Typography variant="caption" sx={{ color: '#64748B' }}>
-            Availability
-          </Typography>
-        </Box>
-      </Box>
-    </Card>
-  )
-}
-
-// 📊 Downtime Breakdown - KPI cards
-const DowntimeBreakdown = ({ days, weeks, months }) => {
-  const items = [
-    { label: 'Days', value: days, color: '#0F172A' },
-    { label: 'Weeks', value: weeks, color: '#C9A227' },
-    { label: 'Months', value: months, color: '#EF4444' }
-  ]
-
-  return (
-    <Card sx={{ 
-      p: 2.5, 
-      borderRadius: 3, 
-      border: `1px solid rgba(103, 232, 249, 0.1)`,
-      height: '100%',
-      transition: 'all 0.3s ease',
-      '&:hover': {
-        borderColor: 'rgba(103, 232, 249, 0.3)',
-        boxShadow: '0 8px 30px rgba(103, 232, 249, 0.08)',
-      }
-    }}>
-      <Typography variant="subtitle1" fontWeight={600} sx={{ color: '#0F172A', mb: 1.5 }}>
-        Downtime Summary (Days)
-      </Typography>
-      <Grid container spacing={1}>
-        {items.map((item) => (
-          <Grid item xs={4} key={item.label}>
-            <Box sx={{
-              p: 1.25,
-              borderRadius: 2,
-              bgcolor: `${item.color}10`,
-              border: `1px solid ${item.color}22`
-            }}>
-              <Typography variant="caption" sx={{ color: '#64748B', display: 'block' }}>
-                {item.label}
-              </Typography>
-              <Typography variant="h6" sx={{ color: item.color, fontWeight: 700 }}>
-                {num(item.value).toFixed(1)}
-              </Typography>
-            </Box>
-          </Grid>
-        ))}
-      </Grid>
-      <Typography variant="caption" sx={{ color: '#64748B', display: 'block', mt: 1.25 }}>
-        Same downtime converted into different time units.
-      </Typography>
-    </Card>
-  )
-}
-
-// 📊 Chart 4: Failure vs Critical (Stacked Bar)
-const FailureComparisonChart = ({ data }) => {
-  if (!data || data.length === 0) return null
-  
-  const sortedData = [...data]
-    .sort((a, b) => (b.failures || 0) - (a.failures || 0))
-    .slice(0, 8)
-  
-  const maxValue = Math.max(...sortedData.map(d => d.failures || 0), 1)
-  
-  return (
-    <Card sx={{ 
-      p: 3, 
-      borderRadius: 3, 
-      border: `1px solid rgba(103, 232, 249, 0.1)`,
-      height: '100%',
-      transition: 'all 0.3s ease',
-      '&:hover': {
-        borderColor: 'rgba(103, 232, 249, 0.3)',
-        boxShadow: '0 8px 30px rgba(103, 232, 249, 0.08)',
-      }
-    }}>
-      <Typography variant="subtitle1" fontWeight={600} sx={{ color: '#0F172A', mb: 2 }}>
-        📊 Failures vs Critical
-      </Typography>
-      <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1.5, height: 150, pt: 1 }}>
-        {sortedData.map((item, index) => {
-          const totalHeight = Math.max((item.failures / maxValue) * 120, 5)
-          const criticalHeight = Math.max((item.critical / maxValue) * 120, 5)
-          
-          return (
-            <Box key={index} sx={{ flex: 1, textAlign: 'center', minWidth: 0 }}>
-              <Box sx={{ position: 'relative', height: 120, display: 'flex', flexDirection: 'column-reverse' }}>
-                {item.critical > 0 && (
-                  <Box sx={{ 
-                    height: criticalHeight,
-                    bgcolor: '#EF4444',
-                    borderRadius: '2px 2px 0 0',
-                    width: '100%',
-                    minHeight: 2,
-                    boxShadow: '0 4px 12px #EF444433',
-                  }} />
-                )}
-                {item.failures > 0 && (
-                  <Box sx={{ 
-                    height: totalHeight - criticalHeight,
-                    bgcolor: '#0F172A',
-                    borderRadius: item.critical > 0 ? '0' : '2px 2px 0 0',
-                    width: '100%',
-                    minHeight: 2,
-                    boxShadow: '0 4px 12px #0F172A33',
-                  }} />
-                )}
-              </Box>
-              <Typography variant="caption" sx={{ 
-                display: 'block', mt: 0.5, 
-                fontSize: '7px', color: '#64748B',
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
-              }}>
-                {item.name.length > 10 ? item.name.substring(0, 8) + '…' : item.name}
-              </Typography>
-              <Typography variant="caption" sx={{ 
-                display: 'block', fontWeight: 600, color: '#0F172A', fontSize: '7px' 
-              }}>
-                {item.failures}
-              </Typography>
-            </Box>
-          )
-        })}
-      </Box>
-      <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2, mt: 1 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Box sx={{ width: 10, height: 10, bgcolor: '#0F172A', borderRadius: 1 }} />
-          <Typography variant="caption" sx={{ fontSize: '9px', color: '#64748B' }}>Total</Typography>
-        </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Box sx={{ width: 10, height: 10, bgcolor: '#EF4444', borderRadius: 1 }} />
-          <Typography variant="caption" sx={{ fontSize: '9px', color: '#64748B' }}>Critical</Typography>
-        </Box>
-      </Box>
-    </Card>
-  )
-}
-
-// ============================================================
-// ✅ STATS CARD COMPONENT - THEMED
+// ✅ STATS CARD COMPONENT
 // ============================================================
 const StatsCard = ({ title, value, color, bgColor, icon, loading, subtitle }) => {
   return (
@@ -1336,7 +614,7 @@ const StatsCard = ({ title, value, color, bgColor, icon, loading, subtitle }) =>
 }
 
 // ============================================================
-// ✅ FILTER MENU COMPONENT - THEMED
+// ✅ FILTER MENU COMPONENT
 // ============================================================
 const FilterMenu = ({
   anchorEl,
@@ -1668,7 +946,7 @@ const SuperAdminReports = () => {
     { value: 'equipment', label: 'Equipment-wise Report' },
     { value: 'spare-parts', label: 'Spare Parts Usage' },
     { value: 'maintenance', label: 'Maintenance History' },
-    { value: 'engineer-performance', label: 'Engineer Performance' },
+    { value: 'engineer-performance', label: '📊 Engineer Performance Report' },
     { value: 'amc', label: 'AMC Expiry' }
   ]
 
@@ -1680,7 +958,6 @@ const SuperAdminReports = () => {
     }
   ]
 
-  // ✅ FIXED: generateReport using existing endpoints
   const generateReport = useCallback(async (type, periodVal) => {
     const reportTypeVal = type || reportType
     const periodValActual = periodVal || period
@@ -1693,71 +970,118 @@ const SuperAdminReports = () => {
 
       switch (reportTypeVal) {
         case 'downtime': {
-          // ✅ Use existing endpoints - equipment, errors, repairs
           const [equipmentRes, errorsRes, repairsRes] = await Promise.all([
             api.get('/equipment'),
             api.get('/errors'),
             api.get('/repairs')
-          ]);
+          ])
           
-          const equipment = equipmentRes.data.equipment || [];
-          const errors = errorsRes.data.errors || [];
-          const repairs = repairsRes.data.repairs || [];
+          const equipment = equipmentRes.data.equipment || []
+          const errors = errorsRes.data.errors || []
+          const repairs = repairsRes.data.repairs || []
 
-          console.log('📊 Downtime Report - Raw Data:');
-          console.log('  Equipment:', equipment.length);
-          console.log('  Errors:', errors.length);
-          console.log('  Repairs:', repairs.length);
-
-          // Filter by hospital if selected
-          let filteredEquipment = equipment;
+          let filteredEquipment = equipment
           if (filters.hospital) {
             filteredEquipment = equipment.filter(e => 
               String(e.hospital_id) === String(filters.hospital)
-            );
-            console.log('  Filtered Equipment by hospital:', filteredEquipment.length);
+            )
           }
 
-          // Filter errors by date range
-          let filteredErrors = errors;
+          let filteredErrors = errors
           if (filters.startDate) {
-            const start = new Date(`${filters.startDate}T00:00:00`);
+            const start = new Date(`${filters.startDate}T00:00:00`)
             filteredErrors = filteredErrors.filter(e => {
-              const d = new Date(e.created_at);
-              return d >= start;
-            });
+              const d = new Date(e.created_at)
+              return d >= start
+            })
           }
           if (filters.endDate) {
-            const end = new Date(`${filters.endDate}T23:59:59`);
+            const end = new Date(`${filters.endDate}T23:59:59`)
             filteredErrors = filteredErrors.filter(e => {
-              const d = new Date(e.created_at);
-              return d <= end;
-            });
+              const d = new Date(e.created_at)
+              return d <= end
+            })
           }
-          console.log('  Filtered Errors by date:', filteredErrors.length);
 
-          // Filter repairs by date range
-          let filteredRepairs = repairs;
+          let filteredRepairs = repairs
           if (filters.startDate) {
-            const start = new Date(`${filters.startDate}T00:00:00`);
+            const start = new Date(`${filters.startDate}T00:00:00`)
             filteredRepairs = filteredRepairs.filter(r => {
-              const d = new Date(r.created_at || r.repair_date);
-              return d >= start;
-            });
+              const d = new Date(r.created_at || r.repair_date)
+              return d >= start
+            })
           }
           if (filters.endDate) {
-            const end = new Date(`${filters.endDate}T23:59:59`);
+            const end = new Date(`${filters.endDate}T23:59:59`)
             filteredRepairs = filteredRepairs.filter(r => {
-              const d = new Date(r.created_at || r.repair_date);
-              return d <= end;
-            });
+              const d = new Date(r.created_at || r.repair_date)
+              return d <= end
+            })
           }
-          console.log('  Filtered Repairs by date:', filteredRepairs.length);
 
-          // Build downtime rows
-          data = buildDowntimeRows(filteredEquipment, filteredErrors, filteredRepairs);
-          console.log('  Generated Downtime Rows:', data.length);
-          break;
+          data = buildDowntimeRows(filteredEquipment, filteredErrors, filteredRepairs)
+          break
+        }
+
+        case 'engineer-performance': {
+          const usersRes = await api.get('/users')
+          const users = usersRes.data.users || []
+          const engineers = users.filter(u => u.role_name === 'ENGINEER')
+
+          const repairsRes = await api.get('/repairs')
+          const allRepairs = repairsRes.data.repairs || []
+
+          let filteredRepairs = allRepairs
+          if (filters.startDate) {
+            const start = new Date(`${filters.startDate}T00:00:00`)
+            filteredRepairs = filteredRepairs.filter(r => {
+              const d = new Date(r.created_at || r.repair_date)
+              return d >= start
+            })
+          }
+          if (filters.endDate) {
+            const end = new Date(`${filters.endDate}T23:59:59`)
+            filteredRepairs = filteredRepairs.filter(r => {
+              const d = new Date(r.created_at || r.repair_date)
+              return d <= end
+            })
+          }
+
+          data = engineers.map(eng => {
+            const engineerRepairs = filteredRepairs.filter(r => 
+              String(r.engineer_id) === String(eng.id)
+            )
+
+            const total = engineerRepairs.length
+            const completed = engineerRepairs.filter(r =>
+              ['completed', 'verified', 'resolved'].includes(String(r.status || '').toLowerCase())
+            ).length
+            const pending = engineerRepairs.filter(r =>
+              ['pending', 'in progress', 'assigned'].includes(String(r.status || '').toLowerCase())
+            ).length
+            const critical = engineerRepairs.filter(r => r.spare_part_used === 1).length
+
+            const totalMinutes = engineerRepairs.reduce((sum, r) => sum + (parseInt(r.time_taken) || 0), 0)
+            const avgDays = total > 0 ? (totalMinutes / (24 * 60)) : 0
+
+            return {
+              engineer_id: eng.id,
+              engineer_name: eng.full_name || eng.username || 'Unknown',
+              email: eng.email,
+              hospital_name: eng.hospital_name || 'N/A',
+              total_repairs: total,
+              completed: completed,
+              pending: pending,
+              critical: critical,
+              total_time: totalMinutes,
+              avg_days: avgDays.toFixed(1),
+              completion_rate: total > 0 ? ((completed / total) * 100).toFixed(1) + '%' : '0.0%',
+              status: eng.is_active ? 'Active' : 'Inactive'
+            }
+          })
+
+          data = data.sort((a, b) => b.completed - a.completed)
+          break
         }
 
         case 'monthly':
@@ -1798,8 +1122,14 @@ const SuperAdminReports = () => {
           const equipment = equipmentRes.data.equipment || []
           const errors = errorsRes.data.errors || []
 
-          const filteredErrors = applyCommonFilters(errors, filters)
-          const filteredEquipment = applyCommonFilters(equipment, filters)
+          const filteredEquipment = equipment.filter(e =>
+            !filters.hospital || String(e.hospital_id) === String(filters.hospital)
+          )
+          const filteredErrors = errors.filter(e => {
+            if (filters.status && e.status !== filters.status) return false
+            if (filters.hospital && e.hospital_id !== parseInt(filters.hospital, 10)) return false
+            return true
+          })
 
           data = hospitals
             .filter(h => !filters.hospital || String(h.id ?? h.hospital_id) === String(filters.hospital))
@@ -1807,7 +1137,7 @@ const SuperAdminReports = () => {
               const hid = h.id ?? h.hospital_id
               const eq = filteredEquipment.filter(e => String(e.hospital_id ?? e.hospitalId ?? '') === String(hid))
               const er = filteredErrors.filter(e => String(e.hospital_id ?? e.hospitalId ?? '') === String(hid))
-              const downtimeDays = er.reduce((sum, e) => sum + (getDowntimeHours(e) / 24), 0)
+              const downtimeDays = er.reduce((sum, e) => sum + (e.downtime_hours || 0) / 24, 0)
               const critical = er.filter(e => String(e.severity || '').toLowerCase() === 'critical').length
 
               return {
@@ -1835,47 +1165,60 @@ const SuperAdminReports = () => {
           const errors = errorsRes.data.errors || []
           const repairs = repairsRes.data.repairs || []
 
-          const filteredEquipment = equipment.filter(e =>
-            hospitalMatches(e, filters) && statusMatches(e, filters)
-          )
-          const filteredErrors = applyCommonFilters(errors, { ...filters, hospital: '' })
-          const filteredRepairs = applyCommonFilters(repairs, { ...filters, hospital: '' })
+          const filteredEquipment = equipment.filter(e => {
+            if (filters.hospital && String(e.hospital_id) !== String(filters.hospital)) return false
+            if (filters.status && e.status !== filters.status) return false
+            return true
+          })
+          
+          const filteredErrors = errors.filter(e => {
+            if (filters.status && e.status !== filters.status) return false
+            return true
+          })
+          
+          const filteredRepairs = repairs.filter(r => {
+            if (filters.status && r.status !== filters.status) return false
+            return true
+          })
 
-          data = buildEquipmentLifecycleRows(filteredEquipment, filteredErrors, filteredRepairs)
+          data = filteredEquipment.map(eq => {
+            const eqErrors = filteredErrors.filter(e => e.equipment_id === eq.id)
+            const eqRepairs = filteredRepairs.filter(r => {
+              const error = filteredErrors.find(e => e.id === r.error_log_id)
+              return error && error.equipment_id === eq.id
+            })
+
+            return {
+              'Equipment Name': eq.name || 'N/A',
+              'Serial / Asset No.': eq.serial_number || 'N/A',
+              'Hospital': eq.hospital_name || 'N/A',
+              'Department': eq.department_name || 'N/A',
+              'Equipment Status': eq.status || 'Active',
+              'Total Failures': eqErrors.length,
+              'Critical Failures': eqErrors.filter(e => e.severity === 'Critical').length,
+              'Open Errors': eqErrors.filter(e => ['Pending', 'In Progress'].includes(e.status)).length,
+              'Resolved Errors': eqErrors.filter(e => ['Resolved', 'Closed', 'Completed'].includes(e.status)).length,
+              'Maintenance Events': eqRepairs.length
+            }
+          })
           break
         }
 
         case 'spare-parts': {
           const response = await api.get('/spare-parts')
-          data = applyCommonFilters(response.data.spareParts || [], filters)
+          data = response.data.spareParts || []
           break
         }
 
         case 'maintenance': {
           const response = await api.get('/maintenance')
-          data = applyCommonFilters(response.data.schedules || [], filters)
-          break
-        }
-
-        case 'engineer-performance': {
-          const response = await api.get('/users')
-          const users = response.data.users || []
-          data = users.filter((u) => u.role_name === 'ENGINEER').map((u) => ({
-            name: u.full_name,
-            email: u.email,
-            status: u.is_active ? 'Active' : 'Inactive',
-            completed: u.completed_count || 0,
-            pending: u.pending_count || 0,
-            critical: u.critical_count || 0,
-            completion_rate: u.completion_rate || '0.0%',
-            avg_resolution_time: u.avg_resolution_time || 'N/A'
-          }))
+          data = response.data.schedules || []
           break
         }
 
         case 'amc': {
           const response = await api.get('/amc')
-          data = applyCommonFilters(response.data.contracts || [], filters)
+          data = response.data.contracts || []
           break
         }
 
@@ -1907,6 +1250,13 @@ const SuperAdminReports = () => {
 
   useEffect(() => {
     generateReport('downtime', 'monthly')
+
+    const interval = setInterval(() => {
+      console.log('🔄 Auto-refreshing report data...')
+      generateReport(reportType, period)
+    }, 30000)
+
+    return () => clearInterval(interval)
   }, [])
 
   const handleView = (item) => {
@@ -1923,7 +1273,22 @@ const SuperAdminReports = () => {
     }
 
     const exportData = getCleanExportData(sourceData, reportType)
-    const filename = getReportTitle(reportType).replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '')
+    const filename = (() => {
+      const map = {
+        downtime: 'Equipment_Downtime',
+        monthly: 'Monthly_Errors',
+        weekly: 'Weekly_Errors',
+        daily: 'Daily_Errors',
+        yearly: 'Yearly_Errors',
+        hospital: 'Hospital_Report',
+        equipment: 'Equipment_Report',
+        'spare-parts': 'Spare_Parts',
+        maintenance: 'Maintenance',
+        'engineer-performance': 'Engineer_Performance',
+        amc: 'AMC_Contracts'
+      }
+      return map[reportType] || 'Report'
+    })()
 
     switch (format) {
       case 'CSV':
@@ -1995,31 +1360,6 @@ const SuperAdminReports = () => {
 
   const totalRecords = filteredData.length
 
-  const chartData = useMemo(() => {
-    if (reportType !== 'downtime' || !filteredData || filteredData.length === 0) return null
-    
-    const topEquipment = filteredData
-      .map(item => ({
-        name: item['Equipment Name'] || 'N/A',
-        downtime: num(item['Total Downtime (Days)'] || 0),
-        failures: num(item['Total Failures'] || 0),
-        critical: num(item['Critical Failures'] || 0),
-        availability: num(item['Availability %'] || 100)
-      }))
-      .sort((a, b) => b.downtime - a.downtime)
-    
-    const totalDays = filteredData.reduce((sum, item) => sum + num(item['Total Downtime (Days)']), 0)
-    const totalHours = totalDays * 24
-    
-    return {
-      topEquipment,
-      totalDays,
-      totalWeeks: totalDays / 7,
-      totalMonths: totalDays / 30.44,
-      avgAvailability: average(filteredData.map(item => num(item['Availability %'] || 100)))
-    }
-  }, [reportType, filteredData])
-
   const handleFilterClick = (event) => {
     if (isMobile) {
       setFilterDrawerOpen(true)
@@ -2080,398 +1420,490 @@ const SuperAdminReports = () => {
   const isErrorReport = ['monthly', 'weekly', 'daily', 'yearly'].includes(reportType)
 
   return (
-    <>
-      <style>{reportStyles}</style>
-      
-      <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
-        {/* HEADER */}
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
+      {/* HEADER */}
+      <Box sx={{
+        display: 'flex',
+        flexDirection: { xs: 'column', sm: 'row' },
+        justifyContent: 'space-between',
+        alignItems: { xs: 'flex-start', sm: 'center' },
+        mb: 3,
+        gap: 2
+      }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+          <Typography variant="h5" sx={{
+            fontWeight: 700,
+            color: '#0F172A',
+            fontSize: { xs: '1.25rem', sm: '1.5rem', md: '1.75rem' },
+            position: 'relative',
+            '&::after': {
+              content: '""',
+              position: 'absolute',
+              bottom: -6,
+              left: 0,
+              width: '40px',
+              height: '3px',
+              background: 'linear-gradient(90deg, #67E8F9, #0F172A)',
+              borderRadius: '2px',
+            }
+          }}>
+            Reports & Analytics
+          </Typography>
+          <Chip
+            icon={<Assessment sx={{ fontSize: 16 }} />}
+            label={`${totalRecords} Records`}
+            size="small"
+            sx={{
+              bgcolor: '#0F172A',
+              color: 'white',
+              fontWeight: 600,
+              '& .MuiChip-icon': { color: '#67E8F9' }
+            }}
+          />
+        </Box>
+        <Box sx={{
+          display: 'flex',
+          gap: 1,
+          flexWrap: 'wrap',
+          width: { xs: '100%', sm: 'auto' },
+          justifyContent: { xs: 'flex-start', sm: 'flex-end' }
+        }}>
+          <Button
+            variant="outlined"
+            onClick={handleRefresh}
+            disabled={loading}
+            size={isMobile ? 'small' : 'medium'}
+            sx={{
+              flex: { xs: '1 1 auto', sm: 'none' },
+              borderColor: '#0F172A',
+              color: '#0F172A',
+              '&:hover': { 
+                borderColor: '#67E8F9', 
+                color: '#67E8F9',
+                boxShadow: '0 0 20px rgba(103, 232, 249, 0.1)',
+                bgcolor: 'rgba(103, 232, 249, 0.05)',
+              },
+              borderRadius: 2,
+              textTransform: 'none',
+              fontWeight: 600,
+            }}
+            startIcon={loading ? <Refresh sx={{ animation: 'spin 1s linear infinite' }} /> : <Refresh />}
+          >
+            {loading ? 'Loading...' : 'Refresh'}
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleExportClick}
+            disabled={loading || filteredData.length === 0}
+            size={isMobile ? 'small' : 'medium'}
+            sx={{
+              flex: { xs: '1 1 auto', sm: 'none' },
+              bgcolor: '#0F172A',
+              '&:hover': { 
+                bgcolor: '#1E3A5F',
+                boxShadow: '0 4px 24px rgba(103, 232, 249, 0.3)',
+              },
+              boxShadow: '0 4px 16px rgba(103, 232, 249, 0.15)',
+              borderRadius: 2,
+              textTransform: 'none',
+              fontWeight: 600,
+            }}
+            startIcon={<Download />}
+          >
+            Export
+          </Button>
+        </Box>
+      </Box>
+
+      {/* LOADING INDICATOR */}
+      {loading && <LinearProgress sx={{ mb: 2, borderRadius: 2, bgcolor: 'rgba(103, 232, 249, 0.1)', '& .MuiLinearProgress-bar': { bgcolor: '#67E8F9' } }} />}
+
+      {/* ERROR DISPLAY */}
+      {error && (
+        <Alert
+          severity="error"
+          sx={{ mb: 2, borderRadius: 2, border: `1px solid ${colors.error}33` }}
+          action={
+            <Button color="inherit" size="small" onClick={() => generateReport(reportType, period)} sx={{ color: '#0F172A' }}>
+              Retry
+            </Button>
+          }
+        >
+          {error}
+        </Alert>
+      )}
+
+      {/* EXPORT MENU */}
+      <Menu
+        anchorEl={exportAnchorEl}
+        open={Boolean(exportAnchorEl)}
+        onClose={handleExportClose}
+        PaperProps={{
+          sx: {
+            p: 1,
+            width: 200,
+            borderRadius: 2,
+            border: `1px solid rgba(103, 232, 249, 0.1)`
+          }
+        }}
+        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+      >
+        <MenuItem onClick={() => handleExport('CSV')} sx={{ gap: 1, '&:hover': { bgcolor: 'rgba(103, 232, 249, 0.05)' } }}>
+          <FileDownload fontSize="small" sx={{ color: '#3B82F6' }} />
+          <Typography variant="body2" sx={{ color: '#0F172A' }}>Export as CSV</Typography>
+        </MenuItem>
+        <MenuItem onClick={() => handleExport('Excel')} sx={{ gap: 1, '&:hover': { bgcolor: 'rgba(103, 232, 249, 0.05)' } }}>
+          <TableChart fontSize="small" sx={{ color: '#22C55E' }} />
+          <Typography variant="body2" sx={{ color: '#0F172A' }}>Export as Excel</Typography>
+        </MenuItem>
+        <MenuItem onClick={() => handleExport('PDF')} sx={{ gap: 1, '&:hover': { bgcolor: 'rgba(103, 232, 249, 0.05)' } }}>
+          <PictureAsPdf fontSize="small" sx={{ color: '#EF4444' }} />
+          <Typography variant="body2" sx={{ color: '#0F172A' }}>Export as PDF</Typography>
+        </MenuItem>
+      </Menu>
+
+      {/* STATS CARDS */}
+      <Grid container spacing={isMobile ? 1 : 2} sx={{ mb: 3 }}>
+        {reportType === 'downtime' ? (
+          <>
+            <Grid item xs={6} sm={2.4}>
+              <StatsCard
+                title="Equipment"
+                value={filteredData.length}
+                color="#0F172A"
+                icon={<MedicalServices sx={{ fontSize: 20, color: 'white' }} />}
+                loading={loading}
+              />
+            </Grid>
+            <Grid item xs={6} sm={2.4}>
+              <StatsCard
+                title="Total Failures"
+                value={filteredData.reduce((sum, row) => sum + num(row['Total Failures']), 0)}
+                color="#F59E0B"
+                bgColor="#F59E0B10"
+                icon={<ErrorOutline sx={{ fontSize: 20, color: 'white' }} />}
+                loading={loading}
+              />
+            </Grid>
+            <Grid item xs={6} sm={2.4}>
+              <StatsCard
+                title="Critical Failures"
+                value={filteredData.reduce((sum, row) => sum + num(row['Critical Failures']), 0)}
+                color="#EF4444"
+                bgColor="#EF444410"
+                icon={<Warning sx={{ fontSize: 20, color: 'white' }} />}
+                loading={loading}
+              />
+            </Grid>
+            <Grid item xs={6} sm={2.4}>
+              <StatsCard
+                title="Total Downtime"
+                value={`${filteredData.reduce((sum, row) => sum + parseFloat(row['Total Downtime (Days)'] || 0), 0).toFixed(1)} days`}
+                color="#EF4444"
+                bgColor="#EF444410"
+                icon={<TimerOff sx={{ fontSize: 20, color: 'white' }} />}
+                loading={loading}
+              />
+            </Grid>
+            <Grid item xs={6} sm={2.4}>
+              <StatsCard
+                title="Avg Availability"
+                value={`${average(
+                  filteredData
+                    .map(row => parseFloat(String(row['Availability %'] || '').replace('%', '')))
+                    .filter(Number.isFinite)
+                ).toFixed(1)}%`}
+                color="#6f42c1"
+                bgColor="#f3e5f5"
+                icon={<TrendingUp sx={{ fontSize: 20, color: 'white' }} />}
+                loading={loading}
+              />
+            </Grid>
+          </>
+        ) : reportType === 'engineer-performance' ? (
+          <>
+            <Grid item xs={6} sm={2.4}>
+              <StatsCard
+                title="Total Engineers"
+                value={filteredData.length}
+                color="#0F172A"
+                icon={<Engineering sx={{ fontSize: 20, color: 'white' }} />}
+                loading={loading}
+              />
+            </Grid>
+            <Grid item xs={6} sm={2.4}>
+              <StatsCard
+                title="Total Repairs"
+                value={filteredData.reduce((sum, row) => sum + row.total_repairs, 0)}
+                color="#0F172A"
+                icon={<Build sx={{ fontSize: 20, color: 'white' }} />}
+                loading={loading}
+              />
+            </Grid>
+            <Grid item xs={6} sm={2.4}>
+              <StatsCard
+                title="Completed"
+                value={filteredData.reduce((sum, row) => sum + row.completed, 0)}
+                color="#22C55E"
+                bgColor="#22C55E10"
+                icon={<CheckCircle sx={{ fontSize: 20, color: 'white' }} />}
+                loading={loading}
+              />
+            </Grid>
+            <Grid item xs={6} sm={2.4}>
+              <StatsCard
+                title="Pending"
+                value={filteredData.reduce((sum, row) => sum + row.pending, 0)}
+                color="#F59E0B"
+                bgColor="#F59E0B10"
+                icon={<Schedule sx={{ fontSize: 20, color: 'white' }} />}
+                loading={loading}
+              />
+            </Grid>
+            <Grid item xs={6} sm={2.4}>
+              <StatsCard
+                title="Avg Days"
+                value={`${(filteredData.reduce((sum, row) => sum + parseFloat(row.avg_days || 0), 0) / (filteredData.length || 1)).toFixed(1)} days`}
+                color="#6f42c1"
+                bgColor="#f3e5f5"
+                icon={<TimerOff sx={{ fontSize: 20, color: 'white' }} />}
+                loading={loading}
+              />
+            </Grid>
+          </>
+        ) : isErrorReport ? (
+          <>
+            <Grid item xs={6} sm={2.4}>
+              <StatsCard
+                title="Total Errors"
+                value={filteredData.reduce((sum, row) => sum + num(row.total_errors), 0)}
+                color="#0F172A"
+                icon={<Assessment sx={{ fontSize: 20, color: 'white' }} />}
+                loading={loading}
+              />
+            </Grid>
+            <Grid item xs={6} sm={2.4}>
+              <StatsCard
+                title="Resolved"
+                value={filteredData.reduce((sum, row) => sum + num(row.resolved), 0)}
+                color="#22C55E"
+                bgColor="#22C55E10"
+                icon={<CheckCircle sx={{ fontSize: 20, color: 'white' }} />}
+                loading={loading}
+              />
+            </Grid>
+            <Grid item xs={6} sm={2.4}>
+              <StatsCard
+                title="Open"
+                value={filteredData.reduce((sum, row) => sum + num(row.open), 0)}
+                color="#F59E0B"
+                bgColor="#F59E0B10"
+                icon={<Schedule sx={{ fontSize: 20, color: 'white' }} />}
+                loading={loading}
+              />
+            </Grid>
+            <Grid item xs={6} sm={2.4}>
+              <StatsCard
+                title="Critical"
+                value={filteredData.reduce((sum, row) => sum + num(row.critical), 0)}
+                color="#EF4444"
+                bgColor="#EF444410"
+                icon={<Warning sx={{ fontSize: 20, color: 'white' }} />}
+                loading={loading}
+              />
+            </Grid>
+            <Grid item xs={6} sm={2.4}>
+              <StatsCard
+                title="Resolution Rate"
+                value={percentage(
+                  filteredData.reduce((sum, row) => sum + num(row.resolved), 0),
+                  filteredData.reduce((sum, row) => sum + num(row.total_errors), 0)
+                )}
+                color="#6f42c1"
+                bgColor="#f3e5f5"
+                icon={<BarChart sx={{ fontSize: 20, color: 'white' }} />}
+                loading={loading}
+              />
+            </Grid>
+          </>
+        ) : (
+          <>
+            <Grid item xs={6} sm={2.4}>
+              <StatsCard
+                title="Total Records"
+                value={totalRecords}
+                color="#0F172A"
+                icon={<Assessment sx={{ fontSize: 20, color: 'white' }} />}
+                loading={loading}
+              />
+            </Grid>
+            <Grid item xs={6} sm={2.4}>
+              <StatsCard
+                title="Active"
+                value={filteredData.filter(d => d.status === 'Active' || d.status === 'Completed' || d.status === 'Resolved').length}
+                color="#22C55E"
+                bgColor="#22C55E10"
+                icon={<CheckCircle sx={{ fontSize: 20, color: 'white' }} />}
+                loading={loading}
+              />
+            </Grid>
+            <Grid item xs={6} sm={2.4}>
+              <StatsCard
+                title="Pending"
+                value={filteredData.filter(d => d.status === 'Pending' || d.status === 'In Progress' || d.status === 'Scheduled').length}
+                color="#F59E0B"
+                bgColor="#F59E0B10"
+                icon={<Schedule sx={{ fontSize: 20, color: 'white' }} />}
+                loading={loading}
+              />
+            </Grid>
+            <Grid item xs={6} sm={2.4}>
+              <StatsCard
+                title="Critical"
+                value={filteredData.filter(d => d.severity === 'Critical' || d.priority === 'Critical' || d.critical_errors > 0).length}
+                color="#EF4444"
+                bgColor="#EF444410"
+                icon={<Warning sx={{ fontSize: 20, color: 'white' }} />}
+                loading={loading}
+              />
+            </Grid>
+            <Grid item xs={6} sm={2.4}>
+              <StatsCard
+                title="Downtime"
+                value={`${filteredData.reduce((sum, row) => sum + parseFloat(row['Total Downtime (Days)'] || row.downtime_days || 0), 0).toFixed(1)} days`}
+                color="#EF4444"
+                bgColor="#EF444410"
+                icon={<TimerOff sx={{ fontSize: 20, color: 'white' }} />}
+                loading={loading}
+              />
+            </Grid>
+          </>
+        )}
+      </Grid>
+
+      {/* SEARCH & FILTER */}
+      <Paper sx={{ 
+        p: { xs: 1.5, sm: 2 }, 
+        mb: 3, 
+        borderRadius: 3, 
+        border: `1px solid rgba(103, 232, 249, 0.1)`,
+        boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+        bgcolor: 'rgba(255, 255, 255, 0.92)',
+        backdropFilter: 'blur(10px)',
+      }}>
         <Box sx={{
           display: 'flex',
           flexDirection: { xs: 'column', sm: 'row' },
-          justifyContent: 'space-between',
-          alignItems: { xs: 'flex-start', sm: 'center' },
-          mb: 3,
-          gap: 2
+          gap: 1.5,
+          alignItems: { xs: 'stretch', sm: 'center' }
         }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-            <Typography variant="h5" sx={{
-              fontWeight: 700,
-              color: '#0F172A',
-              fontSize: { xs: '1.25rem', sm: '1.5rem', md: '1.75rem' },
-              position: 'relative',
-              '&::after': {
-                content: '""',
-                position: 'absolute',
-                bottom: -6,
-                left: 0,
-                width: '40px',
-                height: '3px',
-                background: 'linear-gradient(90deg, #67E8F9, #0F172A)',
-                borderRadius: '2px',
+          <TextField
+            size="small"
+            placeholder="Search by title, type, status, hospital..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            sx={{ 
+              flexGrow: 1, 
+              minWidth: { xs: '100%', sm: 200 },
+              '& .MuiOutlinedInput-root': {
+                '&:hover fieldset': { borderColor: '#67E8F9' },
+                '&.Mui-focused fieldset': { borderColor: '#67E8F9' },
               }
-            }}>
-              Reports & Analytics
-            </Typography>
-            <Chip
-              icon={<Assessment sx={{ fontSize: 16 }} />}
-              label={`${totalRecords} Records`}
-              size="small"
-              sx={{
-                bgcolor: '#0F172A',
-                color: 'white',
-                fontWeight: 600,
-                '& .MuiChip-icon': { color: '#67E8F9' }
-              }}
-            />
-          </Box>
-          <Box sx={{
-            display: 'flex',
-            gap: 1,
-            flexWrap: 'wrap',
-            width: { xs: '100%', sm: 'auto' },
-            justifyContent: { xs: 'flex-start', sm: 'flex-end' }
-          }}>
+            }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Search sx={{ color: '#64748B' }} />
+                </InputAdornment>
+              ),
+              endAdornment: searchTerm && (
+                <InputAdornment position="end">
+                  <IconButton size="small" onClick={() => setSearchTerm('')} sx={{ color: '#64748B', '&:hover': { color: '#EF4444' } }}>
+                    <Clear fontSize="small" />
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+          />
+
+          {isMobile && (
             <Button
               variant="outlined"
-              onClick={handleRefresh}
-              disabled={loading}
-              size={isMobile ? 'small' : 'medium'}
+              onClick={toggleFilters}
+              endIcon={showFilters ? <KeyboardArrowUp /> : <KeyboardArrowDown />}
+              fullWidth
+              size="small"
               sx={{
-                flex: { xs: '1 1 auto', sm: 'none' },
                 borderColor: '#0F172A',
                 color: '#0F172A',
                 '&:hover': { 
                   borderColor: '#67E8F9', 
                   color: '#67E8F9',
-                  boxShadow: '0 0 20px rgba(103, 232, 249, 0.1)',
                   bgcolor: 'rgba(103, 232, 249, 0.05)',
                 },
                 borderRadius: 2,
                 textTransform: 'none',
                 fontWeight: 600,
               }}
-              startIcon={loading ? <Refresh sx={{ animation: 'spin 1s linear infinite' }} /> : <Refresh />}
             >
-              {loading ? 'Loading...' : 'Refresh'}
+              {showFilters ? 'Hide Filters' : 'Show Filters'}
             </Button>
-            <Button
-              variant="contained"
-              onClick={handleExportClick}
-              disabled={loading || filteredData.length === 0}
-              size={isMobile ? 'small' : 'medium'}
-              sx={{
-                flex: { xs: '1 1 auto', sm: 'none' },
-                bgcolor: '#0F172A',
-                '&:hover': { 
-                  bgcolor: '#1E3A5F',
-                  boxShadow: '0 4px 24px rgba(103, 232, 249, 0.3)',
-                },
-                boxShadow: '0 4px 16px rgba(103, 232, 249, 0.15)',
-                borderRadius: 2,
-                textTransform: 'none',
-                fontWeight: 600,
-              }}
-              startIcon={<Download />}
-            >
-              Export
-            </Button>
-          </Box>
-        </Box>
-
-        {/* LOADING INDICATOR */}
-        {loading && <LinearProgress sx={{ mb: 2, borderRadius: 2, bgcolor: 'rgba(103, 232, 249, 0.1)', '& .MuiLinearProgress-bar': { bgcolor: '#67E8F9' } }} />}
-
-        {/* ERROR DISPLAY */}
-        {error && (
-          <Alert
-            severity="error"
-            sx={{ mb: 2, borderRadius: 2, border: `1px solid ${colors.error}33` }}
-            action={
-              <Button color="inherit" size="small" onClick={() => generateReport(reportType, period)} sx={{ color: '#0F172A' }}>
-                Retry
-              </Button>
-            }
-          >
-            {error}
-          </Alert>
-        )}
-
-        {/* EXPORT MENU */}
-        <Menu
-          anchorEl={exportAnchorEl}
-          open={Boolean(exportAnchorEl)}
-          onClose={handleExportClose}
-          PaperProps={{
-            sx: {
-              p: 1,
-              width: 200,
-              borderRadius: 2,
-              border: `1px solid rgba(103, 232, 249, 0.1)`
-            }
-          }}
-          transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-          anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-        >
-          <MenuItem onClick={() => handleExport('CSV')} sx={{ gap: 1, '&:hover': { bgcolor: 'rgba(103, 232, 249, 0.05)' } }}>
-            <FileDownload fontSize="small" sx={{ color: '#3B82F6' }} />
-            <Typography variant="body2" sx={{ color: '#0F172A' }}>Export as CSV</Typography>
-          </MenuItem>
-          <MenuItem onClick={() => handleExport('Excel')} sx={{ gap: 1, '&:hover': { bgcolor: 'rgba(103, 232, 249, 0.05)' } }}>
-            <TableChart fontSize="small" sx={{ color: '#22C55E' }} />
-            <Typography variant="body2" sx={{ color: '#0F172A' }}>Export as Excel</Typography>
-          </MenuItem>
-          <MenuItem onClick={() => handleExport('PDF')} sx={{ gap: 1, '&:hover': { bgcolor: 'rgba(103, 232, 249, 0.05)' } }}>
-            <PictureAsPdf fontSize="small" sx={{ color: '#EF4444' }} />
-            <Typography variant="body2" sx={{ color: '#0F172A' }}>Export as PDF</Typography>
-          </MenuItem>
-        </Menu>
-
-        {/* STATS CARDS - DOWNTIME SHOW IN DAYS */}
-        <Grid container spacing={isMobile ? 1 : 2} sx={{ mb: 3 }}>
-          {reportType === 'downtime' ? (
-            <>
-              <Grid item xs={6} sm={2.4}>
-                <StatsCard
-                  title="Equipment"
-                  value={filteredData.length}
-                  color="#0F172A"
-                  icon={<MedicalServices sx={{ fontSize: 20, color: 'white' }} />}
-                  loading={loading}
-                />
-              </Grid>
-              <Grid item xs={6} sm={2.4}>
-                <StatsCard
-                  title="Total Failures"
-                  value={filteredData.reduce((sum, row) => sum + num(row['Total Failures']), 0)}
-                  color="#F59E0B"
-                  bgColor="#F59E0B10"
-                  icon={<ErrorOutline sx={{ fontSize: 20, color: 'white' }} />}
-                  loading={loading}
-                />
-              </Grid>
-              <Grid item xs={6} sm={2.4}>
-                <StatsCard
-                  title="Critical Failures"
-                  value={filteredData.reduce((sum, row) => sum + num(row['Critical Failures']), 0)}
-                  color="#EF4444"
-                  bgColor="#EF444410"
-                  icon={<Warning sx={{ fontSize: 20, color: 'white' }} />}
-                  loading={loading}
-                />
-              </Grid>
-              <Grid item xs={6} sm={2.4}>
-                <StatsCard
-                  title="Total Downtime"
-                  value={`${filteredData.reduce((sum, row) => sum + num(row['Total Downtime (Days)']), 0).toFixed(1)} days`}
-                  color="#EF4444"
-                  bgColor="#EF444410"
-                  icon={<TimerOff sx={{ fontSize: 20, color: 'white' }} />}
-                  loading={loading}
-                />
-              </Grid>
-              <Grid item xs={6} sm={2.4}>
-                <StatsCard
-                  title="Avg Availability"
-                  value={`${average(
-                    filteredData
-                      .map(row => parseFloat(String(row['Availability %'] || '').replace('%', '')))
-                      .filter(Number.isFinite)
-                  ).toFixed(1)}%`}
-                  color="#6f42c1"
-                  bgColor="#f3e5f5"
-                  icon={<TrendingUp sx={{ fontSize: 20, color: 'white' }} />}
-                  loading={loading}
-                />
-              </Grid>
-            </>
-          ) : isErrorReport ? (
-            <>
-              <Grid item xs={6} sm={2.4}>
-                <StatsCard
-                  title="Total Errors"
-                  value={filteredData.reduce((sum, row) => sum + num(row.total_errors), 0)}
-                  color="#0F172A"
-                  icon={<Assessment sx={{ fontSize: 20, color: 'white' }} />}
-                  loading={loading}
-                />
-              </Grid>
-              <Grid item xs={6} sm={2.4}>
-                <StatsCard
-                  title="Resolved"
-                  value={filteredData.reduce((sum, row) => sum + num(row.resolved), 0)}
-                  color="#22C55E"
-                  bgColor="#22C55E10"
-                  icon={<CheckCircle sx={{ fontSize: 20, color: 'white' }} />}
-                  loading={loading}
-                />
-              </Grid>
-              <Grid item xs={6} sm={2.4}>
-                <StatsCard
-                  title="Open"
-                  value={filteredData.reduce((sum, row) => sum + num(row.open), 0)}
-                  color="#F59E0B"
-                  bgColor="#F59E0B10"
-                  icon={<Schedule sx={{ fontSize: 20, color: 'white' }} />}
-                  loading={loading}
-                />
-              </Grid>
-              <Grid item xs={6} sm={2.4}>
-                <StatsCard
-                  title="Critical"
-                  value={filteredData.reduce((sum, row) => sum + num(row.critical), 0)}
-                  color="#EF4444"
-                  bgColor="#EF444410"
-                  icon={<Warning sx={{ fontSize: 20, color: 'white' }} />}
-                  loading={loading}
-                />
-              </Grid>
-              <Grid item xs={6} sm={2.4}>
-                <StatsCard
-                  title="Resolution Rate"
-                  value={percentage(
-                    filteredData.reduce((sum, row) => sum + num(row.resolved), 0),
-                    filteredData.reduce((sum, row) => sum + num(row.total_errors), 0)
-                  )}
-                  color="#6f42c1"
-                  bgColor="#f3e5f5"
-                  icon={<BarChart sx={{ fontSize: 20, color: 'white' }} />}
-                  loading={loading}
-                />
-              </Grid>
-            </>
-          ) : (
-            <>
-              <Grid item xs={6} sm={2.4}>
-                <StatsCard
-                  title="Total Records"
-                  value={totalRecords}
-                  color="#0F172A"
-                  icon={<Assessment sx={{ fontSize: 20, color: 'white' }} />}
-                  loading={loading}
-                />
-              </Grid>
-              <Grid item xs={6} sm={2.4}>
-                <StatsCard
-                  title="Active"
-                  value={filteredData.filter(d => d.status === 'Active' || d.status === 'Completed' || d.status === 'Resolved').length}
-                  color="#22C55E"
-                  bgColor="#22C55E10"
-                  icon={<CheckCircle sx={{ fontSize: 20, color: 'white' }} />}
-                  loading={loading}
-                />
-              </Grid>
-              <Grid item xs={6} sm={2.4}>
-                <StatsCard
-                  title="Pending"
-                  value={filteredData.filter(d => d.status === 'Pending' || d.status === 'In Progress' || d.status === 'Scheduled').length}
-                  color="#F59E0B"
-                  bgColor="#F59E0B10"
-                  icon={<Schedule sx={{ fontSize: 20, color: 'white' }} />}
-                  loading={loading}
-                />
-              </Grid>
-              <Grid item xs={6} sm={2.4}>
-                <StatsCard
-                  title="Critical"
-                  value={filteredData.filter(d => d.severity === 'Critical' || d.priority === 'Critical' || d.critical_errors > 0).length}
-                  color="#EF4444"
-                  bgColor="#EF444410"
-                  icon={<Warning sx={{ fontSize: 20, color: 'white' }} />}
-                  loading={loading}
-                />
-              </Grid>
-              <Grid item xs={6} sm={2.4}>
-                <StatsCard
-                  title="Downtime"
-                  value={`${filteredData.reduce((sum, row) => sum + num(row['Total Downtime (Days)'] || row.downtime_days || 0), 0).toFixed(1)} days`}
-                  color="#EF4444"
-                  bgColor="#EF444410"
-                  icon={<TimerOff sx={{ fontSize: 20, color: 'white' }} />}
-                  loading={loading}
-                />
-              </Grid>
-            </>
           )}
-        </Grid>
 
-        {/* ✅ CHARTS SECTION - SIRF DOWNTIME REPORT KE LIYE */}
-        {reportType === 'downtime' && chartData && chartData.topEquipment.length > 0 && (
-          <Grid container spacing={2} sx={{ mb: 3 }}>
-            <Grid item xs={12} md={7}>
-              <DowntimeBarChart data={chartData.topEquipment} />
-            </Grid>
-            <Grid item xs={12} md={5}>
-              <Grid container spacing={2} sx={{ height: '100%' }}>
-                <Grid item xs={12}>
-                  <AvailabilityGauge value={chartData.avgAvailability} />
-                </Grid>
-                <Grid item xs={12}>
-                  <DowntimeBreakdown 
-                    days={chartData.totalDays}
-                    weeks={chartData.totalWeeks}
-                    months={chartData.totalMonths}
-                  />
-                </Grid>
-              </Grid>
-            </Grid>
-            <Grid item xs={12}>
-              <FailureComparisonChart data={chartData.topEquipment} />
-            </Grid>
-          </Grid>
-        )}
-
-        {/* SEARCH & FILTER */}
-        <Paper sx={{ 
-          p: { xs: 1.5, sm: 2 }, 
-          mb: 3, 
-          borderRadius: 3, 
-          border: `1px solid rgba(103, 232, 249, 0.1)`,
-          boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-          bgcolor: 'rgba(255, 255, 255, 0.92)',
-          backdropFilter: 'blur(10px)',
-        }}>
-          <Box sx={{
-            display: 'flex',
-            flexDirection: { xs: 'column', sm: 'row' },
-            gap: 1.5,
-            alignItems: { xs: 'stretch', sm: 'center' }
-          }}>
-            <TextField
-              size="small"
-              placeholder="Search by title, type, status, hospital..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              sx={{ 
-                flexGrow: 1, 
-                minWidth: { xs: '100%', sm: 200 },
-                '& .MuiOutlinedInput-root': {
-                  '&:hover fieldset': { borderColor: '#67E8F9' },
-                  '&.Mui-focused fieldset': { borderColor: '#67E8F9' },
-                }
-              }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Search sx={{ color: '#64748B' }} />
-                  </InputAdornment>
-                ),
-                endAdornment: searchTerm && (
-                  <InputAdornment position="end">
-                    <IconButton size="small" onClick={() => setSearchTerm('')} sx={{ color: '#64748B', '&:hover': { color: '#EF4444' } }}>
-                      <Clear fontSize="small" />
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-            />
-
-            {isMobile && (
+          {!isMobile && (
+            <>
+              <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 150 } }}>
+                <InputLabel sx={{ color: '#64748B' }}>Report Type</InputLabel>
+                <Select
+                  value={reportType}
+                  onChange={(e) => {
+                    setReportType(e.target.value)
+                    generateReport(e.target.value, period)
+                  }}
+                  label="Report Type"
+                  sx={{
+                    borderRadius: 2,
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: '#67E8F9' },
+                      '&.Mui-focused fieldset': { borderColor: '#67E8F9' },
+                    }
+                  }}
+                >
+                  {superAdminReportTypes.map((type) => (
+                    <MenuItem key={type.value} value={type.value}>
+                      {type.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 120 } }}>
+                <InputLabel sx={{ color: '#64748B' }}>Period</InputLabel>
+                <Select
+                  value={period}
+                  onChange={(e) => {
+                    setPeriod(e.target.value)
+                    setFilters({ ...filters, period: e.target.value })
+                  }}
+                  label="Period"
+                  sx={{
+                    borderRadius: 2,
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: '#67E8F9' },
+                      '&.Mui-focused fieldset': { borderColor: '#67E8F9' },
+                    }
+                  }}
+                >
+                  {periodOptions.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
               <Button
                 variant="outlined"
-                onClick={toggleFilters}
-                endIcon={showFilters ? <KeyboardArrowUp /> : <KeyboardArrowDown />}
-                fullWidth
-                size="small"
+                onClick={handleFilterClick}
                 sx={{
                   borderColor: '#0F172A',
                   color: '#0F172A',
@@ -2484,64 +1916,90 @@ const SuperAdminReports = () => {
                   textTransform: 'none',
                   fontWeight: 600,
                 }}
+                startIcon={<FilterList />}
               >
-                {showFilters ? 'Hide Filters' : 'Show Filters'}
+                Filter
               </Button>
-            )}
+              <Button
+                variant="contained"
+                onClick={() => generateReport(reportType, period)}
+                disabled={loading}
+                sx={{
+                  bgcolor: '#0F172A',
+                  '&:hover': { 
+                    bgcolor: '#1E3A5F',
+                    boxShadow: '0 4px 24px rgba(103, 232, 249, 0.3)',
+                  },
+                  borderRadius: 2,
+                  boxShadow: '0 4px 16px rgba(103, 232, 249, 0.15)',
+                  textTransform: 'none',
+                  fontWeight: 600,
+                }}
+                startIcon={<Refresh />}
+              >
+                {loading ? 'Generating...' : 'Generate Report'}
+              </Button>
+            </>
+          )}
+        </Box>
 
-            {!isMobile && (
-              <>
-                <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 150 } }}>
-                  <InputLabel sx={{ color: '#64748B' }}>Report Type</InputLabel>
-                  <Select
-                    value={reportType}
-                    onChange={(e) => {
-                      setReportType(e.target.value)
-                      generateReport(e.target.value, period)
-                    }}
-                    label="Report Type"
-                    sx={{
-                      borderRadius: 2,
-                      '& .MuiOutlinedInput-root': {
-                        '&:hover fieldset': { borderColor: '#67E8F9' },
-                        '&.Mui-focused fieldset': { borderColor: '#67E8F9' },
-                      }
-                    }}
-                  >
-                    {superAdminReportTypes.map((type) => (
-                      <MenuItem key={type.value} value={type.value}>
-                        {type.label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 120 } }}>
-                  <InputLabel sx={{ color: '#64748B' }}>Period</InputLabel>
-                  <Select
-                    value={period}
-                    onChange={(e) => {
-                      setPeriod(e.target.value)
-                      setFilters({ ...filters, period: e.target.value })
-                    }}
-                    label="Period"
-                    sx={{
-                      borderRadius: 2,
-                      '& .MuiOutlinedInput-root': {
-                        '&:hover fieldset': { borderColor: '#67E8F9' },
-                        '&.Mui-focused fieldset': { borderColor: '#67E8F9' },
-                      }
-                    }}
-                  >
-                    {periodOptions.map((option) => (
-                      <MenuItem key={option.value} value={option.value}>
-                        {option.label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+        {isMobile && (
+          <Collapse in={showFilters} timeout="auto" unmountOnExit>
+            <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              <FormControl size="small" fullWidth>
+                <InputLabel sx={{ color: '#64748B' }}>Report Type</InputLabel>
+                <Select
+                  value={reportType}
+                  onChange={(e) => {
+                    setReportType(e.target.value)
+                    generateReport(e.target.value, period)
+                  }}
+                  label="Report Type"
+                  sx={{
+                    borderRadius: 2,
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: '#67E8F9' },
+                      '&.Mui-focused fieldset': { borderColor: '#67E8F9' },
+                    }
+                  }}
+                >
+                  {superAdminReportTypes.map((type) => (
+                    <MenuItem key={type.value} value={type.value}>
+                      {type.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <FormControl size="small" fullWidth>
+                <InputLabel sx={{ color: '#64748B' }}>Period</InputLabel>
+                <Select
+                  value={period}
+                  onChange={(e) => {
+                    setPeriod(e.target.value)
+                    setFilters({ ...filters, period: e.target.value })
+                  }}
+                  label="Period"
+                  sx={{
+                    borderRadius: 2,
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: '#67E8F9' },
+                      '&.Mui-focused fieldset': { borderColor: '#67E8F9' },
+                    }
+                  }}
+                >
+                  {periodOptions.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <Box sx={{ display: 'flex', gap: 1 }}>
                 <Button
                   variant="outlined"
                   onClick={handleFilterClick}
+                  fullWidth
+                  size="small"
                   sx={{
                     borderColor: '#0F172A',
                     color: '#0F172A',
@@ -2569,574 +2027,630 @@ const SuperAdminReports = () => {
                       boxShadow: '0 4px 24px rgba(103, 232, 249, 0.3)',
                     },
                     borderRadius: 2,
-                    boxShadow: '0 4px 16px rgba(103, 232, 249, 0.15)',
                     textTransform: 'none',
                     fontWeight: 600,
                   }}
+                  fullWidth
+                  size="small"
                   startIcon={<Refresh />}
                 >
-                  {loading ? 'Generating...' : 'Generate Report'}
+                  {loading ? 'Generating...' : 'Generate'}
                 </Button>
-              </>
-            )}
-          </Box>
-
-          {isMobile && (
-            <Collapse in={showFilters} timeout="auto" unmountOnExit>
-              <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                <FormControl size="small" fullWidth>
-                  <InputLabel sx={{ color: '#64748B' }}>Report Type</InputLabel>
-                  <Select
-                    value={reportType}
-                    onChange={(e) => {
-                      setReportType(e.target.value)
-                      generateReport(e.target.value, period)
-                    }}
-                    label="Report Type"
-                    sx={{
-                      borderRadius: 2,
-                      '& .MuiOutlinedInput-root': {
-                        '&:hover fieldset': { borderColor: '#67E8F9' },
-                        '&.Mui-focused fieldset': { borderColor: '#67E8F9' },
-                      }
-                    }}
-                  >
-                    {superAdminReportTypes.map((type) => (
-                      <MenuItem key={type.value} value={type.value}>
-                        {type.label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                <FormControl size="small" fullWidth>
-                  <InputLabel sx={{ color: '#64748B' }}>Period</InputLabel>
-                  <Select
-                    value={period}
-                    onChange={(e) => {
-                      setPeriod(e.target.value)
-                      setFilters({ ...filters, period: e.target.value })
-                    }}
-                    label="Period"
-                    sx={{
-                      borderRadius: 2,
-                      '& .MuiOutlinedInput-root': {
-                        '&:hover fieldset': { borderColor: '#67E8F9' },
-                        '&.Mui-focused fieldset': { borderColor: '#67E8F9' },
-                      }
-                    }}
-                  >
-                    {periodOptions.map((option) => (
-                      <MenuItem key={option.value} value={option.value}>
-                        {option.label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  <Button
-                    variant="outlined"
-                    onClick={handleFilterClick}
-                    fullWidth
-                    size="small"
-                    sx={{
-                      borderColor: '#0F172A',
-                      color: '#0F172A',
-                      '&:hover': { 
-                        borderColor: '#67E8F9', 
-                        color: '#67E8F9',
-                        bgcolor: 'rgba(103, 232, 249, 0.05)',
-                      },
-                      borderRadius: 2,
-                      textTransform: 'none',
-                      fontWeight: 600,
-                    }}
-                    startIcon={<FilterList />}
-                  >
-                    Filter
-                  </Button>
-                  <Button
-                    variant="contained"
-                    onClick={() => generateReport(reportType, period)}
-                    disabled={loading}
-                    sx={{
-                      bgcolor: '#0F172A',
-                      '&:hover': { 
-                        bgcolor: '#1E3A5F',
-                        boxShadow: '0 4px 24px rgba(103, 232, 249, 0.3)',
-                      },
-                      borderRadius: 2,
-                      textTransform: 'none',
-                      fontWeight: 600,
-                    }}
-                    fullWidth
-                    size="small"
-                    startIcon={<Refresh />}
-                  >
-                    {loading ? 'Generating...' : 'Generate'}
-                  </Button>
-                </Box>
               </Box>
-            </Collapse>
-          )}
-        </Paper>
+            </Box>
+          </Collapse>
+        )}
+      </Paper>
 
-        {/* FILTER MENU / DRAWER */}
-        <FilterMenu
-          anchorEl={filterAnchorEl}
-          onClose={handleFilterClose}
-          open={filterDrawerOpen}
-          onOpen={() => setFilterDrawerOpen(true)}
-          onDrawerClose={handleFilterClose}
-          isMobile={isMobile}
-          filters={filters}
-          onFilterChange={handleFilterChange}
-          onApply={applyFilters}
-          onClear={clearFilters}
-          period={period}
-          onPeriodChange={handlePeriodChange}
-          periodOptions={periodOptions}
-          reportTypes={superAdminReportTypes}
-          selectedReportType={reportType}
-          onReportTypeChange={handleReportTypeChange}
-          additionalFilters={additionalFilters}
-        />
+      {/* FILTER MENU / DRAWER */}
+      <FilterMenu
+        anchorEl={filterAnchorEl}
+        onClose={handleFilterClose}
+        open={filterDrawerOpen}
+        onOpen={() => setFilterDrawerOpen(true)}
+        onDrawerClose={handleFilterClose}
+        isMobile={isMobile}
+        filters={filters}
+        onFilterChange={handleFilterChange}
+        onApply={applyFilters}
+        onClear={clearFilters}
+        period={period}
+        onPeriodChange={handlePeriodChange}
+        periodOptions={periodOptions}
+        reportTypes={superAdminReportTypes}
+        selectedReportType={reportType}
+        onReportTypeChange={handleReportTypeChange}
+        additionalFilters={additionalFilters}
+      />
 
-        {/* TABLE */}
-        <Paper sx={{ 
-          borderRadius: 3, 
-          overflow: 'hidden', 
-          border: `1px solid rgba(103, 232, 249, 0.1)`,
-          boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-        }}>
-          <TableContainer>
-            <Table>
-              <TableHead sx={{ 
-                bgcolor: '#0F172A',
-                background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)',
-              }}>
+      {/* TABLE */}
+      <Paper sx={{ 
+        borderRadius: 3, 
+        overflow: 'hidden', 
+        border: `1px solid rgba(103, 232, 249, 0.1)`,
+        boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+      }}>
+        <TableContainer>
+          <Table>
+            <TableHead sx={{ 
+              bgcolor: '#0F172A',
+              background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)',
+            }}>
+              <TableRow>
+                {reportType === 'downtime' ? (
+                  <>
+                    <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Equipment</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Hospital</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Failures</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Critical</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Downtime (Days)</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Availability</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Actions</TableCell>
+                  </>
+                ) : reportType === 'engineer-performance' ? (
+                  <>
+                    <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Engineer</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Hospital</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Total Repairs</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Completed</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Pending</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Critical</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Avg Days</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Completion Rate</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Status</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Actions</TableCell>
+                  </>
+                ) : isErrorReport ? (
+                  <>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Period</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Total</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Resolved</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Open</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Critical</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Actions</TableCell>
+                  </>
+                ) : (
+                  <>
+                    <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Title</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Type</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Status</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Date</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Actions</TableCell>
+                  </>
+                )}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {loading ? (
                 <TableRow>
-                  {reportType === 'downtime' ? (
-                    <>
-                      <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Equipment</TableCell>
-                      <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Hospital</TableCell>
-                      <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Failures</TableCell>
-                      <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Critical</TableCell>
-                      <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Downtime (Days)</TableCell>
-                      <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Availability</TableCell>
-                      <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Actions</TableCell>
-                    </>
-                  ) : isErrorReport ? (
-                    <>
-                      <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Period</TableCell>
-                      <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Total</TableCell>
-                      <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Resolved</TableCell>
-                      <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Open</TableCell>
-                      <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Critical</TableCell>
-                      <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Actions</TableCell>
-                    </>
-                  ) : (
-                    <>
-                      <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Title</TableCell>
-                      <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Type</TableCell>
-                      <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Status</TableCell>
-                      <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Date</TableCell>
-                      <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Actions</TableCell>
-                    </>
-                  )}
+                  <TableCell colSpan={10} align="center">
+                    <LinearProgress sx={{ my: 2, bgcolor: 'rgba(103, 232, 249, 0.1)', '& .MuiLinearProgress-bar': { bgcolor: '#67E8F9' } }} />
+                  </TableCell>
                 </TableRow>
-              </TableHead>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={8} align="center">
-                      <LinearProgress sx={{ my: 2, bgcolor: 'rgba(103, 232, 249, 0.1)', '& .MuiLinearProgress-bar': { bgcolor: '#67E8F9' } }} />
-                    </TableCell>
-                  </TableRow>
-                ) : filteredData.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={8} align="center">
-                      <Box sx={{ py: 4 }}>
-                        <Search sx={{ fontSize: 48, color: '#64748B', mb: 1 }} />
-                        <Typography variant="body1" color="textSecondary" sx={{ color: '#64748B' }}>
-                          {searchTerm || filters.status || filters.hospital
-                            ? 'No results found matching your search/filters'
-                            : 'No reports found. Click "Generate Report" to create a report.'}
-                        </Typography>
-                        {(searchTerm || filters.status || filters.hospital) && (
-                          <Button
-                            variant="outlined"
+              ) : filteredData.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={10} align="center">
+                    <Box sx={{ py: 4 }}>
+                      <Search sx={{ fontSize: 48, color: '#64748B', mb: 1 }} />
+                      <Typography variant="body1" color="textSecondary" sx={{ color: '#64748B' }}>
+                        {searchTerm || filters.status || filters.hospital
+                          ? 'No results found matching your search/filters'
+                          : 'No reports found. Click "Generate Report" to create a report.'}
+                      </Typography>
+                      {(searchTerm || filters.status || filters.hospital) && (
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          onClick={clearFilters}
+                          sx={{
+                            borderColor: '#0F172A',
+                            color: '#0F172A',
+                            '&:hover': { 
+                              borderColor: '#67E8F9', 
+                              color: '#67E8F9',
+                              bgcolor: 'rgba(103, 232, 249, 0.05)',
+                            },
+                            mt: 1,
+                            borderRadius: 2,
+                            textTransform: 'none',
+                            fontWeight: 600,
+                          }}
+                        >
+                          Clear Filters
+                        </Button>
+                      )}
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredData.map((item, index) => (
+                  <TableRow 
+                    key={index} 
+                    className="table-row-hover"
+                    sx={{
+                      '&:hover': {
+                        bgcolor: 'rgba(103, 232, 249, 0.04) !important',
+                      }
+                    }}
+                  >
+                    {reportType === 'downtime' ? (
+                      <>
+                        <TableCell>
+                          <Typography variant="body2" fontWeight={600} sx={{ color: '#0F172A' }}>
+                            {item['Equipment Name'] || 'N/A'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell sx={{ color: '#64748B' }}>{item.Hospital || 'N/A'}</TableCell>
+                        <TableCell align="center">{item['Total Failures'] ?? 0}</TableCell>
+                        <TableCell align="center" sx={{ color: '#EF4444', fontWeight: 600 }}>
+                          {item['Critical Failures'] ?? 0}
+                        </TableCell>
+                        <TableCell align="center" sx={{ color: '#EF4444', fontWeight: 700 }}>
+                          {item['Total Downtime (Days)'] ?? 0} days
+                        </TableCell>
+                        <TableCell align="center">
+                          <Chip
+                            label={item['Availability %'] || 'N/A'}
                             size="small"
-                            onClick={clearFilters}
                             sx={{
-                              borderColor: '#0F172A',
-                              color: '#0F172A',
-                              '&:hover': { 
-                                borderColor: '#67E8F9', 
-                                color: '#67E8F9',
-                                bgcolor: 'rgba(103, 232, 249, 0.05)',
-                              },
-                              mt: 1,
-                              borderRadius: 2,
-                              textTransform: 'none',
+                              bgcolor: parseFloat(item['Availability %']) >= 90 ? '#22C55E' :
+                                parseFloat(item['Availability %']) >= 70 ? '#F59E0B' :
+                                '#EF4444',
+                              color: 'white',
                               fontWeight: 600,
                             }}
-                          >
-                            Clear Filters
-                          </Button>
-                        )}
-                      </Box>
-                    </TableCell>
+                          />
+                        </TableCell>
+                        <TableCell align="center">
+                          <Tooltip title="View Details">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleView(item)}
+                              sx={{ 
+                                color: '#0F172A', 
+                                '&:hover': { 
+                                  color: '#67E8F9',
+                                  bgcolor: 'rgba(103, 232, 249, 0.1)',
+                                  transform: 'scale(1.1)',
+                                },
+                                transition: 'all 0.3s ease',
+                              }}
+                            >
+                              <Visibility fontSize={isMobile ? 'small' : 'medium'} />
+                            </IconButton>
+                          </Tooltip>
+                        </TableCell>
+                      </>
+                    ) : reportType === 'engineer-performance' ? (
+                      <>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Avatar sx={{ 
+                              width: 32, 
+                              height: 32, 
+                              bgcolor: '#0F172A',
+                              fontSize: '14px',
+                              border: `2px solid #67E8F9`,
+                            }}>
+                              {item.engineer_name?.charAt(0) || 'E'}
+                            </Avatar>
+                            <Box>
+                              <Typography variant="body2" fontWeight={600} sx={{ color: '#0F172A' }}>
+                                {item.engineer_name}
+                              </Typography>
+                              <Typography variant="caption" sx={{ color: '#64748B' }}>
+                                {item.email}
+                              </Typography>
+                            </Box>
+                          </Box>
+                        </TableCell>
+                        <TableCell sx={{ color: '#64748B' }}>{item.hospital_name}</TableCell>
+                        <TableCell align="center" sx={{ fontWeight: 600, color: '#0F172A' }}>{item.total_repairs}</TableCell>
+                        <TableCell align="center" sx={{ color: '#22C55E', fontWeight: 600 }}>{item.completed}</TableCell>
+                        <TableCell align="center" sx={{ color: '#F59E0B', fontWeight: 600 }}>{item.pending}</TableCell>
+                        <TableCell align="center" sx={{ color: '#EF4444', fontWeight: 600 }}>{item.critical}</TableCell>
+                        <TableCell align="center" sx={{ color: '#0F172A', fontWeight: 600 }}>
+                          {item.avg_days} days
+                        </TableCell>
+                        <TableCell align="center">
+                          <Chip
+                            label={item.completion_rate}
+                            size="small"
+                            sx={{
+                              bgcolor: parseFloat(item.completion_rate) >= 80 ? '#22C55E' :
+                                       parseFloat(item.completion_rate) >= 50 ? '#F59E0B' : '#EF4444',
+                              color: 'white',
+                              fontWeight: 600,
+                              height: 22,
+                              fontSize: '10px'
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell align="center">
+                          <Chip
+                            label={item.status}
+                            size="small"
+                            sx={{
+                              bgcolor: item.status === 'Active' ? '#22C55E' : '#EF4444',
+                              color: 'white',
+                              fontWeight: 500,
+                              height: 22,
+                              fontSize: '10px'
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell align="center">
+                          <Tooltip title="View Details">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleView(item)}
+                              sx={{ 
+                                color: '#0F172A', 
+                                '&:hover': { 
+                                  color: '#67E8F9',
+                                  bgcolor: 'rgba(103, 232, 249, 0.1)',
+                                  transform: 'scale(1.1)',
+                                },
+                                transition: 'all 0.3s ease',
+                              }}
+                            >
+                              <Visibility fontSize={isMobile ? 'small' : 'medium'} />
+                            </IconButton>
+                          </Tooltip>
+                        </TableCell>
+                      </>
+                    ) : isErrorReport ? (
+                      <>
+                        <TableCell align="center">
+                          <Typography variant="body2" fontWeight={600} sx={{ color: '#0F172A' }}>
+                            {item.period}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center">{item.total_errors}</TableCell>
+                        <TableCell align="center" sx={{ color: '#22C55E', fontWeight: 600 }}>{item.resolved}</TableCell>
+                        <TableCell align="center" sx={{ color: '#F59E0B', fontWeight: 600 }}>{item.open}</TableCell>
+                        <TableCell align="center" sx={{ color: '#EF4444', fontWeight: 600 }}>{item.critical}</TableCell>
+                        <TableCell align="center">
+                          <Tooltip title="View Details">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleView(item)}
+                              sx={{ 
+                                color: '#0F172A', 
+                                '&:hover': { 
+                                  color: '#67E8F9',
+                                  bgcolor: 'rgba(103, 232, 249, 0.1)',
+                                  transform: 'scale(1.1)',
+                                },
+                                transition: 'all 0.3s ease',
+                              }}
+                            >
+                              <Visibility fontSize={isMobile ? 'small' : 'medium'} />
+                            </IconButton>
+                          </Tooltip>
+                        </TableCell>
+                      </>
+                    ) : (
+                      <>
+                        <TableCell>
+                          <Typography variant="body2" fontWeight={500} sx={{ color: '#0F172A' }}>
+                            {item.title || item.name || item.error_title || item.equipment_name || 'N/A'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ color: '#64748B' }}>
+                            {item.type || item.category || reportType || 'Report'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={item.status || 'N/A'}
+                            size="small"
+                            sx={{
+                              bgcolor: item.status === 'Completed' || item.status === 'Resolved' || item.status === 'Active' ? '#22C55E' :
+                                item.status === 'Pending' || item.status === 'Scheduled' ? '#F59E0B' :
+                                item.status === 'In Progress' ? '#3B82F6' :
+                                item.status === 'Critical' ? '#EF4444' : '#64748B',
+                              color: 'white',
+                              fontWeight: 500,
+                              height: 22,
+                              fontSize: '10px',
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ color: '#64748B' }}>
+                            {formatDate(item.created_at || item.date || item.repair_date)}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Tooltip title="View Details">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleView(item)}
+                              sx={{ 
+                                color: '#0F172A', 
+                                '&:hover': { 
+                                  color: '#67E8F9',
+                                  bgcolor: 'rgba(103, 232, 249, 0.1)',
+                                  transform: 'scale(1.1)',
+                                },
+                                transition: 'all 0.3s ease',
+                              }}
+                            >
+                              <Visibility fontSize={isMobile ? 'small' : 'medium'} />
+                            </IconButton>
+                          </Tooltip>
+                        </TableCell>
+                      </>
+                    )}
                   </TableRow>
-                ) : (
-                  filteredData.map((item, index) => (
-                    <TableRow 
-                      key={index} 
-                      className="table-row-hover"
-                      sx={{
-                        '&:hover': {
-                          bgcolor: 'rgba(103, 232, 249, 0.04) !important',
-                        }
-                      }}
-                    >
-                      {reportType === 'downtime' ? (
-                        <>
-                          <TableCell>
-                            <Typography variant="body2" fontWeight={600} sx={{ color: '#0F172A' }}>
-                              {item['Equipment Name'] || 'N/A'}
-                            </Typography>
-                          </TableCell>
-                          <TableCell sx={{ color: '#64748B' }}>{item.Hospital || 'N/A'}</TableCell>
-                          <TableCell align="center">{item['Total Failures'] ?? 0}</TableCell>
-                          <TableCell align="center" sx={{ color: '#EF4444', fontWeight: 600 }}>
-                            {item['Critical Failures'] ?? 0}
-                          </TableCell>
-                          <TableCell align="center" sx={{ color: '#EF4444', fontWeight: 700 }}>
-                            {item['Total Downtime (Days)'] ?? 0} days
-                          </TableCell>
-                          <TableCell align="center">
-                            <Chip
-                              label={item['Availability %'] || 'N/A'}
-                              size="small"
-                              sx={{
-                                bgcolor: parseFloat(item['Availability %']) >= 90 ? '#22C55E' :
-                                  parseFloat(item['Availability %']) >= 70 ? '#F59E0B' :
-                                  '#EF4444',
-                                color: 'white',
-                                fontWeight: 600,
-                                boxShadow: `0 2px 8px ${parseFloat(item['Availability %']) >= 90 ? '#22C55E44' : parseFloat(item['Availability %']) >= 70 ? '#F59E0B44' : '#EF444444'}`
-                              }}
-                            />
-                          </TableCell>
-                          <TableCell align="center">
-                            <Tooltip title="View Details">
-                              <IconButton
-                                size="small"
-                                onClick={() => handleView(item)}
-                                sx={{ 
-                                  color: '#0F172A', 
-                                  '&:hover': { 
-                                    color: '#67E8F9',
-                                    bgcolor: 'rgba(103, 232, 249, 0.1)',
-                                    transform: 'scale(1.1)',
-                                  },
-                                  transition: 'all 0.3s ease',
-                                }}
-                              >
-                                <Visibility fontSize={isMobile ? 'small' : 'medium'} />
-                              </IconButton>
-                            </Tooltip>
-                          </TableCell>
-                        </>
-                      ) : isErrorReport ? (
-                        <>
-                          <TableCell align="center">
-                            <Typography variant="body2" fontWeight={600} sx={{ color: '#0F172A' }}>
-                              {item.period}
-                            </Typography>
-                          </TableCell>
-                          <TableCell align="center">{item.total_errors}</TableCell>
-                          <TableCell align="center" sx={{ color: '#22C55E', fontWeight: 600 }}>{item.resolved}</TableCell>
-                          <TableCell align="center" sx={{ color: '#F59E0B', fontWeight: 600 }}>{item.open}</TableCell>
-                          <TableCell align="center" sx={{ color: '#EF4444', fontWeight: 600 }}>{item.critical}</TableCell>
-                          <TableCell align="center">
-                            <Tooltip title="View Details">
-                              <IconButton
-                                size="small"
-                                onClick={() => handleView(item)}
-                                sx={{ 
-                                  color: '#0F172A', 
-                                  '&:hover': { 
-                                    color: '#67E8F9',
-                                    bgcolor: 'rgba(103, 232, 249, 0.1)',
-                                    transform: 'scale(1.1)',
-                                  },
-                                  transition: 'all 0.3s ease',
-                                }}
-                              >
-                                <Visibility fontSize={isMobile ? 'small' : 'medium'} />
-                              </IconButton>
-                            </Tooltip>
-                          </TableCell>
-                        </>
-                      ) : (
-                        <>
-                          <TableCell>
-                            <Typography variant="body2" fontWeight={500} sx={{ color: '#0F172A' }}>
-                              {item.title || item.name || item.error_title || item.equipment_name || 'N/A'}
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="body2" sx={{ color: '#64748B' }}>
-                              {item.type || item.category || reportType || 'Report'}
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Chip
-                              label={item.status || 'N/A'}
-                              size="small"
-                              sx={{
-                                bgcolor: item.status === 'Completed' || item.status === 'Resolved' || item.status === 'Active' ? '#22C55E' :
-                                  item.status === 'Pending' || item.status === 'Scheduled' ? '#F59E0B' :
-                                  item.status === 'In Progress' ? '#3B82F6' :
-                                  item.status === 'Critical' ? '#EF4444' : '#64748B',
-                                color: 'white',
-                                fontWeight: 500,
-                                height: 22,
-                                fontSize: '10px',
-                                boxShadow: `0 2px 8px ${item.status === 'Completed' || item.status === 'Resolved' || item.status === 'Active' ? '#22C55E44' : item.status === 'Pending' ? '#F59E0B44' : '#64748B44'}`
-                              }}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="body2" sx={{ color: '#64748B' }}>
-                              {formatDate(item.created_at || item.date || item.repair_date)}
-                            </Typography>
-                          </TableCell>
-                          <TableCell align="center">
-                            <Tooltip title="View Details">
-                              <IconButton
-                                size="small"
-                                onClick={() => handleView(item)}
-                                sx={{ 
-                                  color: '#0F172A', 
-                                  '&:hover': { 
-                                    color: '#67E8F9',
-                                    bgcolor: 'rgba(103, 232, 249, 0.1)',
-                                    transform: 'scale(1.1)',
-                                  },
-                                  transition: 'all 0.3s ease',
-                                }}
-                              >
-                                <Visibility fontSize={isMobile ? 'small' : 'medium'} />
-                              </IconButton>
-                            </Tooltip>
-                          </TableCell>
-                        </>
-                      )}
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Paper>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
 
-        {/* VIEW DIALOG */}
-        <Dialog
-          open={openViewDialog}
-          onClose={() => setOpenViewDialog(false)}
-          maxWidth="md"
-          fullWidth
-          fullScreen={isMobile}
-          PaperProps={{
-            sx: {
-              borderRadius: 3,
-              border: `1px solid rgba(103, 232, 249, 0.1)`
-            }
-          }}
-        >
-          <DialogTitle sx={{ 
-            bgcolor: '#0F172A',
-            background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)',
-            color: 'white',
-            borderBottom: `2px solid #67E8F9`,
-            borderTopLeftRadius: 12,
-            borderTopRightRadius: 12,
-          }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant="h6" fontWeight={700}>
-                Report Details
-              </Typography>
-              <IconButton onClick={() => setOpenViewDialog(false)} sx={{ color: 'white', '&:hover': { color: '#67E8F9' } }}>
-                <Close />
-              </IconButton>
-            </Box>
-          </DialogTitle>
-          <DialogContent dividers sx={{ p: 3 }}>
-            {selectedItem && (
-              <Grid container spacing={3}>
-                <Grid item xs={12}>
-                  <Paper sx={{ 
-                    p: 2, 
-                    bgcolor: 'rgba(103, 232, 249, 0.04)', 
-                    borderRadius: 2, 
-                    border: `1px solid #67E8F9`,
-                  }}>
-                    <Typography variant="h6" sx={{ color: '#0F172A', fontWeight: 600 }}>
-                      {selectedItem.title || selectedItem.name || selectedItem['Equipment Name'] || selectedItem.error_title || 'Report'}
-                    </Typography>
-                    <Chip
-                      label={selectedItem.type || selectedItem.category || reportType || 'Report'}
-                      size="small"
-                      sx={{ mt: 1, bgcolor: '#0F172A', color: 'white', fontWeight: 600 }}
-                    />
-                  </Paper>
-                </Grid>
-
-                <Grid item xs={12} md={6}>
-                  <Typography variant="subtitle2" sx={{ color: '#64748B', mb: 1, fontWeight: 600 }}>
-                    Report Information
+      {/* VIEW DIALOG */}
+      <Dialog
+        open={openViewDialog}
+        onClose={() => setOpenViewDialog(false)}
+        maxWidth="md"
+        fullWidth
+        fullScreen={isMobile}
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            border: `1px solid rgba(103, 232, 249, 0.1)`
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          bgcolor: '#0F172A',
+          background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)',
+          color: 'white',
+          borderBottom: `2px solid #67E8F9`,
+          borderTopLeftRadius: 12,
+          borderTopRightRadius: 12,
+        }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="h6" fontWeight={700}>
+              Report Details
+            </Typography>
+            <IconButton onClick={() => setOpenViewDialog(false)} sx={{ color: 'white', '&:hover': { color: '#67E8F9' } }}>
+              <Close />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers sx={{ p: 3 }}>
+          {selectedItem && (
+            <Grid container spacing={3}>
+              <Grid item xs={12}>
+                <Paper sx={{ 
+                  p: 2, 
+                  bgcolor: 'rgba(103, 232, 249, 0.04)', 
+                  borderRadius: 2, 
+                  border: `1px solid #67E8F9`,
+                }}>
+                  <Typography variant="h6" sx={{ color: '#0F172A', fontWeight: 600 }}>
+                    {selectedItem.title || selectedItem.name || selectedItem['Equipment Name'] || selectedItem.engineer_name || 'Report'}
                   </Typography>
-                  <Paper sx={{ p: 2, bgcolor: 'rgba(103, 232, 249, 0.02)', borderRadius: 2, border: `1px solid rgba(103, 232, 249, 0.1)` }}>
+                  <Chip
+                    label={selectedItem.type || selectedItem.category || reportType || 'Report'}
+                    size="small"
+                    sx={{ mt: 1, bgcolor: '#0F172A', color: 'white', fontWeight: 600 }}
+                  />
+                </Paper>
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <Typography variant="subtitle2" sx={{ color: '#64748B', mb: 1, fontWeight: 600 }}>
+                  Report Information
+                </Typography>
+                <Paper sx={{ p: 2, bgcolor: 'rgba(103, 232, 249, 0.02)', borderRadius: 2, border: `1px solid rgba(103, 232, 249, 0.1)` }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
+                    <Typography variant="body2" sx={{ color: '#64748B' }}>Status</Typography>
+                    <Chip
+                      label={selectedItem.status || 'N/A'}
+                      size="small"
+                      sx={{
+                        bgcolor: selectedItem.status === 'Completed' || selectedItem.status === 'Resolved' ? '#22C55E' :
+                          selectedItem.status === 'Pending' ? '#F59E0B' :
+                          selectedItem.status === 'In Progress' ? '#3B82F6' :
+                          selectedItem.status === 'Critical' ? '#EF4444' : '#64748B',
+                        color: 'white',
+                        fontWeight: 500,
+                        height: 22,
+                        fontSize: '10px'
+                      }}
+                    />
+                  </Box>
+                  {selectedItem['Total Failures'] !== undefined && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5, mt: 0.5 }}>
+                      <Typography variant="body2" sx={{ color: '#64748B' }}>Total Failures</Typography>
+                      <Typography variant="body2" fontWeight={500} sx={{ color: '#0F172A' }}>
+                        {selectedItem['Total Failures']}
+                      </Typography>
+                    </Box>
+                  )}
+                  {selectedItem['Total Downtime (Days)'] !== undefined && (
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
-                      <Typography variant="body2" sx={{ color: '#64748B' }}>Status</Typography>
+                      <Typography variant="body2" sx={{ color: '#64748B' }}>Downtime</Typography>
+                      <Typography variant="body2" fontWeight={500} sx={{ color: '#EF4444' }}>
+                        {selectedItem['Total Downtime (Days)']} days
+                      </Typography>
+                    </Box>
+                  )}
+                  {/* ✅ Engineer Performance Fields */}
+                  {selectedItem.avg_days && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
+                      <Typography variant="body2" sx={{ color: '#64748B' }}>Average Days</Typography>
+                      <Typography variant="body2" fontWeight={600} sx={{ color: '#0F172A' }}>
+                        {selectedItem.avg_days} days
+                      </Typography>
+                    </Box>
+                  )}
+                  {selectedItem.completion_rate && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
+                      <Typography variant="body2" sx={{ color: '#64748B' }}>Completion Rate</Typography>
                       <Chip
-                        label={selectedItem.status || 'N/A'}
+                        label={selectedItem.completion_rate}
                         size="small"
                         sx={{
-                          bgcolor: selectedItem.status === 'Completed' || selectedItem.status === 'Resolved' ? '#22C55E' :
-                            selectedItem.status === 'Pending' ? '#F59E0B' :
-                            selectedItem.status === 'In Progress' ? '#3B82F6' :
-                            selectedItem.status === 'Critical' ? '#EF4444' : '#64748B',
+                          bgcolor: parseFloat(selectedItem.completion_rate) >= 80 ? '#22C55E' :
+                                   parseFloat(selectedItem.completion_rate) >= 50 ? '#F59E0B' : '#EF4444',
                           color: 'white',
-                          fontWeight: 500,
-                          height: 22,
-                          fontSize: '10px'
+                          fontWeight: 600,
                         }}
                       />
                     </Box>
-                    {selectedItem['Total Failures'] !== undefined && (
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5, mt: 0.5 }}>
-                        <Typography variant="body2" sx={{ color: '#64748B' }}>Total Failures</Typography>
-                        <Typography variant="body2" fontWeight={500} sx={{ color: '#0F172A' }}>
-                          {selectedItem['Total Failures']}
-                        </Typography>
-                      </Box>
-                    )}
-                    {selectedItem['Total Downtime (Days)'] !== undefined && (
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
-                        <Typography variant="body2" sx={{ color: '#64748B' }}>Downtime</Typography>
-                        <Typography variant="body2" fontWeight={500} sx={{ color: '#EF4444' }}>
-                          {selectedItem['Total Downtime (Days)']} days
-                        </Typography>
-                      </Box>
-                    )}
-                  </Paper>
-                </Grid>
-
-                <Grid item xs={12} md={6}>
-                  <Typography variant="subtitle2" sx={{ color: '#64748B', mb: 1, fontWeight: 600 }}>
-                    Location Information
-                  </Typography>
-                  <Paper sx={{ p: 2, bgcolor: 'rgba(103, 232, 249, 0.02)', borderRadius: 2, border: `1px solid rgba(103, 232, 249, 0.1)` }}>
+                  )}
+                  {selectedItem.total_repairs !== undefined && (
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
-                      <Typography variant="body2" sx={{ color: '#64748B' }}>Hospital</Typography>
-                      <Typography variant="body2" fontWeight={500} sx={{ color: '#0F172A' }}>
-                        {selectedItem.hospital_name || selectedItem.hospital || selectedItem.Hospital || 'N/A'}
+                      <Typography variant="body2" sx={{ color: '#64748B' }}>Total Repairs</Typography>
+                      <Typography variant="body2" fontWeight={600} sx={{ color: '#0F172A' }}>
+                        {selectedItem.total_repairs}
                       </Typography>
                     </Box>
-                  </Paper>
-                </Grid>
-
-                <Grid item xs={12}>
-                  <Typography variant="subtitle2" sx={{ color: '#64748B', mb: 1, fontWeight: 600 }}>
-                    Date & Time
-                  </Typography>
-                  <Paper sx={{ p: 2, bgcolor: 'rgba(103, 232, 249, 0.02)', borderRadius: 2, border: `1px solid rgba(103, 232, 249, 0.1)` }}>
+                  )}
+                  {selectedItem.completed !== undefined && (
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
-                      <Typography variant="body2" sx={{ color: '#64748B' }}>Report Date</Typography>
-                      <Typography variant="body2" fontWeight={500} sx={{ color: '#0F172A' }}>
-                        {formatDateTime(selectedItem.created_at || selectedItem.date || selectedItem.repair_date)}
+                      <Typography variant="body2" sx={{ color: '#64748B' }}>Completed</Typography>
+                      <Typography variant="body2" fontWeight={600} sx={{ color: '#22C55E' }}>
+                        {selectedItem.completed}
                       </Typography>
                     </Box>
-                  </Paper>
-                </Grid>
-
-                <Grid item xs={12}>
-                  <Divider sx={{ my: 1, borderColor: 'rgba(103, 232, 249, 0.1)' }} />
-                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                    <Button
-                      variant="contained"
-                      onClick={() => {
-                        const dataToExport = [selectedItem]
-                        exportToPDF(getCleanExportData(dataToExport, reportType), `${reportType}_${selectedItem.id || 'item'}`)
-                      }}
-                      sx={{
-                        bgcolor: '#EF4444',
-                        '&:hover': { bgcolor: '#dc2626', boxShadow: '0 4px 24px rgba(239, 68, 68, 0.3)' },
-                        borderRadius: 2,
-                        textTransform: 'none',
-                        fontWeight: 600,
-                      }}
-                      startIcon={<PictureAsPdf />}
-                    >
-                      Export as PDF
-                    </Button>
-                    <Button
-                      variant="contained"
-                      onClick={() => {
-                        const dataToExport = [selectedItem]
-                        exportToExcel(getCleanExportData(dataToExport, reportType), `${reportType}_${selectedItem.id || 'item'}`)
-                      }}
-                      sx={{
-                        bgcolor: '#22C55E',
-                        '&:hover': { bgcolor: '#16a34a', boxShadow: '0 4px 24px rgba(34, 197, 94, 0.3)' },
-                        borderRadius: 2,
-                        textTransform: 'none',
-                        fontWeight: 600,
-                      }}
-                      startIcon={<TableChart />}
-                    >
-                      Export as Excel
-                    </Button>
-                  </Box>
-                </Grid>
+                  )}
+                  {selectedItem.pending !== undefined && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
+                      <Typography variant="body2" sx={{ color: '#64748B' }}>Pending</Typography>
+                      <Typography variant="body2" fontWeight={600} sx={{ color: '#F59E0B' }}>
+                        {selectedItem.pending}
+                      </Typography>
+                    </Box>
+                  )}
+                  {selectedItem.critical !== undefined && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
+                      <Typography variant="body2" sx={{ color: '#64748B' }}>Critical</Typography>
+                      <Typography variant="body2" fontWeight={600} sx={{ color: '#EF4444' }}>
+                        {selectedItem.critical}
+                      </Typography>
+                    </Box>
+                  )}
+                </Paper>
               </Grid>
-            )}
-          </DialogContent>
-          <DialogActions sx={{ p: 2, gap: 1 }}>
-            <Button
-              onClick={() => setOpenViewDialog(false)}
-              variant="contained"
-              sx={{
-                bgcolor: '#0F172A',
-                '&:hover': { 
-                  bgcolor: '#1E3A5F',
-                  boxShadow: '0 4px 24px rgba(103, 232, 249, 0.3)',
-                },
-                borderRadius: 2,
-                textTransform: 'none',
-                fontWeight: 600,
-              }}
-            >
-              Close
-            </Button>
-          </DialogActions>
-        </Dialog>
 
-        {/* Snackbar */}
-        <Snackbar
-          open={snackbar.open}
-          autoHideDuration={4000}
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-        >
-          <Alert severity={snackbar.severity} variant="filled" sx={{ borderRadius: 2 }}>
-            {snackbar.message}
-          </Alert>
-        </Snackbar>
-      </Box>
-    </>
+              <Grid item xs={12} md={6}>
+                <Typography variant="subtitle2" sx={{ color: '#64748B', mb: 1, fontWeight: 600 }}>
+                  Location Information
+                </Typography>
+                <Paper sx={{ p: 2, bgcolor: 'rgba(103, 232, 249, 0.02)', borderRadius: 2, border: `1px solid rgba(103, 232, 249, 0.1)` }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
+                    <Typography variant="body2" sx={{ color: '#64748B' }}>Hospital</Typography>
+                    <Typography variant="body2" fontWeight={500} sx={{ color: '#0F172A' }}>
+                      {selectedItem.hospital_name || selectedItem.hospital || selectedItem.Hospital || 'N/A'}
+                    </Typography>
+                  </Box>
+                  {selectedItem.engineer_name && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
+                      <Typography variant="body2" sx={{ color: '#64748B' }}>Engineer</Typography>
+                      <Typography variant="body2" fontWeight={500} sx={{ color: '#0F172A' }}>
+                        {selectedItem.engineer_name}
+                      </Typography>
+                    </Box>
+                  )}
+                </Paper>
+              </Grid>
+
+              <Grid item xs={12}>
+                <Typography variant="subtitle2" sx={{ color: '#64748B', mb: 1, fontWeight: 600 }}>
+                  Date & Time
+                </Typography>
+                <Paper sx={{ p: 2, bgcolor: 'rgba(103, 232, 249, 0.02)', borderRadius: 2, border: `1px solid rgba(103, 232, 249, 0.1)` }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
+                    <Typography variant="body2" sx={{ color: '#64748B' }}>Report Date</Typography>
+                    <Typography variant="body2" fontWeight={500} sx={{ color: '#0F172A' }}>
+                      {formatDateTime(selectedItem.created_at || selectedItem.date || selectedItem.repair_date)}
+                    </Typography>
+                  </Box>
+                </Paper>
+              </Grid>
+
+              <Grid item xs={12}>
+                <Divider sx={{ my: 1, borderColor: 'rgba(103, 232, 249, 0.1)' }} />
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                  <Button
+                    variant="contained"
+                    onClick={() => {
+                      const dataToExport = [selectedItem]
+                      exportToPDF(getCleanExportData(dataToExport, reportType), `${reportType}_${selectedItem.id || 'item'}`)
+                    }}
+                    sx={{
+                      bgcolor: '#EF4444',
+                      '&:hover': { bgcolor: '#dc2626', boxShadow: '0 4px 24px rgba(239, 68, 68, 0.3)' },
+                      borderRadius: 2,
+                      textTransform: 'none',
+                      fontWeight: 600,
+                    }}
+                    startIcon={<PictureAsPdf />}
+                  >
+                    Export as PDF
+                  </Button>
+                  <Button
+                    variant="contained"
+                    onClick={() => {
+                      const dataToExport = [selectedItem]
+                      exportToExcel(getCleanExportData(dataToExport, reportType), `${reportType}_${selectedItem.id || 'item'}`)
+                    }}
+                    sx={{
+                      bgcolor: '#22C55E',
+                      '&:hover': { bgcolor: '#16a34a', boxShadow: '0 4px 24px rgba(34, 197, 94, 0.3)' },
+                      borderRadius: 2,
+                      textTransform: 'none',
+                      fontWeight: 600,
+                    }}
+                    startIcon={<TableChart />}
+                  >
+                    Export as Excel
+                  </Button>
+                </Box>
+              </Grid>
+            </Grid>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <Button
+            onClick={() => setOpenViewDialog(false)}
+            variant="contained"
+            sx={{
+              bgcolor: '#0F172A',
+              '&:hover': { 
+                bgcolor: '#1E3A5F',
+                boxShadow: '0 4px 24px rgba(103, 232, 249, 0.3)',
+              },
+              borderRadius: 2,
+              textTransform: 'none',
+              fontWeight: 600,
+            }}
+          >
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity={snackbar.severity} variant="filled" sx={{ borderRadius: 2 }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+    </Box>
   )
 }
 
@@ -3183,7 +2697,7 @@ const EngineerReports = () => {
     { value: 'my-errors', label: 'My Error Reports' },
     { value: 'my-maintenance', label: 'My Maintenance Report' },
     { value: 'my-equipment', label: 'My Equipment Performance' },
-    { value: 'my-performance', label: 'My Performance' }
+    { value: 'my-performance', label: '📊 My Performance' }
   ]
 
   const generateReport = useCallback(async (type, periodVal) => {
@@ -3204,7 +2718,7 @@ const EngineerReports = () => {
       switch (reportTypeVal) {
         case 'my-errors':
         case 'my-downtime': {
-          const response = await api.get(`/errors?engineer_id=${engineerId}`)
+          const response = await api.get('/errors')
           const allErrors = response.data.errors || []
 
           const filteredErrors = allErrors.filter((e) => {
@@ -3222,7 +2736,7 @@ const EngineerReports = () => {
               if (new Date(recordDate) > end) return false
             }
 
-            const assignedEngineer = e.assigned_engineer_id || e.engineer_id || e.assigned_to
+            const assignedEngineer = e.assigned_engineer_id || e.engineer_id || e.assigned_to || e.reported_by
             return String(assignedEngineer) === String(engineerId)
           })
 
@@ -3233,7 +2747,7 @@ const EngineerReports = () => {
             const equipment = equipmentRes.data.equipment || []
             const repairsRes = await api.get('/repairs')
             const repairs = (repairsRes.data.repairs || []).filter(r =>
-              String(r.engineer_id || r.assigned_engineer_id) === String(engineerId)
+              String(r.engineer_id) === String(engineerId)
             )
             data = buildDowntimeRows(equipment, filteredErrors, repairs)
           }
@@ -3241,7 +2755,7 @@ const EngineerReports = () => {
         }
 
         case 'my-maintenance': {
-          const response = await api.get(`/maintenance?engineer_id=${engineerId}`)
+          const response = await api.get('/maintenance')
           const allMaintenance = response.data.schedules || []
 
           data = allMaintenance.filter((m) => {
@@ -3259,7 +2773,7 @@ const EngineerReports = () => {
               if (new Date(recordDate) > end) return false
             }
 
-            return String(m.engineer_id || m.assigned_engineer_id) === String(engineerId)
+            return String(m.engineer_id) === String(engineerId)
           }).map(m => ({
             ...m,
             equipment_name: m.equipment_name || m.equipment?.name || 'N/A',
@@ -3269,7 +2783,7 @@ const EngineerReports = () => {
         }
 
         case 'my-equipment': {
-          const equipmentRes = await api.get(`/equipment?engineer_id=${engineerId}`)
+          const equipmentRes = await api.get('/equipment')
           const equipment = equipmentRes.data.equipment || []
 
           const errorsRes = await api.get('/errors')
@@ -3279,43 +2793,87 @@ const EngineerReports = () => {
           const allRepairs = repairsRes.data.repairs || []
 
           const assignedEquipment = equipment.filter(e =>
-            String(e.assigned_engineer_id || e.engineer_id) === String(engineerId) &&
-            statusMatches(e, filters)
+            String(e.assigned_engineer_id || e.engineer_id) === String(engineerId)
           )
 
-          const filteredErrors = applyCommonFilters(allErrors, { ...filters, hospital: '' })
-            .filter(e => String(e.assigned_engineer_id || e.engineer_id || e.assigned_to) === String(engineerId))
-          const filteredRepairs = applyCommonFilters(allRepairs, { ...filters, hospital: '' })
-            .filter(r => String(r.engineer_id || r.assigned_engineer_id) === String(engineerId))
+          const filteredErrors = allErrors.filter(e =>
+            String(e.assigned_engineer_id || e.engineer_id || e.assigned_to || e.reported_by) === String(engineerId)
+          )
+          const filteredRepairs = allRepairs.filter(r =>
+            String(r.engineer_id) === String(engineerId)
+          )
 
-          data = buildEquipmentLifecycleRows(assignedEquipment, filteredErrors, filteredRepairs)
+          data = assignedEquipment.map(eq => {
+            const eqErrors = filteredErrors.filter(e => e.equipment_id === eq.id)
+            const eqRepairs = filteredRepairs.filter(r => {
+              const error = filteredErrors.find(e => e.id === r.error_log_id)
+              return error && error.equipment_id === eq.id
+            })
+
+            let totalDowntime = 0
+            const resolvedErrors = eqErrors.filter(e => ['Resolved', 'Closed', 'Completed'].includes(e.status))
+            resolvedErrors.forEach(e => {
+              if (e.created_at && e.updated_at) {
+                const hours = (new Date(e.updated_at) - new Date(e.created_at)) / (1000 * 60 * 60)
+                if (hours > 0) totalDowntime += hours
+              }
+            })
+
+            return {
+              'Equipment Name': eq.name || 'N/A',
+              'Serial / Asset No.': eq.serial_number || 'N/A',
+              'Hospital': eq.hospital_name || 'N/A',
+              'Department': eq.department_name || 'N/A',
+              'Equipment Status': eq.status || 'Active',
+              'Total Failures': eqErrors.length,
+              'Critical Failures': eqErrors.filter(e => e.severity === 'Critical').length,
+              'Open Errors': eqErrors.filter(e => ['Pending', 'In Progress'].includes(e.status)).length,
+              'Resolved Errors': resolvedErrors.length,
+              'Maintenance Events': eqRepairs.length,
+              'Total Downtime (Days)': (totalDowntime / 24).toFixed(1),
+              'Availability %': ((1 - (totalDowntime / (365.25 * 24))) * 100).toFixed(1) + '%'
+            }
+          })
           break
         }
 
         case 'my-performance': {
-          const errorsRes = await api.get(`/errors?engineer_id=${engineerId}`)
-          const errors = applyCommonFilters(errorsRes.data.errors || [], filters)
-            .filter(e => String(e.assigned_engineer_id || e.engineer_id || e.assigned_to) === String(engineerId))
+          const response = await api.get('/repairs')
+          const allRepairs = response.data.repairs || []
 
-          const total = errors.length
-          const completed = errors.filter(e =>
-            ['resolved', 'closed', 'completed'].includes(String(e.status || '').toLowerCase())
-          ).length
-          const pending = errors.filter(e =>
-            ['open', 'pending', 'in progress'].includes(String(e.status || '').toLowerCase())
-          ).length
-          const critical = errors.filter(e =>
-            String(e.severity || '').toLowerCase() === 'critical'
-          ).length
+          const filteredRepairs = allRepairs.filter(r => {
+            if (filters.status && r.status !== filters.status) return false
 
-          const resolutionTimes = errors
-            .filter(e => ['resolved', 'closed', 'completed'].includes(String(e.status || '').toLowerCase()))
-            .map(e => getDowntimeHours(e))
-            .filter(h => h > 0)
+            const recordDate = getRecordDate(r)
+
+            if (filters.startDate && recordDate) {
+              const start = new Date(`${filters.startDate}T00:00:00`)
+              if (new Date(recordDate) < start) return false
+            }
+
+            if (filters.endDate && recordDate) {
+              const end = new Date(`${filters.endDate}T23:59:59`)
+              if (new Date(recordDate) > end) return false
+            }
+
+            return String(r.engineer_id) === String(engineerId)
+          })
+
+          const total = filteredRepairs.length
+          const completed = filteredRepairs.filter(r =>
+            ['completed', 'verified', 'resolved'].includes(String(r.status || '').toLowerCase())
+          ).length
+          const pending = filteredRepairs.filter(r =>
+            ['pending', 'in progress', 'assigned'].includes(String(r.status || '').toLowerCase())
+          ).length
+          const critical = filteredRepairs.filter(r => r.spare_part_used === 1).length
+
+          const totalMinutes = filteredRepairs.reduce((sum, r) => sum + (parseInt(r.time_taken) || 0), 0)
+          const avgDays = total > 0 ? (totalMinutes / (24 * 60)) : 0
 
           const performanceByPeriod = {}
-          errors.forEach((e) => {
-            const key = getPeriodKey(getRecordDate(e), periodValActual)
+          filteredRepairs.forEach((r) => {
+            const key = getPeriodKey(getRecordDate(r), periodValActual)
             if (!performanceByPeriod[key]) {
               performanceByPeriod[key] = {
                 period: formatPeriodLabel(key, periodValActual),
@@ -3323,21 +2881,25 @@ const EngineerReports = () => {
                 completed: 0,
                 pending: 0,
                 critical: 0,
-                resolution_hours: []
+                total_time: 0,
+                time_taken: []
               }
             }
             const p = performanceByPeriod[key]
             p.total += 1
-            if (['resolved', 'closed', 'completed'].includes(String(e.status || '').toLowerCase())) {
+            if (['completed', 'verified', 'resolved'].includes(String(r.status || '').toLowerCase())) {
               p.completed += 1
             } else {
               p.pending += 1
             }
-            if (String(e.severity || '').toLowerCase() === 'critical') {
+            if (r.spare_part_used === 1) {
               p.critical += 1
             }
-            const hours = getDowntimeHours(e)
-            if (hours > 0) p.resolution_hours.push(hours)
+            const time = parseInt(r.time_taken) || 0
+            if (time > 0) {
+              p.total_time += time
+              p.time_taken.push(time)
+            }
           })
 
           data = Object.values(performanceByPeriod)
@@ -3348,22 +2910,21 @@ const EngineerReports = () => {
               completed: p.completed,
               pending: p.pending,
               critical: p.critical,
-              completion_rate: percentage(p.completed, p.total),
-              avg_resolution_time: p.resolution_hours.length
-                ? `${average(p.resolution_hours).toFixed(1)} hrs`
-                : 'N/A'
+              total_time: p.total_time,
+              avg_days: p.time_taken.length ? ((p.total_time / (24 * 60)) / p.time_taken.length).toFixed(1) : '0',
+              completion_rate: p.total > 0 ? ((p.completed / p.total) * 100).toFixed(1) + '%' : '0.0%'
             }))
 
           data._summary = {
-            total_tasks: total,
+            total_repairs: total,
             completed: completed,
             pending: pending,
             critical: critical,
-            completion_rate: percentage(completed, total),
-            avg_resolution_time: resolutionTimes.length
-              ? `${average(resolutionTimes).toFixed(1)} hrs`
-              : 'N/A',
-            engineer_name: engineerName
+            total_time: totalMinutes,
+            avg_days: avgDays.toFixed(1),
+            completion_rate: total > 0 ? ((completed / total) * 100).toFixed(1) + '%' : '0.0%',
+            engineer_name: engineerName,
+            engineer_id: engineerId
           }
           break
         }
@@ -3399,6 +2960,13 @@ const EngineerReports = () => {
   useEffect(() => {
     if (engineerId) {
       generateReport('my-downtime', 'monthly')
+
+      const interval = setInterval(() => {
+        console.log('🔄 Auto-refreshing engineer report data...')
+        generateReport(reportType, period)
+      }, 30000)
+
+      return () => clearInterval(interval)
     }
   }, [engineerId])
 
@@ -3416,7 +2984,16 @@ const EngineerReports = () => {
     }
 
     const exportData = getCleanExportData(sourceData, reportType)
-    const filename = getReportTitle(reportType).replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '')
+    const filename = (() => {
+      const map = {
+        'my-downtime': 'My_Downtime',
+        'my-errors': 'My_Errors',
+        'my-maintenance': 'My_Maintenance',
+        'my-equipment': 'My_Equipment',
+        'my-performance': 'My_Performance'
+      }
+      return map[reportType] || 'My_Report'
+    })()
 
     switch (format) {
       case 'CSV':
@@ -3482,31 +3059,6 @@ const EngineerReports = () => {
 
   const summaryData = reportData?.data?._summary || null
 
-  // ✅ CHART DATA - ENGINEER DOWNTIME
-  const chartData = useMemo(() => {
-    if (reportType !== 'my-downtime' || !filteredData || filteredData.length === 0) return null
-    
-    const topEquipment = filteredData
-      .map(item => ({
-        name: item['Equipment Name'] || 'N/A',
-        downtime: num(item['Total Downtime (Days)'] || 0),
-        failures: num(item['Total Failures'] || 0),
-        critical: num(item['Critical Failures'] || 0),
-        availability: num(item['Availability %'] || 100)
-      }))
-      .sort((a, b) => b.downtime - a.downtime)
-    
-    const totalDays = filteredData.reduce((sum, item) => sum + num(item['Total Downtime (Days)']), 0)
-    
-    return {
-      topEquipment,
-      totalDays,
-      totalWeeks: totalDays / 7,
-      totalMonths: totalDays / 30.44,
-      avgAvailability: average(filteredData.map(item => num(item['Availability %'] || 100)))
-    }
-  }, [reportType, filteredData])
-
   const handleFilterClick = (event) => {
     if (isMobile) {
       setFilterDrawerOpen(true)
@@ -3566,296 +3118,337 @@ const EngineerReports = () => {
   const isErrorReport = ['my-errors'].includes(reportType)
 
   return (
-    <>
-      <style>{reportStyles}</style>
-      
-      <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
-        {/* HEADER */}
+    <Box sx={{ p: { xs: 1, sm: 2, md: 3 } }}>
+      {/* HEADER */}
+      <Box sx={{
+        display: 'flex',
+        flexDirection: { xs: 'column', sm: 'row' },
+        justifyContent: 'space-between',
+        alignItems: { xs: 'flex-start', sm: 'center' },
+        mb: 3,
+        gap: 2
+      }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+          <Typography variant="h5" sx={{
+            fontWeight: 700,
+            color: '#0F172A',
+            fontSize: { xs: '1.25rem', sm: '1.5rem', md: '1.75rem' },
+            position: 'relative',
+            '&::after': {
+              content: '""',
+              position: 'absolute',
+              bottom: -6,
+              left: 0,
+              width: '40px',
+              height: '3px',
+              background: 'linear-gradient(90deg, #67E8F9, #0F172A)',
+              borderRadius: '2px',
+            }
+          }}>
+            My Reports
+          </Typography>
+          <Chip
+            icon={<Person sx={{ fontSize: 16 }} />}
+            label={engineerName}
+            size="small"
+            sx={{
+              bgcolor: '#0F172A',
+              color: 'white',
+              fontWeight: 600,
+              '& .MuiChip-icon': { color: '#67E8F9' }
+            }}
+          />
+          <Chip
+            icon={<Assessment sx={{ fontSize: 16 }} />}
+            label={`${totalRecords} Records`}
+            size="small"
+            sx={{
+              bgcolor: '#0F172A',
+              color: 'white',
+              fontWeight: 600,
+              '& .MuiChip-icon': { color: '#67E8F9' }
+            }}
+          />
+        </Box>
+        <Box sx={{
+          display: 'flex',
+          gap: 1,
+          flexWrap: 'wrap',
+          width: { xs: '100%', sm: 'auto' },
+          justifyContent: { xs: 'flex-start', sm: 'flex-end' }
+        }}>
+          <Button
+            variant="outlined"
+            onClick={handleRefresh}
+            disabled={loading}
+            size={isMobile ? 'small' : 'medium'}
+            sx={{
+              flex: { xs: '1 1 auto', sm: 'none' },
+              borderColor: '#0F172A',
+              color: '#0F172A',
+              '&:hover': { 
+                borderColor: '#67E8F9', 
+                color: '#67E8F9',
+                boxShadow: '0 0 20px rgba(103, 232, 249, 0.1)',
+                bgcolor: 'rgba(103, 232, 249, 0.05)',
+              },
+              borderRadius: 2,
+              textTransform: 'none',
+              fontWeight: 600,
+            }}
+            startIcon={loading ? <Refresh sx={{ animation: 'spin 1s linear infinite' }} /> : <Refresh />}
+          >
+            {loading ? 'Loading...' : 'Refresh'}
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleExportClick}
+            disabled={loading || filteredData.length === 0}
+            size={isMobile ? 'small' : 'medium'}
+            sx={{
+              flex: { xs: '1 1 auto', sm: 'none' },
+              bgcolor: '#0F172A',
+              '&:hover': { 
+                bgcolor: '#1E3A5F',
+                boxShadow: '0 4px 24px rgba(103, 232, 249, 0.3)',
+              },
+              boxShadow: '0 4px 16px rgba(103, 232, 249, 0.15)',
+              borderRadius: 2,
+              textTransform: 'none',
+              fontWeight: 600,
+            }}
+            startIcon={<Download />}
+          >
+            Export
+          </Button>
+        </Box>
+      </Box>
+
+      {/* ENGINEER PERFORMANCE SUMMARY CARDS */}
+      {summaryData && reportType === 'my-performance' && (
+        <Grid container spacing={isMobile ? 1 : 2} sx={{ mb: 3 }}>
+          <Grid item xs={6} sm={2.4}>
+            <StatsCard
+              title="Total Repairs"
+              value={summaryData.total_repairs}
+              color="#0F172A"
+              icon={<Build sx={{ fontSize: 20, color: 'white' }} />}
+              loading={loading}
+            />
+          </Grid>
+          <Grid item xs={6} sm={2.4}>
+            <StatsCard
+              title="Completed"
+              value={summaryData.completed}
+              color="#22C55E"
+              bgColor="#22C55E10"
+              icon={<CheckCircle sx={{ fontSize: 20, color: 'white' }} />}
+              loading={loading}
+            />
+          </Grid>
+          <Grid item xs={6} sm={2.4}>
+            <StatsCard
+              title="Pending"
+              value={summaryData.pending}
+              color="#F59E0B"
+              bgColor="#F59E0B10"
+              icon={<Schedule sx={{ fontSize: 20, color: 'white' }} />}
+              loading={loading}
+            />
+          </Grid>
+          <Grid item xs={6} sm={2.4}>
+            <StatsCard
+              title="Critical"
+              value={summaryData.critical}
+              color="#EF4444"
+              bgColor="#EF444410"
+              icon={<Warning sx={{ fontSize: 20, color: 'white' }} />}
+              loading={loading}
+            />
+          </Grid>
+          <Grid item xs={6} sm={2.4}>
+            <StatsCard
+              title="Avg Days"
+              value={`${summaryData.avg_days} days`}
+              color="#6f42c1"
+              bgColor="#f3e5f5"
+              icon={<TimerOff sx={{ fontSize: 20, color: 'white' }} />}
+              loading={loading}
+            />
+          </Grid>
+        </Grid>
+      )}
+
+      {/* LOADING INDICATOR */}
+      {loading && <LinearProgress sx={{ mb: 2, borderRadius: 2, bgcolor: 'rgba(103, 232, 249, 0.1)', '& .MuiLinearProgress-bar': { bgcolor: '#67E8F9' } }} />}
+
+      {/* ERROR DISPLAY */}
+      {error && (
+        <Alert
+          severity="error"
+          sx={{ mb: 2, borderRadius: 2, border: `1px solid ${colors.error}33` }}
+          action={
+            <Button color="inherit" size="small" onClick={() => generateReport(reportType, period)} sx={{ color: '#0F172A' }}>
+              Retry
+            </Button>
+          }
+        >
+          {error}
+        </Alert>
+      )}
+
+      {/* EXPORT MENU */}
+      <Menu
+        anchorEl={exportAnchorEl}
+        open={Boolean(exportAnchorEl)}
+        onClose={handleExportClose}
+        PaperProps={{
+          sx: {
+            p: 1,
+            width: 200,
+            borderRadius: 2,
+            border: `1px solid rgba(103, 232, 249, 0.1)`
+          }
+        }}
+        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+      >
+        <MenuItem onClick={() => handleExport('CSV')} sx={{ gap: 1, '&:hover': { bgcolor: 'rgba(103, 232, 249, 0.05)' } }}>
+          <FileDownload fontSize="small" sx={{ color: '#3B82F6' }} />
+          <Typography variant="body2" sx={{ color: '#0F172A' }}>Export as CSV</Typography>
+        </MenuItem>
+        <MenuItem onClick={() => handleExport('Excel')} sx={{ gap: 1, '&:hover': { bgcolor: 'rgba(103, 232, 249, 0.05)' } }}>
+          <TableChart fontSize="small" sx={{ color: '#22C55E' }} />
+          <Typography variant="body2" sx={{ color: '#0F172A' }}>Export as Excel</Typography>
+        </MenuItem>
+        <MenuItem onClick={() => handleExport('PDF')} sx={{ gap: 1, '&:hover': { bgcolor: 'rgba(103, 232, 249, 0.05)' } }}>
+          <PictureAsPdf fontSize="small" sx={{ color: '#EF4444' }} />
+          <Typography variant="body2" sx={{ color: '#0F172A' }}>Export as PDF</Typography>
+        </MenuItem>
+      </Menu>
+
+      {/* SEARCH & FILTER */}
+      <Paper sx={{ 
+        p: { xs: 1.5, sm: 2 }, 
+        mb: 3, 
+        borderRadius: 3, 
+        border: `1px solid rgba(103, 232, 249, 0.1)`,
+        boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+        bgcolor: 'rgba(255, 255, 255, 0.92)',
+        backdropFilter: 'blur(10px)',
+      }}>
         <Box sx={{
           display: 'flex',
           flexDirection: { xs: 'column', sm: 'row' },
-          justifyContent: 'space-between',
-          alignItems: { xs: 'flex-start', sm: 'center' },
-          mb: 3,
-          gap: 2
+          gap: 1.5,
+          alignItems: { xs: 'stretch', sm: 'center' }
         }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-            <Typography variant="h5" sx={{
-              fontWeight: 700,
-              color: '#0F172A',
-              fontSize: { xs: '1.25rem', sm: '1.5rem', md: '1.75rem' },
-              position: 'relative',
-              '&::after': {
-                content: '""',
-                position: 'absolute',
-                bottom: -6,
-                left: 0,
-                width: '40px',
-                height: '3px',
-                background: 'linear-gradient(90deg, #67E8F9, #0F172A)',
-                borderRadius: '2px',
+          <TextField
+            size="small"
+            placeholder="Search by period, equipment, status..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            sx={{ 
+              flexGrow: 1, 
+              minWidth: { xs: '100%', sm: 200 },
+              '& .MuiOutlinedInput-root': {
+                '&:hover fieldset': { borderColor: '#67E8F9' },
+                '&.Mui-focused fieldset': { borderColor: '#67E8F9' },
               }
-            }}>
-              My Reports
-            </Typography>
-            <Chip
-              icon={<Person sx={{ fontSize: 16 }} />}
-              label={engineerName}
-              size="small"
-              sx={{
-                bgcolor: '#0F172A',
-                color: 'white',
-                fontWeight: 600,
-                '& .MuiChip-icon': { color: '#67E8F9' }
-              }}
-            />
-            <Chip
-              icon={<Assessment sx={{ fontSize: 16 }} />}
-              label={`${totalRecords} Records`}
-              size="small"
-              sx={{
-                bgcolor: '#0F172A',
-                color: 'white',
-                fontWeight: 600,
-                '& .MuiChip-icon': { color: '#67E8F9' }
-              }}
-            />
-          </Box>
-          <Box sx={{
-            display: 'flex',
-            gap: 1,
-            flexWrap: 'wrap',
-            width: { xs: '100%', sm: 'auto' },
-            justifyContent: { xs: 'flex-start', sm: 'flex-end' }
-          }}>
+            }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Search sx={{ color: '#64748B' }} />
+                </InputAdornment>
+              ),
+              endAdornment: searchTerm && (
+                <InputAdornment position="end">
+                  <IconButton size="small" onClick={() => setSearchTerm('')} sx={{ color: '#64748B', '&:hover': { color: '#EF4444' } }}>
+                    <Clear fontSize="small" />
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+          />
+
+          {isMobile && (
             <Button
               variant="outlined"
-              onClick={handleRefresh}
-              disabled={loading}
-              size={isMobile ? 'small' : 'medium'}
+              onClick={toggleFilters}
+              endIcon={showFilters ? <KeyboardArrowUp /> : <KeyboardArrowDown />}
+              fullWidth
+              size="small"
               sx={{
-                flex: { xs: '1 1 auto', sm: 'none' },
                 borderColor: '#0F172A',
                 color: '#0F172A',
                 '&:hover': { 
                   borderColor: '#67E8F9', 
                   color: '#67E8F9',
-                  boxShadow: '0 0 20px rgba(103, 232, 249, 0.1)',
                   bgcolor: 'rgba(103, 232, 249, 0.05)',
                 },
                 borderRadius: 2,
                 textTransform: 'none',
                 fontWeight: 600,
               }}
-              startIcon={loading ? <Refresh sx={{ animation: 'spin 1s linear infinite' }} /> : <Refresh />}
             >
-              {loading ? 'Loading...' : 'Refresh'}
+              {showFilters ? 'Hide Filters' : 'Show Filters'}
             </Button>
-            <Button
-              variant="contained"
-              onClick={handleExportClick}
-              disabled={loading || filteredData.length === 0}
-              size={isMobile ? 'small' : 'medium'}
-              sx={{
-                flex: { xs: '1 1 auto', sm: 'none' },
-                bgcolor: '#0F172A',
-                '&:hover': { 
-                  bgcolor: '#1E3A5F',
-                  boxShadow: '0 4px 24px rgba(103, 232, 249, 0.3)',
-                },
-                boxShadow: '0 4px 16px rgba(103, 232, 249, 0.15)',
-                borderRadius: 2,
-                textTransform: 'none',
-                fontWeight: 600,
-              }}
-              startIcon={<Download />}
-            >
-              Export
-            </Button>
-          </Box>
-        </Box>
+          )}
 
-        {/* ENGINEER PERFORMANCE SUMMARY CARDS */}
-        {summaryData && reportType === 'my-performance' && (
-          <Grid container spacing={isMobile ? 1 : 2} sx={{ mb: 3 }}>
-            <Grid item xs={6} sm={2.4}>
-              <StatsCard
-                title="Total Tasks"
-                value={summaryData.total_tasks}
-                color="#0F172A"
-                icon={<Assessment sx={{ fontSize: 20, color: 'white' }} />}
-                loading={loading}
-              />
-            </Grid>
-            <Grid item xs={6} sm={2.4}>
-              <StatsCard
-                title="Completed"
-                value={summaryData.completed}
-                color="#22C55E"
-                bgColor="#22C55E10"
-                icon={<CheckCircle sx={{ fontSize: 20, color: 'white' }} />}
-                loading={loading}
-              />
-            </Grid>
-            <Grid item xs={6} sm={2.4}>
-              <StatsCard
-                title="Pending"
-                value={summaryData.pending}
-                color="#F59E0B"
-                bgColor="#F59E0B10"
-                icon={<Schedule sx={{ fontSize: 20, color: 'white' }} />}
-                loading={loading}
-              />
-            </Grid>
-            <Grid item xs={6} sm={2.4}>
-              <StatsCard
-                title="Critical"
-                value={summaryData.critical}
-                color="#EF4444"
-                bgColor="#EF444410"
-                icon={<Warning sx={{ fontSize: 20, color: 'white' }} />}
-                loading={loading}
-              />
-            </Grid>
-            <Grid item xs={6} sm={2.4}>
-              <StatsCard
-                title="Completion Rate"
-                value={summaryData.completion_rate}
-                color="#6f42c1"
-                bgColor="#f3e5f5"
-                icon={<BarChart sx={{ fontSize: 20, color: 'white' }} />}
-                loading={loading}
-              />
-            </Grid>
-          </Grid>
-        )}
-
-        {/* ✅ CHARTS SECTION - ENGINEER DOWNTIME */}
-        {reportType === 'my-downtime' && chartData && chartData.topEquipment.length > 0 && (
-          <Grid container spacing={2} sx={{ mb: 3 }}>
-            <Grid item xs={12} md={7}>
-              <DowntimeBarChart data={chartData.topEquipment} />
-            </Grid>
-            <Grid item xs={12} md={5}>
-              <Grid container spacing={2} sx={{ height: '100%' }}>
-                <Grid item xs={12}>
-                  <AvailabilityGauge value={chartData.avgAvailability} />
-                </Grid>
-                <Grid item xs={12}>
-                  <DowntimeBreakdown 
-                    days={chartData.totalDays}
-                    weeks={chartData.totalWeeks}
-                    months={chartData.totalMonths}
-                  />
-                </Grid>
-              </Grid>
-            </Grid>
-            <Grid item xs={12}>
-              <FailureComparisonChart data={chartData.topEquipment} />
-            </Grid>
-          </Grid>
-        )}
-
-        {/* LOADING INDICATOR */}
-        {loading && <LinearProgress sx={{ mb: 2, borderRadius: 2, bgcolor: 'rgba(103, 232, 249, 0.1)', '& .MuiLinearProgress-bar': { bgcolor: '#67E8F9' } }} />}
-
-        {/* ERROR DISPLAY */}
-        {error && (
-          <Alert
-            severity="error"
-            sx={{ mb: 2, borderRadius: 2, border: `1px solid ${colors.error}33` }}
-            action={
-              <Button color="inherit" size="small" onClick={() => generateReport(reportType, period)} sx={{ color: '#0F172A' }}>
-                Retry
-              </Button>
-            }
-          >
-            {error}
-          </Alert>
-        )}
-
-        {/* EXPORT MENU */}
-        <Menu
-          anchorEl={exportAnchorEl}
-          open={Boolean(exportAnchorEl)}
-          onClose={handleExportClose}
-          PaperProps={{
-            sx: {
-              p: 1,
-              width: 200,
-              borderRadius: 2,
-              border: `1px solid rgba(103, 232, 249, 0.1)`
-            }
-          }}
-          transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-          anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-        >
-          <MenuItem onClick={() => handleExport('CSV')} sx={{ gap: 1, '&:hover': { bgcolor: 'rgba(103, 232, 249, 0.05)' } }}>
-            <FileDownload fontSize="small" sx={{ color: '#3B82F6' }} />
-            <Typography variant="body2" sx={{ color: '#0F172A' }}>Export as CSV</Typography>
-          </MenuItem>
-          <MenuItem onClick={() => handleExport('Excel')} sx={{ gap: 1, '&:hover': { bgcolor: 'rgba(103, 232, 249, 0.05)' } }}>
-            <TableChart fontSize="small" sx={{ color: '#22C55E' }} />
-            <Typography variant="body2" sx={{ color: '#0F172A' }}>Export as Excel</Typography>
-          </MenuItem>
-          <MenuItem onClick={() => handleExport('PDF')} sx={{ gap: 1, '&:hover': { bgcolor: 'rgba(103, 232, 249, 0.05)' } }}>
-            <PictureAsPdf fontSize="small" sx={{ color: '#EF4444' }} />
-            <Typography variant="body2" sx={{ color: '#0F172A' }}>Export as PDF</Typography>
-          </MenuItem>
-        </Menu>
-
-        {/* SEARCH & FILTER */}
-        <Paper sx={{ 
-          p: { xs: 1.5, sm: 2 }, 
-          mb: 3, 
-          borderRadius: 3, 
-          border: `1px solid rgba(103, 232, 249, 0.1)`,
-          boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-          bgcolor: 'rgba(255, 255, 255, 0.92)',
-          backdropFilter: 'blur(10px)',
-        }}>
-          <Box sx={{
-            display: 'flex',
-            flexDirection: { xs: 'column', sm: 'row' },
-            gap: 1.5,
-            alignItems: { xs: 'stretch', sm: 'center' }
-          }}>
-            <TextField
-              size="small"
-              placeholder="Search by period, equipment, status..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              sx={{ 
-                flexGrow: 1, 
-                minWidth: { xs: '100%', sm: 200 },
-                '& .MuiOutlinedInput-root': {
-                  '&:hover fieldset': { borderColor: '#67E8F9' },
-                  '&.Mui-focused fieldset': { borderColor: '#67E8F9' },
-                }
-              }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Search sx={{ color: '#64748B' }} />
-                  </InputAdornment>
-                ),
-                endAdornment: searchTerm && (
-                  <InputAdornment position="end">
-                    <IconButton size="small" onClick={() => setSearchTerm('')} sx={{ color: '#64748B', '&:hover': { color: '#EF4444' } }}>
-                      <Clear fontSize="small" />
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-            />
-
-            {isMobile && (
+          {!isMobile && (
+            <>
+              <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 150 } }}>
+                <InputLabel sx={{ color: '#64748B' }}>Report Type</InputLabel>
+                <Select
+                  value={reportType}
+                  onChange={(e) => {
+                    setReportType(e.target.value)
+                    generateReport(e.target.value, period)
+                  }}
+                  label="Report Type"
+                  sx={{
+                    borderRadius: 2,
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: '#67E8F9' },
+                      '&.Mui-focused fieldset': { borderColor: '#67E8F9' },
+                    }
+                  }}
+                >
+                  {engineerReportTypes.map((type) => (
+                    <MenuItem key={type.value} value={type.value}>
+                      {type.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 120 } }}>
+                <InputLabel sx={{ color: '#64748B' }}>Period</InputLabel>
+                <Select
+                  value={period}
+                  onChange={(e) => {
+                    setPeriod(e.target.value)
+                    setFilters({ ...filters, period: e.target.value })
+                  }}
+                  label="Period"
+                  sx={{
+                    borderRadius: 2,
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: '#67E8F9' },
+                      '&.Mui-focused fieldset': { borderColor: '#67E8F9' },
+                    }
+                  }}
+                >
+                  {periodOptions.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
               <Button
                 variant="outlined"
-                onClick={toggleFilters}
-                endIcon={showFilters ? <KeyboardArrowUp /> : <KeyboardArrowDown />}
-                fullWidth
-                size="small"
+                onClick={handleFilterClick}
                 sx={{
                   borderColor: '#0F172A',
                   color: '#0F172A',
@@ -3868,64 +3461,90 @@ const EngineerReports = () => {
                   textTransform: 'none',
                   fontWeight: 600,
                 }}
+                startIcon={<FilterList />}
               >
-                {showFilters ? 'Hide Filters' : 'Show Filters'}
+                Filter
               </Button>
-            )}
+              <Button
+                variant="contained"
+                onClick={() => generateReport(reportType, period)}
+                disabled={loading}
+                sx={{
+                  bgcolor: '#0F172A',
+                  '&:hover': { 
+                    bgcolor: '#1E3A5F',
+                    boxShadow: '0 4px 24px rgba(103, 232, 249, 0.3)',
+                  },
+                  borderRadius: 2,
+                  boxShadow: '0 4px 16px rgba(103, 232, 249, 0.15)',
+                  textTransform: 'none',
+                  fontWeight: 600,
+                }}
+                startIcon={<Refresh />}
+              >
+                {loading ? 'Generating...' : 'Generate Report'}
+              </Button>
+            </>
+          )}
+        </Box>
 
-            {!isMobile && (
-              <>
-                <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 150 } }}>
-                  <InputLabel sx={{ color: '#64748B' }}>Report Type</InputLabel>
-                  <Select
-                    value={reportType}
-                    onChange={(e) => {
-                      setReportType(e.target.value)
-                      generateReport(e.target.value, period)
-                    }}
-                    label="Report Type"
-                    sx={{
-                      borderRadius: 2,
-                      '& .MuiOutlinedInput-root': {
-                        '&:hover fieldset': { borderColor: '#67E8F9' },
-                        '&.Mui-focused fieldset': { borderColor: '#67E8F9' },
-                      }
-                    }}
-                  >
-                    {engineerReportTypes.map((type) => (
-                      <MenuItem key={type.value} value={type.value}>
-                        {type.label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 120 } }}>
-                  <InputLabel sx={{ color: '#64748B' }}>Period</InputLabel>
-                  <Select
-                    value={period}
-                    onChange={(e) => {
-                      setPeriod(e.target.value)
-                      setFilters({ ...filters, period: e.target.value })
-                    }}
-                    label="Period"
-                    sx={{
-                      borderRadius: 2,
-                      '& .MuiOutlinedInput-root': {
-                        '&:hover fieldset': { borderColor: '#67E8F9' },
-                        '&.Mui-focused fieldset': { borderColor: '#67E8F9' },
-                      }
-                    }}
-                  >
-                    {periodOptions.map((option) => (
-                      <MenuItem key={option.value} value={option.value}>
-                        {option.label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+        {isMobile && (
+          <Collapse in={showFilters} timeout="auto" unmountOnExit>
+            <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              <FormControl size="small" fullWidth>
+                <InputLabel sx={{ color: '#64748B' }}>Report Type</InputLabel>
+                <Select
+                  value={reportType}
+                  onChange={(e) => {
+                    setReportType(e.target.value)
+                    generateReport(e.target.value, period)
+                  }}
+                  label="Report Type"
+                  sx={{
+                    borderRadius: 2,
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: '#67E8F9' },
+                      '&.Mui-focused fieldset': { borderColor: '#67E8F9' },
+                    }
+                  }}
+                >
+                  {engineerReportTypes.map((type) => (
+                    <MenuItem key={type.value} value={type.value}>
+                      {type.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <FormControl size="small" fullWidth>
+                <InputLabel sx={{ color: '#64748B' }}>Period</InputLabel>
+                <Select
+                  value={period}
+                  onChange={(e) => {
+                    setPeriod(e.target.value)
+                    setFilters({ ...filters, period: e.target.value })
+                  }}
+                  label="Period"
+                  sx={{
+                    borderRadius: 2,
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: '#67E8F9' },
+                      '&.Mui-focused fieldset': { borderColor: '#67E8F9' },
+                    }
+                  }}
+                >
+                  {periodOptions.map((option) => (
+                    <MenuItem key={option.value} value={option.value}>
+                      {option.label}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <Box sx={{ display: 'flex', gap: 1 }}>
                 <Button
                   variant="outlined"
                   onClick={handleFilterClick}
+                  fullWidth
+                  size="small"
                   sx={{
                     borderColor: '#0F172A',
                     color: '#0F172A',
@@ -3953,612 +3572,607 @@ const EngineerReports = () => {
                       boxShadow: '0 4px 24px rgba(103, 232, 249, 0.3)',
                     },
                     borderRadius: 2,
-                    boxShadow: '0 4px 16px rgba(103, 232, 249, 0.15)',
                     textTransform: 'none',
                     fontWeight: 600,
                   }}
+                  fullWidth
+                  size="small"
                   startIcon={<Refresh />}
                 >
-                  {loading ? 'Generating...' : 'Generate Report'}
+                  {loading ? 'Generating...' : 'Generate'}
                 </Button>
-              </>
-            )}
-          </Box>
-
-          {isMobile && (
-            <Collapse in={showFilters} timeout="auto" unmountOnExit>
-              <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                <FormControl size="small" fullWidth>
-                  <InputLabel sx={{ color: '#64748B' }}>Report Type</InputLabel>
-                  <Select
-                    value={reportType}
-                    onChange={(e) => {
-                      setReportType(e.target.value)
-                      generateReport(e.target.value, period)
-                    }}
-                    label="Report Type"
-                    sx={{
-                      borderRadius: 2,
-                      '& .MuiOutlinedInput-root': {
-                        '&:hover fieldset': { borderColor: '#67E8F9' },
-                        '&.Mui-focused fieldset': { borderColor: '#67E8F9' },
-                      }
-                    }}
-                  >
-                    {engineerReportTypes.map((type) => (
-                      <MenuItem key={type.value} value={type.value}>
-                        {type.label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                <FormControl size="small" fullWidth>
-                  <InputLabel sx={{ color: '#64748B' }}>Period</InputLabel>
-                  <Select
-                    value={period}
-                    onChange={(e) => {
-                      setPeriod(e.target.value)
-                      setFilters({ ...filters, period: e.target.value })
-                    }}
-                    label="Period"
-                    sx={{
-                      borderRadius: 2,
-                      '& .MuiOutlinedInput-root': {
-                        '&:hover fieldset': { borderColor: '#67E8F9' },
-                        '&.Mui-focused fieldset': { borderColor: '#67E8F9' },
-                      }
-                    }}
-                  >
-                    {periodOptions.map((option) => (
-                      <MenuItem key={option.value} value={option.value}>
-                        {option.label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  <Button
-                    variant="outlined"
-                    onClick={handleFilterClick}
-                    fullWidth
-                    size="small"
-                    sx={{
-                      borderColor: '#0F172A',
-                      color: '#0F172A',
-                      '&:hover': { 
-                        borderColor: '#67E8F9', 
-                        color: '#67E8F9',
-                        bgcolor: 'rgba(103, 232, 249, 0.05)',
-                      },
-                      borderRadius: 2,
-                      textTransform: 'none',
-                      fontWeight: 600,
-                    }}
-                    startIcon={<FilterList />}
-                  >
-                    Filter
-                  </Button>
-                  <Button
-                    variant="contained"
-                    onClick={() => generateReport(reportType, period)}
-                    disabled={loading}
-                    sx={{
-                      bgcolor: '#0F172A',
-                      '&:hover': { 
-                        bgcolor: '#1E3A5F',
-                        boxShadow: '0 4px 24px rgba(103, 232, 249, 0.3)',
-                      },
-                      borderRadius: 2,
-                      textTransform: 'none',
-                      fontWeight: 600,
-                    }}
-                    fullWidth
-                    size="small"
-                    startIcon={<Refresh />}
-                  >
-                    {loading ? 'Generating...' : 'Generate'}
-                  </Button>
-                </Box>
               </Box>
-            </Collapse>
-          )}
-        </Paper>
-
-        {/* FILTER MENU / DRAWER - No hospital filter for engineer */}
-        <FilterMenu
-          anchorEl={filterAnchorEl}
-          onClose={handleFilterClose}
-          open={filterDrawerOpen}
-          onOpen={() => setFilterDrawerOpen(true)}
-          onDrawerClose={handleFilterClose}
-          isMobile={isMobile}
-          filters={filters}
-          onFilterChange={handleFilterChange}
-          onApply={applyFilters}
-          onClear={clearFilters}
-          period={period}
-          onPeriodChange={handlePeriodChange}
-          periodOptions={periodOptions}
-          reportTypes={engineerReportTypes}
-          selectedReportType={reportType}
-          onReportTypeChange={handleReportTypeChange}
-          additionalFilters={[]}
-        />
-
-        {/* TABLE */}
-        <Paper sx={{ 
-          borderRadius: 3, 
-          overflow: 'hidden', 
-          border: `1px solid rgba(103, 232, 249, 0.1)`,
-          boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-        }}>
-          <TableContainer>
-            <Table>
-              <TableHead sx={{ 
-                bgcolor: '#0F172A',
-                background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)',
-              }}>
-                <TableRow>
-                  {reportType === 'my-downtime' || reportType === 'my-equipment' ? (
-                    <>
-                      <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Equipment</TableCell>
-                      <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Hospital</TableCell>
-                      <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Failures</TableCell>
-                      <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Critical</TableCell>
-                      <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Downtime (Days)</TableCell>
-                      <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Availability</TableCell>
-                      <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Actions</TableCell>
-                    </>
-                  ) : reportType === 'my-performance' ? (
-                    <>
-                      <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Period</TableCell>
-                      <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Total</TableCell>
-                      <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Completed</TableCell>
-                      <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Pending</TableCell>
-                      <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Critical</TableCell>
-                      <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Actions</TableCell>
-                    </>
-                  ) : isErrorReport ? (
-                    <>
-                      <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Period</TableCell>
-                      <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Total</TableCell>
-                      <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Resolved</TableCell>
-                      <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Open</TableCell>
-                      <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Critical</TableCell>
-                      <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Actions</TableCell>
-                    </>
-                  ) : (
-                    <>
-                      <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Title</TableCell>
-                      <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Type</TableCell>
-                      <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Status</TableCell>
-                      <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Date</TableCell>
-                      <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Actions</TableCell>
-                    </>
-                  )}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={8} align="center">
-                      <LinearProgress sx={{ my: 2, bgcolor: 'rgba(103, 232, 249, 0.1)', '& .MuiLinearProgress-bar': { bgcolor: '#67E8F9' } }} />
-                    </TableCell>
-                  </TableRow>
-                ) : filteredData.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={8} align="center">
-                      <Box sx={{ py: 4 }}>
-                        <Search sx={{ fontSize: 48, color: '#64748B', mb: 1 }} />
-                        <Typography variant="body1" color="textSecondary" sx={{ color: '#64748B' }}>
-                          {searchTerm || filters.status
-                            ? 'No results found matching your search/filters'
-                            : 'No reports found. Click "Generate Report" to create a report.'}
-                        </Typography>
-                        {(searchTerm || filters.status) && (
-                          <Button
-                            variant="outlined"
-                            size="small"
-                            onClick={clearFilters}
-                            sx={{
-                              borderColor: '#0F172A',
-                              color: '#0F172A',
-                              '&:hover': { 
-                                borderColor: '#67E8F9', 
-                                color: '#67E8F9',
-                                bgcolor: 'rgba(103, 232, 249, 0.05)',
-                              },
-                              mt: 1,
-                              borderRadius: 2,
-                              textTransform: 'none',
-                              fontWeight: 600,
-                            }}
-                          >
-                            Clear Filters
-                          </Button>
-                        )}
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredData.map((item, index) => (
-                    <TableRow 
-                      key={index} 
-                      className="table-row-hover"
-                      sx={{
-                        '&:hover': {
-                          bgcolor: 'rgba(103, 232, 249, 0.04) !important',
-                        }
-                      }}
-                    >
-                      {reportType === 'my-downtime' || reportType === 'my-equipment' ? (
-                        <>
-                          <TableCell>
-                            <Typography variant="body2" fontWeight={600} sx={{ color: '#0F172A' }}>
-                              {item['Equipment Name'] || item.equipment_name || 'N/A'}
-                            </Typography>
-                          </TableCell>
-                          <TableCell sx={{ color: '#64748B' }}>{item.Hospital || item.hospital_name || 'N/A'}</TableCell>
-                          <TableCell align="center">{item['Total Failures'] || item.total_failures || 0}</TableCell>
-                          <TableCell align="center" sx={{ color: '#EF4444', fontWeight: 600 }}>
-                            {item['Critical Failures'] || item.critical_failures || 0}
-                          </TableCell>
-                          <TableCell align="center" sx={{ color: '#EF4444', fontWeight: 700 }}>
-                            {item['Total Downtime (Days)'] || item.total_downtime_days || 0} days
-                          </TableCell>
-                          <TableCell align="center">
-                            <Chip
-                              label={item['Availability %'] || item.availability || 'N/A'}
-                              size="small"
-                              sx={{
-                                bgcolor: parseFloat(item['Availability %'] || item.availability) >= 90 ? '#22C55E' :
-                                  parseFloat(item['Availability %'] || item.availability) >= 70 ? '#F59E0B' :
-                                  '#EF4444',
-                                color: 'white',
-                                fontWeight: 600
-                              }}
-                            />
-                          </TableCell>
-                          <TableCell align="center">
-                            <Tooltip title="View Details">
-                              <IconButton
-                                size="small"
-                                onClick={() => handleView(item)}
-                                sx={{ 
-                                  color: '#0F172A', 
-                                  '&:hover': { 
-                                    color: '#67E8F9',
-                                    bgcolor: 'rgba(103, 232, 249, 0.1)',
-                                    transform: 'scale(1.1)',
-                                  },
-                                  transition: 'all 0.3s ease',
-                                }}
-                              >
-                                <Visibility fontSize={isMobile ? 'small' : 'medium'} />
-                              </IconButton>
-                            </Tooltip>
-                          </TableCell>
-                        </>
-                      ) : reportType === 'my-performance' ? (
-                        <>
-                          <TableCell align="center">
-                            <Typography variant="body2" fontWeight={600} sx={{ color: '#0F172A' }}>
-                              {item.period}
-                            </Typography>
-                          </TableCell>
-                          <TableCell align="center">{item.total}</TableCell>
-                          <TableCell align="center" sx={{ color: '#22C55E', fontWeight: 600 }}>{item.completed}</TableCell>
-                          <TableCell align="center" sx={{ color: '#F59E0B', fontWeight: 600 }}>{item.pending}</TableCell>
-                          <TableCell align="center" sx={{ color: '#EF4444', fontWeight: 600 }}>{item.critical}</TableCell>
-                          <TableCell align="center">
-                            <Tooltip title="View Details">
-                              <IconButton
-                                size="small"
-                                onClick={() => handleView(item)}
-                                sx={{ 
-                                  color: '#0F172A', 
-                                  '&:hover': { 
-                                    color: '#67E8F9',
-                                    bgcolor: 'rgba(103, 232, 249, 0.1)',
-                                    transform: 'scale(1.1)',
-                                  },
-                                  transition: 'all 0.3s ease',
-                                }}
-                              >
-                                <Visibility fontSize={isMobile ? 'small' : 'medium'} />
-                              </IconButton>
-                            </Tooltip>
-                          </TableCell>
-                        </>
-                      ) : isErrorReport ? (
-                        <>
-                          <TableCell align="center">
-                            <Typography variant="body2" fontWeight={600} sx={{ color: '#0F172A' }}>
-                              {item.period}
-                            </Typography>
-                          </TableCell>
-                          <TableCell align="center">{item.total_errors}</TableCell>
-                          <TableCell align="center" sx={{ color: '#22C55E', fontWeight: 600 }}>{item.resolved}</TableCell>
-                          <TableCell align="center" sx={{ color: '#F59E0B', fontWeight: 600 }}>{item.open}</TableCell>
-                          <TableCell align="center" sx={{ color: '#EF4444', fontWeight: 600 }}>{item.critical}</TableCell>
-                          <TableCell align="center">
-                            <Tooltip title="View Details">
-                              <IconButton
-                                size="small"
-                                onClick={() => handleView(item)}
-                                sx={{ 
-                                  color: '#0F172A', 
-                                  '&:hover': { 
-                                    color: '#67E8F9',
-                                    bgcolor: 'rgba(103, 232, 249, 0.1)',
-                                    transform: 'scale(1.1)',
-                                  },
-                                  transition: 'all 0.3s ease',
-                                }}
-                              >
-                                <Visibility fontSize={isMobile ? 'small' : 'medium'} />
-                              </IconButton>
-                            </Tooltip>
-                          </TableCell>
-                        </>
-                      ) : (
-                        <>
-                          <TableCell>
-                            <Typography variant="body2" fontWeight={500} sx={{ color: '#0F172A' }}>
-                              {item.title || item.name || item.equipment_name || 'N/A'}
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="body2" sx={{ color: '#64748B' }}>
-                              {item.type || item.maintenance_type || 'Maintenance'}
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Chip
-                              label={item.status || 'N/A'}
-                              size="small"
-                              sx={{
-                                bgcolor: item.status === 'Completed' ? '#22C55E' :
-                                  item.status === 'Scheduled' ? '#3B82F6' :
-                                  item.status === 'In Progress' ? '#F59E0B' :
-                                  item.status === 'Overdue' ? '#EF4444' : '#64748B',
-                                color: 'white',
-                                fontWeight: 500,
-                                height: 22,
-                                fontSize: '10px'
-                              }}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="body2" sx={{ color: '#64748B' }}>
-                              {formatDate(item.scheduled_date || item.date)}
-                            </Typography>
-                          </TableCell>
-                          <TableCell align="center">
-                            <Tooltip title="View Details">
-                              <IconButton
-                                size="small"
-                                onClick={() => handleView(item)}
-                                sx={{ 
-                                  color: '#0F172A', 
-                                  '&:hover': { 
-                                    color: '#67E8F9',
-                                    bgcolor: 'rgba(103, 232, 249, 0.1)',
-                                    transform: 'scale(1.1)',
-                                  },
-                                  transition: 'all 0.3s ease',
-                                }}
-                              >
-                                <Visibility fontSize={isMobile ? 'small' : 'medium'} />
-                              </IconButton>
-                            </Tooltip>
-                          </TableCell>
-                        </>
-                      )}
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Paper>
-
-        {/* VIEW DIALOG */}
-        <Dialog
-          open={openViewDialog}
-          onClose={() => setOpenViewDialog(false)}
-          maxWidth="md"
-          fullWidth
-          fullScreen={isMobile}
-          PaperProps={{
-            sx: {
-              borderRadius: 3,
-              border: `1px solid rgba(103, 232, 249, 0.1)`
-            }
-          }}
-        >
-          <DialogTitle sx={{ 
-            bgcolor: '#0F172A',
-            background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)',
-            color: 'white',
-            borderBottom: `2px solid #67E8F9`,
-            borderTopLeftRadius: 12,
-            borderTopRightRadius: 12,
-          }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant="h6" fontWeight={700}>
-                Report Details
-              </Typography>
-              <IconButton onClick={() => setOpenViewDialog(false)} sx={{ color: 'white', '&:hover': { color: '#67E8F9' } }}>
-                <Close />
-              </IconButton>
             </Box>
-          </DialogTitle>
-          <DialogContent dividers sx={{ p: 3 }}>
-            {selectedItem && (
-              <Grid container spacing={3}>
-                <Grid item xs={12}>
-                  <Paper sx={{ 
-                    p: 2, 
-                    bgcolor: 'rgba(103, 232, 249, 0.04)', 
-                    borderRadius: 2, 
-                    border: `1px solid #67E8F9`,
-                  }}>
-                    <Typography variant="h6" sx={{ color: '#0F172A', fontWeight: 600 }}>
-                      {selectedItem.title || selectedItem.name || selectedItem['Equipment Name'] || selectedItem.equipment_name || selectedItem.period || 'Report'}
-                    </Typography>
-                    <Chip
-                      label={selectedItem.type || selectedItem.category || reportType || 'Report'}
-                      size="small"
-                      sx={{ mt: 1, bgcolor: '#0F172A', color: 'white', fontWeight: 600 }}
-                    />
-                  </Paper>
-                </Grid>
+          </Collapse>
+        )}
+      </Paper>
 
-                <Grid item xs={12} md={6}>
-                  <Typography variant="subtitle2" sx={{ color: '#64748B', mb: 1, fontWeight: 600 }}>
-                    Report Information
+      {/* FILTER MENU / DRAWER - No hospital filter for engineer */}
+      <FilterMenu
+        anchorEl={filterAnchorEl}
+        onClose={handleFilterClose}
+        open={filterDrawerOpen}
+        onOpen={() => setFilterDrawerOpen(true)}
+        onDrawerClose={handleFilterClose}
+        isMobile={isMobile}
+        filters={filters}
+        onFilterChange={handleFilterChange}
+        onApply={applyFilters}
+        onClear={clearFilters}
+        period={period}
+        onPeriodChange={handlePeriodChange}
+        periodOptions={periodOptions}
+        reportTypes={engineerReportTypes}
+        selectedReportType={reportType}
+        onReportTypeChange={handleReportTypeChange}
+        additionalFilters={[]}
+      />
+
+      {/* TABLE */}
+      <Paper sx={{ 
+        borderRadius: 3, 
+        overflow: 'hidden', 
+        border: `1px solid rgba(103, 232, 249, 0.1)`,
+        boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+      }}>
+        <TableContainer>
+          <Table>
+            <TableHead sx={{ 
+              bgcolor: '#0F172A',
+              background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)',
+            }}>
+              <TableRow>
+                {reportType === 'my-downtime' || reportType === 'my-equipment' ? (
+                  <>
+                    <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Equipment</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Hospital</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Failures</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Critical</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Downtime (Days)</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Availability</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Actions</TableCell>
+                  </>
+                ) : reportType === 'my-performance' ? (
+                  <>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Period</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Total</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Completed</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Pending</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Critical</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Avg Days</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Completion Rate</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Actions</TableCell>
+                  </>
+                ) : isErrorReport ? (
+                  <>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Period</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Total</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Resolved</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Open</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Critical</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Actions</TableCell>
+                  </>
+                ) : (
+                  <>
+                    <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Title</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Type</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Status</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Date</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Actions</TableCell>
+                  </>
+                )}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={8} align="center">
+                    <LinearProgress sx={{ my: 2, bgcolor: 'rgba(103, 232, 249, 0.1)', '& .MuiLinearProgress-bar': { bgcolor: '#67E8F9' } }} />
+                  </TableCell>
+                </TableRow>
+              ) : filteredData.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} align="center">
+                    <Box sx={{ py: 4 }}>
+                      <Search sx={{ fontSize: 48, color: '#64748B', mb: 1 }} />
+                      <Typography variant="body1" color="textSecondary" sx={{ color: '#64748B' }}>
+                        {searchTerm || filters.status
+                          ? 'No results found matching your search/filters'
+                          : 'No reports found. Click "Generate Report" to create a report.'}
+                      </Typography>
+                      {(searchTerm || filters.status) && (
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          onClick={clearFilters}
+                          sx={{
+                            borderColor: '#0F172A',
+                            color: '#0F172A',
+                            '&:hover': { 
+                              borderColor: '#67E8F9', 
+                              color: '#67E8F9',
+                              bgcolor: 'rgba(103, 232, 249, 0.05)',
+                            },
+                            mt: 1,
+                            borderRadius: 2,
+                            textTransform: 'none',
+                            fontWeight: 600,
+                          }}
+                        >
+                          Clear Filters
+                        </Button>
+                      )}
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredData.map((item, index) => (
+                  <TableRow 
+                    key={index} 
+                    className="table-row-hover"
+                    sx={{
+                      '&:hover': {
+                        bgcolor: 'rgba(103, 232, 249, 0.04) !important',
+                      }
+                    }}
+                  >
+                    {reportType === 'my-downtime' || reportType === 'my-equipment' ? (
+                      <>
+                        <TableCell>
+                          <Typography variant="body2" fontWeight={600} sx={{ color: '#0F172A' }}>
+                            {item['Equipment Name'] || item.equipment_name || 'N/A'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell sx={{ color: '#64748B' }}>{item.Hospital || item.hospital_name || 'N/A'}</TableCell>
+                        <TableCell align="center">{item['Total Failures'] || item.total_failures || 0}</TableCell>
+                        <TableCell align="center" sx={{ color: '#EF4444', fontWeight: 600 }}>
+                          {item['Critical Failures'] || item.critical_failures || 0}
+                        </TableCell>
+                        <TableCell align="center" sx={{ color: '#EF4444', fontWeight: 700 }}>
+                          {item['Total Downtime (Days)'] || item.total_downtime_days || 0} days
+                        </TableCell>
+                        <TableCell align="center">
+                          <Chip
+                            label={item['Availability %'] || item.availability || 'N/A'}
+                            size="small"
+                            sx={{
+                              bgcolor: parseFloat(item['Availability %'] || item.availability) >= 90 ? '#22C55E' :
+                                parseFloat(item['Availability %'] || item.availability) >= 70 ? '#F59E0B' :
+                                '#EF4444',
+                              color: 'white',
+                              fontWeight: 600
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell align="center">
+                          <Tooltip title="View Details">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleView(item)}
+                              sx={{ 
+                                color: '#0F172A', 
+                                '&:hover': { 
+                                  color: '#67E8F9',
+                                  bgcolor: 'rgba(103, 232, 249, 0.1)',
+                                  transform: 'scale(1.1)',
+                                },
+                                transition: 'all 0.3s ease',
+                              }}
+                            >
+                              <Visibility fontSize={isMobile ? 'small' : 'medium'} />
+                            </IconButton>
+                          </Tooltip>
+                        </TableCell>
+                      </>
+                    ) : reportType === 'my-performance' ? (
+                      <>
+                        <TableCell align="center">
+                          <Typography variant="body2" fontWeight={600} sx={{ color: '#0F172A' }}>
+                            {item.period}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center">{item.total}</TableCell>
+                        <TableCell align="center" sx={{ color: '#22C55E', fontWeight: 600 }}>{item.completed}</TableCell>
+                        <TableCell align="center" sx={{ color: '#F59E0B', fontWeight: 600 }}>{item.pending}</TableCell>
+                        <TableCell align="center" sx={{ color: '#EF4444', fontWeight: 600 }}>{item.critical}</TableCell>
+                        <TableCell align="center" sx={{ color: '#0F172A', fontWeight: 600 }}>
+                          {item.avg_days} days
+                        </TableCell>
+                        <TableCell align="center">
+                          <Chip
+                            label={item.completion_rate}
+                            size="small"
+                            sx={{
+                              bgcolor: parseFloat(item.completion_rate) >= 80 ? '#22C55E' :
+                                       parseFloat(item.completion_rate) >= 50 ? '#F59E0B' : '#EF4444',
+                              color: 'white',
+                              fontWeight: 600,
+                              height: 22,
+                              fontSize: '10px'
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell align="center">
+                          <Tooltip title="View Details">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleView(item)}
+                              sx={{ 
+                                color: '#0F172A', 
+                                '&:hover': { 
+                                  color: '#67E8F9',
+                                  bgcolor: 'rgba(103, 232, 249, 0.1)',
+                                  transform: 'scale(1.1)',
+                                },
+                                transition: 'all 0.3s ease',
+                              }}
+                            >
+                              <Visibility fontSize={isMobile ? 'small' : 'medium'} />
+                            </IconButton>
+                          </Tooltip>
+                        </TableCell>
+                      </>
+                    ) : isErrorReport ? (
+                      <>
+                        <TableCell align="center">
+                          <Typography variant="body2" fontWeight={600} sx={{ color: '#0F172A' }}>
+                            {item.period}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center">{item.total_errors}</TableCell>
+                        <TableCell align="center" sx={{ color: '#22C55E', fontWeight: 600 }}>{item.resolved}</TableCell>
+                        <TableCell align="center" sx={{ color: '#F59E0B', fontWeight: 600 }}>{item.open}</TableCell>
+                        <TableCell align="center" sx={{ color: '#EF4444', fontWeight: 600 }}>{item.critical}</TableCell>
+                        <TableCell align="center">
+                          <Tooltip title="View Details">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleView(item)}
+                              sx={{ 
+                                color: '#0F172A', 
+                                '&:hover': { 
+                                  color: '#67E8F9',
+                                  bgcolor: 'rgba(103, 232, 249, 0.1)',
+                                  transform: 'scale(1.1)',
+                                },
+                                transition: 'all 0.3s ease',
+                              }}
+                            >
+                              <Visibility fontSize={isMobile ? 'small' : 'medium'} />
+                            </IconButton>
+                          </Tooltip>
+                        </TableCell>
+                      </>
+                    ) : (
+                      <>
+                        <TableCell>
+                          <Typography variant="body2" fontWeight={500} sx={{ color: '#0F172A' }}>
+                            {item.title || item.name || item.equipment_name || 'N/A'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ color: '#64748B' }}>
+                            {item.type || item.maintenance_type || 'Maintenance'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={item.status || 'N/A'}
+                            size="small"
+                            sx={{
+                              bgcolor: item.status === 'Completed' ? '#22C55E' :
+                                item.status === 'Scheduled' ? '#3B82F6' :
+                                item.status === 'In Progress' ? '#F59E0B' :
+                                item.status === 'Overdue' ? '#EF4444' : '#64748B',
+                              color: 'white',
+                              fontWeight: 500,
+                              height: 22,
+                              fontSize: '10px'
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ color: '#64748B' }}>
+                            {formatDate(item.scheduled_date || item.date)}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="center">
+                          <Tooltip title="View Details">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleView(item)}
+                              sx={{ 
+                                color: '#0F172A', 
+                                '&:hover': { 
+                                  color: '#67E8F9',
+                                  bgcolor: 'rgba(103, 232, 249, 0.1)',
+                                  transform: 'scale(1.1)',
+                                },
+                                transition: 'all 0.3s ease',
+                              }}
+                            >
+                              <Visibility fontSize={isMobile ? 'small' : 'medium'} />
+                            </IconButton>
+                          </Tooltip>
+                        </TableCell>
+                      </>
+                    )}
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
+
+      {/* VIEW DIALOG */}
+      <Dialog
+        open={openViewDialog}
+        onClose={() => setOpenViewDialog(false)}
+        maxWidth="md"
+        fullWidth
+        fullScreen={isMobile}
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            border: `1px solid rgba(103, 232, 249, 0.1)`
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          bgcolor: '#0F172A',
+          background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)',
+          color: 'white',
+          borderBottom: `2px solid #67E8F9`,
+          borderTopLeftRadius: 12,
+          borderTopRightRadius: 12,
+        }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="h6" fontWeight={700}>
+              Report Details
+            </Typography>
+            <IconButton onClick={() => setOpenViewDialog(false)} sx={{ color: 'white', '&:hover': { color: '#67E8F9' } }}>
+              <Close />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers sx={{ p: 3 }}>
+          {selectedItem && (
+            <Grid container spacing={3}>
+              <Grid item xs={12}>
+                <Paper sx={{ 
+                  p: 2, 
+                  bgcolor: 'rgba(103, 232, 249, 0.04)', 
+                  borderRadius: 2, 
+                  border: `1px solid #67E8F9`,
+                }}>
+                  <Typography variant="h6" sx={{ color: '#0F172A', fontWeight: 600 }}>
+                    {selectedItem.period || selectedItem.title || selectedItem.name || selectedItem['Equipment Name'] || selectedItem.equipment_name || 'Report'}
                   </Typography>
-                  <Paper sx={{ p: 2, bgcolor: 'rgba(103, 232, 249, 0.02)', borderRadius: 2, border: `1px solid rgba(103, 232, 249, 0.1)` }}>
+                  <Chip
+                    label={selectedItem.type || selectedItem.category || reportType || 'Report'}
+                    size="small"
+                    sx={{ mt: 1, bgcolor: '#0F172A', color: 'white', fontWeight: 600 }}
+                  />
+                </Paper>
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <Typography variant="subtitle2" sx={{ color: '#64748B', mb: 1, fontWeight: 600 }}>
+                  Report Information
+                </Typography>
+                <Paper sx={{ p: 2, bgcolor: 'rgba(103, 232, 249, 0.02)', borderRadius: 2, border: `1px solid rgba(103, 232, 249, 0.1)` }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
+                    <Typography variant="body2" sx={{ color: '#64748B' }}>Status</Typography>
+                    <Chip
+                      label={selectedItem.status || 'N/A'}
+                      size="small"
+                      sx={{
+                        bgcolor: selectedItem.status === 'Completed' || selectedItem.status === 'Resolved' ? '#22C55E' :
+                          selectedItem.status === 'Pending' ? '#F59E0B' :
+                          selectedItem.status === 'In Progress' ? '#3B82F6' :
+                          selectedItem.status === 'Critical' ? '#EF4444' : '#64748B',
+                        color: 'white',
+                        fontWeight: 500,
+                        height: 22,
+                        fontSize: '10px'
+                      }}
+                    />
+                  </Box>
+                  
+                  {/* ✅ Performance Report Fields */}
+                  {selectedItem.period && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5, mt: 0.5 }}>
+                      <Typography variant="body2" sx={{ color: '#64748B' }}>Period</Typography>
+                      <Typography variant="body2" fontWeight={700} sx={{ color: '#0F172A' }}>
+                        {selectedItem.period}
+                      </Typography>
+                    </Box>
+                  )}
+                  {selectedItem.total !== undefined && (
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
-                      <Typography variant="body2" sx={{ color: '#64748B' }}>Status</Typography>
+                      <Typography variant="body2" sx={{ color: '#64748B' }}>Total Repairs</Typography>
+                      <Typography variant="body2" fontWeight={600} sx={{ color: '#0F172A' }}>
+                        {selectedItem.total}
+                      </Typography>
+                    </Box>
+                  )}
+                  {selectedItem.completed !== undefined && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
+                      <Typography variant="body2" sx={{ color: '#64748B' }}>Completed</Typography>
+                      <Typography variant="body2" fontWeight={600} sx={{ color: '#22C55E' }}>
+                        {selectedItem.completed}
+                      </Typography>
+                    </Box>
+                  )}
+                  {selectedItem.pending !== undefined && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
+                      <Typography variant="body2" sx={{ color: '#64748B' }}>Pending</Typography>
+                      <Typography variant="body2" fontWeight={600} sx={{ color: '#F59E0B' }}>
+                        {selectedItem.pending}
+                      </Typography>
+                    </Box>
+                  )}
+                  {selectedItem.critical !== undefined && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
+                      <Typography variant="body2" sx={{ color: '#64748B' }}>Critical</Typography>
+                      <Typography variant="body2" fontWeight={600} sx={{ color: '#EF4444' }}>
+                        {selectedItem.critical}
+                      </Typography>
+                    </Box>
+                  )}
+                  {selectedItem.avg_days && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
+                      <Typography variant="body2" sx={{ color: '#64748B' }}>Avg Days</Typography>
+                      <Typography variant="body2" fontWeight={600} sx={{ color: '#0F172A' }}>
+                        {selectedItem.avg_days} days
+                      </Typography>
+                    </Box>
+                  )}
+                  {selectedItem.completion_rate && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
+                      <Typography variant="body2" sx={{ color: '#64748B' }}>Completion Rate</Typography>
                       <Chip
-                        label={selectedItem.status || 'N/A'}
+                        label={selectedItem.completion_rate}
                         size="small"
                         sx={{
-                          bgcolor: selectedItem.status === 'Completed' || selectedItem.status === 'Resolved' ? '#22C55E' :
-                            selectedItem.status === 'Pending' ? '#F59E0B' :
-                            selectedItem.status === 'In Progress' ? '#3B82F6' :
-                            selectedItem.status === 'Critical' ? '#EF4444' : '#64748B',
+                          bgcolor: parseFloat(selectedItem.completion_rate) >= 80 ? '#22C55E' :
+                                   parseFloat(selectedItem.completion_rate) >= 50 ? '#F59E0B' : '#EF4444',
                           color: 'white',
-                          fontWeight: 500,
-                          height: 22,
-                          fontSize: '10px'
+                          fontWeight: 600,
                         }}
                       />
                     </Box>
-                    {selectedItem['Total Failures'] !== undefined && (
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5, mt: 0.5 }}>
-                        <Typography variant="body2" sx={{ color: '#64748B' }}>Total Failures</Typography>
-                        <Typography variant="body2" fontWeight={500} sx={{ color: '#0F172A' }}>
-                          {selectedItem['Total Failures']}
-                        </Typography>
-                      </Box>
-                    )}
-                    {selectedItem['Total Downtime (Days)'] !== undefined && (
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
-                        <Typography variant="body2" sx={{ color: '#64748B' }}>Downtime</Typography>
-                        <Typography variant="body2" fontWeight={500} sx={{ color: '#EF4444' }}>
-                          {selectedItem['Total Downtime (Days)']} days
-                        </Typography>
-                      </Box>
-                    )}
-                  </Paper>
-                </Grid>
-
-                <Grid item xs={12} md={6}>
-                  <Typography variant="subtitle2" sx={{ color: '#64748B', mb: 1, fontWeight: 600 }}>
-                    Location Information
-                  </Typography>
-                  <Paper sx={{ p: 2, bgcolor: 'rgba(103, 232, 249, 0.02)', borderRadius: 2, border: `1px solid rgba(103, 232, 249, 0.1)` }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
-                      <Typography variant="body2" sx={{ color: '#64748B' }}>Hospital</Typography>
+                  )}
+                  {selectedItem['Total Failures'] !== undefined && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5, mt: 0.5 }}>
+                      <Typography variant="body2" sx={{ color: '#64748B' }}>Total Failures</Typography>
                       <Typography variant="body2" fontWeight={500} sx={{ color: '#0F172A' }}>
-                        {selectedItem.hospital_name || selectedItem.hospital || selectedItem.Hospital || 'N/A'}
+                        {selectedItem['Total Failures']}
                       </Typography>
                     </Box>
-                  </Paper>
-                </Grid>
-
-                <Grid item xs={12}>
-                  <Typography variant="subtitle2" sx={{ color: '#64748B', mb: 1, fontWeight: 600 }}>
-                    Date & Time
-                  </Typography>
-                  <Paper sx={{ p: 2, bgcolor: 'rgba(103, 232, 249, 0.02)', borderRadius: 2, border: `1px solid rgba(103, 232, 249, 0.1)` }}>
+                  )}
+                  {selectedItem['Total Downtime (Days)'] !== undefined && (
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
-                      <Typography variant="body2" sx={{ color: '#64748B' }}>Report Date</Typography>
-                      <Typography variant="body2" fontWeight={500} sx={{ color: '#0F172A' }}>
-                        {formatDateTime(selectedItem.created_at || selectedItem.date || selectedItem.scheduled_date)}
+                      <Typography variant="body2" sx={{ color: '#64748B' }}>Downtime</Typography>
+                      <Typography variant="body2" fontWeight={500} sx={{ color: '#EF4444' }}>
+                        {selectedItem['Total Downtime (Days)']} days
                       </Typography>
                     </Box>
-                  </Paper>
-                </Grid>
-
-                <Grid item xs={12}>
-                  <Divider sx={{ my: 1, borderColor: 'rgba(103, 232, 249, 0.1)' }} />
-                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                    <Button
-                      variant="contained"
-                      onClick={() => {
-                        const dataToExport = [selectedItem]
-                        exportToPDF(getCleanExportData(dataToExport, reportType), `${reportType}_${selectedItem.id || 'item'}`)
-                      }}
-                      sx={{
-                        bgcolor: '#EF4444',
-                        '&:hover': { bgcolor: '#dc2626', boxShadow: '0 4px 24px rgba(239, 68, 68, 0.3)' },
-                        borderRadius: 2,
-                        textTransform: 'none',
-                        fontWeight: 600,
-                      }}
-                      startIcon={<PictureAsPdf />}
-                    >
-                      Export as PDF
-                    </Button>
-                    <Button
-                      variant="contained"
-                      onClick={() => {
-                        const dataToExport = [selectedItem]
-                        exportToExcel(getCleanExportData(dataToExport, reportType), `${reportType}_${selectedItem.id || 'item'}`)
-                      }}
-                      sx={{
-                        bgcolor: '#22C55E',
-                        '&:hover': { bgcolor: '#16a34a', boxShadow: '0 4px 24px rgba(34, 197, 94, 0.3)' },
-                        borderRadius: 2,
-                        textTransform: 'none',
-                        fontWeight: 600,
-                      }}
-                      startIcon={<TableChart />}
-                    >
-                      Export as Excel
-                    </Button>
-                  </Box>
-                </Grid>
+                  )}
+                </Paper>
               </Grid>
-            )}
-          </DialogContent>
-          <DialogActions sx={{ p: 2, gap: 1 }}>
-            <Button
-              onClick={() => setOpenViewDialog(false)}
-              variant="contained"
-              sx={{
-                bgcolor: '#0F172A',
-                '&:hover': { 
-                  bgcolor: '#1E3A5F',
-                  boxShadow: '0 4px 24px rgba(103, 232, 249, 0.3)',
-                },
-                borderRadius: 2,
-                textTransform: 'none',
-                fontWeight: 600,
-              }}
-            >
-              Close
-            </Button>
-          </DialogActions>
-        </Dialog>
 
-        {/* Snackbar */}
-        <Snackbar
-          open={snackbar.open}
-          autoHideDuration={4000}
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-        >
-          <Alert severity={snackbar.severity} variant="filled" sx={{ borderRadius: 2 }}>
-            {snackbar.message}
-          </Alert>
-        </Snackbar>
-      </Box>
-    </>
+              <Grid item xs={12} md={6}>
+                <Typography variant="subtitle2" sx={{ color: '#64748B', mb: 1, fontWeight: 600 }}>
+                  Location Information
+                </Typography>
+                <Paper sx={{ p: 2, bgcolor: 'rgba(103, 232, 249, 0.02)', borderRadius: 2, border: `1px solid rgba(103, 232, 249, 0.1)` }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
+                    <Typography variant="body2" sx={{ color: '#64748B' }}>Hospital</Typography>
+                    <Typography variant="body2" fontWeight={500} sx={{ color: '#0F172A' }}>
+                      {selectedItem.hospital_name || selectedItem.hospital || selectedItem.Hospital || 'N/A'}
+                    </Typography>
+                  </Box>
+                  {selectedItem.engineer_name && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
+                      <Typography variant="body2" sx={{ color: '#64748B' }}>Engineer</Typography>
+                      <Typography variant="body2" fontWeight={500} sx={{ color: '#0F172A' }}>
+                        {selectedItem.engineer_name}
+                      </Typography>
+                    </Box>
+                  )}
+                </Paper>
+              </Grid>
+
+              <Grid item xs={12}>
+                <Typography variant="subtitle2" sx={{ color: '#64748B', mb: 1, fontWeight: 600 }}>
+                  Date & Time
+                </Typography>
+                <Paper sx={{ p: 2, bgcolor: 'rgba(103, 232, 249, 0.02)', borderRadius: 2, border: `1px solid rgba(103, 232, 249, 0.1)` }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
+                    <Typography variant="body2" sx={{ color: '#64748B' }}>Report Date</Typography>
+                    <Typography variant="body2" fontWeight={500} sx={{ color: '#0F172A' }}>
+                      {formatDateTime(selectedItem.created_at || selectedItem.date || selectedItem.scheduled_date)}
+                    </Typography>
+                  </Box>
+                </Paper>
+              </Grid>
+
+              <Grid item xs={12}>
+                <Divider sx={{ my: 1, borderColor: 'rgba(103, 232, 249, 0.1)' }} />
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                  <Button
+                    variant="contained"
+                    onClick={() => {
+                      const dataToExport = [selectedItem]
+                      exportToPDF(getCleanExportData(dataToExport, reportType), `${reportType}_${selectedItem.id || 'item'}`)
+                    }}
+                    sx={{
+                      bgcolor: '#EF4444',
+                      '&:hover': { bgcolor: '#dc2626', boxShadow: '0 4px 24px rgba(239, 68, 68, 0.3)' },
+                      borderRadius: 2,
+                      textTransform: 'none',
+                      fontWeight: 600,
+                    }}
+                    startIcon={<PictureAsPdf />}
+                  >
+                    Export as PDF
+                  </Button>
+                  <Button
+                    variant="contained"
+                    onClick={() => {
+                      const dataToExport = [selectedItem]
+                      exportToExcel(getCleanExportData(dataToExport, reportType), `${reportType}_${selectedItem.id || 'item'}`)
+                    }}
+                    sx={{
+                      bgcolor: '#22C55E',
+                      '&:hover': { bgcolor: '#16a34a', boxShadow: '0 4px 24px rgba(34, 197, 94, 0.3)' },
+                      borderRadius: 2,
+                      textTransform: 'none',
+                      fontWeight: 600,
+                    }}
+                    startIcon={<TableChart />}
+                  >
+                    Export as Excel
+                  </Button>
+                </Box>
+              </Grid>
+            </Grid>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <Button
+            onClick={() => setOpenViewDialog(false)}
+            variant="contained"
+            sx={{
+              bgcolor: '#0F172A',
+              '&:hover': { 
+                bgcolor: '#1E3A5F',
+                boxShadow: '0 4px 24px rgba(103, 232, 249, 0.3)',
+              },
+              borderRadius: 2,
+              textTransform: 'none',
+              fontWeight: 600,
+            }}
+          >
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity={snackbar.severity} variant="filled" sx={{ borderRadius: 2 }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+    </Box>
   )
 }
 
