@@ -1,5 +1,5 @@
 // src/pages/Dashboard.jsx
-// ✅ FIXED: Engineer Dashboard Now Working
+// ✅ UPDATED: My Maintenance Tasks Card Removed
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -76,9 +76,7 @@ const Dashboard = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
   const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'))
 
-  // ✅ FIXED: Include all fields from backend
   const [stats, setStats] = useState({
-    // Common fields
     totalEquipment: 0,
     totalHospitals: 0,
     totalEngineers: 0,
@@ -93,8 +91,6 @@ const Dashboard = () => {
     sparePartsLow: 0,
     totalUsers: 0,
     totalReports: 0,
-    
-    // ✅ ENGINEER-SPECIFIC FIELDS
     myAssignedRepairs: 0,
     myMaintenanceTasks: 0,
     myReportedErrors: 0,
@@ -133,7 +129,6 @@ const Dashboard = () => {
           sparePartsLow: response.data.sparePartsLow || 0,
           totalUsers: response.data.totalUsers || 0,
           totalReports: response.data.totalReports || 0,
-          // ✅ ENGINEER FIELDS
           myAssignedRepairs: response.data.myAssignedRepairs || 0,
           myMaintenanceTasks: response.data.myMaintenanceTasks || 0,
           myReportedErrors: response.data.myReportedErrors || 0,
@@ -188,7 +183,7 @@ const Dashboard = () => {
       },
     ]
 
-    // ✅ Engineer-specific cards
+    // ✅ Engineer-specific cards (My Maintenance Tasks REMOVED)
     if (isEngineer) {
       cards.push(
         { 
@@ -199,14 +194,7 @@ const Dashboard = () => {
           color: colors.lightCyan,
           show: true
         },
-        { 
-          title: 'My Maintenance Tasks', 
-          value: stats.myMaintenanceTasks || 0, 
-          icon: <CalendarToday />, 
-          path: '/maintenance?assigned=true',
-          color: colors.lightCyanBright,
-          show: true
-        },
+        // ❌ My Maintenance Tasks REMOVED
         { 
           title: 'My Reported Errors', 
           value: stats.myReportedErrors || 0, 

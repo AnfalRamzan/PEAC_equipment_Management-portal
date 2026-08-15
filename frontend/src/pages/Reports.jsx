@@ -9,6 +9,7 @@
 // ✅ Super Admin + Engineer roles supported
 // ✅ buildDowntimeRows function added
 // ✅ Availability calculation with default 1 year
+// ✅ DOWNTIME SHOW ONLY IN DAYS (not hours)
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import {
@@ -339,8 +340,8 @@ const buildEquipmentLifecycleRows = (equipment, errors, repairs) => {
       return severity === 'high';
     }).length;
 
-    // ✅ DOWNTIME - SIRF RESOLVED ERRORS
-    let downtime = 0;
+    // ✅ DOWNTIME - SIRF RESOLVED ERRORS (DAYS ONLY)
+    let downtimeHours = 0;
     resolved.forEach(e => {
       const start = firstValue(e, ['created_at', 'reported_at', 'breakdown_at']);
       const end = firstValue(e, ['updated_at', 'resolved_at', 'completed_at', 'closed_at']);
@@ -349,10 +350,13 @@ const buildEquipmentLifecycleRows = (equipment, errors, repairs) => {
         const endDate = new Date(end);
         if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
           const hours = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
-          if (hours > 0) downtime += hours;
+          if (hours > 0) downtimeHours += hours;
         }
       }
     });
+
+    // ✅ Convert to days (1 day = 24 hours)
+    const downtimeDays = downtimeHours / 24;
 
     // ✅ AGE - INSTALLATION YEAR WITH DEFAULT 1 YEAR
     const installation = firstValue(eq, ['installation_year', 'installation_date', 'purchase_date']);
@@ -365,10 +369,10 @@ const buildEquipmentLifecycleRows = (equipment, errors, repairs) => {
     const effectiveAge = age > 0 ? age : 1;
     const monitoredHours = effectiveAge * 365.25 * 24;
     const finalAvailability = monitoredHours > 0
-      ? Math.max(0, Math.min(100, ((monitoredHours - downtime) / monitoredHours) * 100))
+      ? Math.max(0, Math.min(100, ((monitoredHours - downtimeHours) / monitoredHours) * 100))
       : 100;
 
-    console.log(`📊 ${name}: Age=${effectiveAge.toFixed(1)}y, Downtime=${downtime.toFixed(1)}h, Availability=${finalAvailability.toFixed(1)}%`);
+    console.log(`📊 ${name}: Age=${effectiveAge.toFixed(1)}y, Downtime=${downtimeDays.toFixed(1)}d, Availability=${finalAvailability.toFixed(1)}%`);
 
     return {
       'Equipment Name': name,
@@ -383,7 +387,7 @@ const buildEquipmentLifecycleRows = (equipment, errors, repairs) => {
       'Resolved Errors': resolved.length,
       'Resolution Rate': eqErrors.length > 0 ? `${((resolved.length / eqErrors.length) * 100).toFixed(1)}%` : '0.0%',
       'Maintenance Events': eqRepairs.length,
-      'Total Downtime (Hours)': downtime.toFixed(1),
+      'Total Downtime (Days)': downtimeDays.toFixed(1),  // ✅ Days only
       'Availability %': `${finalAvailability.toFixed(1)}%`,
       'Age (Years)': effectiveAge.toFixed(1)
     };
@@ -405,11 +409,10 @@ const buildDowntimeRows = (equipment, errors, repairs) => {
   }
   
   const rows = buildEquipmentLifecycleRows(equipment, errors, repairs)
-    .filter(r => parseFloat(r['Total Downtime (Hours)']) > 0 || r['Total Failures'] > 0)
-    .sort((a, b) => parseFloat(b['Total Downtime (Hours)']) - parseFloat(a['Total Downtime (Hours)']))
+    .filter(r => parseFloat(r['Total Downtime (Days)']) > 0 || r['Total Failures'] > 0)
+    .sort((a, b) => parseFloat(b['Total Downtime (Days)']) - parseFloat(a['Total Downtime (Days)']))
     .map(r => {
-      const hours = parseFloat(r['Total Downtime (Hours)']) || 0;
-      const breakdown = getDowntimeBreakdown(hours);
+      const days = parseFloat(r['Total Downtime (Days)']) || 0;
       
       return {
         'Equipment Name': r['Equipment Name'],
@@ -423,10 +426,7 @@ const buildDowntimeRows = (equipment, errors, repairs) => {
         'Resolved Errors': r['Resolved Errors'],
         'Resolution Rate': r['Resolution Rate'],
         'Maintenance Events': r['Maintenance Events'],
-        'Total Downtime (Hours)': r['Total Downtime (Hours)'],
-        'Downtime (Days)': breakdown.days.toFixed(1),
-        'Downtime (Weeks)': breakdown.weeks.toFixed(1),
-        'Downtime (Months)': breakdown.months.toFixed(1),
+        'Total Downtime (Days)': r['Total Downtime (Days)'],  // ✅ Days only
         'Availability %': r['Availability %']
       };
     });
@@ -539,7 +539,8 @@ const getAvailabilityChartData = (data) => {
 // ✅ GET CHART DATA - DOWNTIME BREAKDOWN ✅
 const getDowntimeChartData = (data) => {
   if (!Array.isArray(data)) return null
-  const totalHours = data.reduce((sum, item) => sum + num(item['Total Downtime (Hours)']), 0)
+  const totalDays = data.reduce((sum, item) => sum + num(item['Total Downtime (Days)']), 0)
+  const totalHours = totalDays * 24
   const breakdown = getDowntimeBreakdown(totalHours)
   return {
     hours: breakdown.hours,
@@ -624,8 +625,8 @@ const getCleanExportData = (data, reportType) => {
 
   if (['downtime', 'my-downtime'].includes(reportType)) {
     return data.map(r => {
-      const hours = num(r['Total Downtime (Hours)'] || 0)
-      const days = hours / 24
+      const days = num(r['Total Downtime (Days)'] || 0)  // ✅ Days only
+      const hours = days * 24
       const weeks = days / 7
       const months = days / 30.44
       
@@ -634,8 +635,7 @@ const getCleanExportData = (data, reportType) => {
         'Hospital': r.Hospital || 'N/A',
         'Failures': r['Total Failures'] || 0,
         'Critical': r['Critical Failures'] || 0,
-        'Downtime (Hrs)': hours.toFixed(1),
-        'Downtime (Days)': days.toFixed(1),
+        'Downtime (Days)': days.toFixed(1),  // ✅ Days only
         'Downtime (Weeks)': weeks.toFixed(1),
         'Downtime (Months)': months.toFixed(1),
         'Availability %': r['Availability %'] || '100.0%'
@@ -700,7 +700,7 @@ const getCleanExportData = (data, reportType) => {
       'City': r.city || 'N/A',
       'Equipment': r.equipment_count || 0,
       'Errors': r.error_count || 0,
-      'Downtime': r.downtime_hours || 0
+      'Downtime (Days)': (r.downtime_hours || 0) / 24
     }))
   }
 
@@ -724,20 +724,14 @@ const getCleanExportData = (data, reportType) => {
 
 const calculateExportSummary = (rows, reportType) => {
   if (['downtime', 'my-downtime'].includes(reportType)) {
-    const hours = rows.reduce((s, r) => s + num(r['Downtime (Hrs)']), 0)
-    const days = hours / 24
-    const weeks = days / 7
-    const months = days / 30.44
+    const days = rows.reduce((s, r) => s + num(r['Downtime (Days)']), 0)  // ✅ Days only
     const failures = rows.reduce((s, r) => s + num(r['Failures']), 0)
     const critical = rows.reduce((s, r) => s + num(r['Critical']), 0)
     return {
       'Equipment Count': rows.length,
       'Total Failures': failures,
       'Critical Failures': critical,
-      'Downtime (Hrs)': `${hours.toFixed(1)}`,
-      'Downtime (Days)': `${days.toFixed(1)}`,
-      'Downtime (Weeks)': `${weeks.toFixed(1)}`,
-      'Downtime (Months)': `${months.toFixed(1)}`
+      'Total Downtime (Days)': `${days.toFixed(1)}`  // ✅ Days only
     }
   }
 
@@ -806,7 +800,7 @@ const exportToExcel = (data, filename = 'report', reportType = '') => {
       const chartData = data
         .map(row => ({
           name: row['Equipment'] || row['Equipment Name'] || 'N/A',
-          value: parseFloat(row['Downtime (Hrs)'] || row['Downtime'] || 0)
+          value: parseFloat(row['Downtime (Days)'] || row['Downtime'] || 0)
         }))
         .sort((a, b) => b.value - a.value)
         .slice(0, 10)
@@ -815,8 +809,8 @@ const exportToExcel = (data, filename = 'report', reportType = '') => {
       
       let bars = chartData.map((item, index) => {
         const barHeight = (item.value / maxValue) * 150
-        const color = item.value > 50 ? '#EF4444' : 
-                      item.value > 20 ? '#F59E0B' : '#0F172A'
+        const color = item.value > 10 ? '#EF4444' : 
+                      item.value > 5 ? '#F59E0B' : '#0F172A'
         return `
           <td style="text-align:center;vertical-align:bottom;padding:2px;width:${100/chartData.length}%;">
             <div style="height:${barHeight + 20}px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;">
@@ -824,7 +818,7 @@ const exportToExcel = (data, filename = 'report', reportType = '') => {
               <div style="font-size:8px;color:#64748B;margin-top:2px;max-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
                 ${item.name.length > 10 ? item.name.substring(0, 8) + '..' : item.name}
               </div>
-              <div style="font-size:8px;font-weight:600;color:#0F172A;">${item.value.toFixed(1)}h</div>
+              <div style="font-size:8px;font-weight:600;color:#0F172A;">${item.value.toFixed(1)}d</div>
             </div>
           </td>
         `
@@ -834,13 +828,13 @@ const exportToExcel = (data, filename = 'report', reportType = '') => {
         <tr>
           <td colspan="${headers.length}" style="padding:10px;background:#F8FAFB;border:1px solid rgba(103, 232, 249, 0.1);">
             <div style="font-size:12px;font-weight:600;color:#0F172A;text-align:center;margin-bottom:8px;">
-              📊 Top Equipment by Downtime (Hours)
+              📊 Top Equipment by Downtime (Days)
             </div>
             <table style="width:100%;border:none;">
               <tr>${bars}</tr>
             </table>
             <div style="font-size:8px;color:#64748B;text-align:center;margin-top:4px;">
-              🔴 High (&gt;50hrs) • 🟠 Medium (20-50hrs) • 🟢 Low (&lt;20hrs)
+              🔴 High (&gt;10d) • 🟠 Medium (5-10d) • 🟢 Low (&lt;5d)
             </div>
           </td>
         </tr>
@@ -907,7 +901,7 @@ const exportToPDF = (data, filename = 'report', reportType = '') => {
       const chartData = data
         .map(row => ({
           name: row['Equipment'] || row['Equipment Name'] || 'N/A',
-          value: parseFloat(row['Downtime (Hrs)'] || row['Downtime'] || 0)
+          value: parseFloat(row['Downtime (Days)'] || row['Downtime'] || 0)
         }))
         .sort((a, b) => b.value - a.value)
         .slice(0, 10)
@@ -916,15 +910,15 @@ const exportToPDF = (data, filename = 'report', reportType = '') => {
       
       let bars = chartData.map((item) => {
         const barHeight = Math.max((item.value / maxValue) * 120, 5)
-        const color = item.value > 50 ? '#EF4444' : 
-                      item.value > 20 ? '#F59E0B' : '#0F172A'
+        const color = item.value > 10 ? '#EF4444' : 
+                      item.value > 5 ? '#F59E0B' : '#0F172A'
         return `
           <div style="flex:1;text-align:center;min-width:25px;">
             <div style="height:${barHeight}px;background:${color};border-radius:4px 4px 0 0;min-height:5px;width:100%;max-width:30px;margin:0 auto;"></div>
             <div style="font-size:7px;color:#64748B;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:50px;">
               ${item.name.length > 12 ? item.name.substring(0, 10) + '..' : item.name}
             </div>
-            <div style="font-size:7px;font-weight:600;color:#0F172A;">${item.value.toFixed(1)}h</div>
+            <div style="font-size:7px;font-weight:600;color:#0F172A;">${item.value.toFixed(1)}d</div>
           </div>
         `
       }).join('')
@@ -932,13 +926,13 @@ const exportToPDF = (data, filename = 'report', reportType = '') => {
       chartHtml = `
         <div style="border:1px solid rgba(103, 232, 249, 0.1);border-radius:4px;padding:12px;margin:12px 0;background:#F8FAFB;">
           <div style="font-size:11px;font-weight:600;color:#0F172A;text-align:center;margin-bottom:8px;">
-            📊 Top Equipment by Downtime (Hours)
+            📊 Top Equipment by Downtime (Days)
           </div>
           <div style="display:flex;align-items:flex-end;height:160px;gap:3px;padding:4px;">
             ${bars}
           </div>
           <div style="font-size:7px;color:#64748B;text-align:center;margin-top:4px;">
-            🔴 High (&gt;50hrs) • 🟠 Medium (20-50hrs) • 🟢 Low (&lt;20hrs)
+            🔴 High (&gt;10d) • 🟠 Medium (5-10d) • 🟢 Low (&lt;5d)
           </div>
         </div>
       `
@@ -1009,7 +1003,7 @@ const exportToPDF = (data, filename = 'report', reportType = '') => {
 // ✅ CHART COMPONENTS - THEMED
 // ============================================================
 
-// 📊 Chart 1: Bar Chart - Downtime by Equipment
+// 📊 Chart 1: Bar Chart - Downtime by Equipment (Days)
 const DowntimeBarChart = ({ data }) => {
   if (!data || data.length === 0) return null
   
@@ -1029,16 +1023,16 @@ const DowntimeBarChart = ({ data }) => {
       }
     }}>
       <Typography variant="subtitle1" fontWeight={600} sx={{ color: '#0F172A', mb: 2 }}>
-        📊 Top Equipment by Downtime
+        📊 Top Equipment by Downtime (Days)
       </Typography>
       <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1.5, height: 180, pt: 1 }}>
         {sortedData.map((item, index) => {
           const height = Math.max((item.downtime / maxValue) * 150, 5)
-          const barColor = item.downtime > 50 ? '#EF4444' : 
-                          item.downtime > 20 ? '#F59E0B' : '#0F172A'
+          const barColor = item.downtime > 10 ? '#EF4444' : 
+                          item.downtime > 5 ? '#F59E0B' : '#0F172A'
           return (
             <Box key={index} sx={{ flex: 1, textAlign: 'center', minWidth: 0 }}>
-              <Tooltip title={`${item.name}: ${item.downtime.toFixed(1)} hrs`}>
+              <Tooltip title={`${item.name}: ${item.downtime.toFixed(1)} days`}>
                 <Box sx={{ 
                   height: height,
                   bgcolor: barColor,
@@ -1064,7 +1058,7 @@ const DowntimeBarChart = ({ data }) => {
               <Typography variant="caption" sx={{ 
                 display: 'block', fontWeight: 600, color: '#0F172A', fontSize: '8px' 
               }}>
-                {item.downtime.toFixed(1)}h
+                {item.downtime.toFixed(1)}d
               </Typography>
             </Box>
           )
@@ -1132,11 +1126,10 @@ const AvailabilityGauge = ({ value }) => {
 }
 
 // 📊 Downtime Breakdown - KPI cards
-const DowntimeBreakdown = ({ hours, days, weeks, months }) => {
+const DowntimeBreakdown = ({ days, weeks, months }) => {
   const items = [
-    { label: 'Hours', value: hours, color: '#0F172A' },
-    { label: 'Days', value: days, color: '#C9A227' },
-    { label: 'Weeks', value: weeks, color: '#F59E0B' },
+    { label: 'Days', value: days, color: '#0F172A' },
+    { label: 'Weeks', value: weeks, color: '#C9A227' },
     { label: 'Months', value: months, color: '#EF4444' }
   ]
 
@@ -1153,11 +1146,11 @@ const DowntimeBreakdown = ({ hours, days, weeks, months }) => {
       }
     }}>
       <Typography variant="subtitle1" fontWeight={600} sx={{ color: '#0F172A', mb: 1.5 }}>
-        Downtime Summary
+        Downtime Summary (Days)
       </Typography>
       <Grid container spacing={1}>
         {items.map((item) => (
-          <Grid item xs={6} key={item.label}>
+          <Grid item xs={4} key={item.label}>
             <Box sx={{
               p: 1.25,
               borderRadius: 2,
@@ -1814,7 +1807,7 @@ const SuperAdminReports = () => {
               const hid = h.id ?? h.hospital_id
               const eq = filteredEquipment.filter(e => String(e.hospital_id ?? e.hospitalId ?? '') === String(hid))
               const er = filteredErrors.filter(e => String(e.hospital_id ?? e.hospitalId ?? '') === String(hid))
-              const downtime = er.reduce((sum, e) => sum + getDowntimeHours(e), 0)
+              const downtimeDays = er.reduce((sum, e) => sum + (getDowntimeHours(e) / 24), 0)
               const critical = er.filter(e => String(e.severity || '').toLowerCase() === 'critical').length
 
               return {
@@ -1827,7 +1820,7 @@ const SuperAdminReports = () => {
                 equipment_count: eq.length,
                 error_count: er.length,
                 critical_errors: critical,
-                downtime_hours: downtime.toFixed(1)
+                downtime_days: downtimeDays.toFixed(1)
               }
             })
             .filter(row => !filters.status || String(row.status).toLowerCase() === String(filters.status).toLowerCase())
@@ -2008,21 +2001,21 @@ const SuperAdminReports = () => {
     const topEquipment = filteredData
       .map(item => ({
         name: item['Equipment Name'] || 'N/A',
-        downtime: num(item['Total Downtime (Hours)'] || 0),
+        downtime: num(item['Total Downtime (Days)'] || 0),
         failures: num(item['Total Failures'] || 0),
         critical: num(item['Critical Failures'] || 0),
         availability: num(item['Availability %'] || 100)
       }))
       .sort((a, b) => b.downtime - a.downtime)
     
-    const totalHours = filteredData.reduce((sum, item) => sum + num(item['Total Downtime (Hours)']), 0)
+    const totalDays = filteredData.reduce((sum, item) => sum + num(item['Total Downtime (Days)']), 0)
+    const totalHours = totalDays * 24
     
     return {
       topEquipment,
-      totalHours,
-      totalDays: totalHours / 24,
-      totalWeeks: totalHours / 24 / 7,
-      totalMonths: totalHours / 24 / 30.44,
+      totalDays,
+      totalWeeks: totalDays / 7,
+      totalMonths: totalDays / 30.44,
       avgAvailability: average(filteredData.map(item => num(item['Availability %'] || 100)))
     }
   }, [reportType, filteredData])
@@ -2233,7 +2226,7 @@ const SuperAdminReports = () => {
           </MenuItem>
         </Menu>
 
-        {/* STATS CARDS */}
+        {/* STATS CARDS - DOWNTIME SHOW IN DAYS */}
         <Grid container spacing={isMobile ? 1 : 2} sx={{ mb: 3 }}>
           {reportType === 'downtime' ? (
             <>
@@ -2269,7 +2262,7 @@ const SuperAdminReports = () => {
               <Grid item xs={6} sm={2.4}>
                 <StatsCard
                   title="Total Downtime"
-                  value={`${filteredData.reduce((sum, row) => sum + num(row['Total Downtime (Hours)']), 0).toFixed(1)} hrs`}
+                  value={`${filteredData.reduce((sum, row) => sum + num(row['Total Downtime (Days)']), 0).toFixed(1)} days`}
                   color="#EF4444"
                   bgColor="#EF444410"
                   icon={<TimerOff sx={{ fontSize: 20, color: 'white' }} />}
@@ -2390,7 +2383,7 @@ const SuperAdminReports = () => {
               <Grid item xs={6} sm={2.4}>
                 <StatsCard
                   title="Downtime"
-                  value={`${filteredData.reduce((sum, row) => sum + num(row['Total Downtime (Hours)'] || row.downtime_hours || 0), 0).toFixed(1)} hrs`}
+                  value={`${filteredData.reduce((sum, row) => sum + num(row['Total Downtime (Days)'] || row.downtime_days || 0), 0).toFixed(1)} days`}
                   color="#EF4444"
                   bgColor="#EF444410"
                   icon={<TimerOff sx={{ fontSize: 20, color: 'white' }} />}
@@ -2414,7 +2407,6 @@ const SuperAdminReports = () => {
                 </Grid>
                 <Grid item xs={12}>
                   <DowntimeBreakdown 
-                    hours={chartData.totalHours}
                     days={chartData.totalDays}
                     weeks={chartData.totalWeeks}
                     months={chartData.totalMonths}
@@ -2729,7 +2721,7 @@ const SuperAdminReports = () => {
                       <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Hospital</TableCell>
                       <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Failures</TableCell>
                       <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Critical</TableCell>
-                      <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Downtime</TableCell>
+                      <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Downtime (Days)</TableCell>
                       <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Availability</TableCell>
                       <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Actions</TableCell>
                     </>
@@ -2819,7 +2811,7 @@ const SuperAdminReports = () => {
                             {item['Critical Failures'] ?? 0}
                           </TableCell>
                           <TableCell align="center" sx={{ color: '#EF4444', fontWeight: 700 }}>
-                            {item['Total Downtime (Hours)'] ?? 0} hrs
+                            {item['Total Downtime (Days)'] ?? 0} days
                           </TableCell>
                           <TableCell align="center">
                             <Chip
@@ -3031,11 +3023,11 @@ const SuperAdminReports = () => {
                         </Typography>
                       </Box>
                     )}
-                    {selectedItem['Total Downtime (Hours)'] !== undefined && (
+                    {selectedItem['Total Downtime (Days)'] !== undefined && (
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
                         <Typography variant="body2" sx={{ color: '#64748B' }}>Downtime</Typography>
                         <Typography variant="body2" fontWeight={500} sx={{ color: '#EF4444' }}>
-                          {selectedItem['Total Downtime (Hours)']} hrs
+                          {selectedItem['Total Downtime (Days)']} days
                         </Typography>
                       </Box>
                     )}
@@ -3497,21 +3489,20 @@ const EngineerReports = () => {
     const topEquipment = filteredData
       .map(item => ({
         name: item['Equipment Name'] || 'N/A',
-        downtime: num(item['Total Downtime (Hours)'] || 0),
+        downtime: num(item['Total Downtime (Days)'] || 0),
         failures: num(item['Total Failures'] || 0),
         critical: num(item['Critical Failures'] || 0),
         availability: num(item['Availability %'] || 100)
       }))
       .sort((a, b) => b.downtime - a.downtime)
     
-    const totalHours = filteredData.reduce((sum, item) => sum + num(item['Total Downtime (Hours)']), 0)
+    const totalDays = filteredData.reduce((sum, item) => sum + num(item['Total Downtime (Days)']), 0)
     
     return {
       topEquipment,
-      totalHours,
-      totalDays: totalHours / 24,
-      totalWeeks: totalHours / 24 / 7,
-      totalMonths: totalHours / 24 / 30.44,
+      totalDays,
+      totalWeeks: totalDays / 7,
+      totalMonths: totalDays / 30.44,
       avgAvailability: average(filteredData.map(item => num(item['Availability %'] || 100)))
     }
   }, [reportType, filteredData])
@@ -3752,7 +3743,6 @@ const EngineerReports = () => {
                 </Grid>
                 <Grid item xs={12}>
                   <DowntimeBreakdown 
-                    hours={chartData.totalHours}
                     days={chartData.totalDays}
                     weeks={chartData.totalWeeks}
                     months={chartData.totalMonths}
@@ -4115,7 +4105,7 @@ const EngineerReports = () => {
                       <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Hospital</TableCell>
                       <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Failures</TableCell>
                       <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Critical</TableCell>
-                      <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Downtime</TableCell>
+                      <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Downtime (Days)</TableCell>
                       <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Availability</TableCell>
                       <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Actions</TableCell>
                     </>
@@ -4214,7 +4204,7 @@ const EngineerReports = () => {
                             {item['Critical Failures'] || item.critical_failures || 0}
                           </TableCell>
                           <TableCell align="center" sx={{ color: '#EF4444', fontWeight: 700 }}>
-                            {item['Total Downtime (Hours)'] || item.total_downtime_hours || 0} hrs
+                            {item['Total Downtime (Days)'] || item.total_downtime_days || 0} days
                           </TableCell>
                           <TableCell align="center">
                             <Chip
@@ -4455,11 +4445,11 @@ const EngineerReports = () => {
                         </Typography>
                       </Box>
                     )}
-                    {selectedItem['Total Downtime (Hours)'] !== undefined && (
+                    {selectedItem['Total Downtime (Days)'] !== undefined && (
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
                         <Typography variant="body2" sx={{ color: '#64748B' }}>Downtime</Typography>
                         <Typography variant="body2" fontWeight={500} sx={{ color: '#EF4444' }}>
-                          {selectedItem['Total Downtime (Hours)']} hrs
+                          {selectedItem['Total Downtime (Days)']} days
                         </Typography>
                       </Box>
                     )}

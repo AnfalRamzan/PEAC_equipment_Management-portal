@@ -1,5 +1,6 @@
 // src/pages/Hospitals.jsx
 // ✅ DARK NAVY + LIGHT CYAN THEME - Matching Sidebar
+// ✅ FONT: SATOSHI - Premium, Sleek, Modern
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -58,6 +59,11 @@ import {
 import { useDispatch, useSelector } from 'react-redux'
 import { hospitalService, equipmentService, errorService, userService } from '../api/services'
 import { toast } from 'react-toastify'
+
+// ============================================================
+// ✅ FONT FAMILY CONSTANT - SATOSHI (Premium & Sleek)
+// ============================================================
+const FONT_FAMILY = "'Satoshi', 'Segoe UI', 'Roboto', sans-serif"
 
 // ============================================================
 // ✅ DARK NAVY + LIGHT CYAN THEME COLORS
@@ -473,6 +479,7 @@ const Hospitals = () => {
           sx={{ 
             fontWeight: 700, 
             color: colors.darkNavy,
+            fontFamily: FONT_FAMILY,
             '&::after': {
               content: '""',
               display: 'block',
@@ -495,6 +502,8 @@ const Hospitals = () => {
             sx={{ 
               borderColor: colors.borderColor, 
               color: colors.darkNavy,
+              fontFamily: FONT_FAMILY,
+              textTransform: 'none',
               '&:hover': { 
                 borderColor: colors.lightCyan, 
                 color: colors.lightCyanDark,
@@ -511,13 +520,14 @@ const Hospitals = () => {
               onClick={() => handleOpenDialog()}
               sx={{
                 bgcolor: colors.darkNavy,
+                fontFamily: FONT_FAMILY,
+                textTransform: 'none',
                 '&:hover': { 
                   bgcolor: colors.darkNavyHover,
                   boxShadow: `0 4px 20px ${colors.lightCyanGlowStrong}`
                 },
                 boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
                 borderRadius: 2,
-                textTransform: 'none',
               }}
             >
               Add Hospital
@@ -552,6 +562,9 @@ const Hospitals = () => {
                 '& .MuiOutlinedInput-root': {
                   '&:hover fieldset': { borderColor: colors.lightCyan },
                   '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                },
+                '& .MuiInputBase-input': {
+                  fontFamily: FONT_FAMILY,
                 }
               }
             }}
@@ -564,6 +577,8 @@ const Hospitals = () => {
             sx={{ 
               borderColor: colors.borderColor, 
               color: colors.darkNavy,
+              fontFamily: FONT_FAMILY,
+              textTransform: 'none',
               '&:hover': { 
                 borderColor: colors.lightCyan, 
                 color: colors.lightCyanDark,
@@ -581,6 +596,8 @@ const Hospitals = () => {
             sx={{ 
               borderColor: colors.borderColor, 
               color: colors.darkNavy,
+              fontFamily: FONT_FAMILY,
+              textTransform: 'none',
               '&:hover': { 
                 borderColor: colors.lightCyan, 
                 color: colors.lightCyanDark,
@@ -608,11 +625,19 @@ const Hospitals = () => {
           } 
         }}
       >
-        <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>
+        <Typography 
+          variant="subtitle2" 
+          fontWeight={600} 
+          sx={{ 
+            color: colors.darkNavy,
+            fontFamily: FONT_FAMILY,
+          }} 
+          gutterBottom
+        >
           Filter Hospitals
         </Typography>
         <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-          <InputLabel sx={{ color: colors.lightText }}>Status</InputLabel>
+          <InputLabel sx={{ color: colors.lightText, fontFamily: FONT_FAMILY }}>Status</InputLabel>
           <Select
             name="status"
             value={filters.status}
@@ -622,12 +647,15 @@ const Hospitals = () => {
               '& .MuiOutlinedInput-root': {
                 '&:hover fieldset': { borderColor: colors.lightCyan },
                 '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+              },
+              '& .MuiSelect-select': {
+                fontFamily: FONT_FAMILY,
               }
             }}
           >
-            <MenuItem value="all">All</MenuItem>
-            <MenuItem value="active">Active</MenuItem>
-            <MenuItem value="inactive">Inactive</MenuItem>
+            <MenuItem sx={{ fontFamily: FONT_FAMILY }} value="all">All</MenuItem>
+            <MenuItem sx={{ fontFamily: FONT_FAMILY }} value="active">Active</MenuItem>
+            <MenuItem sx={{ fontFamily: FONT_FAMILY }} value="inactive">Inactive</MenuItem>
           </Select>
         </FormControl>
         <TextField
@@ -644,6 +672,12 @@ const Hospitals = () => {
               '& .MuiOutlinedInput-root': {
                 '&:hover fieldset': { borderColor: colors.lightCyan },
                 '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+              },
+              '& .MuiInputBase-input': {
+                fontFamily: FONT_FAMILY,
+              },
+              '& .MuiInputLabel-root': {
+                fontFamily: FONT_FAMILY,
               }
             }
           }}
@@ -655,12 +689,13 @@ const Hospitals = () => {
             fullWidth 
             size="small"
             sx={{ 
-              bgcolor: colors.darkNavy, 
+              bgcolor: colors.darkNavy,
+              fontFamily: FONT_FAMILY,
+              textTransform: 'none', 
               '&:hover': { 
                 bgcolor: colors.darkNavyHover,
                 boxShadow: `0 4px 16px ${colors.lightCyanGlow}`
               },
-              textTransform: 'none',
             }}
           >
             Apply
@@ -673,6 +708,8 @@ const Hospitals = () => {
             sx={{ 
               borderColor: colors.borderColor,
               color: colors.darkNavy,
+              fontFamily: FONT_FAMILY,
+              textTransform: 'none',
               '&:hover': { 
                 borderColor: colors.lightCyan,
                 backgroundColor: 'rgba(103, 232, 249, 0.04)'
@@ -702,6 +739,7 @@ const Hospitals = () => {
         <MenuItem 
           onClick={exportToCSV} 
           sx={{ 
+            fontFamily: FONT_FAMILY,
             '&:hover': { 
               bgcolor: 'rgba(103, 232, 249, 0.08)',
               borderRadius: 1,
@@ -713,6 +751,7 @@ const Hospitals = () => {
         <MenuItem 
           onClick={exportToExcel} 
           sx={{ 
+            fontFamily: FONT_FAMILY,
             '&:hover': { 
               bgcolor: 'rgba(103, 232, 249, 0.08)',
               borderRadius: 1,
@@ -724,6 +763,7 @@ const Hospitals = () => {
         <MenuItem 
           onClick={exportToPDF} 
           sx={{ 
+            fontFamily: FONT_FAMILY,
             '&:hover': { 
               bgcolor: 'rgba(103, 232, 249, 0.08)',
               borderRadius: 1,
@@ -747,20 +787,20 @@ const Hospitals = () => {
         <Table>
           <TableHead sx={{ bgcolor: colors.darkNavy }}>
             <TableRow>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Hospital Name</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Code</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Location</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Contact</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Biomedical Head</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Status</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }} align="center">Actions</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: FONT_FAMILY }}>Hospital Name</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: FONT_FAMILY }}>Code</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: FONT_FAMILY }}>Location</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: FONT_FAMILY }}>Contact</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: FONT_FAMILY }}>Biomedical Head</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: FONT_FAMILY }}>Status</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: FONT_FAMILY }} align="center">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {filteredHospitals.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} align="center">
-                  <Typography variant="body1" sx={{ py: 3, color: colors.lightText }}>
+                  <Typography variant="body1" sx={{ py: 3, color: colors.lightText, fontFamily: FONT_FAMILY }}>
                     No hospitals found
                   </Typography>
                 </TableCell>
@@ -778,7 +818,7 @@ const Hospitals = () => {
                   }}
                 >
                   <TableCell>
-                    <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>
+                    <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy, fontFamily: FONT_FAMILY }}>
                       {hospital.name}
                     </Typography>
                   </TableCell>
@@ -788,17 +828,17 @@ const Hospitals = () => {
                     </Typography>
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2" sx={{ color: colors.lightText }}>
+                    <Typography variant="body2" sx={{ color: colors.lightText, fontFamily: FONT_FAMILY }}>
                       {hospital.city}, {hospital.state}
                     </Typography>
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2" sx={{ color: colors.darkNavy }}>{hospital.phone}</Typography>
-                    <Typography variant="caption" sx={{ color: colors.lightText }}>
+                    <Typography variant="body2" sx={{ color: colors.darkNavy, fontFamily: FONT_FAMILY }}>{hospital.phone}</Typography>
+                    <Typography variant="caption" sx={{ color: colors.lightText, fontFamily: FONT_FAMILY }}>
                       {hospital.email}
                     </Typography>
                   </TableCell>
-                  <TableCell sx={{ color: colors.lightText }}>{hospital.biomedical_head || '-'}</TableCell>
+                  <TableCell sx={{ color: colors.lightText, fontFamily: FONT_FAMILY }}>{hospital.biomedical_head || '-'}</TableCell>
                   <TableCell>
                     <Chip 
                       label={hospital.is_active ? 'Active' : 'Inactive'} 
@@ -808,7 +848,8 @@ const Hospitals = () => {
                         color: 'white',
                         fontWeight: 500,
                         height: 22,
-                        fontSize: '11px'
+                        fontSize: '11px',
+                        fontFamily: FONT_FAMILY,
                       }}
                     />
                   </TableCell>
@@ -884,7 +925,7 @@ const Hospitals = () => {
           borderRadius: '8px 8px 0 0',
         }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" fontWeight={600}>
+            <Typography variant="h6" fontWeight={600} sx={{ fontFamily: FONT_FAMILY }}>
               Hospital Details
             </Typography>
             <IconButton onClick={handleCloseViewDialog} sx={{ color: 'white' }}>
@@ -899,7 +940,7 @@ const Hospitals = () => {
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
                   <Business sx={{ fontSize: 40, color: colors.darkNavy }} />
                   <Box>
-                    <Typography variant="h5" fontWeight={600} sx={{ color: colors.darkNavy }}>
+                    <Typography variant="h5" fontWeight={600} sx={{ color: colors.darkNavy, fontFamily: FONT_FAMILY }}>
                       {selectedHospital.name}
                     </Typography>
                     <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
@@ -911,7 +952,8 @@ const Hospitals = () => {
                           color: 'white',
                           fontWeight: 500,
                           height: 22,
-                          fontSize: '11px'
+                          fontSize: '11px',
+                          fontFamily: FONT_FAMILY,
                         }}
                       />
                       {selectedHospital.hospital_code && (
@@ -936,73 +978,73 @@ const Hospitals = () => {
               </Grid>
 
               <Grid item xs={12}>
-                <Typography variant="subtitle2" sx={{ color: colors.lightText }} gutterBottom>
+                <Typography variant="subtitle2" sx={{ color: colors.lightText, fontFamily: FONT_FAMILY }} gutterBottom>
                   Address
                 </Typography>
-                <Typography variant="body1" sx={{ color: colors.darkNavy }}>
+                <Typography variant="body1" sx={{ color: colors.darkNavy, fontFamily: FONT_FAMILY }}>
                   {selectedHospital.address || 'N/A'}
                 </Typography>
               </Grid>
 
               <Grid item xs={12} md={6}>
-                <Typography variant="subtitle2" sx={{ color: colors.lightText }} gutterBottom>
+                <Typography variant="subtitle2" sx={{ color: colors.lightText, fontFamily: FONT_FAMILY }} gutterBottom>
                   City
                 </Typography>
-                <Typography variant="body1" sx={{ color: colors.darkNavy }}>
+                <Typography variant="body1" sx={{ color: colors.darkNavy, fontFamily: FONT_FAMILY }}>
                   {selectedHospital.city || 'N/A'}
                 </Typography>
               </Grid>
 
               <Grid item xs={12} md={6}>
-                <Typography variant="subtitle2" sx={{ color: colors.lightText }} gutterBottom>
+                <Typography variant="subtitle2" sx={{ color: colors.lightText, fontFamily: FONT_FAMILY }} gutterBottom>
                   State / Province
                 </Typography>
-                <Typography variant="body1" sx={{ color: colors.darkNavy }}>
+                <Typography variant="body1" sx={{ color: colors.darkNavy, fontFamily: FONT_FAMILY }}>
                   {selectedHospital.state || 'N/A'}
                 </Typography>
               </Grid>
 
               <Grid item xs={12} md={6}>
-                <Typography variant="subtitle2" sx={{ color: colors.lightText }} gutterBottom>
+                <Typography variant="subtitle2" sx={{ color: colors.lightText, fontFamily: FONT_FAMILY }} gutterBottom>
                   Country
                 </Typography>
-                <Typography variant="body1" sx={{ color: colors.darkNavy }}>
+                <Typography variant="body1" sx={{ color: colors.darkNavy, fontFamily: FONT_FAMILY }}>
                   {selectedHospital.country || 'Pakistan'}
                 </Typography>
               </Grid>
 
               <Grid item xs={12} md={6}>
-                <Typography variant="subtitle2" sx={{ color: colors.lightText }} gutterBottom>
+                <Typography variant="subtitle2" sx={{ color: colors.lightText, fontFamily: FONT_FAMILY }} gutterBottom>
                   Phone Number
                 </Typography>
-                <Typography variant="body1" sx={{ color: colors.darkNavy }}>
+                <Typography variant="body1" sx={{ color: colors.darkNavy, fontFamily: FONT_FAMILY }}>
                   {selectedHospital.phone || 'N/A'}
                 </Typography>
               </Grid>
 
               <Grid item xs={12}>
-                <Typography variant="subtitle2" sx={{ color: colors.lightText }} gutterBottom>
+                <Typography variant="subtitle2" sx={{ color: colors.lightText, fontFamily: FONT_FAMILY }} gutterBottom>
                   Hospital Email
                 </Typography>
-                <Typography variant="body1" sx={{ color: colors.darkNavy }}>
+                <Typography variant="body1" sx={{ color: colors.darkNavy, fontFamily: FONT_FAMILY }}>
                   {selectedHospital.email || 'N/A'}
                 </Typography>
               </Grid>
 
               <Grid item xs={12} md={6}>
-                <Typography variant="subtitle2" sx={{ color: colors.lightText }} gutterBottom>
+                <Typography variant="subtitle2" sx={{ color: colors.lightText, fontFamily: FONT_FAMILY }} gutterBottom>
                   Hospital Director
                 </Typography>
-                <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy }}>
+                <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy, fontFamily: FONT_FAMILY }}>
                   {selectedHospital.director || 'Not Assigned'}
                 </Typography>
               </Grid>
 
               <Grid item xs={12} md={6}>
-                <Typography variant="subtitle2" sx={{ color: colors.lightText }} gutterBottom>
+                <Typography variant="subtitle2" sx={{ color: colors.lightText, fontFamily: FONT_FAMILY }} gutterBottom>
                   Biomedical Engineering Head
                 </Typography>
-                <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy }}>
+                <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy, fontFamily: FONT_FAMILY }}>
                   {selectedHospital.biomedical_head || 'Not Assigned'}
                 </Typography>
               </Grid>
@@ -1014,13 +1056,14 @@ const Hospitals = () => {
             onClick={handleCloseViewDialog}
             variant="contained"
             sx={{ 
-              bgcolor: colors.darkNavy, 
+              bgcolor: colors.darkNavy,
+              fontFamily: FONT_FAMILY,
+              textTransform: 'none', 
               '&:hover': { 
                 bgcolor: colors.darkNavyHover,
                 boxShadow: `0 4px 16px ${colors.lightCyanGlow}`
               },
               boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
-              textTransform: 'none',
               borderRadius: 2,
             }}
           >
@@ -1049,7 +1092,7 @@ const Hospitals = () => {
           borderRadius: '8px 8px 0 0',
         }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" fontWeight={600}>
+            <Typography variant="h6" fontWeight={600} sx={{ fontFamily: FONT_FAMILY }}>
               {editingHospital ? 'Edit Hospital' : 'Add New Hospital'}
             </Typography>
             <IconButton onClick={handleCloseDialog} sx={{ color: 'white' }}>
@@ -1060,7 +1103,7 @@ const Hospitals = () => {
         <DialogContent dividers>
           <Grid container spacing={2.5} sx={{ mt: 0 }}>
             <Grid item xs={12}>
-              <Typography variant="subtitle2" sx={{ color: colors.darkNavy, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="subtitle2" sx={{ color: colors.darkNavy, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1, fontFamily: FONT_FAMILY }}>
                 <Business fontSize="small" /> Hospital Information
               </Typography>
               <Divider sx={{ mt: 1, borderColor: colors.borderColor }} />
@@ -1079,6 +1122,12 @@ const Hospitals = () => {
                   '& .MuiOutlinedInput-root': {
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                  },
+                  '& .MuiInputBase-input': {
+                    fontFamily: FONT_FAMILY,
+                  },
+                  '& .MuiInputLabel-root': {
+                    fontFamily: FONT_FAMILY,
                   }
                 }}
               />
@@ -1097,6 +1146,12 @@ const Hospitals = () => {
                   '& .MuiOutlinedInput-root': {
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                  },
+                  '& .MuiInputBase-input': {
+                    fontFamily: FONT_FAMILY,
+                  },
+                  '& .MuiInputLabel-root': {
+                    fontFamily: FONT_FAMILY,
                   }
                 }}
               />
@@ -1114,6 +1169,12 @@ const Hospitals = () => {
                   '& .MuiOutlinedInput-root': {
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                  },
+                  '& .MuiInputBase-input': {
+                    fontFamily: FONT_FAMILY,
+                  },
+                  '& .MuiInputLabel-root': {
+                    fontFamily: FONT_FAMILY,
                   }
                 }}
               />
@@ -1134,6 +1195,12 @@ const Hospitals = () => {
                   '& .MuiOutlinedInput-root': {
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                  },
+                  '& .MuiInputBase-input': {
+                    fontFamily: FONT_FAMILY,
+                  },
+                  '& .MuiInputLabel-root': {
+                    fontFamily: FONT_FAMILY,
                   }
                 }}
               />
@@ -1151,6 +1218,12 @@ const Hospitals = () => {
                   '& .MuiOutlinedInput-root': {
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                  },
+                  '& .MuiInputBase-input': {
+                    fontFamily: FONT_FAMILY,
+                  },
+                  '& .MuiInputLabel-root': {
+                    fontFamily: FONT_FAMILY,
                   }
                 }}
               />
@@ -1167,6 +1240,12 @@ const Hospitals = () => {
                   '& .MuiOutlinedInput-root': {
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                  },
+                  '& .MuiInputBase-input': {
+                    fontFamily: FONT_FAMILY,
+                  },
+                  '& .MuiInputLabel-root': {
+                    fontFamily: FONT_FAMILY,
                   }
                 }}
               />
@@ -1184,6 +1263,12 @@ const Hospitals = () => {
                   '& .MuiOutlinedInput-root': {
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                  },
+                  '& .MuiInputBase-input': {
+                    fontFamily: FONT_FAMILY,
+                  },
+                  '& .MuiInputLabel-root': {
+                    fontFamily: FONT_FAMILY,
                   }
                 }}
               />
@@ -1202,13 +1287,19 @@ const Hospitals = () => {
                   '& .MuiOutlinedInput-root': {
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                  },
+                  '& .MuiInputBase-input': {
+                    fontFamily: FONT_FAMILY,
+                  },
+                  '& .MuiInputLabel-root': {
+                    fontFamily: FONT_FAMILY,
                   }
                 }}
               />
             </Grid>
             
             <Grid item xs={12}>
-              <Typography variant="subtitle2" sx={{ color: colors.darkNavy, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+              <Typography variant="subtitle2" sx={{ color: colors.darkNavy, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 1, mt: 1, fontFamily: FONT_FAMILY }}>
                 <Person fontSize="small" /> Hospital Leadership
               </Typography>
               <Divider sx={{ mt: 1, borderColor: colors.borderColor }} />
@@ -1226,6 +1317,12 @@ const Hospitals = () => {
                   '& .MuiOutlinedInput-root': {
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                  },
+                  '& .MuiInputBase-input': {
+                    fontFamily: FONT_FAMILY,
+                  },
+                  '& .MuiInputLabel-root': {
+                    fontFamily: FONT_FAMILY,
                   }
                 }}
               />
@@ -1243,6 +1340,12 @@ const Hospitals = () => {
                   '& .MuiOutlinedInput-root': {
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                  },
+                  '& .MuiInputBase-input': {
+                    fontFamily: FONT_FAMILY,
+                  },
+                  '& .MuiInputLabel-root': {
+                    fontFamily: FONT_FAMILY,
                   }
                 }}
               />
@@ -1256,10 +1359,13 @@ const Hospitals = () => {
                   borderRadius: 2, 
                   border: `1px solid rgba(103, 232, 249, 0.2)`,
                   backgroundColor: 'rgba(103, 232, 249, 0.04)',
-                  '& .MuiAlert-icon': { color: colors.lightCyanDark }
+                  '& .MuiAlert-icon': { color: colors.lightCyanDark },
+                  '& .MuiAlert-message': {
+                    fontFamily: FONT_FAMILY,
+                  }
                 }}
               >
-                <Typography variant="body2">
+                <Typography variant="body2" sx={{ fontFamily: FONT_FAMILY }}>
                   <strong>Note:</strong> Hospital code is automatically generated. It will be used as a unique identifier for the hospital.
                 </Typography>
               </Alert>
@@ -1273,11 +1379,12 @@ const Hospitals = () => {
             sx={{ 
               color: colors.darkNavy, 
               borderColor: colors.borderColor,
+              fontFamily: FONT_FAMILY,
+              textTransform: 'none',
               '&:hover': { 
                 borderColor: colors.lightCyan,
                 backgroundColor: 'rgba(103, 232, 249, 0.04)'
               },
-              textTransform: 'none',
               borderRadius: 2,
             }}
           >
@@ -1288,13 +1395,14 @@ const Hospitals = () => {
             onClick={handleSubmit}
             sx={{
               bgcolor: colors.darkNavy,
+              fontFamily: FONT_FAMILY,
+              textTransform: 'none',
               '&:hover': { 
                 bgcolor: colors.darkNavyHover,
                 boxShadow: `0 4px 20px ${colors.lightCyanGlowStrong}`
               },
               px: 4,
               boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
-              textTransform: 'none',
               borderRadius: 2,
             }}
             startIcon={editingHospital ? <Edit /> : <Add />}

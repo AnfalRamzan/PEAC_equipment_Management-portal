@@ -1,6 +1,8 @@
 // src/components/Layout/MainLayout.jsx
 // ✅ DARK NAVY + LIGHT CYAN THEME - PREMIUM GLITTER EFFECT SIDEBAR
 // ✅ Balanced spacing, NO SCROLL, Click highlights prominently
+// ✅ FULLY RESPONSIVE - NO SCROLLING
+// ✅ FONT: SATOSHI - Premium, Sleek, Modern
 
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -56,7 +58,20 @@ import GlobalSearch from '../GlobalSearch';
 import NotificationSound from '../NotificationSound';
 import { toast } from 'react-toastify';
 
-const drawerWidth = 250;
+// ============================================================
+// ✅ DYNAMIC DRAWER WIDTH BASED ON SCREEN SIZE
+// ============================================================
+const getDrawerWidth = (isMobile, isTablet, isSmallDesktop) => {
+  if (isMobile) return 210;
+  if (isTablet) return 200;
+  if (isSmallDesktop) return 220;
+  return 240;
+};
+
+// ============================================================
+// ✅ FONT FAMILY CONSTANT - SATOSHI (Premium & Sleek)
+// ============================================================
+const FONT_FAMILY = "'Satoshi', 'Segoe UI', 'Roboto', sans-serif";
 
 // ============================================================
 // ✅ DARK NAVY + LIGHT CYAN THEME COLORS
@@ -445,6 +460,7 @@ const MainLayout = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
+  const isSmallDesktop = useMediaQuery(theme.breakpoints.between('md', 'lg'));
 
   const navigate = useNavigate();
   const dispatch = useDispatch();
@@ -595,13 +611,91 @@ const MainLayout = () => {
   const handleNotificationClose = () => setNotificationAnchor(null);
 
   // ============================================================
-  // ✅ DRAWER WIDTH
+  // ✅ DYNAMIC DRAWER WIDTH
   // ============================================================
-  const getDrawerWidth = () => {
-    if (isMobile) return 240;
-    if (isTablet) return 220;
-    return 250;
+  const drawerWidth = getDrawerWidth(isMobile, isTablet, isSmallDesktop);
+
+  // ============================================================
+  // ✅ GET RESPONSIVE SIZES - TIGHT SPACING TO FIT ALL ITEMS
+  // ============================================================
+  const getResponsiveSizes = () => {
+    if (isMobile) {
+      return {
+        logoSize: 55,
+        logoPadding: 0.4,
+        logoMinHeight: 55,
+        menuPy: 0.05,
+        menuPx: 0.05,
+        listItemPy: 0.15,
+        listItemPx: 0.5,
+        listItemMinHeight: 24,
+        iconSize: 14,
+        textSize: '8.5px',
+        listGap: 0.3,
+        mx: 0.15,
+        borderRadius: 1,
+        indicatorSize: 5,
+        selectedScale: 1.01,
+      };
+    }
+    if (isTablet) {
+      return {
+        logoSize: 60,
+        logoPadding: 0.4,
+        logoMinHeight: 58,
+        menuPy: 0.08,
+        menuPx: 0.08,
+        listItemPy: 0.2,
+        listItemPx: 0.6,
+        listItemMinHeight: 26,
+        iconSize: 15,
+        textSize: '9px',
+        listGap: 0.4,
+        mx: 0.2,
+        borderRadius: 1.1,
+        indicatorSize: 5,
+        selectedScale: 1.01,
+      };
+    }
+    if (isSmallDesktop) {
+      return {
+        logoSize: 70,
+        logoPadding: 0.5,
+        logoMinHeight: 65,
+        menuPy: 0.1,
+        menuPx: 0.1,
+        listItemPy: 0.22,
+        listItemPx: 0.8,
+        listItemMinHeight: 28,
+        iconSize: 17,
+        textSize: '10px',
+        listGap: 0.5,
+        mx: 0.25,
+        borderRadius: 1.2,
+        indicatorSize: 6,
+        selectedScale: 1.02,
+      };
+    }
+    return {
+      logoSize: 80,
+      logoPadding: 0.6,
+      logoMinHeight: 72,
+      menuPy: 0.12,
+      menuPx: 0.12,
+      listItemPy: 0.25,
+      listItemPx: 1,
+      listItemMinHeight: 30,
+      iconSize: 18,
+      textSize: '10.5px',
+      listGap: 0.6,
+      mx: 0.3,
+      borderRadius: 1.3,
+      indicatorSize: 7,
+      selectedScale: 1.02,
+    };
   };
+
+  const sizes = getResponsiveSizes();
 
   // ============================================================
   // ✨ SIDEBAR - BALANCED SPACING, NO SCROLL, PROMINENT CLICK
@@ -889,13 +983,13 @@ const MainLayout = () => {
       {/* Logo Section */}
       <Box
         sx={{
-          p: { xs: 0.6, sm: 0.8 },
+          p: sizes.logoPadding,
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
           borderBottom: `1px solid rgba(103, 232, 249, 0.08)`,
           flexShrink: 0,
-          minHeight: { xs: 65, sm: 75 },
+          minHeight: sizes.logoMinHeight,
           position: 'relative',
           background: 'rgba(15, 23, 42, 0.6)',
           backdropFilter: 'blur(10px)',
@@ -921,8 +1015,8 @@ const MainLayout = () => {
             src="/logoo.png"
             alt="PAEC Logo"
             style={{
-              width: isMobile ? 55 : 70,
-              height: isMobile ? 55 : 70,
+              width: sizes.logoSize,
+              height: sizes.logoSize,
               objectFit: 'contain',
               backgroundColor: 'transparent',
               filter: 'brightness(1.2) drop-shadow(0 0 40px rgba(103, 232, 249, 0.2)) drop-shadow(0 0 80px rgba(103, 232, 249, 0.1))',
@@ -943,8 +1037,8 @@ const MainLayout = () => {
               background: `
                 radial-gradient(
                   circle at center,
-                  rgba(103, 232, 249, 0.05) 0%,
-                  rgba(201, 162, 39, 0.02) 30%,
+                  rgba(103, 232, 249, 0.08) 0%,
+                  rgba(201, 162, 39, 0.03) 30%,
                   transparent 70%
                 )
               `,
@@ -955,13 +1049,13 @@ const MainLayout = () => {
         </Box>
       </Box>
 
-      {/* ✅ MENU - BALANCED SPACING, NO SCROLL, PROMINENT ON CLICK */}
+      {/* ✅ MENU - TIGHT SPACING, NO SCROLL */}
       <Box
         sx={{
           flex: 1,
           overflow: 'hidden',
-          py: { xs: 0.2, sm: 0.3 },
-          px: { xs: 0.2, sm: 0.3 },
+          py: sizes.menuPy,
+          px: sizes.menuPx,
           display: 'flex',
           flexDirection: 'column',
           background: 'rgba(15, 23, 42, 0.3)',
@@ -976,7 +1070,7 @@ const MainLayout = () => {
             m: 0,
             display: 'flex',
             flexDirection: 'column',
-            gap: '2px',
+            gap: sizes.listGap,
           }}
         >
           {filteredMenuItems.map((item) => (
@@ -988,41 +1082,40 @@ const MainLayout = () => {
                 if (isMobile) setMobileOpen(false);
               }}
               sx={{
-                mx: { xs: 0.3, sm: 0.4 },
+                mx: sizes.mx,
                 mb: 0,
-                borderRadius: 1.5,
+                borderRadius: sizes.borderRadius,
                 color: colors.secondaryText,
-                py: { xs: 0.35, sm: 0.4 },
-                px: { xs: 1, sm: 1.2 },
-                minHeight: { xs: 30, sm: 34 },
-                transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                py: sizes.listItemPy,
+                px: sizes.listItemPx,
+                minHeight: sizes.listItemMinHeight,
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                 position: 'relative',
                 overflow: 'hidden',
-                // ✅ Hover effect
                 '&:hover': {
                   bgcolor: 'rgba(30, 58, 95, 0.6)',
                   backdropFilter: 'blur(15px)',
                   color: '#FFFFFF',
-                  transform: 'translateX(4px) scale(1.02)',
-                  boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+                  transform: isMobile ? 'translateX(1px) scale(1.01)' : 'translateX(3px) scale(1.01)',
+                  boxShadow: '0 4px 15px rgba(0,0,0,0.25)',
                   '& .MuiListItemIcon-root': {
                     color: colors.lightCyan,
-                    transform: 'scale(1.1)',
-                    filter: `drop-shadow(0 0 20px ${colors.lightCyanGlow})`,
+                    transform: 'scale(1.05)',
+                    filter: `drop-shadow(0 0 15px ${colors.lightCyanGlow})`,
                   },
                   '& .MuiTypography-root': {
-                    fontWeight: 700,
+                    fontWeight: 600,
+                    fontFamily: FONT_FAMILY,
                   },
                 },
-                // ✅ Selected state - PROMINENT
                 '&.Mui-selected': {
                   color: '#FFFFFF',
                   background: `
                     linear-gradient(135deg, 
                       rgba(30, 58, 95, 0.85) 0%, 
-                      rgba(103, 232, 249, 0.15) 25%,
+                      rgba(103, 232, 249, 0.12) 25%,
                       rgba(30, 58, 95, 0.75) 50%,
-                      rgba(201, 162, 39, 0.08) 75%,
+                      rgba(201, 162, 39, 0.06) 75%,
                       rgba(30, 58, 95, 0.85) 100%
                     )
                   `,
@@ -1030,20 +1123,19 @@ const MainLayout = () => {
                   animation: 'gradientShine 3s ease-in-out infinite',
                   backdropFilter: 'blur(25px)',
                   boxShadow: `
-                    inset 0 0 60px rgba(103, 232, 249, 0.06),
-                    0 4px 25px rgba(0,0,0,0.4),
-                    0 0 50px rgba(103, 232, 249, 0.06),
-                    inset 0 0 80px rgba(103, 232, 249, 0.03)
+                    inset 0 0 40px rgba(103, 232, 249, 0.04),
+                    0 4px 20px rgba(0,0,0,0.35),
+                    0 0 40px rgba(103, 232, 249, 0.04),
+                    inset 0 0 60px rgba(103, 232, 249, 0.02)
                   `,
-                  transform: 'scale(1.03)',
-                  border: `1.5px solid rgba(103, 232, 249, 0.25)`,
-                  borderRadius: 2,
-                  // ✅ Glow border on selected
+                  transform: `scale(${sizes.selectedScale})`,
+                  border: `1.5px solid rgba(103, 232, 249, 0.2)`,
+                  borderRadius: sizes.borderRadius,
                   '&::before': {
                     content: '""',
                     position: 'absolute',
                     inset: -1,
-                    borderRadius: 2,
+                    borderRadius: sizes.borderRadius,
                     padding: '1.5px',
                     background: `linear-gradient(135deg, ${colors.lightCyan}, ${colors.accentGold}, ${colors.lightCyan})`,
                     backgroundSize: '300% 300%',
@@ -1057,33 +1149,34 @@ const MainLayout = () => {
                   '& .MuiListItemIcon-root': {
                     color: colors.lightCyan,
                     animation: 'iconFloat 3s ease-in-out infinite',
-                    filter: `drop-shadow(0 0 30px ${colors.lightCyanGlow}) drop-shadow(0 0 60px ${colors.lightCyan})`,
+                    filter: `drop-shadow(0 0 25px ${colors.lightCyanGlow}) drop-shadow(0 0 50px ${colors.lightCyan})`,
                   },
                   '& .MuiTypography-root': {
-                    fontWeight: 800,
-                    fontSize: { xs: '11px', sm: '12px', md: '13px' },
+                    fontWeight: 700,
+                    fontSize: sizes.textSize,
                     textShadow: `
-                      0 0 30px rgba(103, 232, 249, 0.2), 
-                      0 0 60px rgba(103, 232, 249, 0.08)
+                      0 0 20px rgba(103, 232, 249, 0.15), 
+                      0 0 40px rgba(103, 232, 249, 0.05)
                     `,
                     letterSpacing: '0.5px',
+                    fontFamily: FONT_FAMILY,
                   },
                   '&:hover': {
                     background: `
                       linear-gradient(135deg, 
                         rgba(30, 58, 95, 0.9) 0%, 
-                        rgba(103, 232, 249, 0.2) 25%,
+                        rgba(103, 232, 249, 0.18) 25%,
                         rgba(30, 58, 95, 0.8) 50%,
-                        rgba(201, 162, 39, 0.1) 75%,
+                        rgba(201, 162, 39, 0.08) 75%,
                         rgba(30, 58, 95, 0.9) 100%
                       )
                     `,
-                    transform: 'scale(1.05)',
+                    transform: `scale(${sizes.selectedScale + 0.01})`,
                     boxShadow: `
-                      inset 0 0 80px rgba(103, 232, 249, 0.08),
-                      0 4px 30px rgba(0,0,0,0.5),
-                      0 0 60px rgba(103, 232, 249, 0.08),
-                      inset 0 0 100px rgba(103, 232, 249, 0.04)
+                      inset 0 0 60px rgba(103, 232, 249, 0.06),
+                      0 4px 25px rgba(0,0,0,0.4),
+                      0 0 50px rgba(103, 232, 249, 0.06),
+                      inset 0 0 80px rgba(103, 232, 249, 0.03)
                     `,
                   },
                 },
@@ -1093,8 +1186,8 @@ const MainLayout = () => {
               <ListItemIcon
                 sx={{
                   color: window.location.pathname === item.path ? colors.lightCyan : colors.secondaryText,
-                  minWidth: { xs: 28, sm: 32 },
-                  transition: 'all 0.25s ease',
+                  minWidth: { xs: 20, sm: 22, md: 26 },
+                  transition: 'all 0.2s ease',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -1105,8 +1198,8 @@ const MainLayout = () => {
                 {React.isValidElement(item.icon) ? (
                   React.cloneElement(item.icon, {
                     sx: {
-                      fontSize: { xs: 17, sm: 19 },
-                      transition: 'all 0.25s ease',
+                      fontSize: { xs: 13, sm: 14, md: sizes.iconSize },
+                      transition: 'all 0.2s ease',
                       ...(item.icon.props.sx || {}),
                     }
                   })
@@ -1117,11 +1210,12 @@ const MainLayout = () => {
               <ListItemText
                 primary={item.text}
                 primaryTypographyProps={{
-                  fontSize: { xs: '10.5px', sm: '11.5px', md: '12.5px' },
-                  fontWeight: window.location.pathname === item.path ? 800 : 600,
+                  fontFamily: FONT_FAMILY,
+                  fontSize: { xs: '7.5px', sm: '8.5px', md: sizes.textSize },
+                  fontWeight: window.location.pathname === item.path ? 700 : 500,
                   noWrap: true,
                   letterSpacing: window.location.pathname === item.path ? '0.5px' : '0.3px',
-                  transition: 'all 0.25s ease',
+                  transition: 'all 0.2s ease',
                 }}
                 sx={{ 
                   margin: 0, 
@@ -1135,16 +1229,16 @@ const MainLayout = () => {
                 <>
                   <Box
                     sx={{
-                      width: 8,
-                      height: 8,
+                      width: sizes.indicatorSize,
+                      height: sizes.indicatorSize,
                       borderRadius: '50%',
                       bgcolor: colors.lightCyan,
                       flexShrink: 0,
-                      ml: 0.5,
+                      ml: 0.3,
                       boxShadow: `
-                        0 0 30px ${colors.lightCyanGlowStrong}, 
-                        0 0 60px ${colors.lightCyan},
-                        0 0 90px ${colors.lightCyan}
+                        0 0 20px ${colors.lightCyanGlowStrong}, 
+                        0 0 40px ${colors.lightCyan},
+                        0 0 60px ${colors.lightCyan}
                       `,
                       animation: 'cyanGlowPulse 1.5s ease-in-out infinite',
                       position: 'relative',
@@ -1157,13 +1251,13 @@ const MainLayout = () => {
                       right: -2,
                       top: '50%',
                       transform: 'translateY(-50%)',
-                      width: 3,
-                      height: '60%',
+                      width: 2.5,
+                      height: '50%',
                       bgcolor: colors.lightCyan,
                       borderRadius: '0 4px 4px 0',
                       boxShadow: `
-                        0 0 30px ${colors.lightCyanGlowStrong},
-                        0 0 60px ${colors.lightCyan}
+                        0 0 20px ${colors.lightCyanGlowStrong},
+                        0 0 40px ${colors.lightCyan}
                       `,
                       animation: 'cyanGlowPulse 1.5s ease-in-out infinite',
                       zIndex: 3,
@@ -1191,8 +1285,8 @@ const MainLayout = () => {
       <AppBar
         position="fixed"
         sx={{
-          width: { sm: `calc(100% - ${getDrawerWidth()}px)` },
-          ml: { sm: `${getDrawerWidth()}px` },
+          width: { sm: `calc(100% - ${drawerWidth}px)` },
+          ml: { sm: `${drawerWidth}px` },
           bgcolor: 'rgba(255, 255, 255, 0.92)',
           backdropFilter: 'blur(20px) saturate(180%)',
           boxShadow: '0 1px 30px rgba(0,0,0,0.06)',
@@ -1232,6 +1326,7 @@ const MainLayout = () => {
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 letterSpacing: '0.5px',
+                fontFamily: FONT_FAMILY,
                 '&::after': {
                   content: '""',
                   display: 'block',
@@ -1280,6 +1375,7 @@ const MainLayout = () => {
                       border: `2px solid white`,
                       padding: '0 4px',
                       animation: unreadCount > 0 ? 'badgePulse 2s ease-in-out infinite' : 'none',
+                      fontFamily: FONT_FAMILY,
                     },
                   }}
                 >
@@ -1300,6 +1396,7 @@ const MainLayout = () => {
                   border: `2px solid ${colors.lightCyan}`,
                   boxShadow: `0 0 20px ${colors.lightCyanGlow}`,
                   transition: 'all 0.3s ease',
+                  fontFamily: FONT_FAMILY,
                   '&:hover': {
                     transform: 'scale(1.05)',
                     boxShadow: `0 0 30px ${colors.lightCyanGlowStrong}`,
@@ -1328,7 +1425,10 @@ const MainLayout = () => {
                 }
               }}
             >
-              <MenuItem onClick={handleProfileClick} sx={{ '&:hover': { bgcolor: 'rgba(103, 232, 249, 0.05)' } }}>
+              <MenuItem onClick={handleProfileClick} sx={{ 
+                '&:hover': { bgcolor: 'rgba(103, 232, 249, 0.05)' },
+                fontFamily: FONT_FAMILY,
+              }}>
                 <ListItemIcon>
                   <AccountCircle sx={{ color: '#0F172A' }} fontSize="small" />
                 </ListItemIcon>
@@ -1336,7 +1436,10 @@ const MainLayout = () => {
               </MenuItem>
 
               {isAdmin && (
-                <MenuItem onClick={handleUsersClick} sx={{ '&:hover': { bgcolor: 'rgba(103, 232, 249, 0.05)' } }}>
+                <MenuItem onClick={handleUsersClick} sx={{ 
+                  '&:hover': { bgcolor: 'rgba(103, 232, 249, 0.05)' },
+                  fontFamily: FONT_FAMILY,
+                }}>
                   <ListItemIcon>
                     <PersonAdd sx={{ color: '#0F172A' }} fontSize="small" />
                   </ListItemIcon>
@@ -1345,7 +1448,11 @@ const MainLayout = () => {
               )}
 
               <Divider sx={{ borderColor: 'rgba(103, 232, 249, 0.1)' }} />
-              <MenuItem onClick={handleLogout} sx={{ color: colors.error, '&:hover': { bgcolor: `${colors.error}06` } }}>
+              <MenuItem onClick={handleLogout} sx={{ 
+                color: colors.error, 
+                '&:hover': { bgcolor: `${colors.error}06` },
+                fontFamily: FONT_FAMILY,
+              }}>
                 <ListItemIcon>
                   <ExitToApp sx={{ color: colors.error }} fontSize="small" />
                 </ListItemIcon>
@@ -1362,7 +1469,7 @@ const MainLayout = () => {
         onClose={handleNotificationClose}
       />
 
-      <Box component="nav" sx={{ width: { sm: getDrawerWidth() }, flexShrink: { sm: 0 } }}>
+      <Box component="nav" sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}>
         <Drawer
           variant="temporary"
           open={mobileOpen}
@@ -1372,7 +1479,7 @@ const MainLayout = () => {
             display: { xs: 'block', sm: 'none' },
             '& .MuiDrawer-paper': {
               boxSizing: 'border-box',
-              width: 240,
+              width: 210,
               overflow: 'hidden',
               bgcolor: 'transparent',
               backdropFilter: 'blur(16px) saturate(200%)',
@@ -1388,7 +1495,7 @@ const MainLayout = () => {
             display: { xs: 'none', sm: 'block' },
             '& .MuiDrawer-paper': {
               boxSizing: 'border-box',
-              width: getDrawerWidth(),
+              width: drawerWidth,
               border: 'none',
               bgcolor: 'transparent',
               overflow: 'hidden',
@@ -1406,8 +1513,8 @@ const MainLayout = () => {
         sx={{
           flexGrow: 1,
           p: { xs: 2, sm: 2.5, md: 3.5 },
-          width: { sm: `calc(100% - ${getDrawerWidth()}px)` },
-          ml: { sm: `${getDrawerWidth()}px` },
+          width: { sm: `calc(100% - ${drawerWidth}px)` },
+          ml: { sm: `${drawerWidth}px` },
           mt: { xs: '64px', sm: '72px' },
           display: 'flex',
           flexDirection: 'column',

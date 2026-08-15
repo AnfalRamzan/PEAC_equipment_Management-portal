@@ -2,6 +2,9 @@
 // ✅ COMPLETE FIXED VERSION - With Proper Token Loading & Fixed Login
 // ✅ REMOVED HOSPITAL FILTER FROM EQUIPMENT - ALL USERS SEE ALL EQUIPMENT
 // ✅ ALL ROUTES REGISTERED - Including Training Routes & Downtime Report
+// ✅ ENGINEER DASHBOARD STATS FIXED - Using engineer_id and assigned_to
+// ✅ ERROR ROUTES IMPORTED FROM routes/errors.js
+// ✅ AMC ROUTES IMPORTED FROM routes/amc.js
 
 // ============================================================
 // ✅ LOAD ENVIRONMENT VARIABLES FIRST
@@ -2095,444 +2098,11 @@ app.delete('/api/equipment/:id', authenticate, authorize('SUPER_ADMIN'), async (
 });
 
 // ============================================================
-// ✅ ERRORS ROUTES - FIXED
+// ✅ ERRORS ROUTES - IMPORTED FROM routes/errors.js
 // ============================================================
-app.get('/api/errors', authenticate, async (req, res) => {
-    try {
-        let sql = `
-            SELECT e.*, 
-                   eq.name as equipment_name, 
-                   h.name as hospital_name, 
-                   d.name as department_name,
-                   u.full_name as reported_by_name
-            FROM error_logs e
-            LEFT JOIN equipment eq ON e.equipment_id = eq.id            LEFT JOIN hospitals h ON eq.hospital_id = h.id
-            LEFT JOIN departments d ON eq.department_id = d.id
-            LEFT JOIN users u ON e.reported_by = u.id
-            WHERE 1=1
-        `;
-        const params = [];
-
-        if (req.user.role_name !== 'SUPER_ADMIN') {
-            sql += ' AND eq.hospital_id = ?';
-            params.push(req.user.hospital_id);
-        }
-
-        sql += ' ORDER BY e.created_at DESC';
-        const errors = await query(sql, params);
-        res.json({ success: true, errors });
-    } catch (error) {
-        console.error('Get errors error:', error);
-        res.status(500).json({ success: false, message: 'Failed to fetch errors' });
-    }
-});
-
-app.get('/api/errors/:id', authenticate, async (req, res) => {
-    try {
-        const { id } = req.params;
-        
-        let sql = `
-            SELECT e.*, 
-                   eq.name as equipment_name, 
-                   h.name as hospital_name, 
-                   d.name as department_name,
-                   u.full_name as reported_by_name
-            FROM error_logs e
-            LEFT JOIN equipment eq ON e.equipment_id = eq.id
-            LEFT JOIN hospitals h ON eq.hospital_id = h.id
-            LEFT JOIN departments d ON eq.department_id = d.id
-            LEFT JOIN users u ON e.reported_by = u.id
-            WHERE e.id = ?
-        `;
-        const params = [id];
-
-        if (req.user.role_name !== 'SUPER_ADMIN') {
-            sql += ' AND eq.hospital_id = ?';
-            params.push(req.user.hospital_id);
-        }
-
-        const errors = await query(sql, params);
-        if (errors.length === 0) {
-            return res.status(404).json({ success: false, message: 'Error not found' });
-        }
-        res.json({ success: true, error: errors[0] });
-    } catch (error) {
-        console.error('Get error error:', error);
-        res.status(500).json({ success: false, message: 'Failed to fetch error' });
-    }
-});
-
-app.post('/api/errors', authenticate, async (req, res) => {
-    try {
-        const { 
-            equipment_id, 
-            error_code, 
-            error_title, 
-            error_description, 
-            severity, 
-            priority,
-            error_date,
-            attachments
-        } = req.body;
-
-        if (!equipment_id) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Equipment is required' 
-            });
-        }
-        
-        if (!error_title || error_title.trim() === '') {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Error title is required' 
-            });
-        }
-
-        const equipmentCheck = await query(
-            'SELECT id, name, hospital_id FROM equipment WHERE id = ?',
-            [equipment_id]
-        );
-        
-        if (equipmentCheck.length === 0) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Equipment not found' 
-            });
-        }
-
-        const userCheck = await query(
-            'SELECT id FROM users WHERE id = ? AND is_active = 1',
-            [req.user.id]
-        );
-        
-        if (userCheck.length === 0) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'User not found or inactive' 
-            });
-        }
-
-        const finalSeverity = severity || 'Medium';
-        const finalPriority = priority || 'Medium';
-        
-        let finalErrorDate = null;
-        if (error_date) {
-            finalErrorDate = error_date;
-        } else {
-            finalErrorDate = new Date().toISOString().slice(0, 19).replace('T', ' ');
-        }
-
-        const result = await query(
-            `INSERT INTO error_logs 
-             (equipment_id, error_code, error_title, error_description, 
-              severity, priority, reported_by, error_date, attachments)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-                parseInt(equipment_id),
-                error_code || null,
-                error_title.trim(),
-                error_description || '',
-                finalSeverity,
-                finalPriority,
-                req.user.id,
-                finalErrorDate,
-                attachments || ''
-            ]
-        );
-
-        console.log('✅ Error created successfully. ID:', result.insertId);
-
-        const equipmentName = equipmentCheck[0].name;
-
-        await createNotification(
-            1,
-            'New Error Reported', 
-            `Error "${error_title}" reported for ${equipmentName}`,
-            'Error',
-            result.insertId,
-            'errors'
-        );
-
-        const engineers = await query(
-            `SELECT id FROM users 
-             WHERE role_id = 3 
-             AND hospital_id = ? 
-             AND is_active = 1`,
-            [equipmentCheck[0].hospital_id]
-        );
-        
-        for (const eng of engineers) {
-            await createNotification(
-                eng.id,
-                'New Error Reported',
-                `Error "${error_title}" reported for ${equipmentName} in your hospital`,
-                'Error',
-                result.insertId,
-                'errors'
-            );
-        }
-
-        res.status(201).json({
-            success: true,
-            message: 'Error reported successfully',
-            error: { 
-                id: result.insertId,
-                equipment_name: equipmentName
-            }
-        });
-
-    } catch (error) {
-        console.error('❌ CREATE ERROR ERROR:');
-        console.error('❌ Message:', error.message);
-        console.error('❌ Code:', error.code);
-        console.error('❌ SQL:', error.sql);
-        console.error('❌ Stack:', error.stack);
-        
-        res.status(500).json({ 
-            success: false, 
-            message: 'Failed to report error: ' + error.message,
-            details: error.code || 'Unknown error'
-        });
-    }
-});
-
-app.put('/api/errors/:id', authenticate, async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { error_code, error_title, error_description, severity, priority, attachments } = req.body;
-
-        const existing = await query('SELECT * FROM error_logs WHERE id = ?', [id]);
-        if (existing.length === 0) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Error not found' 
-            });
-        }
-
-        const errorData = existing[0];
-
-        const equipmentInfo = await query(
-            'SELECT hospital_id FROM equipment WHERE id = ?',
-            [errorData.equipment_id]
-        );
-        
-        if (equipmentInfo.length === 0) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Equipment not found' 
-            });
-        }
-
-        const isSuperAdmin = req.user.role_name === 'SUPER_ADMIN';
-        const isHospitalAdmin = req.user.role_name === 'HOSPITAL_ADMIN';
-        const isEngineer = req.user.role_name === 'ENGINEER';
-
-        if (!isSuperAdmin && equipmentInfo[0].hospital_id !== req.user.hospital_id) {
-            return res.status(403).json({ 
-                success: false, 
-                message: 'Access denied - You do not have permission for this hospital' 
-            });
-        }
-
-        if (isHospitalAdmin) {
-            // Hospital Admin can update all errors in their hospital
-        } else if (isEngineer) {
-            if (errorData.reported_by !== req.user.id) {
-                return res.status(403).json({ 
-                    success: false, 
-                    message: 'Access denied - You can only update errors reported by you' 
-                });
-            }
-        } else if (!isSuperAdmin) {
-            return res.status(403).json({ 
-                success: false, 
-                message: 'Insufficient permissions' 
-            });
-        }
-
-        const updateFields = [];
-        const updateValues = [];
-
-        if (error_code !== undefined) {
-            updateFields.push('error_code = ?');
-            updateValues.push(error_code || null);
-        }
-        if (error_title !== undefined && error_title.trim() !== '') {
-            updateFields.push('error_title = ?');
-            updateValues.push(error_title.trim());
-        }
-        if (error_description !== undefined) {
-            updateFields.push('error_description = ?');
-            updateValues.push(error_description || '');
-        }
-        if (severity !== undefined) {
-            updateFields.push('severity = ?');
-            updateValues.push(severity || 'Medium');
-        }
-        if (priority !== undefined) {
-            updateFields.push('priority = ?');
-            updateValues.push(priority || 'Medium');
-        }
-        if (attachments !== undefined) {
-            updateFields.push('attachments = ?');
-            updateValues.push(attachments || '');
-        }
-
-        updateFields.push('updated_at = NOW()');
-        updateValues.push(id);
-
-        await query(
-            `UPDATE error_logs SET ${updateFields.join(', ')} WHERE id = ?`,
-            updateValues
-        );
-
-        console.log('✅ Error updated successfully:', id);
-        res.json({ 
-            success: true, 
-            message: 'Error updated successfully' 
-        });
-    } catch (error) {
-        console.error('❌ Update error error:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: 'Failed to update error: ' + error.message 
-        });
-    }
-});
-
-// ✅ FIXED DELETE - Hard delete with cascade handling
-app.delete('/api/errors/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
-    try {
-        const { id } = req.params;
-        console.log('🗑️ Deleting error ID:', id);
-        
-        const existing = await query('SELECT * FROM error_logs WHERE id = ?', [id]);
-        if (existing.length === 0) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Error not found' 
-            });
-        }
-
-        console.log('📌 Found error:', existing[0].error_title);
-        console.log('📌 Equipment ID:', existing[0].equipment_id);
-
-        const repairs = await query(
-            'SELECT id FROM repairs WHERE error_log_id = ?',
-            [id]
-        );
-
-        if (repairs.length > 0) {
-            console.log(`⚠️ Found ${repairs.length} repairs linked to this error`);
-            for (const repair of repairs) {
-                await query('DELETE FROM spare_parts WHERE repair_id = ?', [repair.id]);
-                console.log(`  ✅ Deleted spare parts for repair ${repair.id}`);
-                await query('DELETE FROM repairs WHERE id = ?', [repair.id]);
-                console.log(`  ✅ Deleted repair ${repair.id}`);
-            }
-            console.log('✅ Deleted all related repairs and spare parts');
-        }
-
-        const result = await query('DELETE FROM error_logs WHERE id = ?', [id]);
-        
-        console.log('✅ Error deleted successfully:', id);
-        console.log('📊 Rows affected:', result.affectedRows);
-        
-        res.json({ 
-            success: true, 
-            message: 'Error and related records deleted successfully' 
-        });
-    } catch (error) {
-        console.error('❌ Delete error error:', error);
-        console.error('❌ Error code:', error.code);
-        console.error('❌ Error message:', error.message);
-        console.error('❌ SQL:', error.sql);
-        
-        if (error.code === 'ER_ROW_IS_REFERENCED_2' || error.code === 'ER_ROW_IS_REFERENCED') {
-            return res.status(409).json({
-                success: false,
-                message: 'Cannot delete this error because it has related records. Please delete associated repairs first.',
-                details: error.message
-            });
-        }
-        
-        if (error.message && error.message.includes('foreign key constraint')) {
-            return res.status(409).json({
-                success: false,
-                message: 'Cannot delete this error because it has related records in other tables.',
-                details: error.message
-            });
-        }
-        
-        res.status(500).json({ 
-            success: false, 
-            message: 'Failed to delete error: ' + error.message 
-        });
-    }
-});
-
-// ============================================================
-// ✅ ERROR FILE UPLOAD
-// ============================================================
-const errorUpload = multer({
-    storage: multer.memoryStorage(),
-    limits: { fileSize: 50 * 1024 * 1024 },
-    fileFilter: (req, file, cb) => {
-        const allowedTypes = ['image/', 'video/', 'application/pdf'];
-        if (allowedTypes.some(type => file.mimetype.startsWith(type))) {
-            cb(null, true);
-        } else {
-            cb(new Error('Invalid file type. Allowed: images, videos, PDF'), false);
-        }
-    }
-});
-
-app.post('/api/errors/upload', authenticate, errorUpload.single('file'), async (req, res) => {
-    try {
-        if (!req.file) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'No file uploaded' 
-            });
-        }
-
-        const token = process.env.BLOB_READ_WRITE_TOKEN;
-        const storeId = process.env.BLOB_STORE_ID || 'blob_store_default';
-
-        if (!token) {
-            console.error('❌ BLOB_READ_WRITE_TOKEN is missing!');
-            return res.status(500).json({
-                success: false,
-                message: 'Blob storage not configured. Please set BLOB_READ_WRITE_TOKEN.'
-            });
-        }
-
-        const filename = `error-${Date.now()}-${req.file.originalname}`;
-        const blob = await put(`uploads/errors/${filename}`, req.file.buffer, {
-            access: 'public',
-            token: token,
-            storeId: storeId,
-        });
-
-        console.log('✅ Error file uploaded to Vercel Blob:', blob.url);
-
-        res.json({
-            success: true,
-            message: 'File uploaded successfully',
-            fileUrl: blob.url,
-            fileName: req.file.originalname,
-            fileSize: req.file.size,
-            fileType: req.file.mimetype
-        });
-    } catch (error) {
-        console.error('Upload error:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: 'Upload failed: ' + error.message 
-        });
-    }
-});
+const errorRoutes = require('./routes/errors');
+app.use('/api/errors', errorRoutes);
+console.log('📋 Error routes registered from routes/errors.js');
 
 // ============================================================
 // ✅ REPAIRS ROUTES - FIXED PERMISSIONS
@@ -4141,15 +3711,18 @@ app.delete('/api/maintenance/:id', authenticate, authorize('SUPER_ADMIN'), async
 });
 
 // ============================================================
-// ✅ DASHBOARD ROUTES
+// ✅ DASHBOARD ROUTES - FINAL FIXED VERSION
 // ============================================================
 app.get('/api/dashboard/stats', authenticate, async (req, res) => {
     try {
         const userId = req.user.id;
         const role = req.user.role_name;
         const hospitalId = req.user.hospital_id;
+        const fullName = req.user.full_name;
 
-        console.log('📊 Dashboard stats for:', role, 'User:', userId);
+        console.log('📊 Dashboard stats for:', role, 'User ID:', userId);
+        console.log('📌 Full Name:', fullName);
+        console.log('📌 Hospital ID:', hospitalId);
 
         let stats = {};
 
@@ -4173,7 +3746,7 @@ app.get('/api/dashboard/stats', authenticate, async (req, res) => {
                 query("SELECT COUNT(*) as count FROM users u JOIN roles r ON u.role_id = r.id WHERE r.name = 'ENGINEER' AND u.is_active = 1"),
                 query("SELECT COUNT(*) as count FROM users WHERE is_active = 1"),
                 query("SELECT COUNT(*) as count FROM error_logs"),
-                query("SELECT COUNT(*) as count FROM error_logs WHERE severity = 'Critical'"),
+                query("SELECT COUNT(*) as count FROM error_logs WHERE priority = 'Critical'"),
                 query("SELECT COUNT(*) as count FROM repairs"),
                 query("SELECT COUNT(*) as count FROM maintenance_schedule WHERE status = 'Overdue' OR (next_due_date < CURDATE() AND status != 'Completed')"),
                 query("SELECT COUNT(*) as count FROM purchase_orders WHERE status = 'Pending Approval'"),
@@ -4194,33 +3767,92 @@ app.get('/api/dashboard/stats', authenticate, async (req, res) => {
                 sparePartsLow: sparePartsLow[0]?.count || 0
             };
         } else if (role === 'ENGINEER') {
+            // ✅ ENGINEER STATS - FIXED
             const [
+                totalEquipment,
                 myAssignedRepairs,
                 myMaintenanceTasks,
-                myReportedErrors
+                myReportedErrors,
+                totalErrors,
+                criticalErrors,
+                totalRepairs,
+                maintenanceDue
             ] = await Promise.all([
-                query("SELECT COUNT(*) as count FROM repairs WHERE engineer_name = ?", [req.user.full_name]),
-                query("SELECT COUNT(*) as count FROM maintenance_schedule WHERE engineer_name = ? AND status != 'Completed'", [req.user.full_name]),
-                query("SELECT COUNT(*) as count FROM error_logs WHERE reported_by = ?", [userId])
+                query("SELECT COUNT(*) as count FROM equipment WHERE hospital_id = ? AND status != 'Inactive'", [hospitalId]),
+                query("SELECT COUNT(*) as count FROM repairs WHERE engineer_id = ?", [userId]),
+                query("SELECT COUNT(*) as count FROM maintenance_schedule WHERE LOWER(engineer_name) = LOWER(?) AND status NOT IN ('Completed', 'Cancelled')", [fullName]),
+                query("SELECT COUNT(*) as count FROM error_logs WHERE reported_by = ?", [userId]),
+                query("SELECT COUNT(*) as count FROM error_logs WHERE equipment_id IN (SELECT id FROM equipment WHERE hospital_id = ?)", [hospitalId]),
+                query("SELECT COUNT(*) as count FROM error_logs WHERE priority = 'Critical' AND equipment_id IN (SELECT id FROM equipment WHERE hospital_id = ?)", [hospitalId]),
+                query("SELECT COUNT(*) as count FROM repairs WHERE error_log_id IN (SELECT id FROM error_logs WHERE equipment_id IN (SELECT id FROM equipment WHERE hospital_id = ?))", [hospitalId]),
+                query("SELECT COUNT(*) as count FROM maintenance_schedule WHERE status NOT IN ('Completed', 'Cancelled') AND (status = 'Overdue' OR DATE(next_due_date) <= CURDATE()) AND equipment_id IN (SELECT id FROM equipment WHERE hospital_id = ?)", [hospitalId])
             ]);
 
+            console.log('📊 ENGINEER STATS RESULTS:');
+            console.log('  totalEquipment:', totalEquipment[0]?.count || 0);
+            console.log('  myAssignedRepairs:', myAssignedRepairs[0]?.count || 0);
+            console.log('  myMaintenanceTasks:', myMaintenanceTasks[0]?.count || 0);
+            console.log('  myReportedErrors:', myReportedErrors[0]?.count || 0);
+            console.log('  totalErrors:', totalErrors[0]?.count || 0);
+            console.log('  criticalErrors:', criticalErrors[0]?.count || 0);
+            console.log('  totalRepairs:', totalRepairs[0]?.count || 0);
+            console.log('  maintenanceDue:', maintenanceDue[0]?.count || 0);
+
             stats = {
-                totalEquipment: 0,
+                totalEquipment: totalEquipment[0]?.count || 0,
                 totalHospitals: 0,
                 totalHospitalAdmins: 0,
                 totalEngineers: 0,
                 totalUsers: 0,
-                totalErrors: 0,
-                criticalErrors: 0,
-                totalRepairs: 0,
-                maintenanceDue: 0,
+                totalErrors: totalErrors[0]?.count || 0,
+                criticalErrors: criticalErrors[0]?.count || 0,
+                totalRepairs: totalRepairs[0]?.count || 0,
+                maintenanceDue: maintenanceDue[0]?.count || 0,
                 pendingPurchaseOrders: 0,
                 sparePartsLow: 0,
                 myAssignedRepairs: myAssignedRepairs[0]?.count || 0,
                 myMaintenanceTasks: myMaintenanceTasks[0]?.count || 0,
                 myReportedErrors: myReportedErrors[0]?.count || 0
             };
+        } else if (role === 'HOSPITAL_ADMIN') {
+            // ✅ HOSPITAL_ADMIN STATS
+            const [
+                totalEquipment,
+                totalEngineers,
+                totalUsers,
+                totalErrors,
+                criticalErrors,
+                totalRepairs,
+                maintenanceDue,
+                pendingPurchaseOrders,
+                sparePartsLow
+            ] = await Promise.all([
+                query("SELECT COUNT(*) as count FROM equipment WHERE hospital_id = ? AND status != 'Inactive'", [hospitalId]),
+                query("SELECT COUNT(*) as count FROM users WHERE hospital_id = ? AND role_id = 3 AND is_active = 1", [hospitalId]),
+                query("SELECT COUNT(*) as count FROM users WHERE hospital_id = ? AND is_active = 1", [hospitalId]),
+                query("SELECT COUNT(*) as count FROM error_logs WHERE equipment_id IN (SELECT id FROM equipment WHERE hospital_id = ?)", [hospitalId]),
+                query("SELECT COUNT(*) as count FROM error_logs WHERE priority = 'Critical' AND equipment_id IN (SELECT id FROM equipment WHERE hospital_id = ?)", [hospitalId]),
+                query("SELECT COUNT(*) as count FROM repairs WHERE error_log_id IN (SELECT id FROM error_logs WHERE equipment_id IN (SELECT id FROM equipment WHERE hospital_id = ?))", [hospitalId]),
+                query("SELECT COUNT(*) as count FROM maintenance_schedule WHERE status != 'Completed' AND (status = 'Overdue' OR next_due_date < CURDATE()) AND equipment_id IN (SELECT id FROM equipment WHERE hospital_id = ?)", [hospitalId]),
+                query("SELECT COUNT(*) as count FROM purchase_orders WHERE hospital_id = ? AND status = 'Pending Approval'", [hospitalId]),
+                query("SELECT COUNT(*) as count FROM spare_parts WHERE quantity < 5 AND repair_id IN (SELECT id FROM repairs WHERE error_log_id IN (SELECT id FROM error_logs WHERE equipment_id IN (SELECT id FROM equipment WHERE hospital_id = ?)))", [hospitalId])
+            ]);
+
+            stats = {
+                totalEquipment: totalEquipment[0]?.count || 0,
+                totalHospitals: 0,
+                totalHospitalAdmins: 0,
+                totalEngineers: totalEngineers[0]?.count || 0,
+                totalUsers: totalUsers[0]?.count || 0,
+                totalErrors: totalErrors[0]?.count || 0,
+                criticalErrors: criticalErrors[0]?.count || 0,
+                totalRepairs: totalRepairs[0]?.count || 0,
+                maintenanceDue: maintenanceDue[0]?.count || 0,
+                pendingPurchaseOrders: pendingPurchaseOrders[0]?.count || 0,
+                sparePartsLow: sparePartsLow[0]?.count || 0
+            };
         } else {
+            // Default fallback
             stats = {
                 totalEquipment: 0,
                 totalHospitals: 0,
@@ -4232,10 +3864,7 @@ app.get('/api/dashboard/stats', authenticate, async (req, res) => {
                 totalRepairs: 0,
                 maintenanceDue: 0,
                 pendingPurchaseOrders: 0,
-                sparePartsLow: 0,
-                myAssignedRepairs: 0,
-                myMaintenanceTasks: 0,
-                myReportedErrors: 0
+                sparePartsLow: 0
             };
         }
 
@@ -4247,6 +3876,7 @@ app.get('/api/dashboard/stats', authenticate, async (req, res) => {
 
     } catch (error) {
         console.error('❌ Dashboard stats error:', error);
+        console.error('❌ Error stack:', error.stack);
         res.status(500).json({ 
             success: false, 
             message: 'Failed to fetch dashboard stats',
@@ -4270,164 +3900,11 @@ app.use('/api/training', trainingRoutes);
 console.log('📚 Training routes registered');
 
 // ============================================================
-// ✅ AMC ROUTES
+// ✅ AMC ROUTES - IMPORTED FROM routes/amc.js
 // ============================================================
-app.get('/api/amc', authenticate, async (req, res) => {
-    try {
-        let sql = `
-            SELECT a.*, e.name as equipment_name
-            FROM amc_contracts a
-            LEFT JOIN equipment e ON a.equipment_id = e.id
-            WHERE 1=1
-        `;
-        const params = [];
-        
-        if (req.user.role_name !== 'SUPER_ADMIN') {
-            sql += ' AND e.hospital_id = ?';
-            params.push(req.user.hospital_id);
-        }
-        
-        sql += ' ORDER BY a.created_at DESC';
-        const contracts = await query(sql, params);
-        res.json({ success: true, contracts });
-    } catch (error) {
-        console.error('Error:', error);
-        res.status(500).json({ success: false, message: 'Database error' });
-    }
-});
-
-app.post('/api/amc', authenticate, async (req, res) => {
-    try {
-        const { equipment_id, vendor_name, contract_number, start_date, end_date, cost, contact_person, contact_phone, status } = req.body;
-        
-        const result = await query(
-            `INSERT INTO amc_contracts (equipment_id, vendor_name, contract_number, start_date, end_date, cost, contact_person, contact_phone, status)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [equipment_id, vendor_name, contract_number, start_date, end_date, cost, contact_person, contact_phone, status || 'Active']
-        );
-        
-        res.status(201).json({
-            success: true,
-            message: 'AMC contract created successfully',
-            contract: { id: result.insertId }
-        });
-    } catch (error) {
-        console.error('Error:', error);
-        res.status(500).json({ success: false, message: 'Database error' });
-    }
-});
-
-app.put('/api/amc/:id/renew', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { end_date, cost, notes } = req.body;
-
-        console.log('🔄 Renewing AMC contract:', id);
-
-        const existing = await query('SELECT * FROM amc_contracts WHERE id = ?', [id]);
-        if (existing.length === 0) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'AMC contract not found' 
-            });
-        }
-
-        if (!end_date) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'New end date is required' 
-            });
-        }
-
-        if (new Date(end_date) <= new Date(existing[0].end_date)) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'New end date must be after current end date' 
-            });
-        }
-
-        await query(
-            `INSERT INTO amc_renewal_history 
-             (contract_id, previous_end_date, new_end_date, 
-              previous_cost, new_cost, renewed_by, renewal_notes)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [
-                id,
-                existing[0].end_date,
-                end_date,
-                existing[0].cost,
-                cost || existing[0].cost,
-                req.user.id,
-                notes || 'Renewed'
-            ]
-        );
-
-        await query(
-            `UPDATE amc_contracts SET 
-             end_date = ?,
-             cost = ?,
-             notes = CONCAT(notes, ?)
-             WHERE id = ?`,
-            [
-                end_date,
-                cost || existing[0].cost,
-                `\nRenewed on ${new Date().toISOString().split('T')[0]}: ${notes || 'Renewed'}`,
-                id
-            ]
-        );
-
-        await notifyAdmins(
-            existing[0].hospital_id,
-            'AMC Contract Renewed',
-            `AMC contract renewed for equipment ID: ${existing[0].equipment_id}`,
-            'AMC',
-            id,
-            'amc'
-        );
-
-        console.log('✅ AMC contract renewed:', id);
-        res.json({ 
-            success: true, 
-            message: 'AMC contract renewed successfully' 
-        });
-    } catch (error) {
-        console.error('❌ Renew AMC error:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: 'Failed to renew AMC contract: ' + error.message 
-        });
-    }
-});
-
-app.delete('/api/amc/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
-    try {
-        const { id } = req.params;
-        console.log('🗑️ Deleting AMC contract ID:', id);
-
-        const existing = await query('SELECT * FROM amc_contracts WHERE id = ?', [id]);
-        if (existing.length === 0) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'AMC contract not found' 
-            });
-        }
-
-        await query('DELETE FROM amc_renewal_history WHERE contract_id = ?', [id]);
-        await query('DELETE FROM amc_contracts WHERE id = ?', [id]);
-
-        console.log('✅ AMC contract deleted:', id);
-        res.json({ 
-            success: true, 
-            message: 'AMC contract deleted successfully' 
-        });
-    } catch (error) {
-        console.error('❌ Delete AMC error:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: 'Failed to delete AMC contract: ' + error.message 
-        });
-    }
-});
+const amcRoutes = require('./routes/amc');
+app.use('/api/amc', amcRoutes);
+console.log('📋 AMC routes registered from routes/amc.js with auto-status update');
 
 // ============================================================
 // ✅ PURCHASE ORDERS ROUTES
@@ -5169,5 +4646,6 @@ if (require.main === module) {
     console.log('📚 Training routes registered');
     console.log('📄 Service Documentation routes registered');
     console.log('📊 Downtime Report route registered');
+    console.log('📋 AMC routes registered from routes/amc.js with auto-status update');
     console.log('========================================');
 }

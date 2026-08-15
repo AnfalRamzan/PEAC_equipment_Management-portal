@@ -1,6 +1,6 @@
 // src/pages/ErrorLogs.jsx
-// ✅ COMPLETE FIXED VERSION - With Attachment Grid View
-// ✅ DARK NAVY + LIGHT CYAN THEME - Matching Sidebar
+// ✅ UPDATED: Severity Removed, Priority Only, Closed Removed
+// ✅ FIXED: Status Update - No frontend permission check (Backend handles it)
 
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -39,6 +39,7 @@ import {
   ImageListItem,
   ImageListItemBar,
   Dialog as PreviewDialog,
+  CircularProgress,
 } from '@mui/material'
 import {
   Add,
@@ -54,6 +55,10 @@ import {
   Description,
   InsertDriveFile,
   ZoomIn,
+  CheckCircle,
+  Warning,
+  Error as ErrorIcon,
+  Info,
 } from '@mui/icons-material'
 import { errorService, equipmentService, hospitalService, userService } from '../api/services'
 import { toast } from 'react-toastify'
@@ -404,6 +409,46 @@ const AttachmentGrid = ({ attachments, onFileClick }) => {
   )
 }
 
+// ✅ STATUS CHIP COMPONENT
+const StatusChip = ({ status }) => {
+  const getStatusColor = (status) => {
+    const s = status?.toLowerCase() || 'pending'
+    switch(s) {
+      case 'resolved':
+      case 'completed':
+        return { bg: colors.success, icon: <CheckCircle sx={{ fontSize: 14 }} /> }
+      case 'in progress':
+        return { bg: '#FF6F00', icon: <Warning sx={{ fontSize: 14 }} /> }
+      case 'pending':
+        return { bg: colors.warning, icon: <Warning sx={{ fontSize: 14 }} /> }
+      case 'rejected':
+        return { bg: colors.error, icon: <ErrorIcon sx={{ fontSize: 14 }} /> }
+      default:
+        return { bg: '#9E9E9E', icon: <Info sx={{ fontSize: 14 }} /> }
+    }
+  }
+
+  const { bg, icon } = getStatusColor(status)
+  const displayStatus = status || 'Pending'
+
+  return (
+    <Chip 
+      label={displayStatus} 
+      size="small"
+      icon={icon}
+      sx={{
+        bgcolor: bg,
+        color: 'white',
+        fontWeight: 500,
+        height: 24,
+        fontSize: '11px',
+        '& .MuiChip-icon': { color: 'white', fontSize: 14 },
+        '& .MuiChip-label': { px: 1 },
+      }}
+    />
+  )
+}
+
 const ErrorLogs = () => {
   const { user } = useSelector((state) => state.auth)
   const navigate = useNavigate()
@@ -418,28 +463,38 @@ const ErrorLogs = () => {
   const canReport = isEngineer
   const canDelete = isSuperAdmin
 
+  // ============================================================
+  // ✅ STATE VARIABLES
+  // ============================================================
   const [errors, setErrors] = useState([])
   const [equipment, setEquipment] = useState([])
   const [hospitals, setHospitals] = useState([])
   const [departments, setDepartments] = useState([])
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [openDialog, setOpenDialog] = useState(false)
   const [openViewDialog, setOpenViewDialog] = useState(false)
   const [editingError, setEditingError] = useState(null)
   const [viewingError, setViewingError] = useState(null)
 
+  // ✅ Status Update States
+  const [openStatusDialog, setOpenStatusDialog] = useState(false)
+  const [selectedErrorForStatus, setSelectedErrorForStatus] = useState(null)
+  const [newStatus, setNewStatus] = useState('')
+  const [statusUpdating, setStatusUpdating] = useState(false)
+
   const [errors_validation, setErrors_validation] = useState({
     equipment_id: '',
     error_title: '',
-    severity: '',
     priority: '',
     error_date: ''
   })
 
+  // ✅ Filters - Priority only
   const [filters, setFilters] = useState({
-    severity: ''
+    priority: ''
   })
 
   const [errorFormData, setErrorFormData] = useState({
@@ -447,7 +502,6 @@ const ErrorLogs = () => {
     error_code: '',
     error_title: '',
     error_description: '',
-    severity: 'Medium',
     priority: 'Medium',
     error_date: new Date().toISOString().slice(0, 16),
     reported_by: user?.id || 1,
@@ -457,6 +511,9 @@ const ErrorLogs = () => {
     assigned_to: ''
   })
 
+  // ============================================================
+  // ✅ EFFECTS
+  // ============================================================
   useEffect(() => {
     fetchErrors()
     fetchEquipment()
@@ -465,15 +522,33 @@ const ErrorLogs = () => {
     fetchUsers()
   }, [])
 
-  const fetchErrors = async () => {
-    setLoading(true)
+  // ============================================================
+  // ✅ DATA FETCHING FUNCTIONS - WITH FORCE REFRESH
+  // ============================================================
+  const fetchErrors = async (showLoading = true) => {
+    if (showLoading) {
+      setLoading(true)
+    } else {
+      setRefreshing(true)
+    }
+    
     try {
+      console.log('📊 Fetching errors...')
       const response = await errorService.getAll()
+      console.log('📊 Errors fetched:', response.data.errors?.length || 0, 'items')
       setErrors(response.data.errors || [])
+      return response.data.errors || []
     } catch (error) {
+      console.error('❌ Failed to fetch errors:', error)
       toast.error('Failed to fetch errors')
+      setErrors([])
+      return []
     } finally {
-      setLoading(false)
+      if (showLoading) {
+        setLoading(false)
+      } else {
+        setRefreshing(false)
+      }
     }
   }
 
@@ -518,6 +593,9 @@ const ErrorLogs = () => {
     }
   }
 
+  // ============================================================
+  // ✅ VALIDATION FUNCTIONS
+  // ============================================================
   const validateField = (name, value) => {
     let error = ''
     switch (name) {
@@ -526,9 +604,6 @@ const ErrorLogs = () => {
         break
       case 'error_title':
         if (!value || value.trim() === '') error = 'Error title is required'
-        break
-      case 'severity':
-        if (!value) error = 'Severity is required'
         break
       case 'priority':
         if (!value) error = 'Priority is required'
@@ -551,7 +626,6 @@ const ErrorLogs = () => {
   const isFormValid = () => {
     const equipmentError = validateField('equipment_id', errorFormData.equipment_id)
     const titleError = validateField('error_title', errorFormData.error_title)
-    const severityError = validateField('severity', errorFormData.severity)
     const priorityError = validateField('priority', errorFormData.priority)
     const dateError = validateField('error_date', errorFormData.error_date)
     
@@ -559,14 +633,16 @@ const ErrorLogs = () => {
       ...prev,
       equipment_id: equipmentError,
       error_title: titleError,
-      severity: severityError,
       priority: priorityError,
       error_date: dateError
     }))
     
-    return !equipmentError && !titleError && !severityError && !priorityError && !dateError
+    return !equipmentError && !titleError && !priorityError && !dateError
   }
 
+  // ============================================================
+  // ✅ DIALOG HANDLERS
+  // ============================================================
   const handleOpenDialog = (error = null) => {
     if (!isEngineer && !error) {
       toast.error('Only Engineers can report errors')
@@ -576,7 +652,6 @@ const ErrorLogs = () => {
     setErrors_validation({
       equipment_id: '',
       error_title: '',
-      severity: '',
       priority: '',
       error_date: ''
     })
@@ -592,7 +667,6 @@ const ErrorLogs = () => {
       error_code: '',
       error_title: '',
       error_description: '',
-      severity: 'Medium',
       priority: 'Medium',
       error_date: new Date().toISOString().slice(0, 16),
       reported_by: user?.id || 1,
@@ -610,7 +684,6 @@ const ErrorLogs = () => {
     setErrors_validation({
       equipment_id: '',
       error_title: '',
-      severity: '',
       priority: '',
       error_date: ''
     })
@@ -629,6 +702,99 @@ const ErrorLogs = () => {
     setViewingError(null)
   }
 
+  // ============================================================
+  // ✅ STATUS UPDATE HANDLERS - FIXED (No frontend permission check)
+  // ============================================================
+  const handleOpenStatusDialog = (error) => {
+    setSelectedErrorForStatus(error)
+    setNewStatus(error.status || 'Pending')
+    setOpenStatusDialog(true)
+  }
+
+  const handleCloseStatusDialog = () => {
+    setOpenStatusDialog(false)
+    setSelectedErrorForStatus(null)
+    setNewStatus('')
+    setStatusUpdating(false)
+  }
+
+  // ✅ FIXED: Status Update Handler - No frontend permission check
+  const handleStatusUpdate = async () => {
+    if (!selectedErrorForStatus || !newStatus) {
+      toast.error('Please select a status')
+      return
+    }
+
+    if (selectedErrorForStatus.status === newStatus) {
+      toast.info(`Status is already set to "${newStatus}"`)
+      handleCloseStatusDialog()
+      return
+    }
+
+    setStatusUpdating(true)
+
+    try {
+      const userRole = user?.role;
+      const userId = user?.id;
+      
+      console.log('🔄 Updating status for error ID:', selectedErrorForStatus.id)
+      console.log('📌 Old status:', selectedErrorForStatus.status)
+      console.log('📌 New status:', newStatus)
+      console.log('📌 User Role:', userRole)
+      console.log('📌 User ID:', userId)
+
+      // ✅ Frontend permission check REMOVED - Backend will handle it
+      // Backend now allows engineers to update any error in their hospital
+
+      let response = null;
+
+      // ✅ Super Admin can use PATCH
+      if (userRole === 'SUPER_ADMIN') {
+        try {
+          console.log('📌 Trying PATCH for Super Admin...')
+          response = await api.patch(`/errors/${selectedErrorForStatus.id}/status`, {
+            status: newStatus
+          })
+        } catch (patchError) {
+          console.log('⚠️ PATCH failed, trying PUT...', patchError.message)
+          response = await api.put(`/errors/${selectedErrorForStatus.id}`, {
+            status: newStatus
+          })
+        }
+      } else {
+        // ✅ For Engineers and Hospital Admins, use PUT
+        console.log('📌 Using PUT for User...')
+        response = await api.put(`/errors/${selectedErrorForStatus.id}`, {
+          status: newStatus
+        })
+      }
+
+      if (response.data.success) {
+        toast.success(`Status updated to "${newStatus}" successfully!`)
+        handleCloseStatusDialog()
+        
+        setTimeout(async () => {
+          await fetchErrors(false)
+        }, 500)
+      } else {
+        toast.error(response.data.message || 'Failed to update status')
+      }
+
+    } catch (error) {
+      console.error('❌ Status update error:', error)
+      console.error('❌ Error response:', error.response?.data)
+      
+      // ✅ Show detailed error message
+      const errorMessage = error.response?.data?.message || 'Failed to update status'
+      toast.error(errorMessage)
+    } finally {
+      setStatusUpdating(false)
+    }
+  }
+
+  // ============================================================
+  // ✅ FORM HANDLERS
+  // ============================================================
   const handleFormChange = (e) => {
     const { name, value } = e.target
     setErrorFormData({
@@ -662,7 +828,6 @@ const ErrorLogs = () => {
         error_code: errorFormData.error_code || null,
         error_title: errorFormData.error_title.trim(),
         error_description: errorFormData.error_description || '',
-        severity: errorFormData.severity || 'Medium',
         priority: errorFormData.priority || 'Medium',
         error_date: errorFormData.error_date || new Date().toISOString().slice(0, 19).replace('T', ' '),
         attachments: errorFormData.attachments || ''
@@ -671,7 +836,7 @@ const ErrorLogs = () => {
       await errorService.create(submitData)
       toast.success('Error reported successfully')
       
-      fetchErrors()
+      await fetchErrors(false)
       handleCloseDialog()
     } catch (error) {
       console.error('Submit error:', error)
@@ -689,7 +854,7 @@ const ErrorLogs = () => {
       try {
         await errorService.delete(id)
         toast.success('Error deleted successfully')
-        fetchErrors()
+        await fetchErrors(false)
         if (openViewDialog) {
           handleCloseView()
         }
@@ -699,18 +864,21 @@ const ErrorLogs = () => {
     }
   }
 
+  // ============================================================
+  // ✅ FILTERED DATA - Priority only
+  // ============================================================
   const filteredErrors = errors.filter(error => {
     const matchesSearch = error.error_title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           error.error_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           error.equipment_name?.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesSeverity = !filters.severity || error.severity === filters.severity
-    return matchesSearch && matchesSeverity
+    const matchesPriority = !filters.priority || error.priority === filters.priority
+    return matchesSearch && matchesPriority
   })
 
   const totalErrors = errors.length
   const openErrors = errors.filter(e => e.status === 'Pending' || e.status === 'In Progress').length
   const completedErrors = errors.filter(e => e.status === 'Completed').length
-  const resolvedErrors = errors.filter(e => e.status === 'Resolved' || e.status === 'Closed').length
+  const resolvedErrors = errors.filter(e => e.status === 'Resolved').length
 
   if (loading) {
     return <LinearProgress sx={{ bgcolor: colors.borderColor, '& .MuiLinearProgress-bar': { bgcolor: colors.lightCyan } }} />
@@ -738,12 +906,14 @@ const ErrorLogs = () => {
         >
           Error Logs
         </Typography>
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+          {refreshing && <CircularProgress size={20} sx={{ color: colors.lightCyan }} />}
           <Button
             variant="outlined"
             startIcon={<Refresh />}
-            onClick={fetchErrors}
+            onClick={() => fetchErrors(false)}
             size="small"
+            disabled={refreshing}
             sx={{ 
               borderColor: colors.borderColor, 
               color: colors.darkNavy,
@@ -754,7 +924,7 @@ const ErrorLogs = () => {
               }
             }}
           >
-            Refresh
+            {refreshing ? 'Refreshing...' : 'Refresh'}
           </Button>
           {canReport && (
             <Button
@@ -857,7 +1027,7 @@ const ErrorLogs = () => {
         </Grid>
       </Grid>
 
-      {/* Search & Filter */}
+      {/* Search & Filter - Priority Only */}
       <Paper sx={{ 
         p: 2, 
         mb: 3, 
@@ -888,11 +1058,11 @@ const ErrorLogs = () => {
             }}
           />
           <FormControl size="small" sx={{ minWidth: 150 }}>
-            <InputLabel sx={{ color: colors.lightText }}>Severity</InputLabel>
+            <InputLabel sx={{ color: colors.lightText }}>Priority</InputLabel>
             <Select
-              value={filters.severity}
-              onChange={(e) => setFilters({ ...filters, severity: e.target.value })}
-              label="Severity"
+              value={filters.priority}
+              onChange={(e) => setFilters({ ...filters, priority: e.target.value })}
+              label="Priority"
               sx={{
                 '& .MuiOutlinedInput-root': {
                   '&:hover fieldset': { borderColor: colors.lightCyan },
@@ -910,7 +1080,7 @@ const ErrorLogs = () => {
         </Box>
       </Paper>
 
-      {/* Table */}
+      {/* Table - Severity Column Removed */}
       <TableContainer 
         component={Paper} 
         sx={{ 
@@ -925,7 +1095,6 @@ const ErrorLogs = () => {
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Error</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Equipment</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Priority</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Severity</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Status</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Date</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600, textAlign: 'center' }}>Actions</TableCell>
@@ -934,7 +1103,7 @@ const ErrorLogs = () => {
           <TableBody>
             {filteredErrors.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} align="center">
+                <TableCell colSpan={6} align="center">
                   <Typography variant="body1" sx={{ py: 3, color: colors.lightText }}>
                     No errors found
                   </Typography>
@@ -963,17 +1132,14 @@ const ErrorLogs = () => {
                   <TableCell sx={{ color: colors.lightText }}>
                     {error.equipment_name}
                   </TableCell>
-                  <TableCell sx={{ color: colors.lightText }}>
-                    {error.priority || 'Medium'}
-                  </TableCell>
                   <TableCell>
                     <Chip 
-                      label={error.severity || 'Medium'} 
+                      label={error.priority || 'Medium'} 
                       size="small"
                       sx={{
-                        bgcolor: error.severity === 'Critical' ? colors.error :
-                                 error.severity === 'High' ? '#e65100' :
-                                 error.severity === 'Medium' ? colors.warning :
+                        bgcolor: error.priority === 'Critical' ? colors.error :
+                                 error.priority === 'High' ? '#e65100' :
+                                 error.priority === 'Medium' ? colors.warning :
                                  '#2E7D32',
                         color: 'white',
                         fontWeight: 500,
@@ -983,21 +1149,7 @@ const ErrorLogs = () => {
                     />
                   </TableCell>
                   <TableCell>
-                    <Chip 
-                      label={error.status} 
-                      size="small"
-                      sx={{
-                        bgcolor: error.status === 'Resolved' || error.status === 'Closed' ? colors.success :
-                                 error.status === 'Completed' ? colors.info :
-                                 error.status === 'Pending' ? colors.warning :
-                                 error.status === 'In Progress' ? '#FF6F00' :
-                                 error.status === 'Rejected' ? colors.error : '#9E9E9E',
-                        color: 'white',
-                        fontWeight: 500,
-                        height: 22,
-                        fontSize: '11px'
-                      }}
-                    />
+                    <StatusChip status={error.status || 'Pending'} />
                   </TableCell>
                   <TableCell>
                     <Typography variant="body2" sx={{ color: colors.lightText }}>
@@ -1022,6 +1174,25 @@ const ErrorLogs = () => {
                         </IconButton>
                       </Tooltip>
                       
+                      {/* ✅ Status Update Button - Visible to Super Admin & Engineer */}
+                      {(isSuperAdmin || isEngineer) && (
+                        <Tooltip title="Update Status">
+                          <IconButton 
+                            size="small" 
+                            onClick={() => handleOpenStatusDialog(error)}
+                            sx={{ 
+                              color: colors.info, 
+                              '&:hover': { 
+                                color: colors.lightCyanDark,
+                                backgroundColor: 'rgba(103, 232, 249, 0.08)'
+                              } 
+                            }}
+                          >
+                            <Edit fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      
                       {canDelete && (
                         <Tooltip title="Delete Error">
                           <IconButton 
@@ -1042,11 +1213,11 @@ const ErrorLogs = () => {
         </Table>
       </TableContainer>
 
-      {/* REPORT ERROR DIALOG */}
+      {/* REPORT ERROR DIALOG - Updated */}
       <Dialog 
         open={openDialog} 
         onClose={handleCloseDialog} 
-        maxWidth="md" 
+        maxWidth="sm" 
         fullWidth
         PaperProps={{
           sx: {
@@ -1070,74 +1241,23 @@ const ErrorLogs = () => {
             </IconButton>
           </Box>
         </DialogTitle>
-        <DialogContent dividers>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel sx={{ color: colors.lightText }}>Hospital</InputLabel>
-                <Select
-                  name="hospital_id"
-                  value={errorFormData.hospital_id}
-                  onChange={handleFormChange}
-                  label="Hospital"
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.lightCyan },
-                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                    }
-                  }}
-                >
-                  <MenuItem value="">Select Hospital (Optional)</MenuItem>
-                  {hospitals.map(h => (
-                    <MenuItem key={h.id} value={h.id}>{h.name}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel sx={{ color: colors.lightText }}>Department</InputLabel>
-                <Select
-                  name="department_id"
-                  value={errorFormData.department_id}
-                  onChange={handleFormChange}
-                  label="Department"
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.lightCyan },
-                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                    }
-                  }}
-                >
-                  <MenuItem value="">Select Department (Optional)</MenuItem>
-                  {departments.map(d => (
-                    <MenuItem key={d.id} value={d.id}>{d.name}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-
+        
+        <DialogContent dividers sx={{ mt: 1 }}>
+          <Grid container spacing={2}>
             <Grid item xs={12}>
-              <FormControl fullWidth required error={!!errors_validation.equipment_id}>
-                <InputLabel sx={{ color: colors.lightText }}>Equipment *</InputLabel>
+              <FormControl fullWidth>
+                <InputLabel>Equipment</InputLabel>
                 <Select
                   name="equipment_id"
                   value={errorFormData.equipment_id}
                   onChange={handleFormChange}
                   onBlur={handleBlur}
-                  label="Equipment *"
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.lightCyan },
-                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                    }
-                  }}
+                  error={!!errors_validation.equipment_id}
+                  label="Equipment"
                 >
-                  <MenuItem value="">Select Equipment</MenuItem>
-                  {equipment.map(item => (
-                    <MenuItem key={item.id} value={item.id}>
-                      {item.name} - {item.model} ({item.hospital_name || 'No Hospital'})
+                  {equipment.map((eq) => (
+                    <MenuItem key={eq.id} value={eq.id}>
+                      {eq.name} - {eq.model || 'No Model'}
                     </MenuItem>
                   ))}
                 </Select>
@@ -1146,66 +1266,53 @@ const ErrorLogs = () => {
                 )}
               </FormControl>
             </Grid>
-
-            <Grid item xs={12} md={6}>
+            
+            <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Error Code (Optional)"
-                name="error_code"
-                value={errorFormData.error_code}
+                name="error_title"
+                label="Error Title"
+                value={errorFormData.error_title}
                 onChange={handleFormChange}
-                placeholder="e.g., ERR-001"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.lightCyan },
-                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                  }
-                }}
+                onBlur={handleBlur}
+                error={!!errors_validation.error_title}
+                helperText={errors_validation.error_title}
+                required
               />
             </Grid>
-
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth required error={!!errors_validation.severity}>
-                <InputLabel sx={{ color: colors.lightText }}>Severity *</InputLabel>
-                <Select
-                  name="severity"
-                  value={errorFormData.severity}
-                  onChange={handleFormChange}
-                  onBlur={handleBlur}
-                  label="Severity *"
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.lightCyan },
-                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                    }
-                  }}
-                >
-                  <MenuItem value="Low">Low</MenuItem>
-                  <MenuItem value="Medium">Medium</MenuItem>
-                  <MenuItem value="High">High</MenuItem>
-                  <MenuItem value="Critical">Critical</MenuItem>
-                </Select>
-                {errors_validation.severity && (
-                  <FormHelperText error>{errors_validation.severity}</FormHelperText>
-                )}
-              </FormControl>
+            
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                name="error_code"
+                label="Error Code (Optional)"
+                value={errorFormData.error_code}
+                onChange={handleFormChange}
+              />
             </Grid>
-
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth required error={!!errors_validation.priority}>
-                <InputLabel sx={{ color: colors.lightText }}>Priority *</InputLabel>
+            
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                name="error_description"
+                label="Error Description"
+                value={errorFormData.error_description}
+                onChange={handleFormChange}
+                multiline
+                rows={3}
+              />
+            </Grid>
+            
+            <Grid item xs={6}>
+              <FormControl fullWidth>
+                <InputLabel>Priority</InputLabel>
                 <Select
                   name="priority"
                   value={errorFormData.priority}
                   onChange={handleFormChange}
                   onBlur={handleBlur}
-                  label="Priority *"
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.lightCyan },
-                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                    }
-                  }}
+                  error={!!errors_validation.priority}
+                  label="Priority"
                 >
                   <MenuItem value="Low">Low</MenuItem>
                   <MenuItem value="Medium">Medium</MenuItem>
@@ -1217,112 +1324,48 @@ const ErrorLogs = () => {
                 )}
               </FormControl>
             </Grid>
-
-            <Grid item xs={12}>
+            
+            <Grid item xs={6}>
               <TextField
                 fullWidth
-                required
-                label="Error Title *"
-                name="error_title"
-                value={errorFormData.error_title}
-                onChange={handleFormChange}
-                onBlur={handleBlur}
-                placeholder="Brief error title"
-                error={!!errors_validation.error_title}
-                helperText={errors_validation.error_title}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.lightCyan },
-                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                  }
-                }}
-              />
-            </Grid>
-
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Error Description (Optional)"
-                name="error_description"
-                value={errorFormData.error_description}
-                onChange={handleFormChange}
-                multiline
-                rows={3}
-                placeholder="Detailed description of the error"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.lightCyan },
-                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                  }
-                }}
-              />
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                required
-                label="Error Date *"
                 name="error_date"
+                label="Error Date"
                 type="datetime-local"
                 value={errorFormData.error_date}
                 onChange={handleFormChange}
                 onBlur={handleBlur}
-                InputLabelProps={{ shrink: true }}
                 error={!!errors_validation.error_date}
                 helperText={errors_validation.error_date}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.lightCyan },
-                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                  }
-                }}
+                required
+                InputLabelProps={{ shrink: true }}
               />
             </Grid>
-
+            
             <Grid item xs={12}>
-              <Typography variant="subtitle2" sx={{ color: colors.lightText }} gutterBottom>
-                Attachments (Optional)
+              <Typography variant="body2" sx={{ mb: 1, color: colors.lightText }}>
+                Attachments
               </Typography>
               <FileUpload
-                endpoint="/upload"
-                accept="image/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx"
-                multiple={true}
-                label="Click to upload images, videos, or documents"
-                maxFiles={5}
+                onFileUploaded={(url) => {
+                  setErrorFormData(prev => ({
+                    ...prev,
+                    attachments: url
+                  }))
+                }}
+                onError={(error) => toast.error(error)}
+                accept="image/*,video/*,.pdf,.doc,.docx"
                 maxSize={50}
-                showPreview={true}
-                onUploadComplete={(files) => {
-                  const urls = files.map(f => f.url || f.fileUrl).filter(Boolean)
-                  const currentFiles = errorFormData.attachments ? errorFormData.attachments.split(',') : []
-                  const updatedFiles = [...currentFiles, ...urls]
-                  setErrorFormData(prev => ({ 
-                    ...prev, 
-                    attachments: updatedFiles.join(',') 
-                  }))
-                  toast.success(`${files.length} file(s) uploaded successfully`)
-                }}
-                onUploadError={(error) => toast.error('Upload failed: ' + error)}
-                onDelete={(file) => {
-                  const currentFiles = errorFormData.attachments?.split(',') || []
-                  const updatedFiles = currentFiles.filter(f => f !== file.url)
-                  setErrorFormData(prev => ({ 
-                    ...prev, 
-                    attachments: updatedFiles.join(',') 
-                  }))
-                  toast.info('File removed')
-                }}
-                existingFiles={errorFormData.attachments ? errorFormData.attachments.split(',').filter(Boolean).map(url => ({
-                  url: url,
-                  name: url.split('/').pop(),
-                  type: url.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i) ? 'image' :
-                        url.match(/\.(mp4|webm|ogg|mov)$/i) ? 'video' : 'document'
-                })) : []}
               />
+              {errorFormData.attachments && (
+                <Typography variant="caption" sx={{ color: colors.success, display: 'block', mt: 1 }}>
+                  ✅ File uploaded successfully
+                </Typography>
+              )}
             </Grid>
           </Grid>
         </DialogContent>
-        <DialogActions sx={{ p: 3 }}>
+        
+        <DialogActions sx={{ p: 3, gap: 1 }}>
           <Button 
             onClick={handleCloseDialog} 
             sx={{ 
@@ -1337,7 +1380,7 @@ const ErrorLogs = () => {
           </Button>
           <Button 
             variant="contained" 
-            onClick={handleSubmit} 
+            onClick={handleSubmit}
             sx={{ 
               bgcolor: colors.darkNavy, 
               '&:hover': { 
@@ -1354,14 +1397,135 @@ const ErrorLogs = () => {
         </DialogActions>
       </Dialog>
 
-      {/* ✅ VIEW ERROR DIALOG - WITH ATTACHMENTS GRID AND PREVIEW */}
+      {/* ✅ VIEW ERROR DIALOG */}
       <Dialog 
         open={openViewDialog} 
         onClose={handleCloseView} 
         maxWidth="md" 
         fullWidth
         PaperProps={{
-          sx: { 
+          sx: {
+            borderRadius: 3,
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+          }
+        }}
+      >
+        {viewingError && (
+          <>
+            <DialogTitle sx={{ 
+              bgcolor: colors.darkNavy, 
+              color: 'white',
+              borderRadius: '8px 8px 0 0',
+            }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant="h6" fontWeight={600}>
+                  Error Details
+                </Typography>
+                <Box>
+                  {canDelete && (
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      color="error"
+                      onClick={() => handleErrorDelete(viewingError.id)}
+                      sx={{ mr: 1, color: 'white', borderColor: 'rgba(255,255,255,0.3)' }}
+                    >
+                      Delete
+                    </Button>
+                  )}
+                  <IconButton onClick={handleCloseView} sx={{ color: 'white' }}>
+                    <Close />
+                  </IconButton>
+                </Box>
+              </Box>
+            </DialogTitle>
+            
+            <DialogContent dividers>
+              <Grid container spacing={2}>
+                <Grid item xs={12}>
+                  <Typography variant="h6" sx={{ color: colors.darkNavy }}>
+                    {viewingError.error_title}
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: colors.lightText }}>
+                    Code: {viewingError.error_code || 'N/A'}
+                  </Typography>
+                </Grid>
+                
+                <Grid item xs={6}>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
+                    Equipment
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: colors.darkNavy, fontWeight: 500 }}>
+                    {viewingError.equipment_name}
+                  </Typography>
+                </Grid>
+                
+                <Grid item xs={6}>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
+                    Priority
+                  </Typography>
+                  <Chip 
+                    label={viewingError.priority || 'Medium'} 
+                    size="small"
+                    sx={{
+                      bgcolor: viewingError.priority === 'Critical' ? colors.error :
+                               viewingError.priority === 'High' ? '#e65100' :
+                               viewingError.priority === 'Medium' ? colors.warning :
+                               '#2E7D32',
+                      color: 'white',
+                      fontWeight: 500,
+                    }}
+                  />
+                </Grid>
+                
+                <Grid item xs={12}>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
+                    Description
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: colors.darkText }}>
+                    {viewingError.error_description || 'No description provided'}
+                  </Typography>
+                </Grid>
+                
+                <Grid item xs={6}>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
+                    Status
+                  </Typography>
+                  <StatusChip status={viewingError.status || 'Pending'} />
+                </Grid>
+                
+                <Grid item xs={6}>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
+                    Reported By
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: colors.darkNavy }}>
+                    {viewingError.reported_by_name || 'Unknown'}
+                  </Typography>
+                </Grid>
+                
+                <Grid item xs={12}>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
+                    Attachments
+                  </Typography>
+                  <AttachmentGrid 
+                    attachments={viewingError.attachments ? viewingError.attachments.split(',').filter(Boolean) : []}
+                  />
+                </Grid>
+              </Grid>
+            </DialogContent>
+          </>
+        )}
+      </Dialog>
+
+      {/* ✅ STATUS UPDATE DIALOG - Closed Removed */}
+      <Dialog 
+        open={openStatusDialog} 
+        onClose={handleCloseStatusDialog} 
+        maxWidth="xs" 
+        fullWidth
+        PaperProps={{
+          sx: {
             borderRadius: 3,
             border: `1px solid ${colors.borderColor}`,
             boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
@@ -1369,209 +1533,67 @@ const ErrorLogs = () => {
         }}
       >
         <DialogTitle sx={{ 
-          bgcolor: colors.darkNavy, 
+          bgcolor: colors.info, 
           color: 'white',
           borderRadius: '8px 8px 0 0',
         }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <Box>
-              <Typography variant="h6" fontWeight={600}>
-                Error Details
-              </Typography>
-              <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                ID: {viewingError?.id} • {new Date(viewingError?.created_at).toLocaleString()}
-              </Typography>
-            </Box>
-            <IconButton onClick={handleCloseView} sx={{ color: 'white', mt: -1 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="h6" fontWeight={600}>
+              Update Error Status
+            </Typography>
+            <IconButton onClick={handleCloseStatusDialog} sx={{ color: 'white' }}>
               <Close />
             </IconButton>
           </Box>
         </DialogTitle>
         
-        <DialogContent dividers sx={{ pt: 3 }}>
-          {viewingError && (
+        <DialogContent dividers sx={{ mt: 1 }}>
+          {selectedErrorForStatus && (
             <Box>
-              <Card sx={{ 
-                mb: 3, 
-                bgcolor: `${colors.mainBg}`, 
-                borderRadius: 2,
-                border: `1px solid ${colors.borderColor}`
-              }}>
-                <CardContent>
-                  <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
-                    <Box flex={1}>
-                      <Typography variant="h6" fontWeight={700} sx={{ color: colors.darkNavy }}>
-                        {viewingError.error_title}
-                      </Typography>
-                      <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 0.5 }}>
-                        <Chip 
-                          label={viewingError.status} 
-                          size="small"
-                          sx={{
-                            bgcolor: viewingError.status === 'Resolved' || viewingError.status === 'Closed' ? colors.success :
-                                     viewingError.status === 'Completed' ? colors.info :
-                                     viewingError.status === 'Pending' ? colors.warning :
-                                     viewingError.status === 'In Progress' ? '#FF6F00' :
-                                     viewingError.status === 'Rejected' ? colors.error : '#9E9E9E',
-                            color: 'white',
-                            fontWeight: 500,
-                            height: 22,
-                            fontSize: '11px'
-                          }}
-                        />
-                        <Chip 
-                          label={`Severity: ${viewingError.severity || 'Medium'}`} 
-                          size="small"
-                          sx={{
-                            bgcolor: viewingError.severity === 'Critical' ? colors.error :
-                                     viewingError.severity === 'High' ? '#e65100' :
-                                     viewingError.severity === 'Medium' ? colors.warning :
-                                     '#2E7D32',
-                            color: 'white',
-                            fontWeight: 500,
-                            height: 22,
-                            fontSize: '11px'
-                          }}
-                        />
-                        <Chip 
-                          label={`Priority: ${viewingError.priority || 'Medium'}`} 
-                          size="small"
-                          sx={{
-                            bgcolor: viewingError.priority === 'Critical' ? colors.error :
-                                     viewingError.priority === 'High' ? '#e65100' :
-                                     viewingError.priority === 'Medium' ? colors.warning :
-                                     '#2E7D32',
-                            color: 'white',
-                            fontWeight: 500,
-                            height: 22,
-                            fontSize: '11px'
-                          }}
-                        />
-                        {viewingError.error_code && (
-                          <Chip 
-                            label={`Code: ${viewingError.error_code}`} 
-                            size="small"
-                            sx={{
-                              bgcolor: colors.darkNavy,
-                              color: 'white',
-                              fontWeight: 500,
-                              height: 22,
-                              fontSize: '11px'
-                            }}
-                          />
-                        )}
-                      </Stack>
-                    </Box>
-                  </Stack>
-                </CardContent>
-              </Card>
-
-              <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid item xs={12} sm={6}>
-                  <Paper sx={{ 
-                    p: 2, 
-                    bgcolor: colors.mainBg, 
-                    borderRadius: 2,
-                    border: `1px solid ${colors.borderColor}`
-                  }}>
-                    <Typography variant="caption" sx={{ color: colors.lightText }}>Equipment</Typography>
-                    <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkNavy }}>
-                      {viewingError.equipment_name || 'N/A'}
-                    </Typography>
-                  </Paper>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Paper sx={{ 
-                    p: 2, 
-                    bgcolor: colors.mainBg, 
-                    borderRadius: 2,
-                    border: `1px solid ${colors.borderColor}`
-                  }}>
-                    <Typography variant="caption" sx={{ color: colors.lightText }}>Hospital</Typography>
-                    <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkNavy }}>
-                      {viewingError.hospital_name || 'N/A'}
-                    </Typography>
-                  </Paper>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Paper sx={{ 
-                    p: 2, 
-                    bgcolor: colors.mainBg, 
-                    borderRadius: 2,
-                    border: `1px solid ${colors.borderColor}`
-                  }}>
-                    <Typography variant="caption" sx={{ color: colors.lightText }}>Reported By</Typography>
-                    <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkNavy }}>
-                      {viewingError.reported_by_name || 'Unknown'}
-                    </Typography>
-                  </Paper>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Paper sx={{ 
-                    p: 2, 
-                    bgcolor: colors.mainBg, 
-                    borderRadius: 2,
-                    border: `1px solid ${colors.borderColor}`
-                  }}>
-                    <Typography variant="caption" sx={{ color: colors.lightText }}>Error Date</Typography>
-                    <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkNavy }}>
-                      {viewingError.error_date ? new Date(viewingError.error_date).toLocaleString() : 'N/A'}
-                    </Typography>
-                  </Paper>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Paper sx={{ 
-                    p: 2, 
-                    bgcolor: colors.mainBg, 
-                    borderRadius: 2,
-                    border: `1px solid ${colors.borderColor}`
-                  }}>
-                    <Typography variant="caption" sx={{ color: colors.lightText }}>Department</Typography>
-                    <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkNavy }}>
-                      {viewingError.department_name || 'N/A'}
-                    </Typography>
-                  </Paper>
-                </Grid>
-              </Grid>
-
-              <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1, color: colors.darkNavy }}>
-                Error Description
-              </Typography>
-              <Paper sx={{ 
-                p: 2, 
-                bgcolor: colors.mainBg, 
-                borderRadius: 2, 
-                mb: 3,
-                border: `1px solid ${colors.borderColor}`
-              }}>
-                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', color: colors.darkNavy }}>
-                  {viewingError.error_description || 'No description provided'}
+              <Alert severity="info" sx={{ mb: 2, borderRadius: 2 }}>
+                <Typography variant="body2" fontWeight={600}>
+                  {selectedErrorForStatus.error_title}
                 </Typography>
-              </Paper>
-
-              {/* ✅ ATTACHMENTS SECTION - UPDATED WITH GRID VIEW AND PREVIEW */}
-              {viewingError.attachments && viewingError.attachments.split(',').filter(Boolean).length > 0 && (
-                <Box sx={{ mb: 3 }}>
-                  <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2, color: colors.darkNavy }}>
-                    Attachments ({viewingError.attachments.split(',').filter(Boolean).length})
+                <Typography variant="caption" sx={{ display: 'block', color: colors.lightText }}>
+                  Equipment: {selectedErrorForStatus.equipment_name}
+                </Typography>
+                <Typography variant="caption" sx={{ display: 'block', color: colors.lightText, mt: 0.5 }}>
+                  Current Status: <strong>{selectedErrorForStatus.status || 'Pending'}</strong>
+                </Typography>
+                {user?.role === 'ENGINEER' && (
+                  <Typography variant="caption" sx={{ display: 'block', color: colors.warning, mt: 0.5 }}>
+                    ℹ️ You can update any error in your hospital
                   </Typography>
-                  <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 2 }}>
-                    Click on any file to preview it
-                  </Typography>
-                  
-                  <AttachmentGrid 
-                    attachments={viewingError.attachments.split(',').filter(Boolean)}
-                    onFileClick={(url) => window.open(url, '_blank')}
-                  />
-                </Box>
-              )}
+                )}
+              </Alert>
+              
+              <FormControl fullWidth>
+                <InputLabel sx={{ color: colors.lightText }}>New Status</InputLabel>
+                <Select
+                  value={newStatus}
+                  onChange={(e) => setNewStatus(e.target.value)}
+                  label="New Status"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                    }
+                  }}
+                >
+                  <MenuItem value="Pending">Pending</MenuItem>
+                  <MenuItem value="In Progress">In Progress</MenuItem>
+                  <MenuItem value="Completed">Completed</MenuItem>
+                  <MenuItem value="Resolved">Resolved</MenuItem>
+                </Select>
+              </FormControl>
             </Box>
           )}
         </DialogContent>
         
-        <DialogActions sx={{ p: 3, justifyContent: 'space-between' }}>
+        <DialogActions sx={{ p: 3, gap: 1 }}>
           <Button 
-            onClick={handleCloseView} 
+            onClick={handleCloseStatusDialog} 
+            disabled={statusUpdating}
             sx={{ 
               color: colors.darkNavy,
               '&:hover': { 
@@ -1580,28 +1602,33 @@ const ErrorLogs = () => {
               textTransform: 'none',
             }}
           >
-            Close
+            Cancel
           </Button>
-          {isSuperAdmin && viewingError && (
-            <Button
-              variant="contained"
-              color="error"
-              onClick={() => {
-                if (window.confirm('Are you sure you want to delete this error?')) {
-                  handleErrorDelete(viewingError.id)
-                  handleCloseView()
-                }
-              }}
-              startIcon={<Delete />}
-              sx={{ 
-                boxShadow: `0 4px 16px ${colors.error}44`,
-                textTransform: 'none',
-                borderRadius: 2,
-              }}
-            >
-              Delete
-            </Button>
-          )}
+          <Button 
+            variant="contained" 
+            onClick={handleStatusUpdate}
+            disabled={statusUpdating}
+            sx={{ 
+              bgcolor: colors.info, 
+              '&:hover': { 
+                bgcolor: '#1D4ED8',
+                boxShadow: `0 4px 20px ${colors.info}44`
+              },
+              boxShadow: `0 4px 16px ${colors.info}44`,
+              textTransform: 'none',
+              borderRadius: 2,
+              minWidth: 120,
+            }}
+          >
+            {statusUpdating ? (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <CircularProgress size={16} sx={{ color: 'white' }} />
+                Updating...
+              </Box>
+            ) : (
+              'Update Status'
+            )}
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

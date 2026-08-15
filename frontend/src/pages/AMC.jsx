@@ -7,6 +7,10 @@
 // ✅ File upload for documents
 // ✅ Export to CSV, Excel, PDF
 // ✅ Expiry alerts
+// ✅ Status auto-set by backend (field removed from form)
+// ✅ Field name: document_url (instead of documents)
+// ✅ Date picker fixed with min/max validation
+// ✅ Currency: PKR (Pakistani Rupee)
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -107,6 +111,29 @@ const colors = {
   success: '#22C55E',
   warning: '#F59E0B',
   info: '#3B82F6',
+}
+
+// ============================================================
+// ✅ CURRENCY FORMATTER - PKR
+// ============================================================
+const formatPKR = (amount) => {
+  if (!amount && amount !== 0) return 'PKR 0'
+  const num = parseFloat(amount)
+  if (isNaN(num)) return 'PKR 0'
+  return `PKR ${num.toLocaleString('en-PK', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  })}`
+}
+
+const formatPKRWithDecimals = (amount) => {
+  if (!amount && amount !== 0) return 'PKR 0.00'
+  const num = parseFloat(amount)
+  if (isNaN(num)) return 'PKR 0.00'
+  return `PKR ${num.toLocaleString('en-PK', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`
 }
 
 // ============================================================
@@ -227,6 +254,8 @@ const AMC = () => {
     status: ''
   })
   
+  // ✅ Status field removed from form - backend will auto-set it
+  // ✅ Changed from 'documents' to 'document_url'
   const [formData, setFormData] = useState({
     equipment_id: '',
     vendor_name: '',
@@ -236,9 +265,8 @@ const AMC = () => {
     cost: '',
     contact_person: '',
     contact_phone: '',
-    status: 'Active',
     notes: '',
-    documents: ''
+    document_url: ''
   })
 
   useEffect(() => {
@@ -289,9 +317,8 @@ const AMC = () => {
         cost: contract.cost || '',
         contact_person: contract.contact_person || '',
         contact_phone: contract.contact_phone || '',
-        status: contract.status || 'Active',
         notes: contract.notes || '',
-        documents: contract.documents || ''
+        document_url: contract.document_url || ''
       })
     } else {
       setEditingContract(null)
@@ -304,9 +331,8 @@ const AMC = () => {
         cost: '',
         contact_person: '',
         contact_phone: '',
-        status: 'Active',
         notes: '',
-        documents: ''
+        document_url: ''
       })
     }
     setOpenDialog(true)
@@ -343,7 +369,7 @@ const AMC = () => {
     try {
       const submitData = {
         ...formData,
-        documents: formData.documents || ''
+        document_url: formData.document_url || ''
       }
       
       console.log('📤 Submitting AMC data:', submitData)
@@ -418,14 +444,14 @@ const AMC = () => {
 
   const exportToCSV = () => {
     try {
-      const headers = ['Equipment', 'Vendor', 'Contract #', 'Start Date', 'End Date', 'Cost', 'Status', 'Contact Person', 'Contact Phone']
+      const headers = ['Equipment', 'Vendor', 'Contract #', 'Start Date', 'End Date', 'Cost (PKR)', 'Status', 'Contact Person', 'Contact Phone']
       const rows = filteredContracts.map(c => [
         c.equipment_name || 'N/A',
         c.vendor_name,
         c.contract_number || 'N/A',
         c.start_date || '',
         c.end_date || '',
-        c.cost || '',
+        c.cost ? parseFloat(c.cost).toLocaleString('en-PK') : '0',
         c.status,
         c.contact_person || '',
         c.contact_phone || ''
@@ -460,7 +486,7 @@ const AMC = () => {
           'Contract #': c.contract_number || 'N/A',
           'Start Date': c.start_date || '',
           'End Date': c.end_date || '',
-          'Cost': c.cost || '',
+          'Cost (PKR)': c.cost ? parseFloat(c.cost) : 0,
           'Status': c.status,
           'Contact Person': c.contact_person || '',
           'Contact Phone': c.contact_phone || ''
@@ -507,11 +533,12 @@ const AMC = () => {
           c.contract_number || 'N/A',
           c.start_date || '',
           c.end_date || '',
+          c.cost ? `PKR ${parseFloat(c.cost).toLocaleString('en-PK')}` : 'PKR 0',
           c.status
         ])
         
         autoTable(doc, {
-          head: [['Equipment', 'Vendor', 'Contract #', 'Start Date', 'End Date', 'Status']],
+          head: [['Equipment', 'Vendor', 'Contract #', 'Start Date', 'End Date', 'Cost (PKR)', 'Status']],
           body: tableData,
           startY: 40,
           styles: { fontSize: 8, cellPadding: 3 },
@@ -560,6 +587,9 @@ const AMC = () => {
   const expiredContracts = contracts.filter(c => c.status === 'Expired').length
   const pendingContracts = contracts.filter(c => c.status === 'Pending').length
   const expiringSoon = contracts.filter(c => isExpiringSoon(c.end_date) && c.status === 'Active').length
+
+  // ✅ Calculate total cost in PKR
+  const totalCostPKR = contracts.reduce((sum, c) => sum + (parseFloat(c.cost) || 0), 0)
 
   const filteredContracts = contracts.filter(contract => {
     const matchesSearch = contract.vendor_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -644,7 +674,7 @@ const AMC = () => {
         </Box>
       </Box>
 
-      {/* Stats Cards */}
+      {/* Stats Cards with PKR */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={6} sm={3}>
           <StatsCard 
@@ -685,6 +715,70 @@ const AMC = () => {
             bgColor={colors.error}
             subtext="Expired contracts"
           />
+        </Grid>
+      </Grid>
+
+      {/* ✅ Total Cost in PKR */}
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={12} sm={6} md={4}>
+          <Card sx={{ 
+            borderRadius: 3, 
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: `0 2px 8px ${colors.cardShadow}`,
+            bgcolor: colors.cardBg,
+          }}>
+            <CardContent sx={{ textAlign: 'center', py: 2 }}>
+              <Typography variant="body2" sx={{ color: colors.textLight, fontWeight: 500 }}>
+                Total Contract Value
+              </Typography>
+              <Typography variant="h5" sx={{ color: colors.success, fontWeight: 700 }}>
+                {formatPKR(totalCostPKR)}
+              </Typography>
+              <Typography variant="caption" sx={{ color: colors.textLight }}>
+                All AMC contracts combined
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={4}>
+          <Card sx={{ 
+            borderRadius: 3, 
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: `0 2px 8px ${colors.cardShadow}`,
+            bgcolor: colors.cardBg,
+          }}>
+            <CardContent sx={{ textAlign: 'center', py: 2 }}>
+              <Typography variant="body2" sx={{ color: colors.textLight, fontWeight: 500 }}>
+                Average Contract Value
+              </Typography>
+              <Typography variant="h5" sx={{ color: colors.lightCyanDark, fontWeight: 700 }}>
+                {totalContracts > 0 ? formatPKR(totalCostPKR / totalContracts) : 'PKR 0'}
+              </Typography>
+              <Typography variant="caption" sx={{ color: colors.textLight }}>
+                Per AMC contract average
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={4}>
+          <Card sx={{ 
+            borderRadius: 3, 
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: `0 2px 8px ${colors.cardShadow}`,
+            bgcolor: colors.cardBg,
+          }}>
+            <CardContent sx={{ textAlign: 'center', py: 2 }}>
+              <Typography variant="body2" sx={{ color: colors.textLight, fontWeight: 500 }}>
+                Highest Value Contract
+              </Typography>
+              <Typography variant="h5" sx={{ color: colors.warning, fontWeight: 700 }}>
+                {contracts.length > 0 ? formatPKR(Math.max(...contracts.map(c => parseFloat(c.cost) || 0))) : 'PKR 0'}
+              </Typography>
+              <Typography variant="caption" sx={{ color: colors.textLight }}>
+                Maximum contract value
+              </Typography>
+            </CardContent>
+          </Card>
         </Grid>
       </Grid>
 
@@ -825,7 +919,7 @@ const AMC = () => {
               <TableCell sx={{ color: colors.textWhite, fontWeight: 600 }}>Contract #</TableCell>
               <TableCell sx={{ color: colors.textWhite, fontWeight: 600 }}>Start Date</TableCell>
               <TableCell sx={{ color: colors.textWhite, fontWeight: 600 }}>End Date</TableCell>
-              <TableCell sx={{ color: colors.textWhite, fontWeight: 600 }}>Cost</TableCell>
+              <TableCell sx={{ color: colors.textWhite, fontWeight: 600 }}>Cost (PKR)</TableCell>
               <TableCell sx={{ color: colors.textWhite, fontWeight: 600 }}>Status</TableCell>
               <TableCell sx={{ color: colors.textWhite, fontWeight: 600 }} align="center">Actions</TableCell>
             </TableRow>
@@ -904,8 +998,8 @@ const AMC = () => {
                         )}
                       </Box>
                     </TableCell>
-                    <TableCell sx={{ color: colors.textPrimary }}>
-                      {contract.cost ? `$${safeToFixed(contract.cost)}` : '-'}
+                    <TableCell sx={{ color: colors.textPrimary, fontWeight: 600 }}>
+                      {contract.cost ? formatPKR(contract.cost) : 'PKR 0'}
                     </TableCell>
                     <TableCell>
                       <Chip 
@@ -989,7 +1083,7 @@ const AMC = () => {
         </Table>
       </TableContainer>
 
-      {/* Add/Edit Dialog */}
+      {/* Add/Edit Dialog - Status field REMOVED with Date Picker Fix */}
       <Dialog 
         open={openDialog} 
         onClose={handleCloseDialog} 
@@ -1043,12 +1137,13 @@ const AMC = () => {
                   <MenuItem value="">Select Equipment</MenuItem>
                   {equipment.map(item => (
                     <MenuItem key={item.id} value={item.id}>
-                      {item.name} - {item.model}
+                      {item.name} - {item.model || 'No Model'}
                     </MenuItem>
                   ))}
                 </Select>
               </FormControl>
             </Grid>
+
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
@@ -1066,6 +1161,7 @@ const AMC = () => {
                 }}
               />
             </Grid>
+
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
@@ -1082,15 +1178,22 @@ const AMC = () => {
                 }}
               />
             </Grid>
+
+            {/* ✅ START DATE - FIXED with max validation */}
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
                 label="Start Date"
                 name="start_date"
                 type="date"
-                value={formData.start_date}
+                value={formData.start_date || ''}
                 onChange={handleFormChange}
                 InputLabelProps={{ shrink: true }}
+                InputProps={{
+                  inputProps: {
+                    max: formData.end_date || undefined
+                  }
+                }}
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     '& fieldset': { borderColor: colors.borderDark },
@@ -1100,15 +1203,22 @@ const AMC = () => {
                 }}
               />
             </Grid>
+
+            {/* ✅ END DATE - FIXED with min validation */}
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
                 label="End Date"
                 name="end_date"
                 type="date"
-                value={formData.end_date}
+                value={formData.end_date || ''}
                 onChange={handleFormChange}
                 InputLabelProps={{ shrink: true }}
+                InputProps={{
+                  inputProps: {
+                    min: formData.start_date || undefined
+                  }
+                }}
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     '& fieldset': { borderColor: colors.borderDark },
@@ -1118,15 +1228,25 @@ const AMC = () => {
                 }}
               />
             </Grid>
+
+            {/* ✅ Cost - PKR with prefix */}
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                label="Cost ($)"
+                label="Cost (PKR)"
                 name="cost"
                 type="number"
                 value={formData.cost}
                 onChange={handleFormChange}
-                InputProps={{ inputProps: { min: 0, step: 0.01 } }}
+                InputProps={{
+                  inputProps: { min: 0, step: 0.01 },
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Typography sx={{ color: colors.textLight, fontWeight: 600 }}>PKR</Typography>
+                    </InputAdornment>
+                  )
+                }}
+                helperText="Enter cost in Pakistani Rupees"
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     '& fieldset': { borderColor: colors.borderDark },
@@ -1136,28 +1256,7 @@ const AMC = () => {
                 }}
               />
             </Grid>
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel sx={{ color: colors.textLight }}>Status</InputLabel>
-                <Select
-                  name="status"
-                  value={formData.status}
-                  onChange={handleFormChange}
-                  label="Status"
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      '& fieldset': { borderColor: colors.borderDark },
-                      '&:hover fieldset': { borderColor: colors.lightCyan },
-                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                    }
-                  }}
-                >
-                  <MenuItem value="Active">Active</MenuItem>
-                  <MenuItem value="Expired">Expired</MenuItem>
-                  <MenuItem value="Pending">Pending</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
+
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
@@ -1174,6 +1273,7 @@ const AMC = () => {
                 }}
               />
             </Grid>
+
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
@@ -1190,6 +1290,9 @@ const AMC = () => {
                 }}
               />
             </Grid>
+            
+            {/* ✅ Status field REMOVED - Backend auto-sets status based on end_date */}
+
             <Grid item xs={12}>
               <TextField
                 fullWidth
@@ -1231,7 +1334,7 @@ const AMC = () => {
                     const docUrl = file.url || file.fileUrl
                     setFormData(prev => ({
                       ...prev,
-                      documents: docUrl
+                      document_url: docUrl
                     }))
                     toast.success('Document uploaded successfully')
                   }
@@ -1240,24 +1343,24 @@ const AMC = () => {
                 onDelete={(file) => {
                   setFormData(prev => ({
                     ...prev,
-                    documents: ''
+                    document_url: ''
                   }))
                   toast.info('Document removed')
                 }}
-                existingFiles={formData.documents ? [{
-                  url: formData.documents,
-                  name: formData.documents.split('/').pop(),
+                existingFiles={formData.document_url ? [{
+                  url: formData.document_url,
+                  name: formData.document_url.split('/').pop(),
                   type: 'document'
                 }] : []}
               />
               
-              {formData.documents && (
+              {formData.document_url && (
                 <Box sx={{ mt: 1 }}>
                   <Button 
                     variant="outlined" 
                     size="small" 
                     startIcon={<Description />}
-                    href={getFullUrl(formData.documents)} 
+                    href={getFullUrl(formData.document_url)}
                     target="_blank"
                     sx={{ 
                       borderColor: colors.borderDark,
@@ -1340,6 +1443,7 @@ const AMC = () => {
               <Alert severity="info" sx={{ mb: 2, borderRadius: 2, border: `1px solid rgba(59, 130, 246, 0.2)` }}>
                 <Typography variant="body2">
                   <strong>Renew Contract:</strong> Extend the AMC contract with a new end date and updated cost.
+                  Status will be auto-updated by the system.
                 </Typography>
               </Alert>
             </Grid>
@@ -1364,12 +1468,19 @@ const AMC = () => {
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="New Cost ($)"
+                label="New Cost (PKR)"
                 type="number"
                 value={renewData.cost}
                 onChange={(e) => setRenewData({ ...renewData, cost: e.target.value })}
-                InputProps={{ inputProps: { min: 0, step: 0.01 } }}
-                helperText="Enter the new contract cost"
+                InputProps={{
+                  inputProps: { min: 0, step: 0.01 },
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Typography sx={{ color: colors.textLight, fontWeight: 600 }}>PKR</Typography>
+                    </InputAdornment>
+                  )
+                }}
+                helperText="Enter the new contract cost in Pakistani Rupees"
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     '& fieldset': { borderColor: colors.borderDark },
@@ -1501,9 +1612,9 @@ const AMC = () => {
                 </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
-                <Typography variant="body2" sx={{ color: colors.textLight }}>Cost</Typography>
+                <Typography variant="body2" sx={{ color: colors.textLight }}>Cost (PKR)</Typography>
                 <Typography variant="body1" fontWeight={600} sx={{ color: colors.lightCyanDark }}>
-                  {viewingContract.cost ? `$${safeToFixed(viewingContract.cost)}` : '-'}
+                  {viewingContract.cost ? formatPKR(viewingContract.cost) : 'PKR 0'}
                 </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
@@ -1565,7 +1676,7 @@ const AMC = () => {
                 </Grid>
               )}
 
-              {viewingContract.documents && (
+              {viewingContract.document_url && (
                 <Grid item xs={12}>
                   <Divider sx={{ borderColor: colors.borderColor }} />
                   <Typography variant="body2" sx={{ color: colors.textLight, mt: 2, mb: 1 }}>
@@ -1576,7 +1687,7 @@ const AMC = () => {
                     variant="outlined" 
                     size="small" 
                     startIcon={<Description />}
-                    href={getFullUrl(viewingContract.documents)} 
+                    href={getFullUrl(viewingContract.document_url)}
                     target="_blank"
                     sx={{ 
                       borderColor: colors.borderDark,
