@@ -1,15 +1,6 @@
 // src/pages/Training.jsx
-// ✅ COMPLETE TRAINING MANAGEMENT PAGE
-// ✅ DARK NAVY + LIGHT CYAN THEME - Matching Equipment page
-// ✅ All CRUD operations working
-// ✅ Participant management
-// ✅ Stats cards with same design as Equipment page
-// ✅ Tabs for filtering
-// ✅ Search and filters
-// ✅ Document/Image Upload Support
-// ✅ FIXED: Dates are optional (empty strings allowed)
-// ✅ UPDATED: Stats cards design matches Equipment page (icons in colored circles with glow)
-// ✅ REMOVED: CSV export option (keeping Excel and PDF only)
+// ✅ COMPLETE FIXED - Manual participant entry (NO DROPDOWN)
+// ✅ Only Local/Foreign dropdown, everything else manual
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -53,6 +44,7 @@ import {
   Fade,
   Grow,
   Menu,
+  CircularProgress,
 } from '@mui/material';
 import {
   Add,
@@ -106,7 +98,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 // ============================================================
-// ✅ DARK NAVY + LIGHT CYAN THEME COLORS - Matching Equipment page
+// ✅ DARK NAVY + LIGHT CYAN THEME COLORS
 // ============================================================
 const colors = {
   darkNavy: '#0F172A',
@@ -138,7 +130,7 @@ const colors = {
   bgGradientEnd: '#E8EEF5',
 };
 
-// ✅ Animation Styles - Same as Equipment page
+// ✅ Animation Styles
 const animationStyles = `
 @keyframes fadeInUp {
   from {
@@ -196,7 +188,7 @@ const isImageFile = (url) => {
 const isVideoFile = (url) => {
   if (!url) return false;
   const ext = url.split('.').pop()?.toLowerCase() || '';
-  return ['mp4', 'mov', 'avi', 'mkv', 'wmv', 'flv', 'webm'].includes(ext);
+  return ['mp4', 'webm', 'mov', 'avi', 'mkv', 'wmv', 'flv', 'webm'].includes(ext);
 };
 
 const getFileName = (url) => {
@@ -336,7 +328,6 @@ const AttachmentGrid = ({ attachments, onFileClick }) => {
                 </Box>
               )}
               
-              {/* Overlay */}
               <Box 
                 className="attachment-overlay"
                 sx={{ 
@@ -393,7 +384,6 @@ const AttachmentGrid = ({ attachments, onFileClick }) => {
         })}
       </ImageList>
 
-      {/* Preview Dialog */}
       <PreviewDialog
         open={previewOpen}
         onClose={() => setPreviewOpen(false)}
@@ -495,8 +485,22 @@ const AttachmentGrid = ({ attachments, onFileClick }) => {
 // ============================================================
 const Training = () => {
   const { user } = useSelector((state) => state.auth);
+  
+  // ✅ PERMISSIONS
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+  const isHospitalAdmin = user?.role === 'HOSPITAL_ADMIN';
   const isEngineer = user?.role === 'ENGINEER';
+  
+  // ✅ Super Admin & Hospital Admin have FULL access
+  const canManage = isSuperAdmin || isHospitalAdmin;
+  const canCreate = canManage;
+  const canEdit = canManage;
+  const canDelete = canManage;
+  const canAddParticipants = canManage;
+  const canRemoveParticipants = canManage;
+  
+  // ✅ Engineer can ONLY view and add themselves as participant (ONE-CLICK)
+  const canSelfParticipate = isEngineer;
 
   const [trainings, setTrainings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -509,12 +513,14 @@ const Training = () => {
   const [viewingTraining, setViewingTraining] = useState(null);
   const [selectedTraining, setSelectedTraining] = useState(null);
   const [stats, setStats] = useState({ total: 0, pending: 0, local: 0, foreign: 0, inProgress: 0, completed: 0 });
-  const [users, setUsers] = useState([]);
-  const [selectedUserId, setSelectedUserId] = useState('');
   const [viewTabValue, setViewTabValue] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [filterAnchorEl, setFilterAnchorEl] = useState(null);
   const [exportAnchorEl, setExportAnchorEl] = useState(null);
+  const [selfJoining, setSelfJoining] = useState({});
+
+  // ✅ MANUAL PARTICIPANT NAME - No dropdown, simple text field
+  const [participantName, setParticipantName] = useState('');
 
   const [filters, setFilters] = useState({
     type: '',
@@ -542,6 +548,7 @@ const Training = () => {
     setLoading(true);
     try {
       const response = await api.get('/training');
+      console.log('📦 Trainings response:', response.data);
       setTrainings(response.data.trainings || []);
     } catch (error) {
       console.error('Fetch trainings error:', error);
@@ -560,21 +567,9 @@ const Training = () => {
     }
   };
 
-  const fetchUsers = async () => {
-    try {
-      const response = await api.get('/users');
-      setUsers(response.data.users || []);
-    } catch (error) {
-      console.error('Fetch users error:', error);
-    }
-  };
-
   useEffect(() => {
     fetchTrainings();
     fetchStats();
-    if (isSuperAdmin || isEngineer) {
-      fetchUsers();
-    }
   }, []);
 
   // ============================================================
@@ -623,12 +618,10 @@ const Training = () => {
   };
 
   // ============================================================
-  // ✅ EXPORT HANDLERS - CSV REMOVED, KEEPING EXCEL & PDF
+  // ✅ EXPORT HANDLERS
   // ============================================================
   const handleExportClick = (event) => setExportAnchorEl(event.currentTarget);
   const handleExportClose = () => setExportAnchorEl(null);
-
-  // ❌ CSV export removed - keeping only Excel and PDF
 
   const exportToExcel = () => {
     try {
@@ -701,6 +694,11 @@ const Training = () => {
   };
 
   const handleOpenDialog = (training = null) => {
+    if (!canManage) {
+      toast.error('Only Super Admin and Hospital Admin can manage trainings');
+      return;
+    }
+    
     if (training) {
       setEditingTraining(training);
       setFormData({
@@ -752,16 +750,21 @@ const Training = () => {
     setViewTabValue(0);
   };
 
+  // ✅ OPEN PARTICIPANT DIALOG - Manual entry, no dropdown
   const handleOpenParticipantDialog = (training) => {
+    if (!canManage) {
+      toast.error('Only Super Admin and Hospital Admin can manage participants');
+      return;
+    }
     setSelectedTraining(training);
-    setSelectedUserId('');
+    setParticipantName(''); // Reset field
     setOpenParticipantDialog(true);
   };
 
   const handleCloseParticipantDialog = () => {
     setOpenParticipantDialog(false);
     setSelectedTraining(null);
-    setSelectedUserId('');
+    setParticipantName('');
   };
 
   const handleFormChange = (e) => {
@@ -786,6 +789,11 @@ const Training = () => {
   // ✅ CRUD OPERATIONS
   // ============================================================
   const handleSubmit = async () => {
+    if (!canManage) {
+      toast.error('Only Super Admin and Hospital Admin can manage trainings');
+      return;
+    }
+    
     try {
       if (!formData.title) {
         toast.error('Training title is required');
@@ -828,8 +836,8 @@ const Training = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!isSuperAdmin) {
-      toast.error('Only Super Admin can delete trainings');
+    if (!canDelete) {
+      toast.error('Only Super Admin and Hospital Admin can delete trainings');
       return;
     }
     if (window.confirm('Are you sure you want to delete this training?')) {
@@ -845,16 +853,17 @@ const Training = () => {
     }
   };
 
+  // ✅ Add Participant - MANUAL ENTRY (NO DROPDOWN)
   const handleAddParticipant = async () => {
-    if (!selectedUserId) {
-      toast.error('Please select a participant');
+    if (!participantName.trim()) {
+      toast.error('Please enter participant name');
       return;
     }
     try {
       await api.post(`/training/${selectedTraining.id}/participants`, {
-        user_id: parseInt(selectedUserId),
+        name: participantName.trim(),
       });
-      toast.success('Participant added successfully');
+      toast.success(`✅ ${participantName.trim()} added as participant!`);
       fetchTrainings();
       handleCloseParticipantDialog();
     } catch (error) {
@@ -863,7 +872,12 @@ const Training = () => {
     }
   };
 
+  // ✅ Remove Participant
   const handleRemoveParticipant = async (trainingId, userId) => {
+    if (!canManage) {
+      toast.error('Only Super Admin and Hospital Admin can remove participants');
+      return;
+    }
     if (!window.confirm('Remove this participant?')) return;
     try {
       await api.delete(`/training/${trainingId}/participants/${userId}`);
@@ -873,6 +887,39 @@ const Training = () => {
       console.error('Remove participant error:', error);
       toast.error('Failed to remove participant');
     }
+  };
+
+  // ✅ ENGINEER SELF-ADD - ONE CLICK
+  const handleSelfAddParticipant = async (training) => {
+    if (!isEngineer) {
+      toast.error('Only Engineers can self-add to trainings');
+      return;
+    }
+    
+    setSelfJoining(prev => ({ ...prev, [training.id]: true }));
+    
+    try {
+      await api.post(`/training/${training.id}/participants`, {
+        user_id: user.id,
+      });
+      toast.success('✅ You have been added as a participant!');
+      fetchTrainings();
+    } catch (error) {
+      console.error('Self-add error:', error);
+      if (error.response?.data?.message?.includes('already')) {
+        toast.info('You are already a participant in this training');
+      } else {
+        toast.error(error.response?.data?.message || 'Failed to add as participant');
+      }
+    } finally {
+      setSelfJoining(prev => ({ ...prev, [training.id]: false }));
+    }
+  };
+
+  // ✅ Check if engineer is already a participant
+  const isUserParticipant = (training) => {
+    if (!training || !training.participants) return false;
+    return training.participants.some(p => p.id === user?.id || p.user_id === user?.id);
   };
 
   // ============================================================
@@ -945,7 +992,7 @@ const Training = () => {
 
   const filteredTrainings = getFilteredTrainings();
 
-  // ✅ Stats Cards Data - Same design as Equipment page
+  // ✅ Stats Cards
   const statsCards = [
     {
       title: 'Total Trainings',
@@ -984,20 +1031,6 @@ const Training = () => {
     },
   ];
 
-  // ============================================================
-  // ✅ TOOLTIP WRAPPER FIX
-  // ============================================================
-  const TooltipWrapper = ({ children, title, disabled }) => {
-    if (disabled) {
-      return (
-        <Tooltip title={title}>
-          <span>{children}</span>
-        </Tooltip>
-      );
-    }
-    return <Tooltip title={title}>{children}</Tooltip>;
-  };
-
   if (loading) {
     return <LinearProgress sx={{ bgcolor: colors.borderColor, '& .MuiLinearProgress-bar': { bgcolor: colors.lightCyan } }} />;
   }
@@ -1012,9 +1045,7 @@ const Training = () => {
     }}>
       <style>{animationStyles}</style>
 
-      {/* ============================================================
-          HEADER - Same as Equipment page
-          ============================================================ */}
+      {/* HEADER */}
       <Box sx={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
@@ -1053,10 +1084,35 @@ const Training = () => {
           >
             Manage all training programs and participants
           </Typography>
+          {isEngineer && (
+            <Chip 
+              label="View Only + One-Click Join" 
+              size="small" 
+              sx={{ 
+                mt: 1, 
+                bgcolor: colors.info, 
+                color: colors.text, 
+                fontWeight: 600,
+                borderRadius: 2,
+              }} 
+            />
+          )}
+          {canManage && (
+            <Chip 
+              label="Full Access" 
+              size="small" 
+              sx={{ 
+                mt: 1, 
+                bgcolor: colors.success, 
+                color: colors.text, 
+                fontWeight: 600,
+                borderRadius: 2,
+              }} 
+            />
+          )}
         </Box>
         
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-          {/* ✅ REFRESH BUTTON - BORDER STYLE (Fills on hover/click) */}
           <Button 
             variant="outlined" 
             startIcon={<Refresh />} 
@@ -1065,7 +1121,6 @@ const Training = () => {
             sx={{ 
               borderColor: colors.lightCyan,
               color: colors.lightCyan,
-              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
               textTransform: 'none',
               borderRadius: 2,
               transition: 'all 0.3s ease',
@@ -1076,18 +1131,11 @@ const Training = () => {
                 boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
                 transform: 'translateY(-2px)',
               },
-              '&:active': {
-                bgcolor: colors.lightCyan,
-                color: colors.darkNavy,
-                borderColor: colors.lightCyan,
-                transform: 'scale(0.96)',
-              }
             }}
           >
             Refresh
           </Button>
           
-          {/* ✅ FILTER BUTTON - Same as Equipment page */}
           <Button 
             variant="contained"
             startIcon={<FilterList />} 
@@ -1109,7 +1157,6 @@ const Training = () => {
             Filter
           </Button>
           
-          {/* ✅ EXPORT BUTTON - Same as Equipment page */}
           <Button 
             variant="contained"
             startIcon={<Download />} 
@@ -1131,7 +1178,7 @@ const Training = () => {
             Export
           </Button>
           
-          {(isSuperAdmin || isEngineer) && (
+          {canManage && (
             <Button
               variant="contained"
               startIcon={<Add />}
@@ -1156,9 +1203,7 @@ const Training = () => {
         </Box>
       </Box>
 
-      {/* ============================================================
-          STATS CARDS - Same design as Equipment page
-          ============================================================ */}
+      {/* STATS CARDS */}
       <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }} sx={{ mb: 3 }}>
         {statsCards.map((card, index) => (
           <Grid item xs={6} sm={2.4} key={index}>
@@ -1242,9 +1287,7 @@ const Training = () => {
         ))}
       </Grid>
 
-      {/* ============================================================
-          TABS
-          ============================================================ */}
+      {/* TABS */}
       <Paper sx={{
         mb: 3,
         borderRadius: 3,
@@ -1264,7 +1307,6 @@ const Training = () => {
               fontSize: '14px',
               minHeight: 48,
               color: colors.lightText,
-              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
             },
             '& .Mui-selected': {
               color: colors.darkNavy,
@@ -1282,9 +1324,7 @@ const Training = () => {
         </Tabs>
       </Paper>
 
-      {/* ============================================================
-          SEARCH - Only search bar
-          ============================================================ */}
+      {/* SEARCH */}
       <Paper sx={{
         p: 2,
         mb: 3,
@@ -1313,19 +1353,13 @@ const Training = () => {
                   '&:hover fieldset': { borderColor: colors.lightCyan },
                   '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                 },
-                '& .MuiInputBase-input': {
-                  fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  fontSize: '0.9rem',
-                }
               }
             }}
           />
         </Box>
       </Paper>
 
-      {/* ============================================================
-          FILTER MENU - Same as Equipment page
-          ============================================================ */}
+      {/* FILTER MENU */}
       <Menu
         anchorEl={filterAnchorEl}
         open={Boolean(filterAnchorEl)}
@@ -1427,9 +1461,7 @@ const Training = () => {
         </Box>
       </Menu>
 
-      {/* ============================================================
-          EXPORT MENU - CSV REMOVED, KEEPING EXCEL & PDF
-          ============================================================ */}
+      {/* EXPORT MENU */}
       <Menu
         anchorEl={exportAnchorEl}
         open={Boolean(exportAnchorEl)}
@@ -1444,7 +1476,6 @@ const Training = () => {
           } 
         }}
       >
-        {/* ✅ Excel Export Option */}
         <MenuItem 
           onClick={exportToExcel} 
           sx={{ 
@@ -1461,7 +1492,6 @@ const Training = () => {
           </Box>
         </MenuItem>
         
-        {/* ✅ PDF Export Option */}
         <MenuItem 
           onClick={exportToPDF} 
           sx={{ 
@@ -1479,9 +1509,7 @@ const Training = () => {
         </MenuItem>
       </Menu>
 
-      {/* ============================================================
-          TABLE
-          ============================================================ */}
+      {/* TABLE */}
       <TableContainer
         component={Paper}
         sx={{
@@ -1496,13 +1524,13 @@ const Training = () => {
         <Table>
           <TableHead sx={{ bgcolor: colors.darkNavy }}>
             <TableRow>
-              <TableCell sx={{ color: colors.text, fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2, minWidth: 150 }}>Training</TableCell>
-              <TableCell sx={{ color: colors.text, fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Type</TableCell>
-              <TableCell sx={{ color: colors.text, fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Trainer</TableCell>
-              <TableCell sx={{ color: colors.text, fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Department</TableCell>
-              <TableCell sx={{ color: colors.text, fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }} align="center">Participants</TableCell>
-              <TableCell sx={{ color: colors.text, fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Status</TableCell>
-              <TableCell sx={{ color: colors.text, fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }} align="center">Actions</TableCell>
+              <TableCell sx={{ color: colors.text, fontWeight: 600, py: 2, minWidth: 150 }}>Training</TableCell>
+              <TableCell sx={{ color: colors.text, fontWeight: 600, py: 2 }}>Type</TableCell>
+              <TableCell sx={{ color: colors.text, fontWeight: 600, py: 2 }}>Trainer</TableCell>
+              <TableCell sx={{ color: colors.text, fontWeight: 600, py: 2 }}>Department</TableCell>
+              <TableCell sx={{ color: colors.text, fontWeight: 600, py: 2 }} align="center">Participants</TableCell>
+              <TableCell sx={{ color: colors.text, fontWeight: 600, py: 2 }}>Status</TableCell>
+              <TableCell sx={{ color: colors.text, fontWeight: 600, py: 2 }} align="center">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -1511,13 +1539,13 @@ const Training = () => {
                 <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
                   <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
                     <School sx={{ fontSize: 48, color: colors.borderColor }} />
-                    <Typography variant="body1" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                    <Typography variant="body1" sx={{ color: colors.lightText }}>
                       No trainings found
                     </Typography>
-                    <Typography variant="caption" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                    <Typography variant="caption" sx={{ color: colors.lightText }}>
                       Try adjusting your search or filters
                     </Typography>
-                    {(isSuperAdmin || isEngineer) && (
+                    {canManage && (
                       <Button
                         variant="contained"
                         startIcon={<Add />}
@@ -1543,137 +1571,204 @@ const Training = () => {
                 </TableCell>
               </TableRow>
             ) : (
-              filteredTrainings.map((training, index) => (
-                <TableRow
-                  key={training.id}
-                  hover
-                  sx={{
-                    transition: 'all 0.2s ease',
-                    animation: `fadeInUp 0.4s ease-out ${index * 0.05}s both`,
-                    '&:hover': {
-                      backgroundColor: 'rgba(103, 232, 249, 0.04)',
-                    },
-                    '&:last-child td': { borderBottom: 0 }
-                  }}
-                >
-                  <TableCell>
-                    <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                      {training.title}
-                    </Typography>
-                    <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                      {training.start_date ? new Date(training.start_date).toLocaleDateString() : 'TBD'}
-                      {training.end_date && ` - ${new Date(training.end_date).toLocaleDateString()}`}
-                    </Typography>
-                    {training.attachments && training.attachments.split(',').filter(Boolean).length > 0 && (
+              filteredTrainings.map((training, index) => {
+                const isAlreadyParticipant = isUserParticipant(training);
+                const isJoining = selfJoining[training.id] || false;
+
+                return (
+                  <TableRow
+                    key={training.id}
+                    hover
+                    sx={{
+                      transition: 'all 0.2s ease',
+                      animation: `fadeInUp 0.4s ease-out ${index * 0.05}s both`,
+                      '&:hover': {
+                        backgroundColor: 'rgba(103, 232, 249, 0.04)',
+                      },
+                      '&:last-child td': { borderBottom: 0 }
+                    }}
+                  >
+                    <TableCell>
+                      <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>
+                        {training.title}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
+                        {training.start_date ? new Date(training.start_date).toLocaleDateString() : 'TBD'}
+                        {training.end_date && ` - ${new Date(training.end_date).toLocaleDateString()}`}
+                      </Typography>
+                      {training.attachments && training.attachments.split(',').filter(Boolean).length > 0 && (
+                        <Chip
+                          icon={<AttachFile sx={{ fontSize: 12 }} />}
+                          label={training.attachments.split(',').filter(Boolean).length}
+                          size="small"
+                          sx={{
+                            bgcolor: colors.info + '15',
+                            color: colors.info,
+                            height: 18,
+                            fontSize: '9px',
+                            fontWeight: 600,
+                            mt: 0.5,
+                            borderRadius: 2,
+                          }}
+                        />
+                      )}
+                      {isAlreadyParticipant && isEngineer && (
+                        <Chip
+                          label="✓ Joined"
+                          size="small"
+                          sx={{
+                            bgcolor: colors.success,
+                            color: colors.text,
+                            height: 18,
+                            fontSize: '9px',
+                            fontWeight: 600,
+                            mt: 0.5,
+                            ml: 0.5,
+                            borderRadius: 2,
+                          }}
+                        />
+                      )}
+                    </TableCell>
+                    <TableCell>{getTypeChip(training.type)}</TableCell>
+                    <TableCell sx={{ color: colors.lightText }}>
+                      {training.trainer_name || '-'}
+                    </TableCell>
+                    <TableCell sx={{ color: colors.lightText }}>
+                      {training.department || '-'}
+                    </TableCell>
+                    <TableCell align="center">
                       <Chip
-                        icon={<AttachFile sx={{ fontSize: 12 }} />}
-                        label={training.attachments.split(',').filter(Boolean).length}
+                        label={training.participants_count || 0}
                         size="small"
                         sx={{
-                          bgcolor: colors.info + '15',
-                          color: colors.info,
-                          height: 18,
-                          fontSize: '9px',
+                          bgcolor: colors.darkNavy,
+                          color: colors.text,
                           fontWeight: 600,
-                          mt: 0.5,
+                          minWidth: 30,
+                          height: 26,
                           borderRadius: 2,
                         }}
                       />
-                    )}
-                  </TableCell>
-                  <TableCell>{getTypeChip(training.type)}</TableCell>
-                  <TableCell sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                    {training.trainer_name || '-'}
-                  </TableCell>
-                  <TableCell sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                    {training.department || '-'}
-                  </TableCell>
-                  <TableCell align="center">
-                    <Chip
-                      label={training.participants_count || 0}
-                      size="small"
-                      sx={{
-                        bgcolor: colors.darkNavy,
-                        color: colors.text,
-                        fontWeight: 600,
-                        minWidth: 30,
-                        height: 26,
-                        borderRadius: 2,
-                      }}
-                    />
-                  </TableCell>
-                  <TableCell>{getStatusChip(training.status)}</TableCell>
-                  <TableCell align="center">
-                    <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5, flexWrap: 'wrap' }}>
-                      <Tooltip title="View Details">
-                        <IconButton
-                          size="small"
-                          onClick={() => handleView(training)}
-                          sx={{ 
-                            color: colors.darkNavy, 
-                            '&:hover': { 
-                              color: colors.lightCyanDark,
-                              backgroundColor: 'rgba(103, 232, 249, 0.08)'
-                            } 
-                          }}
-                        >
-                          <Visibility fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
+                    </TableCell>
+                    <TableCell>{getStatusChip(training.status)}</TableCell>
+                    <TableCell align="center">
+                      <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+                        {/* View */}
+                        <Tooltip title="View Details">
+                          <IconButton
+                            size="small"
+                            onClick={() => handleView(training)}
+                            sx={{ 
+                              color: colors.darkNavy, 
+                              '&:hover': { 
+                                color: colors.lightCyanDark,
+                                backgroundColor: 'rgba(103, 232, 249, 0.08)'
+                              } 
+                            }}
+                          >
+                            <Visibility fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
 
-                      <TooltipWrapper title="Edit" disabled={!(isSuperAdmin || isEngineer)}>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleOpenDialog(training)}
-                          disabled={!(isSuperAdmin || isEngineer)}
-                          sx={{ 
-                            color: colors.darkNavy, 
-                            '&:hover': { 
-                              color: colors.lightCyanDark,
-                              backgroundColor: 'rgba(103, 232, 249, 0.08)'
-                            } 
-                          }}
-                        >
-                          <Edit fontSize="small" />
-                        </IconButton>
-                      </TooltipWrapper>
+                        {/* Edit - Only Admins */}
+                        {canManage && (
+                          <Tooltip title="Edit Training">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleOpenDialog(training)}
+                              sx={{ 
+                                color: colors.darkNavy, 
+                                '&:hover': { 
+                                  color: colors.lightCyanDark,
+                                  backgroundColor: 'rgba(103, 232, 249, 0.08)'
+                                } 
+                              }}
+                            >
+                              <Edit fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
 
-                      <TooltipWrapper title="Add Participant" disabled={!(isSuperAdmin || isEngineer)}>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleOpenParticipantDialog(training)}
-                          disabled={!(isSuperAdmin || isEngineer)}
-                          sx={{ 
-                            color: colors.info, 
-                            '&:hover': { 
-                              color: colors.lightCyanDark,
-                              backgroundColor: 'rgba(103, 232, 249, 0.08)'
-                            } 
-                          }}
-                        >
-                          <PersonAdd fontSize="small" />
-                        </IconButton>
-                      </TooltipWrapper>
+                        {/* Add Participant - Only Admins (MANUAL ENTRY) */}
+                        {canManage && (
+                          <Tooltip title="Add Participant (Manual)">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleOpenParticipantDialog(training)}
+                              sx={{ 
+                                color: colors.info, 
+                                '&:hover': { 
+                                  color: colors.lightCyanDark,
+                                  backgroundColor: 'rgba(103, 232, 249, 0.08)'
+                                } 
+                              }}
+                            >
+                              <PersonAdd fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
 
-                      <TooltipWrapper title="Delete" disabled={!isSuperAdmin}>
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={() => handleDelete(training.id)}
-                          disabled={!isSuperAdmin}
-                          sx={{
-                            '&:hover': {
-                              backgroundColor: 'rgba(239, 68, 68, 0.08)'
-                            }
-                          }}
-                        >
-                          <Delete fontSize="small" />
-                        </IconButton>
-                      </TooltipWrapper>
-                    </Box>
-                  </TableCell>
-                </TableRow>
-              ))
+                        {/* Engineer One-Click Self-Add */}
+                        {isEngineer && (
+                          isAlreadyParticipant ? (
+                            <Tooltip title="You are already a participant">
+                              <IconButton
+                                size="small"
+                                disabled
+                                sx={{ 
+                                  color: colors.success, 
+                                  opacity: 0.6,
+                                }}
+                              >
+                                <CheckCircle fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          ) : (
+                            <Tooltip title="Join as Participant (One-Click)">
+                              <IconButton
+                                size="small"
+                                onClick={() => handleSelfAddParticipant(training)}
+                                disabled={isJoining}
+                                sx={{ 
+                                  color: colors.success, 
+                                  '&:hover': { 
+                                    color: colors.lightCyanDark,
+                                    backgroundColor: 'rgba(103, 232, 249, 0.08)'
+                                  } 
+                                }}
+                              >
+                                {isJoining ? (
+                                  <CircularProgress size={18} sx={{ color: colors.success }} />
+                                ) : (
+                                  <PersonAdd fontSize="small" />
+                                )}
+                              </IconButton>
+                            </Tooltip>
+                          )
+                        )}
+
+                        {/* Delete - Only Admins */}
+                        {canDelete && (
+                          <Tooltip title="Delete Training">
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => handleDelete(training.id)}
+                              sx={{
+                                '&:hover': {
+                                  backgroundColor: 'rgba(239, 68, 68, 0.08)'
+                                }
+                              }}
+                            >
+                              <Delete fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
@@ -1682,370 +1777,311 @@ const Training = () => {
       {/* ============================================================
           ADD/EDIT DIALOG
           ============================================================ */}
-      <Dialog
-        open={openDialog}
-        onClose={handleCloseDialog}
-        maxWidth="md"
-        fullWidth
-        PaperProps={{
-          sx: {
-            borderRadius: 4,
-            border: `1px solid ${colors.borderColor}`,
-            boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
-            bgcolor: colors.cardBg,
-          }
-        }}
-      >
-        <DialogTitle sx={{
-          bgcolor: colors.darkNavy,
-          color: colors.text,
-          borderRadius: '8px 8px 0 0',
-          py: 2.5,
-        }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" fontWeight={600} sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              {editingTraining ? <Edit sx={{ fontSize: 28 }} /> : <Add sx={{ fontSize: 28 }} />}
-              {editingTraining ? 'Edit Training' : 'Add New Training'}
-            </Typography>
-            <IconButton onClick={handleCloseDialog} sx={{ color: colors.text, '&:hover': { color: colors.lightCyan } }}>
-              <Close />
-            </IconButton>
-          </Box>
-        </DialogTitle>
+      {canManage && (
+        <Dialog
+          open={openDialog}
+          onClose={handleCloseDialog}
+          maxWidth="md"
+          fullWidth
+          PaperProps={{
+            sx: {
+              borderRadius: 4,
+              border: `1px solid ${colors.borderColor}`,
+              boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+              bgcolor: colors.cardBg,
+            }
+          }}
+        >
+          <DialogTitle sx={{
+            bgcolor: colors.darkNavy,
+            color: colors.text,
+            borderRadius: '8px 8px 0 0',
+            py: 2.5,
+          }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="h6" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                {editingTraining ? <Edit sx={{ fontSize: 28 }} /> : <Add sx={{ fontSize: 28 }} />}
+                {editingTraining ? 'Edit Training' : 'Add New Training'}
+              </Typography>
+              <IconButton onClick={handleCloseDialog} sx={{ color: colors.text, '&:hover': { color: colors.lightCyan } }}>
+                <Close />
+              </IconButton>
+            </Box>
+          </DialogTitle>
 
-        <DialogContent dividers sx={{ borderColor: colors.borderColor, px: 4, py: 3 }}>
-          <Grid container spacing={2.5} sx={{ mt: 0 }}>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                required
-                label="Training Title *"
-                name="title"
-                value={formData.title}
-                onChange={handleFormChange}
-                placeholder="Enter training title"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                    '&:hover fieldset': { borderColor: colors.lightCyan },
-                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                  },
-                  '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  },
-                  '& .MuiInputLabel-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  }
-                }}
-              />
-            </Grid>
-
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Description"
-                name="description"
-                value={formData.description}
-                onChange={handleFormChange}
-                multiline
-                rows={2}
-                placeholder="Training description"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                    '&:hover fieldset': { borderColor: colors.lightCyan },
-                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                  },
-                  '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  },
-                  '& .MuiInputLabel-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  }
-                }}
-              />
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Type</InputLabel>
-                <Select
-                  name="type"
-                  value={formData.type}
+          <DialogContent dividers sx={{ borderColor: colors.borderColor, px: 4, py: 3 }}>
+            <Grid container spacing={2.5} sx={{ mt: 0 }}>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  required
+                  label="Training Title *"
+                  name="title"
+                  value={formData.title}
                   onChange={handleFormChange}
-                  label="Type"
+                  placeholder="Enter training title"
                   sx={{
-                    borderRadius: 2,
                     '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
                       '&:hover fieldset': { borderColor: colors.lightCyan },
                       '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                    },
-                    '& .MuiSelect-select': {
-                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                     }
                   }}
-                >
-                  <MenuItem value="local" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Local</MenuItem>
-                  <MenuItem value="foreign" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Foreign</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
+                />
+              </Grid>
 
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Status</InputLabel>
-                <Select
-                  name="status"
-                  value={formData.status}
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Description"
+                  name="description"
+                  value={formData.description}
                   onChange={handleFormChange}
-                  label="Status"
+                  multiline
+                  rows={2}
+                  placeholder="Training description"
                   sx={{
-                    borderRadius: 2,
                     '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
                       '&:hover fieldset': { borderColor: colors.lightCyan },
                       '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                    },
-                    '& .MuiSelect-select': {
-                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                     }
                   }}
-                >
-                  <MenuItem value="pending" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Pending</MenuItem>
-                  <MenuItem value="in_progress" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>In Progress</MenuItem>
-                  <MenuItem value="completed" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Completed</MenuItem>
-                  <MenuItem value="cancelled" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Cancelled</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
+                />
+              </Grid>
 
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Start Date"
-                name="start_date"
-                type="date"
-                value={formData.start_date}
-                onChange={handleFormChange}
-                InputLabelProps={{ shrink: true }}
-                helperText="Optional - leave empty if not applicable"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                    '&:hover fieldset': { borderColor: colors.lightCyan },
-                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                  },
-                  '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  },
-                  '& .MuiInputLabel-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  },
-                  '& .MuiFormHelperText-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  }
-                }}
-              />
-            </Grid>
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth>
+                  <InputLabel sx={{ color: colors.lightText }}>Type</InputLabel>
+                  <Select
+                    name="type"
+                    value={formData.type}
+                    onChange={handleFormChange}
+                    label="Type"
+                    sx={{
+                      borderRadius: 2,
+                      '& .MuiOutlinedInput-root': {
+                        '&:hover fieldset': { borderColor: colors.lightCyan },
+                        '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                      }
+                    }}
+                  >
+                    <MenuItem value="local">Local</MenuItem>
+                    <MenuItem value="foreign">Foreign</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
 
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="End Date"
-                name="end_date"
-                type="date"
-                value={formData.end_date}
-                onChange={handleFormChange}
-                InputLabelProps={{ shrink: true }}
-                helperText="Optional - leave empty if not applicable"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                    '&:hover fieldset': { borderColor: colors.lightCyan },
-                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                  },
-                  '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  },
-                  '& .MuiInputLabel-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  },
-                  '& .MuiFormHelperText-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  }
-                }}
-              />
-            </Grid>
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth>
+                  <InputLabel sx={{ color: colors.lightText }}>Status</InputLabel>
+                  <Select
+                    name="status"
+                    value={formData.status}
+                    onChange={handleFormChange}
+                    label="Status"
+                    sx={{
+                      borderRadius: 2,
+                      '& .MuiOutlinedInput-root': {
+                        '&:hover fieldset': { borderColor: colors.lightCyan },
+                        '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                      }
+                    }}
+                  >
+                    <MenuItem value="pending">Pending</MenuItem>
+                    <MenuItem value="in_progress">In Progress</MenuItem>
+                    <MenuItem value="completed">Completed</MenuItem>
+                    <MenuItem value="cancelled">Cancelled</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
 
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Location"
-                name="location"
-                value={formData.location}
-                onChange={handleFormChange}
-                placeholder="Training location"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                    '&:hover fieldset': { borderColor: colors.lightCyan },
-                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                  },
-                  '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  },
-                  '& .MuiInputLabel-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  }
-                }}
-              />
-            </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Start Date"
+                  name="start_date"
+                  type="date"
+                  value={formData.start_date}
+                  onChange={handleFormChange}
+                  InputLabelProps={{ shrink: true }}
+                  helperText="Optional - leave empty if not applicable"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                    }
+                  }}
+                />
+              </Grid>
 
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Trainer Name"
-                name="trainer_name"
-                value={formData.trainer_name}
-                onChange={handleFormChange}
-                placeholder="Trainer name"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                    '&:hover fieldset': { borderColor: colors.lightCyan },
-                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                  },
-                  '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  },
-                  '& .MuiInputLabel-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  }
-                }}
-              />
-            </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="End Date"
+                  name="end_date"
+                  type="date"
+                  value={formData.end_date}
+                  onChange={handleFormChange}
+                  InputLabelProps={{ shrink: true }}
+                  helperText="Optional - leave empty if not applicable"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                    }
+                  }}
+                />
+              </Grid>
 
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Department"
-                name="department"
-                value={formData.department}
-                onChange={handleFormChange}
-                placeholder="Department"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                    '&:hover fieldset': { borderColor: colors.lightCyan },
-                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                  },
-                  '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  },
-                  '& .MuiInputLabel-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  }
-                }}
-              />
-            </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Location"
+                  name="location"
+                  value={formData.location}
+                  onChange={handleFormChange}
+                  placeholder="Training location"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                    }
+                  }}
+                />
+              </Grid>
 
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Expected Participants"
-                name="participants_count"
-                type="number"
-                value={formData.participants_count}
-                onChange={handleFormChange}
-                InputProps={{ inputProps: { min: 0 } }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                    '&:hover fieldset': { borderColor: colors.lightCyan },
-                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                  },
-                  '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  },
-                  '& .MuiInputLabel-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  }
-                }}
-              />
-            </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Trainer Name"
+                  name="trainer_name"
+                  value={formData.trainer_name}
+                  onChange={handleFormChange}
+                  placeholder="Trainer name"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                    }
+                  }}
+                />
+              </Grid>
 
-            {/* File Upload Section */}
-            <Grid item xs={12}>
-              <Divider sx={{ my: 1, borderColor: colors.borderColor }} />
-              <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy, mb: 1, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                <AttachFile sx={{ mr: 1, verticalAlign: 'middle', fontSize: 18 }} />
-                Attachments (Images, Videos, Documents)
-              </Typography>
-              <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', mb: 1, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                Upload training materials, certificates, images, or any related files.
-              </Typography>
-              <FileUpload
-                endpoint="/upload"
-                accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"
-                multiple={true}
-                label="Click to upload files"
-                maxFiles={10}
-                maxSize={50}
-                showPreview={true}
-                onUploadComplete={handleFileUploadComplete('attachments')}
-                onUploadError={(error) => toast.error('Upload failed: ' + error)}
-                onDelete={handleFileDelete('attachments')}
-                existingFiles={getExistingFiles('attachments')}
-              />
-              {formData.attachments && formData.attachments.split(',').filter(Boolean).length > 0 && (
-                <Typography variant="caption" sx={{ color: colors.success, display: 'block', mt: 1, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                  {formData.attachments.split(',').filter(Boolean).length} file(s) attached
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Department"
+                  name="department"
+                  value={formData.department}
+                  onChange={handleFormChange}
+                  placeholder="Department"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                    }
+                  }}
+                />
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Expected Participants"
+                  name="participants_count"
+                  type="number"
+                  value={formData.participants_count}
+                  onChange={handleFormChange}
+                  InputProps={{ inputProps: { min: 0 } }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                    }
+                  }}
+                />
+              </Grid>
+
+              {/* File Upload */}
+              <Grid item xs={12}>
+                <Divider sx={{ my: 1, borderColor: colors.borderColor }} />
+                <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy, mb: 1 }}>
+                  <AttachFile sx={{ mr: 1, verticalAlign: 'middle', fontSize: 18 }} />
+                  Attachments (Images, Videos, Documents)
                 </Typography>
-              )}
+                <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', mb: 1 }}>
+                  Upload training materials, certificates, images, or any related files.
+                </Typography>
+                <FileUpload
+                  endpoint="/upload"
+                  accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.zip"
+                  multiple={true}
+                  label="Click to upload files"
+                  maxFiles={10}
+                  maxSize={50}
+                  showPreview={true}
+                  onUploadComplete={handleFileUploadComplete('attachments')}
+                  onUploadError={(error) => toast.error('Upload failed: ' + error)}
+                  onDelete={handleFileDelete('attachments')}
+                  existingFiles={getExistingFiles('attachments')}
+                />
+                {formData.attachments && formData.attachments.split(',').filter(Boolean).length > 0 && (
+                  <Typography variant="caption" sx={{ color: colors.success, display: 'block', mt: 1 }}>
+                    {formData.attachments.split(',').filter(Boolean).length} file(s) attached
+                  </Typography>
+                )}
+              </Grid>
             </Grid>
-          </Grid>
-        </DialogContent>
+          </DialogContent>
 
-        <DialogActions sx={{ p: 3, gap: 1 }}>
-          <Button 
-            onClick={handleCloseDialog} 
-            sx={{ 
-              color: colors.darkNavy,
-              borderRadius: 2,
-              px: 3,
-              textTransform: 'none',
-              '&:hover': { 
-                backgroundColor: 'rgba(103, 232, 249, 0.04)'
-              },
-              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-            }}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleSubmit}
-            disabled={submitting}
-            sx={{ 
-              bgcolor: colors.darkNavy,
-              color: colors.text,
-              borderRadius: 2,
-              px: 4,
-              textTransform: 'none',
-              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
-              '&:hover': { 
-                bgcolor: colors.darkNavyHover,
-                boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
-              },
-              transition: 'all 0.3s ease',
-            }}
-          >
-            {submitting ? 'Saving...' : (editingTraining ? 'Update' : 'Create')}
-          </Button>
-        </DialogActions>
-      </Dialog>
+          <DialogActions sx={{ p: 3, gap: 1 }}>
+            <Button 
+              onClick={handleCloseDialog} 
+              sx={{ 
+                color: colors.darkNavy,
+                borderRadius: 2,
+                px: 3,
+                textTransform: 'none',
+                '&:hover': { 
+                  backgroundColor: 'rgba(103, 232, 249, 0.04)'
+                },
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleSubmit}
+              disabled={submitting}
+              sx={{ 
+                bgcolor: colors.darkNavy,
+                color: colors.text,
+                borderRadius: 2,
+                px: 4,
+                textTransform: 'none',
+                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+                '&:hover': { 
+                  bgcolor: colors.darkNavyHover,
+                  boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
+                },
+                transition: 'all 0.3s ease',
+              }}
+            >
+              {submitting ? 'Saving...' : (editingTraining ? 'Update' : 'Create')}
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
 
       {/* ============================================================
-          VIEW DIALOG - WITH ATTACHMENTS TAB
+          VIEW DIALOG
           ============================================================ */}
       <Dialog
         open={openViewDialog}
@@ -2069,7 +2105,7 @@ const Training = () => {
           py: 2.5,
         }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" fontWeight={600} sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Typography variant="h6" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
               <School sx={{ fontSize: 28 }} />
               Training Details
             </Typography>
@@ -2082,7 +2118,6 @@ const Training = () => {
         <DialogContent dividers sx={{ borderColor: colors.borderColor, p: 0 }}>
           {viewingTraining && (
             <Box>
-              {/* Tabs */}
               <Tabs
                 value={viewTabValue}
                 onChange={handleViewTabChange}
@@ -2095,7 +2130,6 @@ const Training = () => {
                     fontWeight: 500,
                     fontSize: '14px',
                     color: colors.lightText,
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                     '&.Mui-selected': {
                       color: colors.darkNavy,
                       fontWeight: 600,
@@ -2113,7 +2147,6 @@ const Training = () => {
                 />
               </Tabs>
 
-              {/* Tab 0: Details */}
               {viewTabValue === 0 && (
                 <Box sx={{ p: 3 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
@@ -2121,7 +2154,7 @@ const Training = () => {
                       <School sx={{ fontSize: 28, color: colors.text }} />
                     </Avatar>
                     <Box>
-                      <Typography variant="h5" fontWeight={600} sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                      <Typography variant="h5" fontWeight={600} sx={{ color: colors.darkNavy }}>
                         {viewingTraining.title}
                       </Typography>
                       <Box sx={{ display: 'flex', gap: 1, mt: 0.5, flexWrap: 'wrap' }}>
@@ -2135,56 +2168,56 @@ const Training = () => {
 
                   <Grid container spacing={2}>
                     <Grid item xs={12} md={6}>
-                      <Typography variant="caption" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                      <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600 }}>
                         Trainer
                       </Typography>
-                      <Typography variant="body1" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                      <Typography variant="body1" sx={{ color: colors.darkNavy }}>
                         {viewingTraining.trainer_name || '-'}
                       </Typography>
                     </Grid>
 
                     <Grid item xs={12} md={6}>
-                      <Typography variant="caption" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                      <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600 }}>
                         Department
                       </Typography>
-                      <Typography variant="body1" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                      <Typography variant="body1" sx={{ color: colors.darkNavy }}>
                         {viewingTraining.department || '-'}
                       </Typography>
                     </Grid>
 
                     <Grid item xs={12} md={6}>
-                      <Typography variant="caption" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                      <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600 }}>
                         <CalendarToday sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
                         Start Date
                       </Typography>
-                      <Typography variant="body1" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                      <Typography variant="body1" sx={{ color: colors.darkNavy }}>
                         {viewingTraining.start_date ? new Date(viewingTraining.start_date).toLocaleDateString() : 'TBD'}
                       </Typography>
                     </Grid>
 
                     <Grid item xs={12} md={6}>
-                      <Typography variant="caption" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                      <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600 }}>
                         <EventNote sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
                         End Date
                       </Typography>
-                      <Typography variant="body1" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                      <Typography variant="body1" sx={{ color: colors.darkNavy }}>
                         {viewingTraining.end_date ? new Date(viewingTraining.end_date).toLocaleDateString() : 'TBD'}
                       </Typography>
                     </Grid>
 
                     <Grid item xs={12}>
-                      <Typography variant="caption" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                      <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600 }}>
                         <LocationOn sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
                         Location
                       </Typography>
-                      <Typography variant="body1" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                      <Typography variant="body1" sx={{ color: colors.darkNavy }}>
                         {viewingTraining.location || '-'}
                       </Typography>
                     </Grid>
 
                     {viewingTraining.description && (
                       <Grid item xs={12}>
-                        <Typography variant="caption" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                        <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600 }}>
                           Description
                         </Typography>
                         <Paper sx={{
@@ -2194,7 +2227,7 @@ const Training = () => {
                           border: `1px solid ${colors.borderColor}`,
                           mt: 0.5,
                         }}>
-                          <Typography variant="body2" sx={{ color: colors.darkText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                          <Typography variant="body2" sx={{ color: colors.darkText }}>
                             {viewingTraining.description}
                           </Typography>
                         </Paper>
@@ -2205,7 +2238,7 @@ const Training = () => {
                       <Divider sx={{ borderColor: colors.borderColor }} />
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 2 }}>
                         <People sx={{ color: colors.lightText }} />
-                        <Typography variant="subtitle2" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                        <Typography variant="subtitle2" sx={{ color: colors.darkNavy, fontWeight: 600 }}>
                           Participants ({viewingTraining.participants_count || 0})
                         </Typography>
                       </Box>
@@ -2214,14 +2247,13 @@ const Training = () => {
                 </Box>
               )}
 
-              {/* Tab 1: Attachments */}
               {viewTabValue === 1 && (
                 <Box sx={{ p: 3 }}>
-                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy, mb: 2, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy, mb: 2 }}>
                     <AttachFile sx={{ mr: 1, verticalAlign: 'middle' }} />
                     Attachments ({getAllAttachments(viewingTraining).length})
                   </Typography>
-                  <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 2, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                  <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 2 }}>
                     Click on any file to preview it.
                   </Typography>
                   
@@ -2252,7 +2284,7 @@ const Training = () => {
           >
             Close
           </Button>
-          {isSuperAdmin && viewingTraining && (
+          {canDelete && viewingTraining && (
             <Button
               variant="contained"
               color="error"
@@ -2273,110 +2305,110 @@ const Training = () => {
       </Dialog>
 
       {/* ============================================================
-          ADD PARTICIPANT DIALOG
+          ADD PARTICIPANT DIALOG - MANUAL ENTRY (NO DROPDOWN) ✅
           ============================================================ */}
-      <Dialog
-        open={openParticipantDialog}
-        onClose={handleCloseParticipantDialog}
-        maxWidth="sm"
-        fullWidth
-        PaperProps={{
-          sx: {
-            borderRadius: 4,
-            border: `1px solid ${colors.borderColor}`,
-            boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
-            bgcolor: colors.cardBg,
-          }
-        }}
-      >
-        <DialogTitle sx={{
-          bgcolor: colors.darkNavy,
-          color: colors.text,
-          borderRadius: '8px 8px 0 0',
-          py: 2.5,
-        }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" fontWeight={600} sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              <PersonAdd sx={{ fontSize: 28 }} />
-              Add Participant
+      {canManage && (
+        <Dialog
+          open={openParticipantDialog}
+          onClose={handleCloseParticipantDialog}
+          maxWidth="sm"
+          fullWidth
+          PaperProps={{
+            sx: {
+              borderRadius: 4,
+              border: `1px solid ${colors.borderColor}`,
+              boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+              bgcolor: colors.cardBg,
+            }
+          }}
+        >
+          <DialogTitle sx={{
+            bgcolor: colors.darkNavy,
+            color: colors.text,
+            borderRadius: '8px 8px 0 0',
+            py: 2.5,
+          }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="h6" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <PersonAdd sx={{ fontSize: 28 }} />
+                Add Participant
+              </Typography>
+              <IconButton onClick={handleCloseParticipantDialog} sx={{ color: colors.text, '&:hover': { color: colors.lightCyan } }}>
+                <Close />
+              </IconButton>
+            </Box>
+          </DialogTitle>
+
+          <DialogContent dividers sx={{ borderColor: colors.borderColor, px: 4, py: 3 }}>
+            <Alert severity="info" sx={{ mb: 3, borderRadius: 2 }}>
+              Add participant to: <strong>{selectedTraining?.title}</strong>
+            </Alert>
+
+            <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', mb: 1 }}>
+              Enter participant name manually
             </Typography>
-            <IconButton onClick={handleCloseParticipantDialog} sx={{ color: colors.text, '&:hover': { color: colors.lightCyan } }}>
-              <Close />
-            </IconButton>
-          </Box>
-        </DialogTitle>
 
-        <DialogContent dividers sx={{ borderColor: colors.borderColor, px: 4, py: 3 }}>
-          <Alert severity="info" sx={{ mb: 2, borderRadius: 2, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-            Add participant to: <strong>{selectedTraining?.title}</strong>
-          </Alert>
-
-          <FormControl fullWidth>
-            <InputLabel sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Select User</InputLabel>
-            <Select
-              value={selectedUserId}
-              onChange={(e) => setSelectedUserId(e.target.value)}
-              label="Select User"
+            <TextField
+              fullWidth
+              label="Participant Name *"
+              value={participantName}
+              onChange={(e) => setParticipantName(e.target.value)}
+              placeholder="Enter full name of participant"
+              autoFocus
               sx={{
-                borderRadius: 2,
                 '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
                   '&:hover fieldset': { borderColor: colors.lightCyan },
                   '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                },
-                '& .MuiSelect-select': {
-                  fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                 }
               }}
-            >
-              <MenuItem value="" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Select a user</MenuItem>
-              {users.map((u) => (
-                <MenuItem key={u.id} value={u.id} sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                  {u.full_name} ({u.email})
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-        </DialogContent>
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  handleAddParticipant();
+                }
+              }}
+            />
+          </DialogContent>
 
-        <DialogActions sx={{ p: 3, gap: 1 }}>
-          <Button 
-            onClick={handleCloseParticipantDialog} 
-            sx={{ 
-              color: colors.darkNavy,
-              borderRadius: 2,
-              px: 3,
-              textTransform: 'none',
-              '&:hover': { 
-                backgroundColor: 'rgba(103, 232, 249, 0.04)'
-              },
-              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-            }}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleAddParticipant}
-            disabled={!selectedUserId}
-            sx={{ 
-              bgcolor: colors.darkNavy,
-              color: colors.text,
-              borderRadius: 2,
-              px: 4,
-              textTransform: 'none',
-              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
-              '&:hover': { 
-                bgcolor: colors.darkNavyHover,
-                boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
-              },
-              transition: 'all 0.3s ease',
-            }}
-            startIcon={<PersonAdd />}
-          >
-            Add Participant
-          </Button>
-        </DialogActions>
-      </Dialog>
+          <DialogActions sx={{ p: 3, gap: 1 }}>
+            <Button 
+              onClick={handleCloseParticipantDialog} 
+              sx={{ 
+                color: colors.darkNavy,
+                borderRadius: 2,
+                px: 3,
+                textTransform: 'none',
+                '&:hover': { 
+                  backgroundColor: 'rgba(103, 232, 249, 0.04)'
+                },
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleAddParticipant}
+              disabled={!participantName.trim()}
+              sx={{ 
+                bgcolor: colors.darkNavy,
+                color: colors.text,
+                borderRadius: 2,
+                px: 4,
+                textTransform: 'none',
+                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+                '&:hover': { 
+                  bgcolor: colors.darkNavyHover,
+                  boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
+                },
+                transition: 'all 0.3s ease',
+              }}
+              startIcon={<PersonAdd />}
+            >
+              Add Participant
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
     </Box>
   );
 };

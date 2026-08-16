@@ -1,89 +1,81 @@
-// src/pages/ServiceDocumentation.jsx
-// ✅ DARK NAVY + LIGHT CYAN THEME - Matching Equipment page
-// ✅ BOTH SUPER ADMIN AND ENGINEERS CAN UPLOAD DOCUMENTS
-// ✅ UPDATED: Stats cards design matches Equipment page
-// ✅ UPDATED: Header with Filter and Export buttons
-// ✅ ADDED: Export functionality (CSV, Excel, PDF)
-// ✅ ADDED: Filter menu popup
-// ✅ ADDED: Animations
-
 import React, { useState, useEffect } from 'react'
 import {
   Box,
   Paper,
-  Typography,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   Button,
-  Grid,
-  Card,
-  CardContent,
-  CardActions,
   IconButton,
   TextField,
   InputAdornment,
+  Chip,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  Chip,
-  LinearProgress,
-  Avatar,
   MenuItem,
-  Select,
+  Grid,
+  Typography,
+  LinearProgress,
   FormControl,
   InputLabel,
+  Select,
   Alert,
-  Snackbar,
   Tooltip,
-  Divider,
-  CircularProgress,
-  Fade,
-  Grow,
-  Badge,
-  Stack,
   Menu,
+  Divider,
+  Avatar,
+  Stepper,
+  Step,
+  StepLabel,
+  StepContent,
+  Card,
+  CardContent,
+  CircularProgress,
 } from '@mui/material'
 import {
-  Upload,
+  Add,
   Search,
-  Download,
-  Visibility,
-  Delete,
   Edit,
-  Description,
-  PictureAsPdf,
-  VideoFile,
-  InsertDriveFile,
+  Delete,
+  Visibility,
+  Download,
   Close,
-  Folder,
-  Image,
-  FilePresent,
-  Refresh,
+  LocalShipping,
   CheckCircle,
-  ErrorOutline,
-  MedicalServices,
-  Build,
-  CalendarToday,
-  Person,
-  Engineering as EngineeringIcon,
-  AdminPanelSettings,
-  AttachFile,
-  TrendingUp,
-  Verified,
-  MenuBook,
-  Lightbulb,
-  FilterList,
+  Cancel,
+  Refresh,
   FileDownload,
+  TrendingUp,
+  TrendingDown,
+  Warning,
+  Info,
+  Check,
+  Clear,
+  Description,
+  Assignment,
+  Person,
+  Business,
+  AttachFile,
+  Print,
+  PriorityHigh,
+  Image,
+  PictureAsPdf,
+  ErrorOutline,
 } from '@mui/icons-material'
+import { procurementService, equipmentService, hospitalService } from '../api/services'
 import { toast } from 'react-toastify'
 import { useSelector } from 'react-redux'
-import api from '../api/axios'
 import AccessDenied from '../components/Auth/AccessDenied'
-import * as XLSX from 'xlsx'
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
+import FileUpload from '../components/FileUpload'
+import api from '../api/axios' // ✅ Import api for direct calls
 
 // ============================================================
-// ✅ DARK NAVY + LIGHT CYAN THEME COLORS - Matching Equipment page
+// ✅ DARK NAVY + LIGHT CYAN THEME COLORS
 // ============================================================
 const colors = {
   darkNavy: '#0F172A',
@@ -115,7 +107,7 @@ const colors = {
   bgGradientEnd: '#E8EEF5',
 }
 
-// ✅ Animation Styles - Same as Equipment page
+// ✅ Animation Styles
 const animationStyles = `
 @keyframes fadeInUp {
   from {
@@ -127,571 +119,619 @@ const animationStyles = `
     transform: translateY(0);
   }
 }
-
-@keyframes prominentGlow {
-  0% {
-    box-shadow: 0 0 20px rgba(103, 232, 249, 0.2), 0 0 40px rgba(103, 232, 249, 0.1);
-    border-color: rgba(103, 232, 249, 0.3);
-  }
-  50% {
-    box-shadow: 0 0 40px rgba(103, 232, 249, 0.4), 0 0 80px rgba(103, 232, 249, 0.2);
-    border-color: rgba(103, 232, 249, 0.6);
-  }
-  100% {
-    box-shadow: 0 0 20px rgba(103, 232, 249, 0.2), 0 0 40px rgba(103, 232, 249, 0.1);
-    border-color: rgba(103, 232, 249, 0.3);
-  }
-}
-
-@keyframes gradientShine {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
 `
 
-// ============================================================
-// ✅ FORMAT DATE HELPER
-// ============================================================
-const formatDate = (dateString) => {
-  if (!dateString) return '-'
-  const date = new Date(dateString)
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  })
+// ==================== HELPER FUNCTIONS ====================
+const getFullUrl = (url) => {
+  if (!url) return ''
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url
+  }
+  if (url.startsWith('/uploads')) {
+    return `http://localhost:5000${url}`
+  }
+  return url
 }
 
-// ============================================================
-// ✅ MAIN COMPONENT
-// ============================================================
-const ServiceDocumentation = () => {
-  const { user } = useSelector((state) => state.auth)
-  
-  console.log('🔐 ServiceDocumentation - User:', user)
-  console.log('🔐 Token exists:', !!localStorage.getItem('token'))
-  
-  if (!user) {
-    console.warn('⚠️ No user found, redirecting to login')
-    window.location.href = '/login'
-    return null
+// ✅ Status color mapping (without icons)
+const getStatusColor = (status) => {
+  const colorsMap = {
+    'Requested': '#F59E0B',
+    'Under Review': '#3B82F6',
+    'Approved': '#22C55E',
+    'Rejected': '#EF4444',
+    'Procured': '#8B5CF6'
   }
-  
-  // ✅ HOSPITAL_ADMIN CANNOT ACCESS
-  if (user?.role === 'HOSPITAL_ADMIN') {
-    return <AccessDenied message="Hospital Administrators cannot access Service Documentation." />
-  }
-  
-  const isEngineer = user?.role === 'ENGINEER'
-  const isSuperAdmin = user?.role === 'SUPER_ADMIN'
-  
-  // ✅ BOTH ENGINEER AND SUPER ADMIN CAN VIEW AND UPLOAD
-  const canView = isEngineer || isSuperAdmin
-  const canUpload = isEngineer || isSuperAdmin
-  const canEdit = isSuperAdmin
-  const canDelete = isSuperAdmin
+  return colorsMap[status] || '#94A3B8'
+}
 
-  const [documents, setDocuments] = useState([])
-  const [equipmentList, setEquipmentList] = useState([])
+// ✅ Priority color mapping (without icons)
+const getPriorityColor = (priority) => {
+  const colorsMap = {
+    'Low': '#22C55E',
+    'Medium': '#3B82F6',
+    'High': '#F59E0B',
+    'Urgent': '#EF4444'
+  }
+  return colorsMap[priority] || '#94A3B8'
+}
+
+const Procurement = () => {
+  // ============================================================
+  // ✅ PERMISSIONS - Engineer can Add and View, Super Admin can Delete and Edit
+  // ============================================================
+  const { user } = useSelector((state) => state.auth)
+
+  // ✅ ALL ROLES can access Procurement (including Engineer)
+  const canCreate = user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN' || user?.role === 'ENGINEER'
+  const canView = user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN' || user?.role === 'ENGINEER'
+  
+  // ✅ ONLY Super Admin can Edit and Delete
+  const canEdit = user?.role === 'SUPER_ADMIN'
+  const canDelete = user?.role === 'SUPER_ADMIN'
+  
+  // ✅ Super Admin can Approve/Reject, Hospital Admin can Review
+  const canApprove = user?.role === 'SUPER_ADMIN'
+  const canReview = user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN'
+  const canMarkProcured = user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN'
+
+  const [requests, setRequests] = useState([])
+  const [equipment, setEquipment] = useState([])
+  const [hospitals, setHospitals] = useState([])
+  const [departments, setDepartments] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [openDialog, setOpenDialog] = useState(false)
   const [openViewDialog, setOpenViewDialog] = useState(false)
-  const [uploading, setUploading] = useState(false)
-  const [selectedDoc, setSelectedDoc] = useState(null)
-  const [editingDocument, setEditingDocument] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState(0)
-  const [categoryFilter, setCategoryFilter] = useState('all')
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' })
-  const [error, setError] = useState(null)
-  const [filterAnchorEl, setFilterAnchorEl] = useState(null)
+  const [viewingRequest, setViewingRequest] = useState(null)
+  const [editingRequest, setEditingRequest] = useState(null)
   const [exportAnchorEl, setExportAnchorEl] = useState(null)
-
+  const [filters, setFilters] = useState({
+    status: '',
+    priority: ''
+  })
+  const [error, setError] = useState(null)
+  const [submitting, setSubmitting] = useState(false)
+  
   const [formData, setFormData] = useState({
-    title: '',
-    document_type: 'PDF',
-    category: 'Service Manual',
-    equipment: '',
-    equipment_id: '',
-    description: '',
-    file: null,
-    fileUrl: ''
+    hospital_id: '',
+    equipment_name: '',
+    category_id: '',
+    manufacturer: '',
+    model: '',
+    quantity: 1,
+    estimated_cost: '',
+    justification: '',
+    priority: 'Medium',
+    requested_by: '',
+    department: '',
+    attachments: ''
   })
 
-  const categories = [
-    'All',
-    'Service Manual',
-    'Calibration',
-    'Repair Guide',
-    'User Manual',
-    'Warranty',
-    'Other'
-  ]
-
   useEffect(() => {
-    const token = localStorage.getItem('token')
-    if (!token) {
-      console.warn('⚠️ No token found, redirecting to login')
-      window.location.href = '/login'
-      return
-    }
-    fetchDocuments()
-    fetchEquipmentList()
+    fetchAllData()
   }, [])
 
-  const fetchDocuments = async () => {
+  const fetchAllData = async () => {
     setLoading(true)
     setError(null)
     try {
-      console.log('📄 Fetching service documentation...')
-      const response = await api.get('/service-documentation')
-      console.log('✅ Documents fetched:', response.data)
-      setDocuments(response.data.documents || [])
+      await Promise.all([
+        fetchRequests(),
+        fetchEquipment(),
+        fetchHospitals(),
+      ])
     } catch (error) {
-      console.error('❌ Error fetching documents:', error)
-      console.error('❌ Error response:', error.response?.data)
-      
-      if (error.response?.status === 401) {
-        console.warn('⚠️ Unauthorized, redirecting to login')
-        localStorage.removeItem('token')
-        localStorage.removeItem('user')
-        window.location.href = '/login'
-        return
-      }
-      
-      setError(error.response?.data?.message || 'Failed to fetch documents')
-      toast.error(error.response?.data?.message || 'Failed to fetch documents')
-      setDocuments([])
+      console.error('Error fetching data:', error)
+      setError('Failed to load data. Please refresh the page.')
     } finally {
       setLoading(false)
     }
   }
 
-  const fetchEquipmentList = async () => {
+  // ✅ FIXED: Using procurementService from services
+  const fetchRequests = async () => {
     try {
-      const response = await api.get('/equipment')
-      setEquipmentList(response.data.equipment || [])
-      console.log('✅ Equipment list loaded:', response.data.equipment?.length || 0, 'items')
+      const response = await procurementService.getAll()
+      console.log('📊 Procurement response:', response.data)
+      
+      if (response.data && response.data.success) {
+        setRequests(response.data.requests || [])
+      } else if (Array.isArray(response.data)) {
+        setRequests(response.data)
+      } else {
+        setRequests([])
+      }
     } catch (error) {
-      console.error('Error fetching equipment:', error)
+      console.error('❌ Fetch procurement error:', error)
+      if (error.response?.status === 403) {
+        toast.warning('You have view-only access to procurement requests')
+        setRequests([])
+      } else {
+        toast.error('Failed to fetch procurement requests')
+        setRequests([])
+      }
     }
   }
 
-  // ============================================================
-  // ✅ EXPORT HANDLERS
-  // ============================================================
-  const handleExportClick = (event) => setExportAnchorEl(event.currentTarget)
-  const handleExportClose = () => setExportAnchorEl(null)
+  // ✅ FIXED: Using equipmentService from services
+  const fetchEquipment = async () => {
+    try {
+      const response = await equipmentService.getCategories()
+      if (response.data && response.data.success) {
+        setEquipment(response.data.categories || [])
+      } else if (Array.isArray(response.data)) {
+        setEquipment(response.data)
+      } else {
+        setEquipment([])
+      }
+    } catch (error) {
+      console.error('❌ Fetch equipment error:', error)
+      setEquipment([])
+    }
+  }
+
+  // ✅ FIXED: Using hospitalService from services
+  const fetchHospitals = async () => {
+    try {
+      const response = await hospitalService.getAll()
+      console.log('🏥 Hospitals response:', response.data)
+      
+      if (response.data && response.data.success) {
+        setHospitals(response.data.hospitals || [])
+      } else if (Array.isArray(response.data)) {
+        setHospitals(response.data)
+      } else {
+        setHospitals([])
+      }
+    } catch (error) {
+      console.error('❌ Fetch hospitals error:', error)
+      setHospitals([])
+    }
+  }
+
+  // ✅ FIXED: Using direct API call for departments
+  const fetchDepartments = async (hospitalId) => {
+    if (!hospitalId) {
+      setDepartments([])
+      return
+    }
+    try {
+      console.log('📤 Fetching departments for hospital:', hospitalId)
+      // ✅ Direct API call since hospitalService.getDepartments doesn't exist
+      const response = await api.get(`/departments/hospital/${hospitalId}`)
+      console.log('📥 Departments response:', response.data)
+      
+      if (response.data && response.data.success) {
+        setDepartments(response.data.departments || [])
+      } else if (Array.isArray(response.data)) {
+        setDepartments(response.data)
+      } else {
+        setDepartments([])
+      }
+    } catch (error) {
+      console.error('❌ Fetch departments error:', error)
+      // Don't show toast error here, just log it
+      setDepartments([])
+    }
+  }
+
+  const handleOpenDialog = (request = null) => {
+    // ✅ Only Super Admin can edit
+    if (request && !canEdit) {
+      toast.error('Only Super Admin can edit procurement requests')
+      return
+    }
+    
+    if (request) {
+      setEditingRequest(request)
+      setFormData({
+        hospital_id: request.hospital_id || '',
+        equipment_name: request.equipment_name || '',
+        category_id: request.category_id || '',
+        manufacturer: request.manufacturer || '',
+        model: request.model || '',
+        quantity: request.quantity || 1,
+        estimated_cost: request.estimated_cost || '',
+        justification: request.justification || '',
+        priority: request.priority || 'Medium',
+        requested_by: request.requested_by || '',
+        department: request.department || '',
+        attachments: request.attachments || ''
+      })
+      if (request.hospital_id) {
+        fetchDepartments(request.hospital_id)
+      }
+    } else {
+      setEditingRequest(null)
+      const defaultHospitalId = user?.hospital_id || ''
+      setFormData({
+        hospital_id: defaultHospitalId,
+        equipment_name: '',
+        category_id: '',
+        manufacturer: '',
+        model: '',
+        quantity: 1,
+        estimated_cost: '',
+        justification: '',
+        priority: 'Medium',
+        requested_by: user?.full_name || user?.name || '',
+        department: '',
+        attachments: ''
+      })
+      if (defaultHospitalId) {
+        fetchDepartments(defaultHospitalId)
+      }
+    }
+    setOpenDialog(true)
+  }
+
+  const handleCloseDialog = () => {
+    setOpenDialog(false)
+    setEditingRequest(null)
+    setSubmitting(false)
+  }
+
+  const handleView = (request) => {
+    setViewingRequest(request)
+    setOpenViewDialog(true)
+  }
+
+  const handleCloseView = () => {
+    setOpenViewDialog(false)
+    setViewingRequest(null)
+  }
+
+  const handleFormChange = (e) => {
+    const { name, value } = e.target
+    setFormData(prev => ({ ...prev, [name]: value }))
+    
+    // Fetch departments when hospital changes
+    if (name === 'hospital_id' && value) {
+      fetchDepartments(value)
+    }
+  }
+
+  // ✅ FIXED: Using procurementService from services
+  const handleSubmit = async () => {
+    // ✅ Validation
+    if (!formData.hospital_id) {
+      toast.error('Please select a hospital')
+      return
+    }
+    if (!formData.equipment_name || formData.equipment_name.trim() === '') {
+      toast.error('Equipment name is required')
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      const submitData = {
+        hospital_id: parseInt(formData.hospital_id),
+        equipment_name: formData.equipment_name.trim(),
+        category_id: formData.category_id ? parseInt(formData.category_id) : null,
+        manufacturer: formData.manufacturer || '',
+        model: formData.model || '',
+        quantity: parseInt(formData.quantity) || 1,
+        estimated_cost: parseFloat(formData.estimated_cost) || 0,
+        justification: formData.justification || '',
+        priority: formData.priority || 'Medium',
+        requested_by: formData.requested_by || user?.full_name || user?.name || '',
+        department: formData.department || '',
+        attachments: formData.attachments || ''
+      }
+
+      console.log('📤 Submitting procurement data:', submitData)
+      console.log('👤 Current user role:', user?.role)
+
+      let response
+      if (editingRequest) {
+        // ✅ Only Super Admin can update
+        if (!canEdit) {
+          toast.error('Only Super Admin can edit requests')
+          return
+        }
+        response = await procurementService.update(editingRequest.id, submitData)
+        if (response.data && response.data.success) {
+          toast.success('Procurement request updated successfully')
+        } else {
+          throw new Error(response.data?.message || 'Update failed')
+        }
+      } else {
+        response = await procurementService.create(submitData)
+        if (response.data && response.data.success) {
+          toast.success('Procurement request created successfully')
+        } else {
+          throw new Error(response.data?.message || 'Creation failed')
+        }
+      }
+      
+      await fetchRequests()
+      handleCloseDialog()
+    } catch (error) {
+      console.error('❌ Submit error:', error)
+      
+      let errorMsg = 'Operation failed. Please try again.'
+      
+      if (error.response) {
+        console.error('Response data:', error.response.data)
+        console.error('Response status:', error.response.status)
+        
+        if (error.response.status === 403) {
+          errorMsg = '⚠️ You do not have permission to create procurement requests. Only Super Admin, Hospital Admin, and Engineer can create requests.'
+        } else if (error.response.status === 401) {
+          errorMsg = 'Your session has expired. Please login again.'
+        } else if (error.response.data?.message) {
+          errorMsg = error.response.data.message
+        }
+      } else if (error.message) {
+        errorMsg = error.message
+      }
+      
+      toast.error(errorMsg)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handleDelete = async (id) => {
+    if (!canDelete) {
+      toast.error('Only Super Admin can delete procurement requests')
+      return
+    }
+    
+    if (window.confirm('Are you sure you want to delete this procurement request?')) {
+      try {
+        const response = await procurementService.delete(id)
+        if (response.data && response.data.success) {
+          toast.success('Procurement request deleted successfully')
+          await fetchRequests()
+        } else {
+          throw new Error(response.data?.message || 'Delete failed')
+        }
+      } catch (error) {
+        console.error('❌ Delete error:', error)
+        let errorMsg = 'Failed to delete request'
+        if (error.response?.status === 403) {
+          errorMsg = 'You do not have permission to delete this request'
+        } else if (error.response?.data?.message) {
+          errorMsg = error.response.data.message
+        }
+        toast.error(errorMsg)
+      }
+    }
+  }
+
+  const handleApprove = async (id) => {
+    if (!canApprove) {
+      toast.error('Only Super Admin can approve requests')
+      return
+    }
+    
+    try {
+      const response = await procurementService.update(id, { status: 'Approved' })
+      if (response.data && response.data.success) {
+        toast.success('Procurement request approved')
+        await fetchRequests()
+        handleCloseView()
+      } else {
+        throw new Error(response.data?.message || 'Approval failed')
+      }
+    } catch (error) {
+      console.error('❌ Approve error:', error)
+      let errorMsg = 'Failed to approve request'
+      if (error.response?.status === 403) {
+        errorMsg = 'You do not have permission to approve requests'
+      } else if (error.response?.data?.message) {
+        errorMsg = error.response.data.message
+      }
+      toast.error(errorMsg)
+    }
+  }
+
+  const handleReject = async (id) => {
+    if (!canApprove) {
+      toast.error('Only Super Admin can reject requests')
+      return
+    }
+    
+    try {
+      const response = await procurementService.update(id, { status: 'Rejected' })
+      if (response.data && response.data.success) {
+        toast.success('Procurement request rejected')
+        await fetchRequests()
+        handleCloseView()
+      } else {
+        throw new Error(response.data?.message || 'Rejection failed')
+      }
+    } catch (error) {
+      console.error('❌ Reject error:', error)
+      let errorMsg = 'Failed to reject request'
+      if (error.response?.status === 403) {
+        errorMsg = 'You do not have permission to reject requests'
+      } else if (error.response?.data?.message) {
+        errorMsg = error.response.data.message
+      }
+      toast.error(errorMsg)
+    }
+  }
+
+  const handleReview = async (id) => {
+    if (!canReview) {
+      toast.error('Only Super Admin or Hospital Admin can review requests')
+      return
+    }
+    
+    try {
+      const response = await procurementService.update(id, { status: 'Under Review' })
+      if (response.data && response.data.success) {
+        toast.success('Request moved to Under Review')
+        await fetchRequests()
+        handleCloseView()
+      } else {
+        throw new Error(response.data?.message || 'Review update failed')
+      }
+    } catch (error) {
+      console.error('❌ Review error:', error)
+      let errorMsg = 'Failed to update review status'
+      if (error.response?.status === 403) {
+        errorMsg = 'You do not have permission to review requests'
+      } else if (error.response?.data?.message) {
+        errorMsg = error.response.data.message
+      }
+      toast.error(errorMsg)
+    }
+  }
+
+  const handleMarkProcured = async (id) => {
+    if (!canMarkProcured) {
+      toast.error('Only Super Admin or Hospital Admin can mark as procured')
+      return
+    }
+    
+    try {
+      const response = await procurementService.update(id, { status: 'Procured' })
+      if (response.data && response.data.success) {
+        toast.success('Request marked as Procured')
+        await fetchRequests()
+        handleCloseView()
+      } else {
+        throw new Error(response.data?.message || 'Update failed')
+      }
+    } catch (error) {
+      console.error('❌ Mark Procured error:', error)
+      let errorMsg = 'Failed to mark as procured'
+      if (error.response?.status === 403) {
+        errorMsg = 'You do not have permission to mark requests as procured'
+      } else if (error.response?.data?.message) {
+        errorMsg = error.response.data.message
+      }
+      toast.error(errorMsg)
+    }
+  }
+
+  // ============ EXPORT FUNCTIONS ============
+  const handleExportClick = (event) => {
+    setExportAnchorEl(event.currentTarget)
+  }
+
+  const handleExportClose = () => {
+    setExportAnchorEl(null)
+  }
 
   const exportToCSV = () => {
     try {
-      const headers = ['Title', 'Document Type', 'Category', 'Equipment', 'Description', 'Uploaded By', 'Uploaded Date', 'File Size']
-      const rows = filteredDocs.map(d => [
-        d.title || '',
-        d.document_type || '',
-        d.category || '',
-        d.equipment || '',
-        d.description || '',
-        d.uploaded_by_name || d.uploaded_by || '',
-        formatDate(d.created_at || d.uploaded_at),
-        d.file_size || ''
+      const headers = ['Equipment', 'Hospital', 'Manufacturer', 'Model', 'Quantity', 'Est. Cost', 'Priority', 'Status', 'Justification']
+      const rows = filteredRequests.map(r => [
+        r.equipment_name,
+        r.hospital_name || 'N/A',
+        r.manufacturer || '',
+        r.model || '',
+        r.quantity || 1,
+        r.estimated_cost || '',
+        r.priority,
+        r.status,
+        r.justification || ''
       ])
+      
       let csv = headers.join(',') + '\n'
-      rows.forEach(row => { csv += row.join(',') + '\n' })
+      rows.forEach(row => {
+        csv += row.join(',') + '\n'
+      })
+      
       const blob = new Blob([csv], { type: 'text/csv' })
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `service_docs_${new Date().toISOString().split('T')[0]}.csv`
+      a.download = `procurement_requests_${new Date().toISOString().split('T')[0]}.csv`
       a.click()
       window.URL.revokeObjectURL(url)
-      toast.success('CSV exported!')
+      
+      toast.success('CSV exported successfully!')
       handleExportClose()
     } catch (error) {
-      toast.error('Export failed: ' + error.message)
+      toast.error('Failed to export CSV')
     }
   }
 
   const exportToExcel = () => {
     try {
-      const data = filteredDocs.map(d => ({
-        'Title': d.title || '',
-        'Document Type': d.document_type || '',
-        'Category': d.category || '',
-        'Equipment': d.equipment || '',
-        'Description': d.description || '',
-        'Uploaded By': d.uploaded_by_name || d.uploaded_by || '',
-        'Uploaded Date': formatDate(d.created_at || d.uploaded_at),
-        'File Size': d.file_size || ''
-      }))
-      const ws = XLSX.utils.json_to_sheet(data)
-      const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws, 'Service Documents')
-      XLSX.writeFile(wb, `service_docs_${new Date().toISOString().split('T')[0]}.xlsx`)
-      toast.success('Excel exported!')
-      handleExportClose()
-    } catch (error) {
-      toast.error('Export failed: ' + error.message)
-    }
-  }
-
-  const exportToPDF = () => {
-    try {
-      const doc = new jsPDF()
-      doc.setFontSize(18)
-      doc.setTextColor(colors.darkNavy)
-      doc.text('Service Documentation Report', 14, 20)
-      doc.setFontSize(10)
-      doc.setTextColor('#666666')
-      doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 28)
-      doc.text(`Total Documents: ${filteredDocs.length}`, 14, 34)
-      
-      const tableData = filteredDocs.map(d => [
-        d.title || '',
-        d.document_type || '',
-        d.category || '',
-        d.equipment || '',
-        formatDate(d.created_at || d.uploaded_at)
-      ])
-      autoTable(doc, {
-        head: [['Title', 'Type', 'Category', 'Equipment', 'Uploaded Date']],
-        body: tableData,
-        startY: 40,
-        styles: { fontSize: 7, cellPadding: 2 },
-        headStyles: { fillColor: colors.darkNavy, textColor: '#FFFFFF', fontSize: 8 },
-        alternateRowStyles: { fillColor: '#F5F7FA' },
-        margin: { left: 10, right: 10 }
+      import('xlsx').then((XLSX) => {
+        const data = filteredRequests.map(r => ({
+          'Equipment': r.equipment_name,
+          'Hospital': r.hospital_name || 'N/A',
+          'Manufacturer': r.manufacturer || '',
+          'Model': r.model || '',
+          'Quantity': r.quantity || 1,
+          'Est. Cost': r.estimated_cost || '',
+          'Priority': r.priority,
+          'Status': r.status,
+          'Justification': r.justification || ''
+        }))
+        
+        const ws = XLSX.utils.json_to_sheet(data)
+        const wb = XLSX.utils.book_new()
+        XLSX.utils.book_append_sheet(wb, ws, 'Procurement')
+        XLSX.writeFile(wb, `procurement_requests_${new Date().toISOString().split('T')[0]}.xlsx`)
+        
+        toast.success('Excel exported successfully!')
+        handleExportClose()
+      }).catch(() => {
+        toast.error('Excel library not loaded')
       })
-      doc.save(`service_docs_${new Date().toISOString().split('T')[0]}.pdf`)
-      toast.success('PDF exported!')
-      handleExportClose()
     } catch (error) {
-      toast.error('Export failed: ' + error.message)
+      toast.error('Failed to export Excel')
     }
   }
 
-  // ============================================================
-  // ✅ FILTER HANDLERS
-  // ============================================================
-  const handleFilterClick = (event) => setFilterAnchorEl(event.currentTarget)
-  const handleFilterClose = () => setFilterAnchorEl(null)
-
-  const handleFilterChange = (e) => {
-    setCategoryFilter(e.target.value)
+  const getStatusSteps = () => {
+    return ['Requested', 'Under Review', 'Approved', 'Procured']
   }
 
-  const clearFilters = () => {
-    setCategoryFilter('all')
-    setSearchTerm('')
-    setFilterAnchorEl(null)
-    toast.info('Filters cleared')
+  const getCurrentStep = (status) => {
+    const steps = getStatusSteps()
+    const index = steps.indexOf(status)
+    return index !== -1 ? index : 0
   }
 
-  const handleFormChange = (e) => {
-    const { name, value } = e.target
-    setFormData({
-      ...formData,
-      [name]: value
-    })
-  }
-
-  const handleFileChange = (e) => {
-    const file = e.target.files[0]
-    if (file) {
-      if (file.size > 50 * 1024 * 1024) {
-        toast.error('File size must be less than 50MB')
-        return
-      }
-      console.log('📎 File selected:', file.name, file.size, file.type)
-      setFormData({
-        ...formData,
-        file: file,
-        file_name: file.name,
-        file_size: `${(file.size / 1024 / 1024).toFixed(2)} MB`
-      })
-    }
-  }
-
-  const handleUpload = async () => {
-    console.log('📤 Uploading document with data:', formData)
-    
-    if (!formData.title || formData.title.trim() === '') {
-      toast.error('Please enter a document title')
-      return
-    }
-
-    if (!formData.equipment_id) {
-      toast.error('Please select equipment')
-      return
-    }
-
-    setUploading(true)
-    setUploadProgress(0)
-    
-    try {
-      let fileUrl = ''
-      let fileName = ''
-      let fileSize = ''
-
-      if (formData.file) {
-        const fileFormData = new FormData()
-        fileFormData.append('file', formData.file)
-        
-        console.log('📤 Uploading file:', formData.file.name)
-        
-        const uploadResponse = await api.post('/service-documentation/upload', fileFormData, {
-          headers: {
-            'Content-Type': 'multipart/form-data'
-          },
-          onUploadProgress: (progressEvent) => {
-            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total)
-            setUploadProgress(percentCompleted)
-          },
-          timeout: 120000
-        })
-        
-        console.log('✅ File upload response:', uploadResponse.data)
-        
-        if (uploadResponse.data.success) {
-          fileUrl = uploadResponse.data.file.url
-          fileName = uploadResponse.data.file.name
-          fileSize = `${(uploadResponse.data.file.size / 1024 / 1024).toFixed(2)} MB`
-        } else {
-          throw new Error(uploadResponse.data.message || 'File upload failed')
-        }
-      } else if (formData.fileUrl) {
-        fileUrl = formData.fileUrl
-        fileName = formData.file_name || 'document'
-        fileSize = formData.file_size || '0 KB'
-      }
-
-      const payload = {
-        title: formData.title.trim(),
-        document_type: formData.document_type || 'PDF',
-        category: formData.category || 'Other',
-        equipment_id: parseInt(formData.equipment_id),
-        equipment: formData.equipment || '',
-        description: formData.description || '',
-        file_url: fileUrl,
-        file_name: fileName,
-        file_size: fileSize,
-        version: '1.0',
-        hospital_id: user?.hospital_id || null,
-        uploaded_by: user?.id || null,
-        uploaded_by_name: user?.full_name || ''
-      }
-
-      console.log('📤 Creating document record:', payload)
-
-      let response
-      if (editingDocument) {
-        if (!isSuperAdmin) {
-          toast.error('Only Super Admin can edit documents')
-          return
-        }
-        response = await api.put(`/service-documentation/${selectedDoc.id}`, payload)
-        toast.success('Document updated successfully')
-      } else {
-        response = await api.post('/service-documentation', payload)
-        toast.success('Document uploaded successfully')
-      }
-      
-      console.log('✅ Document saved:', response.data)
-      
-      setOpenDialog(false)
-      setEditingDocument(false)
-      setFormData({
-        title: '',
-        document_type: 'PDF',
-        category: 'Service Manual',
-        equipment: '',
-        equipment_id: '',
-        description: '',
-        file: null,
-        fileUrl: ''
-      })
-      setUploadProgress(0)
-      fetchDocuments()
-    } catch (error) {
-      console.error('❌ Upload error:', error)
-      console.error('❌ Error response:', error.response?.data)
-      toast.error(error.response?.data?.message || error.message || 'Operation failed')
-    } finally {
-      setUploading(false)
-    }
-  }
-
-  const handleView = (doc) => {
-    setSelectedDoc(doc)
-    setOpenViewDialog(true)
-  }
-
-  const handleEdit = (doc) => {
-    if (!isSuperAdmin) {
-      toast.error('Only Super Admin can edit documents')
-      return
-    }
-    setSelectedDoc(doc)
-    setEditingDocument(true)
-    setFormData({
-      title: doc.title || '',
-      document_type: doc.document_type || 'PDF',
-      category: doc.category || 'Other',
-      equipment: doc.equipment || '',
-      equipment_id: doc.equipment_id || '',
-      description: doc.description || '',
-      file: null,
-      fileUrl: doc.file_url || ''
-    })
-    setOpenDialog(true)
-  }
-
-  const handleDownload = async (doc) => {
-    try {
-      if (doc.file_url) {
-        const fullUrl = doc.file_url.startsWith('http') ? doc.file_url : `http://localhost:5000${doc.file_url}`
-        window.open(fullUrl, '_blank')
-        toast.success('Download started')
-      } else {
-        const response = await api.get(`/service-documentation/${doc.id}/download`, {
-          responseType: 'blob'
-        })
-        
-        const url = window.URL.createObjectURL(new Blob([response.data]))
-        const link = document.createElement('a')
-        link.href = url
-        link.setAttribute('download', doc.file_name || 'document')
-        document.body.appendChild(link)
-        link.click()
-        link.remove()
-        toast.success('Download started')
-      }
-    } catch (error) {
-      console.error('Download error:', error)
-      toast.error('Download failed')
-    }
-  }
-
-  const handleDelete = async (id) => {
-    if (!isSuperAdmin) {
-      toast.error('Only Super Admin can delete documents')
-      return
-    }
-    
-    if (window.confirm('Are you sure you want to delete this document?')) {
-      try {
-        await api.delete(`/service-documentation/${id}`)
-        toast.success('Document deleted successfully')
-        fetchDocuments()
-      } catch (error) {
-        console.error('Delete error:', error)
-        toast.error(error.response?.data?.message || 'Delete failed')
-      }
-    }
-  }
-
-  const getStats = () => {
-    const total = documents.length
-    const pdfCount = documents.filter(d => d.document_type === 'PDF').length
-    const videoCount = documents.filter(d => d.document_type === 'Video').length
-    const imageCount = documents.filter(d => d.document_type === 'Image').length
-    return { total, pdfCount, videoCount, imageCount }
-  }
-
-  const stats = getStats()
-
-  // ✅ Stats Cards Data - Same design as Equipment page
-  const statsCards = [
-    {
-      title: 'Total Documents',
-      value: stats.total,
-      icon: <MenuBook />,
-      color: colors.lightCyan,
-      bg: 'rgba(103, 232, 249, 0.08)',
-    },
-    {
-      title: 'PDF Files',
-      value: stats.pdfCount,
-      icon: <PictureAsPdf />,
-      color: colors.lightCyan,
-      bg: 'rgba(103, 232, 249, 0.08)',
-    },
-    {
-      title: 'Videos',
-      value: stats.videoCount,
-      icon: <VideoFile />,
-      color: colors.lightCyan,
-      bg: 'rgba(103, 232, 249, 0.08)',
-    },
-    {
-      title: 'Images',
-      value: stats.imageCount,
-      icon: <Image />,
-      color: colors.lightCyan,
-      bg: 'rgba(103, 232, 249, 0.08)',
-    },
-  ]
-
-  const filteredDocs = documents.filter(doc => {
-    const matchesSearch = doc.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          doc.equipment?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          doc.category?.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesCategory = categoryFilter === 'all' || doc.category === categoryFilter
-    return matchesSearch && matchesCategory
+  const filteredRequests = requests.filter(request => {
+    const matchesSearch = request.equipment_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          request.manufacturer?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          request.model?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          request.hospital_name?.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesStatus = !filters.status || request.status === filters.status
+    const matchesPriority = !filters.priority || request.priority === filters.priority
+    return matchesSearch && matchesStatus && matchesPriority
   })
 
-  // ============================================================
-  // ✅ GET FILE ICON
-  // ============================================================
-  const getFileIcon = (type) => {
-    switch(type) {
-      case 'PDF': return <PictureAsPdf sx={{ color: colors.error }} />
-      case 'Video': return <VideoFile sx={{ color: colors.info }} />
-      case 'Image': return <Image sx={{ color: colors.success }} />
-      default: return <InsertDriveFile sx={{ color: colors.lightText }} />
-    }
-  }
-
-  const getFileColor = (type) => {
-    switch(type) {
-      case 'PDF': return colors.error
-      case 'Video': return colors.info
-      case 'Image': return colors.success
-      default: return colors.lightText
-    }
-  }
+  // Stats
+  const totalRequests = requests.length
+  const pendingRequests = requests.filter(r => r.status === 'Requested' || r.status === 'Under Review').length
+  const approvedRequests = requests.filter(r => r.status === 'Approved' || r.status === 'Procured').length
+  const rejectedRequests = requests.filter(r => r.status === 'Rejected').length
+  const urgentRequests = requests.filter(r => r.priority === 'Urgent' && r.status !== 'Rejected').length
 
   if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
-        <CircularProgress sx={{ color: colors.darkNavy }} />
-      </Box>
-    )
+    return <LinearProgress sx={{ bgcolor: colors.borderColor, '& .MuiLinearProgress-bar': { bgcolor: colors.lightCyan } }} />
   }
 
   if (error) {
     return (
       <Box sx={{ p: 4, textAlign: 'center' }}>
-        <ErrorOutline sx={{ fontSize: 64, color: colors.error }} />
-        <Typography variant="h6" sx={{ color: colors.error, mt: 2 }}>
-          {error}
-        </Typography>
+        <ErrorOutline sx={{ fontSize: 64, color: colors.error, mb: 2 }} />
+        <Typography variant="h6" sx={{ color: colors.darkNavy, mb: 1 }}>Something went wrong</Typography>
+        <Typography variant="body2" sx={{ color: colors.lightText, mb: 2 }}>{error}</Typography>
         <Button 
           variant="contained" 
-          onClick={fetchDocuments} 
+          onClick={fetchAllData}
           sx={{ 
-            mt: 2,
             bgcolor: colors.darkNavy,
-            '&:hover': { 
-              bgcolor: colors.darkNavyHover,
-              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`
-            },
-            textTransform: 'none',
+            color: colors.text,
             borderRadius: 2,
+            '&:hover': { bgcolor: colors.darkNavyHover }
           }}
         >
-          Try Again
+          Retry
         </Button>
       </Box>
     )
@@ -704,16 +744,16 @@ const ServiceDocumentation = () => {
       minHeight: '100vh',
       borderRadius: 0,
       position: 'relative',
+      overflowX: 'hidden',
     }}>
       <style>{animationStyles}</style>
 
-      {/* ============================================================
-          HEADER - Same as Equipment page
-          ============================================================ */}
+      {/* ===== HEADER ===== */}
       <Box sx={{ 
         display: 'flex', 
+        flexDirection: { xs: 'column', sm: 'row' },
         justifyContent: 'space-between', 
-        alignItems: 'center', 
+        alignItems: { xs: 'flex-start', sm: 'center' }, 
         mb: 3, 
         flexWrap: 'wrap', 
         gap: 2,
@@ -737,25 +777,32 @@ const ServiceDocumentation = () => {
               }
             }}
           >
-            Service Documentation
+            <LocalShipping sx={{ mr: 1, verticalAlign: 'middle', color: colors.lightCyanDark }} />
+            Equipment Procurement
           </Typography>
           <Typography 
             variant="body2" 
             sx={{ 
               color: colors.lightText,
               mt: 0.5,
+              display: { xs: 'none', sm: 'block' }
             }}
           >
-            Manage service manuals, calibration guides, and repair documentation
+            Manage equipment procurement requests
           </Typography>
         </Box>
         
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-          {/* ✅ REFRESH BUTTON - BORDER STYLE */}
+        <Box sx={{ 
+          display: 'flex', 
+          gap: 1, 
+          flexWrap: 'wrap',
+          width: { xs: '100%', sm: 'auto' },
+          justifyContent: { xs: 'flex-start', sm: 'flex-end' },
+        }}>
           <Button 
             variant="outlined" 
             startIcon={<Refresh />} 
-            onClick={fetchDocuments} 
+            onClick={fetchAllData} 
             size="small"
             sx={{ 
               borderColor: colors.lightCyan,
@@ -770,80 +817,19 @@ const ServiceDocumentation = () => {
                 borderColor: colors.lightCyan,
                 boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
                 transform: 'translateY(-2px)',
-              },
-              '&:active': {
-                bgcolor: colors.lightCyan,
-                color: colors.darkNavy,
-                borderColor: colors.lightCyan,
-                transform: 'scale(0.96)',
               }
             }}
           >
-            Refresh
+            <Refresh sx={{ fontSize: { xs: 16, sm: 18 }, mr: { xs: 0, sm: 0.5 } }} />
+            <Typography variant="button" sx={{ display: { xs: 'none', sm: 'inline' } }}>Refresh</Typography>
           </Button>
           
-          {/* ✅ FILTER BUTTON */}
-          <Button 
-            variant="contained"
-            startIcon={<FilterList />} 
-            onClick={handleFilterClick}
-            sx={{ 
-              bgcolor: colors.darkNavy,
-              color: colors.text,
-              borderRadius: 2,
-              textTransform: 'none',
-              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
-              '&:hover': { 
-                bgcolor: colors.darkNavyHover,
-                boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
-                transform: 'translateY(-2px)',
-              },
-              transition: 'all 0.3s ease',
-            }}
-          >
-            Filter
-          </Button>
-          
-          {/* ✅ EXPORT BUTTON */}
-          <Button 
-            variant="contained"
-            startIcon={<Download />} 
-            onClick={handleExportClick}
-            sx={{ 
-              bgcolor: colors.darkNavy,
-              color: colors.text,
-              borderRadius: 2,
-              textTransform: 'none',
-              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
-              '&:hover': { 
-                bgcolor: colors.darkNavyHover,
-                boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
-                transform: 'translateY(-2px)',
-              },
-              transition: 'all 0.3s ease',
-            }}
-          >
-            Export
-          </Button>
-          
-          {canUpload && (
+          {canCreate && (
             <Button
               variant="contained"
-              startIcon={<Upload />}
-              onClick={() => {
-                setEditingDocument(false)
-                setFormData({
-                  title: '',
-                  document_type: 'PDF',
-                  category: 'Service Manual',
-                  equipment: '',
-                  equipment_id: '',
-                  description: '',
-                  file: null,
-                  fileUrl: ''
-                })
-                setOpenDialog(true)
-              }}
+              startIcon={<Add />}
+              onClick={() => handleOpenDialog()}
+              size="small"
               sx={{ 
                 bgcolor: colors.darkNavy,
                 color: colors.text,
@@ -858,103 +844,142 @@ const ServiceDocumentation = () => {
                 transition: 'all 0.3s ease',
               }}
             >
-              Upload Document
+              <Add sx={{ fontSize: { xs: 16, sm: 18 }, mr: { xs: 0, sm: 0.5 } }} />
+              <Typography variant="button" sx={{ display: { xs: 'none', sm: 'inline' } }}>Request Equipment</Typography>
             </Button>
           )}
         </Box>
       </Box>
 
-      {/* ============================================================
-          STATS CARDS - Same design as Equipment page
-          ============================================================ */}
+      {/* ===== STATS CARDS ===== */}
       <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }} sx={{ mb: 3 }}>
-        {statsCards.map((card, index) => (
-          <Grid item xs={6} sm={3} key={index}>
-            <Grow in timeout={300 + index * 100}>
-              <Card sx={{ 
-                borderRadius: 3,
-                border: `1px solid ${colors.borderColor}`,
-                boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-                transition: 'all 0.3s ease',
-                position: 'relative',
-                overflow: 'hidden',
-                '&:hover': {
-                  transform: 'translateY(-4px)',
-                  boxShadow: `0 8px 30px ${colors.lightCyanGlow}`,
-                  borderColor: colors.lightCyan,
-                },
-                '&::before': {
-                  content: '""',
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  height: 3,
-                  background: `linear-gradient(90deg, ${colors.lightCyan}, ${colors.accentGold})`,
-                  borderRadius: '3px 3px 0 0',
-                }
-              }}>
-                <CardContent sx={{ p: { xs: 1.5, sm: 2 }, position: 'relative' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Box>
-                      <Typography 
-                        variant="caption" 
-                        sx={{ 
-                          color: colors.lightText,
-                          fontWeight: 500,
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.5px',
-                          fontSize: '0.6rem',
-                        }}
-                      >
-                        {card.title}
-                      </Typography>
-                      <Typography 
-                        variant="h5" 
-                        sx={{ 
-                          fontWeight: 700,
-                          color: colors.darkNavy,
-                          fontSize: { xs: '1.3rem', sm: '1.6rem', md: '1.8rem' },
-                          mt: 0.5,
-                        }}
-                      >
-                        {card.value}
-                      </Typography>
-                    </Box>
-                    <Box
-                      sx={{
-                        background: card.bg,
-                        borderRadius: '14px',
-                        p: 1.2,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        width: 42,
-                        height: 42,
-                        color: card.color,
-                        transition: 'all 0.3s ease',
-                      }}
-                    >
-                      {React.cloneElement(card.icon, { 
-                        sx: { 
-                          fontSize: 22,
-                          color: card.color,
-                        } 
-                      })}
-                    </Box>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grow>
-          </Grid>
-        ))}
+        <Grid item xs={6} sm={2.4}>
+          <Card sx={{ 
+            borderRadius: 3,
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+            transition: 'all 0.3s ease',
+            '&:hover': {
+              boxShadow: `0 8px 30px ${colors.lightCyanGlow}`,
+              transform: 'translateY(-4px)',
+            }
+          }}>
+            <CardContent sx={{ textAlign: 'center', py: 2.5 }}>
+              <Typography variant="h4" sx={{ color: colors.darkNavy, fontWeight: 700 }}>
+                {totalRequests}
+              </Typography>
+              <Typography variant="body2" sx={{ color: colors.lightText }}>Total Requests</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={6} sm={2.4}>
+          <Card sx={{ 
+            borderRadius: 3,
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+            transition: 'all 0.3s ease',
+            '&:hover': {
+              boxShadow: `0 8px 30px ${colors.lightCyanGlow}`,
+              transform: 'translateY(-4px)',
+            }
+          }}>
+            <CardContent sx={{ textAlign: 'center', py: 2.5 }}>
+              <Typography variant="h4" sx={{ color: colors.warning, fontWeight: 700 }}>
+                {pendingRequests}
+              </Typography>
+              <Typography variant="body2" sx={{ color: colors.lightText }}>Pending Review</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={6} sm={2.4}>
+          <Card sx={{ 
+            borderRadius: 3,
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+            transition: 'all 0.3s ease',
+            '&:hover': {
+              boxShadow: `0 8px 30px ${colors.lightCyanGlow}`,
+              transform: 'translateY(-4px)',
+            }
+          }}>
+            <CardContent sx={{ textAlign: 'center', py: 2.5 }}>
+              <Typography variant="h4" sx={{ color: colors.success, fontWeight: 700 }}>
+                {approvedRequests}
+              </Typography>
+              <Typography variant="body2" sx={{ color: colors.lightText }}>Approved/Procured</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={6} sm={2.4}>
+          <Card sx={{ 
+            borderRadius: 3,
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+            transition: 'all 0.3s ease',
+            '&:hover': {
+              boxShadow: `0 8px 30px ${colors.lightCyanGlow}`,
+              transform: 'translateY(-4px)',
+            }
+          }}>
+            <CardContent sx={{ textAlign: 'center', py: 2.5 }}>
+              <Typography variant="h4" sx={{ color: colors.error, fontWeight: 700 }}>
+                {rejectedRequests}
+              </Typography>
+              <Typography variant="body2" sx={{ color: colors.lightText }}>Rejected</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={6} sm={2.4}>
+          <Card sx={{ 
+            borderRadius: 3,
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+            transition: 'all 0.3s ease',
+            '&:hover': {
+              boxShadow: `0 8px 30px ${colors.lightCyanGlow}`,
+              transform: 'translateY(-4px)',
+            }
+          }}>
+            <CardContent sx={{ textAlign: 'center', py: 2.5 }}>
+              <Typography variant="h4" sx={{ color: colors.error, fontWeight: 700 }}>
+                {urgentRequests}
+              </Typography>
+              <Typography variant="body2" sx={{ color: colors.lightText }}>Urgent</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
       </Grid>
 
-      {/* ============================================================
-          SEARCH - Only search bar
-          ============================================================ */}
+      {/* Urgent Alert */}
+      {urgentRequests > 0 && (
+        <Alert 
+          severity="error" 
+          sx={{ 
+            mb: 2, 
+            borderRadius: 2,
+            border: `1px solid ${colors.borderColor}`,
+          }}
+          icon={<Warning />}
+          action={
+            <Button 
+              color="error" 
+              size="small"
+              onClick={() => setFilters({ ...filters, priority: 'Urgent' })}
+              sx={{ textTransform: 'none' }}
+            >
+              View Urgent
+            </Button>
+          }
+        >
+          <Typography variant="body2">
+            <strong>{urgentRequests}</strong> urgent procurement request{urgentRequests > 1 ? 's' : ''} need{urgentRequests === 1 ? 's' : ''} immediate attention!
+          </Typography>
+        </Alert>
+      )}
+
+      {/* ===== SEARCH & FILTERS ===== */}
       <Paper sx={{ 
-        p: 2, 
+        p: { xs: 1.5, sm: 2 }, 
         mb: 3, 
         borderRadius: 3,
         border: `1px solid ${colors.borderColor}`,
@@ -962,13 +987,19 @@ const ServiceDocumentation = () => {
         bgcolor: colors.cardBg,
         animation: 'fadeInUp 0.7s ease-out',
       }}>
-        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: { xs: 'column', sm: 'row' },
+          gap: 2, 
+          flexWrap: 'wrap', 
+          alignItems: 'center' 
+        }}>
           <TextField
             size="small"
-            placeholder="Search documents..."
+            placeholder="Search requests..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            sx={{ flexGrow: 1, minWidth: 200 }}
+            sx={{ flexGrow: 1, minWidth: { xs: '100%', sm: 200 }, width: { xs: '100%', sm: 'auto' } }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -980,120 +1011,82 @@ const ServiceDocumentation = () => {
                 '& .MuiOutlinedInput-root': {
                   '&:hover fieldset': { borderColor: colors.lightCyan },
                   '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                },
-                '& .MuiInputBase-input': {
-                  fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  fontSize: '0.9rem',
                 }
               }
             }}
           />
-        </Box>
-      </Paper>
-
-      {/* ============================================================
-          FILTER MENU - Same as Equipment page
-          ============================================================ */}
-      <Menu
-        anchorEl={filterAnchorEl}
-        open={Boolean(filterAnchorEl)}
-        onClose={handleFilterClose}
-        PaperProps={{ 
-          sx: { 
-            p: 2.5, 
-            width: 280,
-            border: `1px solid ${colors.borderColor}`,
-            boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
-            borderRadius: 3,
-          } 
-        }}
-      >
-        <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy, mb: 2 }}>
-          Filter Documents
-        </Typography>
-        
-        <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-          <InputLabel sx={{ color: colors.lightText }}>Category</InputLabel>
-          <Select 
-            name="category" 
-            value={categoryFilter} 
-            onChange={handleFilterChange} 
-            label="Category"
-            sx={{
-              borderRadius: 2,
-              '& .MuiOutlinedInput-root': {
-                '&:hover fieldset': { borderColor: colors.lightCyan },
-                '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-              }
-            }}
-          >
-            <MenuItem value="all">All Categories</MenuItem>
-            {categories.filter(c => c !== 'All').map(cat => (
-              <MenuItem key={cat} value={cat}>{cat}</MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-
-        <TextField
-          fullWidth 
-          size="small" 
-          label="Search Documents" 
-          name="search"
-          value={searchTerm} 
-          onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Search by title, equipment..." 
-          sx={{ 
-            mb: 2,
-            '& .MuiOutlinedInput-root': {
-              borderRadius: 2,
-              '&:hover fieldset': { borderColor: colors.lightCyan },
-              '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-            }
-          }}
-        />
-
-        <Box sx={{ display: 'flex', gap: 1 }}>
+          
+          <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 150 }, width: { xs: '100%', sm: 'auto' } }}>
+            <InputLabel sx={{ color: colors.lightText }}>Status</InputLabel>
+            <Select
+              value={filters.status}
+              onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+              label="Status"
+              sx={{
+                borderRadius: 2,
+                '& .MuiOutlinedInput-root': {
+                  '&:hover fieldset': { borderColor: colors.lightCyan },
+                  '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                }
+              }}
+            >
+              <MenuItem value="">All</MenuItem>
+              <MenuItem value="Requested">Requested</MenuItem>
+              <MenuItem value="Under Review">Under Review</MenuItem>
+              <MenuItem value="Approved">Approved</MenuItem>
+              <MenuItem value="Rejected">Rejected</MenuItem>
+              <MenuItem value="Procured">Procured</MenuItem>
+            </Select>
+          </FormControl>
+          
+          <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 150 }, width: { xs: '100%', sm: 'auto' } }}>
+            <InputLabel sx={{ color: colors.lightText }}>Priority</InputLabel>
+            <Select
+              value={filters.priority}
+              onChange={(e) => setFilters({ ...filters, priority: e.target.value })}
+              label="Priority"
+              sx={{
+                borderRadius: 2,
+                '& .MuiOutlinedInput-root': {
+                  '&:hover fieldset': { borderColor: colors.lightCyan },
+                  '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                }
+              }}
+            >
+              <MenuItem value="">All</MenuItem>
+              <MenuItem value="Low">Low</MenuItem>
+              <MenuItem value="Medium">Medium</MenuItem>
+              <MenuItem value="High">High</MenuItem>
+              <MenuItem value="Urgent">Urgent</MenuItem>
+            </Select>
+          </FormControl>
+          
           <Button 
-            variant="contained" 
-            onClick={handleFilterClose} 
-            fullWidth 
+            variant="contained"
+            startIcon={<Download />}
+            onClick={handleExportClick}
             size="small"
             sx={{ 
               bgcolor: colors.darkNavy,
+              color: colors.text,
               borderRadius: 2,
               textTransform: 'none',
+              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
               '&:hover': { 
                 bgcolor: colors.darkNavyHover,
-                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`
+                boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
+                transform: 'translateY(-2px)',
               },
+              transition: 'all 0.3s ease',
             }}
           >
-            Apply
-          </Button>
-          <Button 
-            variant="outlined" 
-            onClick={clearFilters} 
-            fullWidth 
-            size="small"
-            sx={{ 
-              borderColor: colors.borderColor,
-              color: colors.darkNavy,
-              borderRadius: 2,
-              textTransform: 'none',
-              '&:hover': { 
-                borderColor: colors.lightCyan,
-                backgroundColor: 'rgba(103, 232, 249, 0.04)'
-              }
-            }}
-          >
-            Clear
+            <Download sx={{ fontSize: { xs: 16, sm: 18 }, mr: { xs: 0, sm: 0.5 } }} />
+            <Typography variant="button" sx={{ display: { xs: 'none', sm: 'inline' } }}>Export</Typography>
           </Button>
         </Box>
-      </Menu>
+      </Paper>
 
-      {/* ============================================================
-          EXPORT MENU - Same as Equipment page
-          ============================================================ */}
+      {/* Export Menu */}
       <Menu
         anchorEl={exportAnchorEl}
         open={Boolean(exportAnchorEl)}
@@ -1117,10 +1110,10 @@ const ServiceDocumentation = () => {
             } 
           }}
         >
-          <FileDownload sx={{ mr: 1.5, fontSize: 20, color: colors.lightCyanDark }} /> 
+          <FileDownload sx={{ mr: 1.5, fontSize: 20, color: colors.lightCyanDark }} />
           <Box>
             <Typography variant="body2" fontWeight={500}>CSV</Typography>
-            <Typography variant="caption" sx={{ color: colors.lightText }}>Comma separated values</Typography>
+            <Typography variant="caption" sx={{ color: colors.lightText }}>Comma separated</Typography>
           </Box>
         </MenuItem>
         <MenuItem 
@@ -1138,308 +1131,258 @@ const ServiceDocumentation = () => {
             <Typography variant="caption" sx={{ color: colors.lightText }}>.xlsx format</Typography>
           </Box>
         </MenuItem>
-        <MenuItem 
-          onClick={exportToPDF} 
-          sx={{ 
-            borderRadius: 1,
-            '&:hover': { 
-              bgcolor: 'rgba(103, 232, 249, 0.08)',
-            } 
-          }}
-        >
-          <FileDownload sx={{ mr: 1.5, fontSize: 20, color: colors.lightCyanDark }} />
-          <Box>
-            <Typography variant="body2" fontWeight={500}>PDF</Typography>
-            <Typography variant="caption" sx={{ color: colors.lightText }}>Print ready document</Typography>
-          </Box>
-        </MenuItem>
       </Menu>
 
-      {/* ============================================================
-          DOCUMENT CARDS GRID
-          ============================================================ */}
-      <Grid container spacing={3}>
-        {filteredDocs.map((doc) => {
-          const isImage = doc.document_type === 'Image' || doc.file_url?.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i)
-          
-          return (
-            <Grid item xs={12} sm={6} md={4} lg={3} key={doc.id}>
-              <Grow in timeout={300}>
-                <Card
+      {/* ===== TABLE ===== */}
+      <TableContainer 
+        component={Paper} 
+        sx={{ 
+          borderRadius: 3, 
+          overflowX: 'auto', 
+          border: `1px solid ${colors.borderColor}`,
+          boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+          animation: 'fadeInUp 0.8s ease-out',
+        }}
+      >
+        <Table sx={{ minWidth: 700 }}>
+          <TableHead sx={{ bgcolor: colors.darkNavy }}>
+            <TableRow>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Equipment</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Hospital</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Manufacturer</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Model</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }} align="center">Qty</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }} align="right">Est. Cost</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Priority</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Status</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }} align="center">Actions</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {filteredRequests.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={9} align="center" sx={{ py: 6 }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                    <LocalShipping sx={{ fontSize: 48, color: colors.borderColor }} />
+                    <Typography variant="body1" sx={{ color: colors.lightText }}>
+                      No procurement requests found
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: colors.lightText }}>
+                      Try adjusting your search or filters
+                    </Typography>
+                  </Box>
+                </TableCell>
+              </TableRow>
+            ) : (
+              filteredRequests.map((request, index) => (
+                <TableRow 
+                  key={request.id} 
+                  hover
                   sx={{
-                    borderRadius: 3,
-                    transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-                    border: `1px solid ${colors.borderColor}`,
-                    position: 'relative',
-                    overflow: 'hidden',
+                    transition: 'all 0.2s ease',
+                    animation: `fadeInUp 0.4s ease-out ${index * 0.05}s both`,
                     '&:hover': {
-                      transform: 'translateY(-4px)',
-                      boxShadow: `0 8px 30px ${colors.lightCyanGlow}`,
-                      borderColor: colors.lightCyan,
+                      backgroundColor: 'rgba(103, 232, 249, 0.04)',
                     },
-                    height: '100%',
-                    display: 'flex',
-                    flexDirection: 'column'
+                    '&:last-child td': { borderBottom: 0 }
                   }}
                 >
-                  {/* Top Gradient Bar */}
-                  <Box sx={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    height: 3,
-                    background: `linear-gradient(90deg, ${colors.darkNavy}, ${colors.lightCyan})`,
-                  }} />
-                  
-                  <CardContent sx={{ p: 3, position: 'relative', flexGrow: 1 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-                      {/* File Icon */}
-                      <Badge
-                        badgeContent={doc.document_type}
-                        color="primary"
-                        sx={{
-                          '& .MuiBadge-badge': {
-                            bgcolor: getFileColor(doc.document_type),
-                            color: 'white',
-                            fontWeight: 600,
-                            fontSize: '8px',
-                            height: 18,
-                            minWidth: 18,
-                            border: `2px solid white`,
-                            textTransform: 'uppercase'
-                          }
-                        }}
-                      >
-                        <Avatar sx={{ 
-                          bgcolor: `${getFileColor(doc.document_type)}15`,
-                          width: 56,
-                          height: 56,
-                          border: `2px solid ${getFileColor(doc.document_type)}33`,
-                          boxShadow: `0 4px 20px ${getFileColor(doc.document_type)}33`,
-                        }}>
-                          {getFileIcon(doc.document_type)}
-                        </Avatar>
-                      </Badge>
-                      
-                      <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography variant="h6" fontWeight={700} sx={{ color: colors.darkNavy, mb: 0.5, fontSize: '0.95rem' }}>
-                          {doc.title}
-                        </Typography>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                          <Chip
-                            label={doc.category}
-                            size="small"
-                            sx={{
-                              bgcolor: colors.darkNavy + '10',
-                              color: colors.darkNavy,
-                              fontWeight: 500,
-                              fontSize: '10px',
-                              height: 20,
-                              borderRadius: 2,
-                              border: `1px solid ${colors.darkNavy}20`
-                            }}
-                          />
-                          <Box sx={{ width: 4, height: 4, borderRadius: '50%', bgcolor: colors.borderColor }} />
-                          <Typography variant="caption" sx={{ color: colors.lightText }}>
-                            {doc.file_size || '0 KB'}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    </Box>
-
-                    {/* Details */}
-                    <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <MedicalServices sx={{ fontSize: 16, color: colors.lightText }} />
-                        <Typography variant="body2" sx={{ color: colors.lightText, fontSize: '0.8rem' }}>
-                          {doc.equipment || 'No Equipment'}
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Person sx={{ fontSize: 16, color: colors.lightText }} />
-                        <Typography variant="body2" sx={{ color: colors.lightText, fontSize: '0.8rem' }}>
-                          {doc.uploaded_by_name || doc.uploaded_by || 'System'}
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <CalendarToday sx={{ fontSize: 16, color: colors.lightText }} />
-                        <Typography variant="body2" sx={{ color: colors.lightText, fontSize: '0.8rem' }}>
-                          {formatDate(doc.created_at || doc.uploaded_at)}
-                        </Typography>
-                      </Box>
-                    </Box>
-
-                    {doc.description && (
-                      <Typography variant="body2" sx={{ 
-                        mt: 1.5, 
-                        color: colors.lightText,
-                        fontSize: '0.75rem',
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
-                        overflow: 'hidden'
-                      }}>
-                        {doc.description}
-                      </Typography>
-                    )}
-                  </CardContent>
-
-                  {/* Actions */}
-                  <CardActions sx={{ p: 2, pt: 0, gap: 0.5, flexWrap: 'wrap' }}>
-                    <Tooltip title="View Details">
-                      <Button 
-                        size="small" 
-                        startIcon={<Visibility sx={{ fontSize: 18 }} />}
-                        onClick={() => handleView(doc)}
-                        sx={{ 
-                          color: colors.darkNavy,
-                          '&:hover': { 
-                            color: colors.lightCyanDark, 
-                            bgcolor: 'rgba(103, 232, 249, 0.08)' 
-                          },
-                          borderRadius: 2,
-                          textTransform: 'none',
-                          fontWeight: 500,
-                          fontSize: '0.75rem'
-                        }}
-                      >
-                        View
-                      </Button>
-                    </Tooltip>
-                    
-                    <Tooltip title="Download">
-                      <Button 
-                        size="small" 
-                        startIcon={<Download sx={{ fontSize: 18 }} />}
-                        onClick={() => handleDownload(doc)}
-                        sx={{ 
-                          color: colors.darkNavy,
-                          '&:hover': { 
-                            color: colors.lightCyanDark, 
-                            bgcolor: 'rgba(103, 232, 249, 0.08)' 
-                          },
-                          borderRadius: 2,
-                          textTransform: 'none',
-                          fontWeight: 500,
-                          fontSize: '0.75rem'
-                        }}
-                      >
-                        Download
-                      </Button>
-                    </Tooltip>
-                    
-                    {canEdit && (
-                      <Tooltip title="Edit">
+                  <TableCell>
+                    <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+                      {request.equipment_name}
+                    </Typography>
+                  </TableCell>
+                  <TableCell sx={{ color: colors.darkNavy, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
+                    {request.hospital_name || '-'}
+                  </TableCell>
+                  <TableCell sx={{ color: colors.lightText, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
+                    {request.manufacturer || '-'}
+                  </TableCell>
+                  <TableCell sx={{ color: colors.lightText, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
+                    {request.model || '-'}
+                  </TableCell>
+                  <TableCell align="center" sx={{ color: colors.darkNavy, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
+                    {request.quantity}
+                  </TableCell>
+                  <TableCell align="right" sx={{ color: colors.darkNavy, fontWeight: 500, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
+                    {request.estimated_cost ? `$${parseFloat(request.estimated_cost).toFixed(2)}` : '-'}
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={request.priority}
+                      size="small"
+                      sx={{
+                        bgcolor: getPriorityColor(request.priority),
+                        color: 'white',
+                        fontWeight: 600,
+                        fontSize: '10px',
+                        height: 24,
+                        borderRadius: 2,
+                      }}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={request.status}
+                      size="small"
+                      sx={{
+                        bgcolor: getStatusColor(request.status),
+                        color: 'white',
+                        fontWeight: 600,
+                        fontSize: '10px',
+                        height: 24,
+                        borderRadius: 2,
+                      }}
+                    />
+                  </TableCell>
+                  <TableCell align="center">
+                    <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5 }}>
+                      {/* ✅ View - All users can view */}
+                      <Tooltip title="View Details">
                         <IconButton 
                           size="small" 
-                          onClick={() => handleEdit(doc)}
+                          onClick={() => handleView(request)}
                           sx={{ 
-                            color: colors.darkNavy,
+                            color: colors.darkNavy, 
                             '&:hover': { 
-                              color: colors.lightCyanDark, 
-                              bgcolor: 'rgba(103, 232, 249, 0.08)' 
-                            }
+                              color: colors.lightCyanDark,
+                              backgroundColor: 'rgba(103, 232, 249, 0.08)'
+                            } 
                           }}
                         >
-                          <Edit fontSize="small" />
+                          <Visibility fontSize="small" />
                         </IconButton>
                       </Tooltip>
-                    )}
-                    
-                    {canDelete && (
-                      <Tooltip title="Delete">
-                        <IconButton 
-                          size="small" 
-                          color="error"
-                          onClick={() => handleDelete(doc.id)}
-                          sx={{ '&:hover': { bgcolor: `${colors.error}10` } }}
-                        >
-                          <Delete fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    )}
-                  </CardActions>
-                </Card>
-              </Grow>
-            </Grid>
-          )
-        })}
-      </Grid>
+                      
+                      {/* ✅ Edit - Only Super Admin can edit */}
+                      {canEdit && (request.status === 'Requested' || request.status === 'Under Review') && (
+                        <Tooltip title="Edit">
+                          <IconButton 
+                            size="small" 
+                            onClick={() => handleOpenDialog(request)}
+                            sx={{ 
+                              color: colors.darkNavy, 
+                              '&:hover': { 
+                                color: colors.lightCyanDark,
+                                backgroundColor: 'rgba(103, 232, 249, 0.08)'
+                              } 
+                            }}
+                          >
+                            <Edit fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      
+                      {/* ✅ Delete - Only Super Admin can delete */}
+                      {canDelete && (request.status === 'Requested' || request.status === 'Under Review') && (
+                        <Tooltip title="Delete">
+                          <IconButton 
+                            size="small" 
+                            color="error" 
+                            onClick={() => handleDelete(request.id)}
+                            sx={{
+                              '&:hover': {
+                                backgroundColor: 'rgba(239, 68, 68, 0.08)'
+                              }
+                            }}
+                          >
+                            <Delete fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      
+                      {/* Start Review - Super Admin & Hospital Admin */}
+                      {request.status === 'Requested' && canReview && (
+                        <Tooltip title="Start Review">
+                          <IconButton 
+                            size="small" 
+                            onClick={() => handleReview(request.id)}
+                            sx={{ 
+                              color: colors.info, 
+                              '&:hover': { 
+                                color: colors.lightCyanDark,
+                                backgroundColor: 'rgba(103, 232, 249, 0.08)'
+                              } 
+                            }}
+                          >
+                            <Info fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      
+                      {/* Approve/Reject - Super Admin only */}
+                      {request.status === 'Under Review' && canApprove && (
+                        <>
+                          <Tooltip title="Approve">
+                            <IconButton 
+                              size="small" 
+                              onClick={() => handleApprove(request.id)}
+                              sx={{ 
+                                color: colors.success, 
+                                '&:hover': { 
+                                  backgroundColor: 'rgba(34, 197, 94, 0.08)'
+                                } 
+                              }}
+                            >
+                              <CheckCircle fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Reject">
+                            <IconButton 
+                              size="small" 
+                              onClick={() => handleReject(request.id)}
+                              sx={{ 
+                                color: colors.error, 
+                                '&:hover': { 
+                                  backgroundColor: 'rgba(239, 68, 68, 0.08)'
+                                } 
+                              }}
+                            >
+                              <Cancel fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </>
+                      )}
+                      
+                      {/* Mark as Procured - Super Admin & Hospital Admin */}
+                      {request.status === 'Approved' && canMarkProcured && (
+                        <Tooltip title="Mark as Procured">
+                          <IconButton 
+                            size="small" 
+                            onClick={() => handleMarkProcured(request.id)}
+                            sx={{ 
+                              color: colors.success, 
+                              '&:hover': { 
+                                backgroundColor: 'rgba(34, 197, 94, 0.08)'
+                              } 
+                            }}
+                          >
+                            <CheckCircle fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
 
-      {/* ============================================================
-          EMPTY STATE
-          ============================================================ */}
-      {filteredDocs.length === 0 && !loading && (
-        <Paper sx={{ 
-          p: 4, 
-          textAlign: 'center', 
-          borderRadius: 3,
-          border: `1px solid ${colors.borderColor}`,
-          bgcolor: colors.cardBg,
-        }}>
-          <MenuBook sx={{ fontSize: 64, color: colors.lightText, opacity: 0.3 }} />
-          <Typography variant="h6" sx={{ color: colors.lightText, mt: 2 }}>
-            No documents found
-          </Typography>
-          <Typography variant="body2" sx={{ color: colors.lightText, mb: 2 }}>
-            Try adjusting your search or filters
-          </Typography>
-          {canUpload && (
-            <Button
-              variant="contained"
-              startIcon={<Upload />}
-              onClick={() => {
-                setEditingDocument(false)
-                setFormData({
-                  title: '',
-                  document_type: 'PDF',
-                  category: 'Service Manual',
-                  equipment: '',
-                  equipment_id: '',
-                  description: '',
-                  file: null,
-                  fileUrl: ''
-                })
-                setOpenDialog(true)
-              }}
-              sx={{ 
-                mt: 2,
-                bgcolor: colors.darkNavy,
-                color: colors.text,
-                borderRadius: 2,
-                textTransform: 'none',
-                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
-                '&:hover': { 
-                  bgcolor: colors.darkNavyHover,
-                  boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
-                },
-                transition: 'all 0.3s ease',
-              }}
-            >
-              Upload First Document
-            </Button>
-          )}
-        </Paper>
-      )}
-
-      {/* ============================================================
-          UPLOAD/EDIT DIALOG
-          ============================================================ */}
-      {canUpload && (
+      {/* ===== ADD/EDIT DIALOG ===== */}
+      {canCreate && (
         <Dialog 
           open={openDialog} 
-          onClose={() => {
-            setOpenDialog(false)
-            setEditingDocument(false)
-          }} 
-          maxWidth="sm" 
+          onClose={handleCloseDialog} 
+          maxWidth="md" 
           fullWidth
           PaperProps={{
             sx: {
               borderRadius: 4,
               border: `1px solid ${colors.borderColor}`,
               boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+              margin: { xs: 1, sm: 2 },
             }
           }}
         >
@@ -1447,273 +1390,308 @@ const ServiceDocumentation = () => {
             bgcolor: colors.darkNavy, 
             color: 'white',
             borderRadius: '8px 8px 0 0',
-            py: 2.5,
+            py: { xs: 2, sm: 2.5 },
           }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant="h6" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                {editingDocument ? <Edit sx={{ fontSize: 28 }} /> : <Upload sx={{ fontSize: 28 }} />}
-                {editingDocument ? 'Edit Document' : 'Upload Document'}
+              <Typography variant="h6" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, fontSize: { xs: '1rem', sm: '1.25rem' } }}>
+                <LocalShipping sx={{ fontSize: { xs: 22, sm: 28 } }} />
+                {editingRequest ? 'Edit Procurement Request' : 'New Procurement Request'}
               </Typography>
-              <IconButton onClick={() => {
-                setOpenDialog(false)
-                setEditingDocument(false)
-              }} sx={{ color: 'white', '&:hover': { color: colors.lightCyan } }}>
+              <IconButton onClick={handleCloseDialog} sx={{ color: 'white', '&:hover': { color: colors.lightCyan } }}>
                 <Close />
               </IconButton>
             </Box>
           </DialogTitle>
-          <DialogContent dividers sx={{ px: 4, py: 3 }}>
-            <Box>
-              <TextField
-                fullWidth
-                label="Document Title *"
-                name="title"
-                value={formData.title}
-                onChange={handleFormChange}
-                required
-                sx={{ mb: 2 }}
-                placeholder="Enter document title"
-                InputProps={{
-                  sx: {
-                    borderRadius: 2,
-                    '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.lightCyan },
-                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                    },
-                    '& .MuiInputBase-input': {
-                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                    },
-                    '& .MuiInputLabel-root': {
-                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                    }
-                  }
-                }}
-              />
-              
-              <FormControl fullWidth sx={{ mb: 2 }}>
-                <InputLabel sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Document Type</InputLabel>
-                <Select
-                  name="document_type"
-                  value={formData.document_type}
+          <DialogContent dividers sx={{ px: { xs: 2, sm: 4 }, py: { xs: 2, sm: 3 } }}>
+            <Grid container spacing={2.5} sx={{ mt: 1 }}>
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth>
+                  <InputLabel sx={{ color: colors.lightText }}>Hospital *</InputLabel>
+                  <Select
+                    name="hospital_id"
+                    value={formData.hospital_id}
+                    onChange={handleFormChange}
+                    label="Hospital *"
+                    required
+                    disabled={user?.role === 'HOSPITAL_ADMIN'}
+                    sx={{
+                      borderRadius: 2,
+                      '& .MuiOutlinedInput-root': {
+                        '&:hover fieldset': { borderColor: colors.lightCyan },
+                        '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                      }
+                    }}
+                  >
+                    <MenuItem value="">Select Hospital</MenuItem>
+                    {hospitals.map(h => (
+                      <MenuItem key={h.id} value={h.id}>{h.name}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth>
+                  <InputLabel sx={{ color: colors.lightText }}>Category</InputLabel>
+                  <Select
+                    name="category_id"
+                    value={formData.category_id}
+                    onChange={handleFormChange}
+                    label="Category"
+                    sx={{
+                      borderRadius: 2,
+                      '& .MuiOutlinedInput-root': {
+                        '&:hover fieldset': { borderColor: colors.lightCyan },
+                        '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                      }
+                    }}
+                  >
+                    <MenuItem value="">Select Category</MenuItem>
+                    {equipment.map(cat => (
+                      <MenuItem key={cat.id} value={cat.id}>{cat.name}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Equipment Name *"
+                  name="equipment_name"
+                  value={formData.equipment_name}
                   onChange={handleFormChange}
-                  label="Document Type"
-                  sx={{
-                    borderRadius: 2,
-                    '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.lightCyan },
-                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                    },
-                    '& .MuiSelect-select': {
-                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                    }
-                  }}
-                >
-                  <MenuItem value="PDF" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>PDF</MenuItem>
-                  <MenuItem value="Word" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Word Document</MenuItem>
-                  <MenuItem value="Excel" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Excel Spreadsheet</MenuItem>
-                  <MenuItem value="Video" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Video</MenuItem>
-                  <MenuItem value="Image" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Image</MenuItem>
-                  <MenuItem value="Other" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Other</MenuItem>
-                </Select>
-              </FormControl>
-
-              <FormControl fullWidth sx={{ mb: 2 }}>
-                <InputLabel sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Category</InputLabel>
-                <Select
-                  name="category"
-                  value={formData.category}
-                  onChange={handleFormChange}
-                  label="Category"
-                  sx={{
-                    borderRadius: 2,
-                    '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.lightCyan },
-                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                    },
-                    '& .MuiSelect-select': {
-                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                    }
-                  }}
-                >
-                  <MenuItem value="Service Manual" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Service Manual</MenuItem>
-                  <MenuItem value="Calibration" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Calibration</MenuItem>
-                  <MenuItem value="Repair Guide" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Repair Guide</MenuItem>
-                  <MenuItem value="User Manual" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>User Manual</MenuItem>
-                  <MenuItem value="Warranty" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Warranty</MenuItem>
-                  <MenuItem value="Other" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Other</MenuItem>
-                </Select>
-              </FormControl>
-
-              <FormControl fullWidth sx={{ mb: 2 }} required>
-                <InputLabel sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Equipment *</InputLabel>
-                <Select
-                  name="equipment_id"
-                  value={formData.equipment_id}
-                  onChange={handleFormChange}
-                  label="Equipment *"
                   required
                   sx={{
-                    borderRadius: 2,
                     '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
                       '&:hover fieldset': { borderColor: colors.lightCyan },
                       '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                    },
-                    '& .MuiSelect-select': {
-                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                     }
                   }}
-                >
-                  <MenuItem value="" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Select Equipment</MenuItem>
-                  {equipmentList.map((eq) => (
-                    <MenuItem key={eq.id} value={eq.id} sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                      {eq.name} - {eq.model} ({eq.hospital_name || 'No Hospital'})
-                    </MenuItem>
-                  ))}
-                </Select>
-                {equipmentList.length === 0 && (
-                  <Typography variant="caption" sx={{ color: colors.error, mt: 1, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                    No equipment available. Please add equipment first.
-                  </Typography>
-                )}
-              </FormControl>
-
-              <TextField
-                fullWidth
-                label="Description"
-                name="description"
-                value={formData.description}
-                onChange={handleFormChange}
-                multiline
-                rows={2}
-                sx={{ mb: 2 }}
-                placeholder="Brief description of the document"
-                InputProps={{
-                  sx: {
-                    borderRadius: 2,
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Manufacturer"
+                  name="manufacturer"
+                  value={formData.manufacturer}
+                  onChange={handleFormChange}
+                  sx={{
                     '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
                       '&:hover fieldset': { borderColor: colors.lightCyan },
                       '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                    },
-                    '& .MuiInputBase-input': {
-                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                    },
-                    '& .MuiInputLabel-root': {
-                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                     }
-                  }
-                }}
-              />
-              
-              {!editingDocument && (
-                <>
-                  <Button
-                    variant="outlined"
-                    component="label"
-                    startIcon={<FilePresent />}
-                    fullWidth
-                    sx={{ 
-                      py: 3, 
-                      borderStyle: 'dashed',
-                      borderColor: colors.borderColor,
-                      color: colors.lightText,
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Model"
+                  name="model"
+                  value={formData.model}
+                  onChange={handleFormChange}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
                       borderRadius: 2,
-                      '&:hover': {
-                        borderColor: colors.lightCyan,
-                        borderStyle: 'dashed',
-                        color: colors.lightCyanDark
-                      },
-                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                    }
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <TextField
+                  fullWidth
+                  label="Quantity"
+                  name="quantity"
+                  type="number"
+                  value={formData.quantity}
+                  onChange={handleFormChange}
+                  InputProps={{ inputProps: { min: 1 } }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                    }
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <TextField
+                  fullWidth
+                  label="Estimated Cost ($)"
+                  name="estimated_cost"
+                  type="number"
+                  value={formData.estimated_cost}
+                  onChange={handleFormChange}
+                  InputProps={{ inputProps: { min: 0, step: 0.01 } }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                    }
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <FormControl fullWidth>
+                  <InputLabel sx={{ color: colors.lightText }}>Priority</InputLabel>
+                  <Select
+                    name="priority"
+                    value={formData.priority}
+                    onChange={handleFormChange}
+                    label="Priority"
+                    sx={{
+                      borderRadius: 2,
+                      '& .MuiOutlinedInput-root': {
+                        '&:hover fieldset': { borderColor: colors.lightCyan },
+                        '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                      }
                     }}
                   >
-                    {formData.file ? formData.file.name : 'Choose File (Max: 50MB)'}
-                    <input 
-                      type="file" 
-                      hidden 
-                      onChange={handleFileChange}
-                      accept=".pdf,.doc,.docx,.xls,.xlsx,.mp4,.avi,.mov,.jpg,.jpeg,.png,.gif,.webp"
-                    />
-                  </Button>
-                  <Typography variant="caption" sx={{ color: colors.lightText, mt: 1, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                    Supported formats: PDF, DOC, DOCX, XLS, XLSX, MP4, JPG, PNG (Max: 50MB)
-                  </Typography>
-                  {formData.file && (
-                    <Alert severity="info" sx={{ mt: 2, borderRadius: 2, border: `1px solid rgba(103, 232, 249, 0.2)` }}>
-                      Selected: {formData.file.name} ({(formData.file.size / 1024 / 1024).toFixed(2)} MB)
-                    </Alert>
-                  )}
-                </>
-              )}
-
-              {editingDocument && formData.fileUrl && (
-                <Alert severity="success" sx={{ mt: 2, borderRadius: 2, border: `1px solid ${colors.success}33` }}>
-                  Current file: {formData.file_name || 'document'}
-                  <Button 
-                    size="small" 
-                    href={formData.fileUrl} 
-                    target="_blank"
-                    sx={{ 
-                      ml: 2,
-                      color: colors.darkNavy,
-                      '&:hover': { color: colors.lightCyanDark },
-                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                    <MenuItem value="Low">Low</MenuItem>
+                    <MenuItem value="Medium">Medium</MenuItem>
+                    <MenuItem value="High">High</MenuItem>
+                    <MenuItem value="Urgent">Urgent</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Requested By"
+                  name="requested_by"
+                  value={formData.requested_by}
+                  onChange={handleFormChange}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                    }
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth>
+                  <InputLabel sx={{ color: colors.lightText }}>Department</InputLabel>
+                  <Select
+                    name="department"
+                    value={formData.department}
+                    onChange={handleFormChange}
+                    label="Department"
+                    sx={{
+                      borderRadius: 2,
+                      '& .MuiOutlinedInput-root': {
+                        '&:hover fieldset': { borderColor: colors.lightCyan },
+                        '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                      }
                     }}
                   >
-                    View
-                  </Button>
-                </Alert>
-              )}
+                    <MenuItem value="">Select Department</MenuItem>
+                    {departments.map(d => (
+                      <MenuItem key={d.id} value={d.id}>{d.name}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Justification"
+                  name="justification"
+                  value={formData.justification}
+                  onChange={handleFormChange}
+                  multiline
+                  rows={3}
+                  placeholder="Explain why this equipment is needed..."
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                    }
+                  }}
+                />
+              </Grid>
 
-              {uploading && uploadProgress > 0 && (
-                <Box sx={{ mt: 2 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                    <Typography variant="caption" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                      Uploading...
-                    </Typography>
-                    <Typography variant="caption" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                      {uploadProgress}%
+              {/* Attachments */}
+              <Grid item xs={12}>
+                <Typography variant="subtitle2" sx={{ color: colors.lightText, fontWeight: 600 }} gutterBottom>
+                  <AttachFile sx={{ fontSize: 18, verticalAlign: 'middle', mr: 1 }} />
+                  Attach Documents (Quotes, Specifications, etc.)
+                </Typography>
+                
+                <FileUpload
+                  endpoint="/api/upload"
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,image/*"
+                  multiple={true}
+                  label="Click to upload documents"
+                  maxFiles={5}
+                  maxSize={20}
+                  showPreview={true}
+                  onUploadComplete={(files) => {
+                    console.log('📄 Documents uploaded:', files)
+                    const urls = files.map(f => f.url || f.fileUrl).filter(Boolean)
+                    const currentFiles = formData.attachments ? formData.attachments.split(',') : []
+                    const updatedFiles = [...currentFiles, ...urls]
+                    setFormData(prev => ({
+                      ...prev,
+                      attachments: updatedFiles.join(',')
+                    }))
+                    toast.success(`${files.length} document(s) uploaded successfully`)
+                  }}
+                  onUploadError={(error) => toast.error('Upload failed: ' + error)}
+                  onDelete={(file) => {
+                    const currentFiles = formData.attachments?.split(',') || []
+                    const updatedFiles = currentFiles.filter(f => f !== file.url)
+                    setFormData(prev => ({
+                      ...prev,
+                      attachments: updatedFiles.join(',')
+                    }))
+                    toast.info('Document removed')
+                  }}
+                  existingFiles={formData.attachments ? formData.attachments.split(',').filter(Boolean).map(url => ({
+                    url: url,
+                    name: url.split('/').pop(),
+                    type: 'document'
+                  })) : []}
+                />
+                
+                {formData.attachments && formData.attachments.split(',').filter(Boolean).length > 0 && (
+                  <Box sx={{ mt: 1 }}>
+                    <Typography variant="caption" sx={{ color: colors.lightText }}>
+                      {formData.attachments.split(',').filter(Boolean).length} document(s) attached
                     </Typography>
                   </Box>
-                  <LinearProgress 
-                    variant="determinate" 
-                    value={uploadProgress} 
-                    sx={{ 
-                      height: 6, 
-                      borderRadius: 3,
-                      bgcolor: colors.borderColor,
-                      '& .MuiLinearProgress-bar': { bgcolor: colors.lightCyan }
-                    }} 
-                  />
-                </Box>
-              )}
-            </Box>
+                )}
+              </Grid>
+            </Grid>
           </DialogContent>
-          <DialogActions sx={{ p: 3, gap: 1 }}>
+          <DialogActions sx={{ p: { xs: 2, sm: 3 }, gap: 1 }}>
             <Button 
-              onClick={() => {
-                setOpenDialog(false)
-                setEditingDocument(false)
-              }}
-              variant="outlined"
+              onClick={handleCloseDialog} 
               sx={{ 
-                color: colors.darkNavy, 
-                borderColor: colors.borderColor,
+                color: colors.darkNavy,
+                borderRadius: 2,
+                px: 3,
+                textTransform: 'none',
                 '&:hover': { 
-                  borderColor: colors.lightCyan,
                   backgroundColor: 'rgba(103, 232, 249, 0.04)'
                 },
-                textTransform: 'none',
-                borderRadius: 2,
-                fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
               }}
-              disabled={uploading}
             >
               Cancel
             </Button>
             <Button
               variant="contained"
-              onClick={handleUpload}
-              disabled={uploading}
-              sx={{ 
+              onClick={handleSubmit}
+              disabled={submitting}
+              sx={{
                 bgcolor: colors.darkNavy,
                 color: colors.text,
                 borderRadius: 2,
@@ -1724,29 +1702,28 @@ const ServiceDocumentation = () => {
                   bgcolor: colors.darkNavyHover,
                   boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
                 },
+                '&.Mui-disabled': { bgcolor: '#bdbdbd' },
                 transition: 'all 0.3s ease',
               }}
-              startIcon={editingDocument ? <Edit /> : <Upload />}
             >
-              {uploading ? 'Uploading...' : (editingDocument ? 'Update' : 'Upload')}
+              {submitting ? <CircularProgress size={24} sx={{ color: 'white' }} /> : (editingRequest ? 'Update' : 'Submit Request')}
             </Button>
           </DialogActions>
         </Dialog>
       )}
 
-      {/* ============================================================
-          VIEW DOCUMENT DIALOG
-          ============================================================ */}
+      {/* ===== VIEW DETAILS DIALOG ===== */}
       <Dialog 
         open={openViewDialog} 
-        onClose={() => setOpenViewDialog(false)} 
+        onClose={handleCloseView} 
         maxWidth="md" 
         fullWidth
         PaperProps={{
-          sx: { 
+          sx: {
             borderRadius: 4,
             border: `1px solid ${colors.borderColor}`,
             boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+            margin: { xs: 1, sm: 2 },
           }
         }}
       >
@@ -1754,159 +1731,329 @@ const ServiceDocumentation = () => {
           bgcolor: colors.darkNavy, 
           color: 'white',
           borderRadius: '8px 8px 0 0',
-          py: 2.5,
+          py: { xs: 2, sm: 2.5 },
         }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-              <MenuBook sx={{ fontSize: 28 }} />
-              Document Details
+            <Typography variant="h6" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, fontSize: { xs: '1rem', sm: '1.25rem' } }}>
+              <LocalShipping sx={{ fontSize: { xs: 22, sm: 28 } }} />
+              Procurement Request Details
             </Typography>
-            <IconButton onClick={() => setOpenViewDialog(false)} sx={{ color: 'white', '&:hover': { color: colors.lightCyan } }}>
+            <IconButton onClick={handleCloseView} sx={{ color: 'white', '&:hover': { color: colors.lightCyan } }}>
               <Close />
             </IconButton>
           </Box>
         </DialogTitle>
-        <DialogContent dividers sx={{ px: 4, py: 3 }}>
-          {selectedDoc && (
-            <Box>
-              <Grid container spacing={2.5}>
-                <Grid item xs={12} sx={{ display: 'flex', alignItems: 'center' }}>
-                  <Box>
-                    <Typography variant="h5" fontWeight={600} sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                      {selectedDoc.title}
-                    </Typography>
-                    <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5, flexWrap: 'wrap' }}>
-                      <Chip
-                        label={selectedDoc.document_type}
-                        size="small"
-                        sx={{
-                          bgcolor: getFileColor(selectedDoc.document_type),
-                          color: 'white',
-                          fontWeight: 600,
-                          height: 26,
-                          borderRadius: 2,
-                        }}
-                      />
-                      <Chip
-                        label={selectedDoc.category}
-                        size="small"
-                        variant="outlined"
-                        sx={{ borderColor: colors.borderColor, color: colors.lightText, borderRadius: 2 }}
-                      />
-                    </Box>
-                  </Box>
-                </Grid>
-
-                <Grid item xs={12}>
-                  <Divider sx={{ borderColor: colors.borderColor }} />
-                </Grid>
-
-                <Grid item xs={12} md={6}>
-                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
-                    Equipment
+        <DialogContent dividers sx={{ px: { xs: 2, sm: 4 }, py: { xs: 2, sm: 3 } }}>
+          {viewingRequest && (
+            <Grid container spacing={2.5} sx={{ mt: 0 }}>
+              <Grid item xs={12}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+                  <Typography variant="h6" fontWeight={700} sx={{ color: colors.darkNavy }}>
+                    {viewingRequest.equipment_name}
                   </Typography>
-                  <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                    {selectedDoc.equipment || '-'}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
-                    Uploaded By
-                  </Typography>
-                  <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                    {selectedDoc.uploaded_by_name || selectedDoc.uploaded_by || 'System'}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
-                    Uploaded Date
-                  </Typography>
-                  <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                    {formatDate(selectedDoc.created_at || selectedDoc.uploaded_at)}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
-                    File Size
-                  </Typography>
-                  <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                    {selectedDoc.file_size || '-'}
-                  </Typography>
-                </Grid>
-
-                {selectedDoc.description && (
-                  <Grid item xs={12}>
-                    <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
-                      Description
-                    </Typography>
-                    <Typography variant="body1" sx={{ mt: 1, color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                      {selectedDoc.description}
-                    </Typography>
-                  </Grid>
-                )}
-
-                <Grid item xs={12}>
-                  <Divider sx={{ borderColor: colors.borderColor }} />
-                </Grid>
-
-                <Grid item xs={12}>
-                  <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
-                    <Button
-                      variant="contained"
-                      startIcon={<Download />}
-                      onClick={() => handleDownload(selectedDoc)}
-                      sx={{ 
-                        bgcolor: colors.darkNavy,
-                        color: colors.text,
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                    <Chip
+                      label={viewingRequest.status}
+                      size="small"
+                      sx={{
+                        bgcolor: getStatusColor(viewingRequest.status),
+                        color: 'white',
+                        fontWeight: 600,
+                        fontSize: '11px',
+                        height: 26,
                         borderRadius: 2,
-                        px: 4,
-                        textTransform: 'none',
-                        boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
-                        '&:hover': { 
-                          bgcolor: colors.darkNavyHover,
-                          boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
-                        },
-                        transition: 'all 0.3s ease',
                       }}
-                    >
-                      Download Document
-                    </Button>
-                    {selectedDoc.file_url && (
-                      <Button
-                        variant="outlined"
-                        startIcon={<Visibility />}
-                        onClick={() => window.open(selectedDoc.file_url, '_blank')}
-                        sx={{ 
-                          px: 4,
-                          borderColor: colors.darkNavy,
-                          color: colors.darkNavy,
-                          '&:hover': { 
-                            borderColor: colors.lightCyan, 
-                            color: colors.lightCyanDark,
-                            backgroundColor: 'rgba(103, 232, 249, 0.04)'
-                          },
-                          textTransform: 'none',
-                          borderRadius: 2,
+                    />
+                    <Chip
+                      label={viewingRequest.priority}
+                      size="small"
+                      sx={{
+                        bgcolor: getPriorityColor(viewingRequest.priority),
+                        color: 'white',
+                        fontWeight: 600,
+                        fontSize: '11px',
+                        height: 26,
+                        borderRadius: 2,
+                      }}
+                    />
+                  </Box>
+                </Box>
+              </Grid>
+              <Grid item xs={12}>
+                <Divider sx={{ borderColor: colors.borderColor }} />
+              </Grid>
+
+              {/* Status Timeline */}
+              <Grid item xs={12}>
+                <Typography variant="subtitle2" sx={{ color: colors.lightText, fontWeight: 600, mb: 2 }}>
+                  Request Status Timeline
+                </Typography>
+                <Stepper activeStep={getCurrentStep(viewingRequest.status)} orientation="vertical">
+                  {getStatusSteps().map((step, index) => (
+                    <Step key={step}>
+                      <StepLabel
+                        StepIconComponent={({ active, completed }) => {
+                          const stepColors = {
+                            'Requested': '#F59E0B',
+                            'Under Review': '#3B82F6',
+                            'Approved': '#22C55E',
+                            'Procured': '#8B5CF6'
+                          }
+                          return (
+                            <Avatar sx={{
+                              bgcolor: active || completed ? stepColors[step] : '#e0e0e0',
+                              width: 24,
+                              height: 24,
+                              fontSize: 14,
+                              color: 'white'
+                            }}>
+                              {index + 1}
+                            </Avatar>
+                          )
                         }}
                       >
-                        Open in Browser
+                        {step}
+                      </StepLabel>
+                      <StepContent>
+                        <Typography variant="caption" sx={{ color: colors.lightText }}>
+                          {step === viewingRequest.status ? 'Current status' :
+                            getCurrentStep(viewingRequest.status) > index ? 'Completed' : 'Pending'}
+                        </Typography>
+                      </StepContent>
+                    </Step>
+                  ))}
+                </Stepper>
+              </Grid>
+
+              <Grid item xs={12}>
+                <Divider sx={{ borderColor: colors.borderColor }} />
+              </Grid>
+
+              {/* Details */}
+              <Grid item xs={12} md={6}>
+                <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600, display: 'block' }}>
+                  Hospital
+                </Typography>
+                <Typography variant="body1" sx={{ color: colors.darkNavy, fontWeight: 500 }}>
+                  {viewingRequest.hospital_name || 'N/A'}
+                </Typography>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600, display: 'block' }}>
+                  Category
+                </Typography>
+                <Typography variant="body1" sx={{ color: colors.darkNavy }}>
+                  {viewingRequest.category_name || 'N/A'}
+                </Typography>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600, display: 'block' }}>
+                  Manufacturer
+                </Typography>
+                <Typography variant="body1" sx={{ color: colors.darkNavy }}>
+                  {viewingRequest.manufacturer || 'N/A'}
+                </Typography>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600, display: 'block' }}>
+                  Model
+                </Typography>
+                <Typography variant="body1" sx={{ color: colors.darkNavy }}>
+                  {viewingRequest.model || 'N/A'}
+                </Typography>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600, display: 'block' }}>
+                  Quantity
+                </Typography>
+                <Typography variant="body1" sx={{ color: colors.darkNavy }}>
+                  {viewingRequest.quantity}
+                </Typography>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600, display: 'block' }}>
+                  Estimated Cost
+                </Typography>
+                <Typography variant="body1" sx={{ color: colors.lightCyanDark, fontWeight: 600 }}>
+                  {viewingRequest.estimated_cost ? `$${parseFloat(viewingRequest.estimated_cost).toFixed(2)}` : '-'}
+                </Typography>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600, display: 'block' }}>
+                  Requested By
+                </Typography>
+                <Typography variant="body1" sx={{ color: colors.darkNavy }}>
+                  {viewingRequest.requested_by || 'N/A'}
+                </Typography>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600, display: 'block' }}>
+                  Department
+                </Typography>
+                <Typography variant="body1" sx={{ color: colors.darkNavy }}>
+                  {viewingRequest.department || 'N/A'}
+                </Typography>
+              </Grid>
+              <Grid item xs={12}>
+                <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600, display: 'block' }}>
+                  Justification
+                </Typography>
+                <Paper variant="outlined" sx={{ 
+                  p: 2, 
+                  mt: 0.5, 
+                  bgcolor: colors.mainBg,
+                  borderRadius: 2,
+                  borderColor: colors.borderColor,
+                }}>
+                  <Typography variant="body2" sx={{ color: colors.darkNavy }}>
+                    {viewingRequest.justification || 'No justification provided'}
+                  </Typography>
+                </Paper>
+              </Grid>
+
+              {/* Attachments */}
+              {viewingRequest.attachments && viewingRequest.attachments.split(',').filter(Boolean).length > 0 && (
+                <Grid item xs={12}>
+                  <Divider sx={{ my: 1, borderColor: colors.borderColor }} />
+                  <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600, display: 'block', mb: 1 }}>
+                    <AttachFile sx={{ fontSize: 16, verticalAlign: 'middle' }} />
+                    Attached Documents ({viewingRequest.attachments.split(',').filter(Boolean).length})
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                    {viewingRequest.attachments.split(',').filter(Boolean).map((url, index) => {
+                      const isImage = url.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i)
+                      const isPDF = url.match(/\.(pdf)$/i)
+                      
+                      return (
+                        <Button
+                          key={index}
+                          variant="outlined"
+                          size="small"
+                          startIcon={isImage ? <Image /> : isPDF ? <PictureAsPdf /> : <Description />}
+                          href={getFullUrl(url)}
+                          target="_blank"
+                          sx={{ 
+                            textTransform: 'none',
+                            borderRadius: 2,
+                            borderColor: colors.borderColor,
+                            color: colors.darkNavy,
+                            '&:hover': {
+                              borderColor: colors.lightCyan,
+                              backgroundColor: 'rgba(103, 232, 249, 0.04)'
+                            }
+                          }}
+                        >
+                          {url.split('/').pop().substring(0, 25)}
+                        </Button>
+                      )
+                    })}
+                  </Box>
+                </Grid>
+              )}
+
+              {/* Status Update Actions */}
+              {viewingRequest.status !== 'Rejected' && viewingRequest.status !== 'Procured' && (
+                <Grid item xs={12}>
+                  <Divider sx={{ my: 2, borderColor: colors.borderColor }} />
+                  <Typography variant="subtitle2" sx={{ color: colors.lightText, fontWeight: 600, mb: 1 }}>
+                    Update Status
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                    {viewingRequest.status === 'Requested' && canReview && (
+                      <Button
+                        size="small"
+                        variant="contained"
+                        onClick={() => handleReview(viewingRequest.id)}
+                        startIcon={<Info />}
+                        sx={{
+                          bgcolor: colors.info,
+                          color: 'white',
+                          borderRadius: 2,
+                          textTransform: 'none',
+                          '&:hover': { 
+                            bgcolor: '#2563EB',
+                            boxShadow: `0 4px 16px ${colors.lightCyanGlow}`
+                          },
+                        }}
+                      >
+                        Start Review
+                      </Button>
+                    )}
+                    {viewingRequest.status === 'Under Review' && canApprove && (
+                      <>
+                        <Button
+                          size="small"
+                          variant="contained"
+                          onClick={() => handleApprove(viewingRequest.id)}
+                          startIcon={<CheckCircle />}
+                          sx={{
+                            bgcolor: colors.success,
+                            color: 'white',
+                            borderRadius: 2,
+                            textTransform: 'none',
+                            '&:hover': { 
+                              bgcolor: '#16A34A',
+                              boxShadow: `0 4px 16px rgba(34, 197, 94, 0.3)`
+                            },
+                          }}
+                        >
+                          Approve
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="contained"
+                          onClick={() => handleReject(viewingRequest.id)}
+                          startIcon={<Cancel />}
+                          sx={{
+                            bgcolor: colors.error,
+                            color: 'white',
+                            borderRadius: 2,
+                            textTransform: 'none',
+                            '&:hover': { 
+                              bgcolor: '#DC2626',
+                              boxShadow: `0 4px 16px rgba(239, 68, 68, 0.3)`
+                            },
+                          }}
+                        >
+                          Reject
+                        </Button>
+                      </>
+                    )}
+                    {viewingRequest.status === 'Approved' && canMarkProcured && (
+                      <Button
+                        size="small"
+                        variant="contained"
+                        onClick={() => handleMarkProcured(viewingRequest.id)}
+                        startIcon={<CheckCircle />}
+                        sx={{
+                          bgcolor: colors.success,
+                          color: 'white',
+                          borderRadius: 2,
+                          textTransform: 'none',
+                          '&:hover': { 
+                            bgcolor: '#16A34A',
+                            boxShadow: `0 4px 16px rgba(34, 197, 94, 0.3)`
+                          },
+                        }}
+                      >
+                        Mark as Procured
                       </Button>
                     )}
                   </Box>
                 </Grid>
-              </Grid>
-            </Box>
+              )}
+            </Grid>
           )}
         </DialogContent>
-        <DialogActions sx={{ p: 3, gap: 1 }}>
+        <DialogActions sx={{ p: { xs: 2, sm: 3 }, gap: 1 }}>
           <Button 
-            onClick={() => setOpenViewDialog(false)}
-            variant="contained"
+            onClick={handleCloseView} 
+            variant="contained" 
             sx={{ 
               bgcolor: colors.darkNavy,
               color: colors.text,
               borderRadius: 2,
-              px: 4,
+              px: { xs: 3, sm: 4 },
               textTransform: 'none',
               boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
               '&:hover': { 
@@ -1918,35 +2065,10 @@ const ServiceDocumentation = () => {
           >
             Close
           </Button>
-          {isSuperAdmin && selectedDoc && (
-            <Button
-              variant="contained"
-              color="error"
-              onClick={() => {
-                handleDelete(selectedDoc.id)
-                setOpenViewDialog(false)
-              }}
-              startIcon={<Delete />}
-              sx={{ 
-                borderRadius: 2,
-                textTransform: 'none',
-              }}
-            >
-              Delete
-            </Button>
-          )}
         </DialogActions>
       </Dialog>
-
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={4000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-        message={snackbar.message}
-        severity={snackbar.severity}
-      />
     </Box>
   )
 }
 
-export default ServiceDocumentation
+export default Procurement

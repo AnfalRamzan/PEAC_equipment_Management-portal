@@ -1,5 +1,6 @@
 // src/pages/SpareParts.jsx
-// ✅ COMPLETE FIXED VERSION - Hospital and Equipment names display correctly
+// ✅ COMPLETE FIXED VERSION - Everyone can View and Add, Only Super Admin can Edit/Delete
+// ✅ Hospital and Equipment names display correctly
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -502,16 +503,15 @@ const SpareParts = () => {
   
   const { user } = useSelector((state) => state.auth)
   
-  // ✅ HOSPITAL_ADMIN cannot access
-  if (user?.role === 'HOSPITAL_ADMIN') {
-    return <AccessDenied message="Hospital Administrators cannot access Spare Parts Inventory." />
-  }
-  
-  // ✅ Everyone can view and add, only Super Admin can edit/delete
-  const canView = true
-  const canAdd = true
-  const canEdit = user?.role === 'SUPER_ADMIN'
-  const canDelete = user?.role === 'SUPER_ADMIN'
+  // ✅ PERMISSIONS:
+  // - Everyone can VIEW all spare parts
+  // - Everyone can ADD new spare parts
+  // - Only SUPER_ADMIN can EDIT
+  // - Only SUPER_ADMIN can DELETE
+  const canView = true  // Everyone can view
+  const canAdd = true   // Everyone can add
+  const canEdit = user?.role === 'SUPER_ADMIN'  // Only Super Admin can edit
+  const canDelete = user?.role === 'SUPER_ADMIN'  // Only Super Admin can delete
 
   const [spareParts, setSpareParts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -746,6 +746,7 @@ const SpareParts = () => {
   }
 
   const handleOpenDialog = (part = null) => {
+    // ✅ Only Super Admin can edit existing parts
     if (part && !canEdit) {
       toast.error('Only Super Admin can edit spare parts')
       return
@@ -1094,6 +1095,7 @@ const SpareParts = () => {
             Export
           </Button>
           
+          {/* ✅ Everyone can add spare parts */}
           <Button
             variant="contained"
             startIcon={<Add />}
@@ -1474,14 +1476,6 @@ const SpareParts = () => {
                 const status = getStatus(part.quantity, part.minimum_stock_level)
                 const isLowStock = part.quantity <= (part.minimum_stock_level || 5)
                 
-                // ✅ DEBUG LOG - Check what's being rendered
-                console.log(`🔍 Rendering part ${index}:`, {
-                  id: part.id,
-                  part_name: part.part_name,
-                  hospital_name: part.hospital_name,
-                  equipment_name: part.equipment_name
-                })
-                
                 return (
                   <TableRow 
                     key={part.id} 
@@ -1590,6 +1584,7 @@ const SpareParts = () => {
                           </IconButton>
                         </Tooltip>
                         
+                        {/* ✅ Only Super Admin can Edit */}
                         {canEdit && (
                           <Tooltip title="Edit">
                             <IconButton 
@@ -1608,6 +1603,7 @@ const SpareParts = () => {
                           </Tooltip>
                         )}
                         
+                        {/* ✅ Only Super Admin can Delete */}
                         {canDelete && (
                           <Tooltip title="Delete">
                             <IconButton 
@@ -1634,7 +1630,7 @@ const SpareParts = () => {
         </Table>
       </TableContainer>
 
-      {/* VIEW DIALOG */}
+      {/* VIEW DIALOG - Everyone can view */}
       <Dialog 
         open={openViewDialog} 
         onClose={handleCloseView} 
@@ -1951,6 +1947,7 @@ const SpareParts = () => {
           >
             Close
           </Button>
+          {/* ✅ Only Super Admin can Edit from View */}
           {canEdit && viewingPart && (
             <Button
               variant="outlined"
@@ -1976,7 +1973,7 @@ const SpareParts = () => {
         </DialogActions>
       </Dialog>
 
-      {/* ADD/EDIT DIALOG */}
+      {/* ADD/EDIT DIALOG - Everyone can Add, Only Super Admin can Edit */}
       <Dialog 
         open={openDialog} 
         onClose={handleCloseDialog} 

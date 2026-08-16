@@ -3553,13 +3553,18 @@ console.log('📦 Purchase Order routes registered (STATUS REMOVED - hospital, e
 // ============================================================
 // ✅ PROCUREMENT ROUTES
 // ============================================================
+// ============================================================
+// ✅ PROCUREMENT ROUTES - FIXED: ENGINEER can create
+// ============================================================
 app.get('/api/procurement', authenticate, async (req, res) => {
     try {
         let sql = `
-            SELECT p.*, h.name as hospital_name, u.full_name as requested_by_name
+            SELECT p.*, h.name as hospital_name, u.full_name as requested_by_name,
+                   c.name as category_name
             FROM equipment_procurement p
             LEFT JOIN hospitals h ON p.hospital_id = h.id
             LEFT JOIN users u ON p.requested_by = u.id
+            LEFT JOIN equipment_categories c ON p.category_id = c.id
             WHERE 1=1
         `;
         const params = [];
@@ -3583,10 +3588,12 @@ app.get('/api/procurement/:id', authenticate, async (req, res) => {
         const { id } = req.params;
         
         let sql = `
-            SELECT p.*, h.name as hospital_name, u.full_name as requested_by_name
+            SELECT p.*, h.name as hospital_name, u.full_name as requested_by_name,
+                   c.name as category_name
             FROM equipment_procurement p
             LEFT JOIN hospitals h ON p.hospital_id = h.id
             LEFT JOIN users u ON p.requested_by = u.id
+            LEFT JOIN equipment_categories c ON p.category_id = c.id
             WHERE p.id = ?
         `;
         const params = [id];
@@ -3614,15 +3621,17 @@ app.get('/api/procurement/:id', authenticate, async (req, res) => {
     }
 });
 
-app.post('/api/procurement', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
+// ✅ FIXED: SUPER_ADMIN, HOSPITAL_ADMIN, and ENGINEER can create
+app.post('/api/procurement', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN', 'ENGINEER'), async (req, res) => {
     try {
         const { 
             hospital_id, equipment_name, category_id, manufacturer, 
             model, quantity, estimated_cost, justification, 
-            priority, status
+            priority, requested_by, department, attachments
         } = req.body;
 
-        console.log('📦 Creating procurement request:', equipment_name);
+        console.log('📦 Creating procurement request by:', req.user.email, 'Role:', req.user.role_name);
+        console.log('📦 Equipment:', equipment_name);
 
         if (!hospital_id) {
             return res.status(400).json({ 
@@ -3638,16 +3647,24 @@ app.post('/api/procurement', authenticate, authorize('SUPER_ADMIN'), async (req,
             });
         }
 
-        let finalHospitalId = hospital_id;
+        // Validate hospital access
+        if (req.user.role_name !== 'SUPER_ADMIN') {
+            if (parseInt(hospital_id) !== req.user.hospital_id) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Access denied: You can only create requests for your hospital'
+                });
+            }
+        }
 
         const result = await query(
             `INSERT INTO equipment_procurement 
              (hospital_id, equipment_name, category_id, manufacturer,
               model, quantity, estimated_cost, justification,
-              priority, status, requested_by)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              priority, status, requested_by, department, attachments)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
-                parseInt(finalHospitalId),
+                parseInt(hospital_id),
                 equipment_name.trim(),
                 category_id ? parseInt(category_id) : null,
                 manufacturer || '',
@@ -3656,13 +3673,16 @@ app.post('/api/procurement', authenticate, authorize('SUPER_ADMIN'), async (req,
                 parseFloat(estimated_cost) || 0,
                 justification || '',
                 priority || 'Medium',
-                status || 'Requested',
-                req.user.id
+                'Requested',
+                req.user.id,
+                department || '',
+                attachments || ''
             ]
         );
 
         console.log('✅ Procurement request created. ID:', result.insertId);
 
+        // Notify Super Admin
         await createNotification(
             1,
             'New Procurement Request',
@@ -3675,7 +3695,7 @@ app.post('/api/procurement', authenticate, authorize('SUPER_ADMIN'), async (req,
         res.status(201).json({
             success: true,
             message: 'Procurement request created successfully',
-            request: { id: result.insertId }
+            request_id: result.insertId
         });
 
     } catch (error) {
@@ -3687,10 +3707,15 @@ app.post('/api/procurement', authenticate, authorize('SUPER_ADMIN'), async (req,
     }
 });
 
-app.put('/api/procurement/:id', authenticate, async (req, res) => {
+// ✅ FIXED: ONLY SUPER_ADMIN can update (edit)
+app.put('/api/procurement/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     try {
         const { id } = req.params;
-        const { status } = req.body;
+        const { 
+            equipment_name, category_id, manufacturer, 
+            model, quantity, estimated_cost, justification, 
+            priority, status, department, attachments
+        } = req.body;
 
         console.log('🔄 Updating procurement request:', id);
 
@@ -3702,101 +3727,41 @@ app.put('/api/procurement/:id', authenticate, async (req, res) => {
             });
         }
 
-        const currentStatus = existing[0].status;
-        const hospitalId = existing[0].hospital_id;
-
-        if (status === 'Approved' || status === 'Rejected') {
-            if (req.user.role_name !== 'SUPER_ADMIN') {
-                return res.status(403).json({ 
-                    success: false, 
-                    message: 'Only Super Admin can approve or reject requests' 
-                });
-            }
-        }
-
-        if (status === 'Procured') {
-            if (req.user.role_name === 'HOSPITAL_ADMIN') {
-                if (hospitalId !== req.user.hospital_id) {
-                    return res.status(403).json({ 
-                        success: false, 
-                        message: 'You can only mark requests from your hospital as procured' 
-                    });
-                }
-            } else if (req.user.role_name !== 'SUPER_ADMIN') {
-                return res.status(403).json({ 
-                    success: false, 
-                    message: 'Only Super Admin or Hospital Admin can mark as procured' 
-                });
-            }
-        }
-
-        if (status === 'Under Review') {
-            if (req.user.role_name === 'HOSPITAL_ADMIN') {
-                if (hospitalId !== req.user.hospital_id) {
-                    return res.status(403).json({ 
-                        success: false, 
-                        message: 'You can only review requests from your hospital' 
-                    });
-                }
-            } else if (req.user.role_name !== 'SUPER_ADMIN') {
-                return res.status(403).json({ 
-                    success: false, 
-                    message: 'Only Super Admin or Hospital Admin can review requests' 
-                });
-            }
-        }
-
-        const allowedTransitions = {
-            'Requested': ['Under Review'],
-            'Under Review': ['Approved', 'Rejected'],
-            'Approved': ['Procured'],
-            'Rejected': [],
-            'Procured': []
-        };
-
-        if (!allowedTransitions[currentStatus]?.includes(status)) {
+        // Only allow editing if status is 'Requested' or 'Under Review'
+        if (!['Requested', 'Under Review'].includes(existing[0].status)) {
             return res.status(400).json({
                 success: false,
-                message: `Invalid status transition from '${currentStatus}' to '${status}'`
+                message: 'Cannot edit request that is already Approved, Rejected, or Procured'
             });
         }
 
-        await query('UPDATE equipment_procurement SET status = ? WHERE id = ?', [status, id]);
+        await query(
+            `UPDATE equipment_procurement SET 
+             equipment_name = ?, category_id = ?, manufacturer = ?,
+             model = ?, quantity = ?, estimated_cost = ?,
+             justification = ?, priority = ?, status = ?,
+             department = ?, attachments = ?
+             WHERE id = ?`,
+            [
+                equipment_name || existing[0].equipment_name,
+                category_id || existing[0].category_id,
+                manufacturer || existing[0].manufacturer,
+                model || existing[0].model,
+                parseInt(quantity) || existing[0].quantity,
+                parseFloat(estimated_cost) || existing[0].estimated_cost,
+                justification || existing[0].justification,
+                priority || existing[0].priority,
+                status || existing[0].status,
+                department || existing[0].department,
+                attachments || existing[0].attachments,
+                id
+            ]
+        );
 
-        console.log('✅ Procurement request updated:', id, '->', status);
-
-        if (status === 'Approved') {
-            await notifyAdmins(
-                hospitalId,
-                'Procurement Request Approved',
-                `Procurement request for "${existing[0].equipment_name}" has been approved`,
-                'Procurement',
-                id,
-                'procurement'
-            );
-        } else if (status === 'Rejected') {
-            await notifyAdmins(
-                hospitalId,
-                'Procurement Request Rejected',
-                `Procurement request for "${existing[0].equipment_name}" has been rejected`,
-                'Procurement',
-                id,
-                'procurement'
-            );
-        } else if (status === 'Procured') {
-            await createNotification(
-                1,
-                'Procurement Completed',
-                `Procurement request for "${existing[0].equipment_name}" has been marked as procured`,
-                'Procurement',
-                id,
-                'procurement'
-            );
-        }
-
+        console.log('✅ Procurement request updated:', id);
         res.json({ 
             success: true, 
-            message: `Procurement status updated to ${status}` 
+            message: 'Procurement request updated successfully' 
         });
 
     } catch (error) {
@@ -3808,7 +3773,8 @@ app.put('/api/procurement/:id', authenticate, async (req, res) => {
     }
 });
 
-app.delete('/api/procurement/:id', authenticate, async (req, res) => {
+// ✅ FIXED: ONLY SUPER_ADMIN can delete
+app.delete('/api/procurement/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     try {
         const { id } = req.params;
         console.log('🗑️ Deleting procurement request ID:', id);
@@ -3821,27 +3787,11 @@ app.delete('/api/procurement/:id', authenticate, async (req, res) => {
             });
         }
 
-        console.log('📌 Found request:', existing[0].equipment_name);
-        console.log('📌 Status:', existing[0].status);
-        console.log('📌 Hospital ID:', existing[0].hospital_id);
-
-        const isSuperAdmin = req.user.role_name === 'SUPER_ADMIN';
-        const isHospitalAdmin = req.user.role_name === 'HOSPITAL_ADMIN';
-
-        if (isSuperAdmin) {
-            console.log('✅ Super Admin - can delete any request');
-        } else if (isHospitalAdmin) {
-            if (existing[0].hospital_id !== req.user.hospital_id) {
-                return res.status(403).json({ 
-                    success: false, 
-                    message: 'You can only delete requests from your hospital' 
-                });
-            }
-            console.log('✅ Hospital Admin - can delete from their hospital');
-        } else {
-            return res.status(403).json({ 
-                success: false, 
-                message: 'You do not have permission to delete procurement requests' 
+        // Only allow deletion if status is 'Requested' or 'Under Review'
+        if (!['Requested', 'Under Review'].includes(existing[0].status)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Cannot delete request that is already Approved, Rejected, or Procured'
             });
         }
 
@@ -3861,6 +3811,114 @@ app.delete('/api/procurement/:id', authenticate, async (req, res) => {
     }
 });
 
+// ✅ Status update - with role-based restrictions
+app.put('/api/procurement/:id/status', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+
+        console.log('🔄 Updating procurement status:', id, '->', status);
+
+        const existing = await query('SELECT * FROM equipment_procurement WHERE id = ?', [id]);
+        if (existing.length === 0) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Procurement request not found' 
+            });
+        }
+
+        const currentStatus = existing[0].status;
+        const hospitalId = existing[0].hospital_id;
+
+        // Validate status
+        const validStatuses = ['Requested', 'Under Review', 'Approved', 'Rejected', 'Procured'];
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid status'
+            });
+        }
+
+        // Status transition validation
+        const allowedTransitions = {
+            'Requested': ['Under Review'],
+            'Under Review': ['Approved', 'Rejected'],
+            'Approved': ['Procured'],
+            'Rejected': [],
+            'Procured': []
+        };
+
+        if (!allowedTransitions[currentStatus]?.includes(status)) {
+            return res.status(400).json({
+                success: false,
+                message: `Invalid status transition from '${currentStatus}' to '${status}'`
+            });
+        }
+
+        // ✅ ONLY SUPER_ADMIN can approve or reject
+        if ((status === 'Approved' || status === 'Rejected') && req.user.role_name !== 'SUPER_ADMIN') {
+            return res.status(403).json({
+                success: false,
+                message: 'Only Super Admin can approve or reject requests'
+            });
+        }
+
+        // ✅ Hospital Admin can only move to Under Review
+        if (req.user.role_name === 'HOSPITAL_ADMIN') {
+            if (status !== 'Under Review') {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Hospital Admin can only move requests to Under Review status'
+                });
+            }
+            if (hospitalId !== req.user.hospital_id) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'You can only review requests from your hospital'
+                });
+            }
+        }
+
+        // ✅ Mark as Procured - Hospital Admin can do it for their hospital
+        if (status === 'Procured' && req.user.role_name === 'HOSPITAL_ADMIN') {
+            if (hospitalId !== req.user.hospital_id) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'You can only mark requests from your hospital as procured'
+                });
+            }
+        }
+
+        let updateFields = 'status = ?';
+        const updateParams = [status];
+
+        if (status === 'Approved') {
+            updateFields += ', approved_by = ?, approved_at = NOW()';
+            updateParams.push(req.user.id);
+        } else if (status === 'Rejected') {
+            updateFields += ', rejected_by = ?, rejected_at = NOW()';
+            updateParams.push(req.user.id);
+        } else if (status === 'Procured') {
+            updateFields += ', procured_at = NOW()';
+        }
+
+        updateParams.push(id);
+        await query(`UPDATE equipment_procurement SET ${updateFields} WHERE id = ?`, updateParams);
+
+        console.log('✅ Procurement status updated:', id, '->', status);
+        res.json({ 
+            success: true, 
+            message: `Status updated to ${status}` 
+        });
+
+    } catch (error) {
+        console.error('❌ Update status error:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Failed to update status: ' + error.message 
+        });
+    }
+});
 // ============================================================
 // ✅ NOTIFICATIONS ROUTES
 // ============================================================
