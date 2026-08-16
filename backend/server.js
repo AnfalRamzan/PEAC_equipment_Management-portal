@@ -1,5 +1,8 @@
 // backend/server.js
 // ✅ COMPLETE FIXED VERSION
+// ✅ FIXED: Removed engineer_id from POST /api/repairs
+// ✅ FIXED: Changed error_log_id to equipment_id in repairs routes
+// ✅ FIXED: DELETE route now uses routes/repairs.js (removed duplicate from server.js)
 // ✅ CATEGORY ROUTES FIXED - Allows SUPER_ADMIN and ENGINEER
 // ✅ ENGINEER sees their categories + global categories
 // ✅ REMOVED HOSPITAL FILTER FROM EQUIPMENT - ALL USERS SEE ALL EQUIPMENT
@@ -13,6 +16,7 @@
 // ✅ SPARE PART DOWNTIME ROUTE ADDED (/api/spare-parts/:id/downtime)
 // ✅ UPDATED installation_year TO date_of_installation IN EQUIPMENT TABLE
 // ✅ FIXED: Removed priority column references from dashboard stats
+// ✅ FIXED: Added 'director' field to hospital POST and PUT routes
 
 // ============================================================
 // ✅ LOAD ENVIRONMENT VARIABLES FIRST
@@ -41,8 +45,13 @@ const fs = require('fs');
 const WebSocket = require('ws');
 const { put, del, head } = require('@vercel/blob');
 
-// ✅ IMPORT REPORTS ROUTES
+// ✅ IMPORT ROUTES
 const reportsRoutes = require('./routes/reports');
+const repairRoutes = require('./routes/repairs');
+const errorRoutes = require('./routes/errors');
+const serviceDocumentationRoutes = require('./routes/serviceDocumentation');
+const trainingRoutes = require('./routes/training');
+const amcRoutes = require('./routes/amc');
 
 const app = express();
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-key-2024';
@@ -189,10 +198,7 @@ const formatDateForMySQL = (date) => {
 const buildDowntimeRows = (equipment, errors, repairs) => {
   return equipment.map((eq) => {
     const eqErrors = errors.filter(e => e.equipment_id === eq.id);
-    const eqRepairs = repairs.filter(r => {
-      const error = errors.find(e => e.id === r.error_log_id);
-      return error && error.equipment_id === eq.id;
-    });
+    const eqRepairs = repairs.filter(r => r.equipment_id === eq.id);
 
     const resolved = eqErrors.filter(e => 
       ['Resolved', 'Closed', 'Completed'].includes(e.status)
@@ -1477,8 +1483,9 @@ app.delete('/api/users/:id', authenticate, authorize('SUPER_ADMIN'), async (req,
 });
 
 // ============================================================
-// ✅ HOSPITALS ROUTES
+// ✅ HOSPITALS ROUTES - FIXED WITH DIRECTOR FIELD
 // ============================================================
+
 app.get('/api/hospitals', authenticate, async (req, res) => {
     try {
         let sql = `
@@ -1538,19 +1545,28 @@ app.get('/api/hospitals/:id', authenticate, async (req, res) => {
     }
 });
 
+// ✅ POST /api/hospitals - WITH DIRECTOR FIELD
 app.post('/api/hospitals', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     try {
-        const { name, address, city, state, country, phone, email, biomedical_head, hospital_code } = req.body;
+        // ✅ Added 'director' field
+        const { name, address, city, state, country, phone, email, director, biomedical_head, hospital_code } = req.body;
+        
         console.log('🏥 Creating hospital:', name);
+        console.log('👤 Director:', director);
+        console.log('👤 Biomedical Head:', biomedical_head);
         console.log('📋 Hospital Code:', hospital_code);
         
         const finalHospitalCode = hospital_code || `HOS-${Date.now().toString().slice(-6)}`;
         
+        // ✅ Added 'director' to INSERT query
         const result = await query(
-            `INSERT INTO hospitals (name, address, city, state, country, phone, email, biomedical_head, hospital_code)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [name, address || '', city || '', state || '', country || '', phone || '', email || '', biomedical_head || '', finalHospitalCode]
+            `INSERT INTO hospitals (name, address, city, state, country, phone, email, director, biomedical_head, hospital_code)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [name, address || '', city || '', state || '', country || '', phone || '', email || '', director || '', biomedical_head || '', finalHospitalCode]
         );
+        
+        console.log('✅ Hospital created with ID:', result.insertId);
+        
         res.status(201).json({
             success: true,
             message: 'Hospital created successfully',
@@ -1558,17 +1574,21 @@ app.post('/api/hospitals', authenticate, authorize('SUPER_ADMIN'), async (req, r
             hospital_code: finalHospitalCode
         });
     } catch (error) {
-        console.error('Error:', error);
-        res.status(500).json({ success: false, message: 'Database error' });
+        console.error('❌ Error creating hospital:', error);
+        res.status(500).json({ success: false, message: 'Database error: ' + error.message });
     }
 });
 
+// ✅ PUT /api/hospitals/:id - WITH DIRECTOR FIELD
 app.put('/api/hospitals/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     try {
         const { id } = req.params;
-        const { name, address, city, state, country, phone, email, biomedical_head, hospital_code, is_active } = req.body;
+        // ✅ Added 'director' field
+        const { name, address, city, state, country, phone, email, director, biomedical_head, hospital_code, is_active } = req.body;
 
         console.log('🏥 Updating hospital:', id);
+        console.log('👤 Director:', director);
+        console.log('👤 Biomedical Head:', biomedical_head);
 
         const existing = await query('SELECT * FROM hospitals WHERE id = ?', [id]);
         if (existing.length === 0) {
@@ -1578,10 +1598,11 @@ app.put('/api/hospitals/:id', authenticate, authorize('SUPER_ADMIN'), async (req
             });
         }
 
+        // ✅ Added 'director' to UPDATE query
         await query(
             `UPDATE hospitals SET 
              name = ?, address = ?, city = ?, state = ?, 
-             country = ?, phone = ?, email = ?, biomedical_head = ?, 
+             country = ?, phone = ?, email = ?, director = ?, biomedical_head = ?, 
              hospital_code = ?, is_active = ?
              WHERE id = ?`,
             [
@@ -1592,6 +1613,7 @@ app.put('/api/hospitals/:id', authenticate, authorize('SUPER_ADMIN'), async (req
                 country || '',
                 phone || '',
                 email || '',
+                director || '',
                 biomedical_head || '',
                 hospital_code || existing[0].hospital_code || `HOS-${Date.now().toString().slice(-6)}`,
                 is_active !== undefined ? is_active : 1,
@@ -1599,13 +1621,14 @@ app.put('/api/hospitals/:id', authenticate, authorize('SUPER_ADMIN'), async (req
             ]
         );
 
+        console.log('✅ Hospital updated successfully:', id);
         res.json({ 
             success: true, 
             message: 'Hospital updated successfully' 
         });
     } catch (error) {
-        console.error('Update hospital error:', error);
-        res.status(500).json({ success: false, message: 'Database error' });
+        console.error('❌ Update hospital error:', error);
+        res.status(500).json({ success: false, message: 'Database error: ' + error.message });
     }
 });
 
@@ -2158,7 +2181,6 @@ app.delete('/api/equipment/:id', authenticate, authorize('SUPER_ADMIN'), async (
 // ============================================================
 // ✅ ERRORS ROUTES - IMPORTED FROM routes/errors.js
 // ============================================================
-const errorRoutes = require('./routes/errors');
 app.use('/api/errors', errorRoutes);
 console.log('📋 Error routes registered from routes/errors.js');
 
@@ -2201,376 +2223,10 @@ app.get('/api/error-logs', authenticate, async (req, res) => {
 });
 
 // ============================================================
-// ✅ REPAIRS ROUTES - FIXED PERMISSIONS
+// ✅ REPAIRS ROUTES - IMPORTED FROM routes/repairs.js
 // ============================================================
-app.get('/api/repairs', authenticate, async (req, res) => {
-    try {
-        let sql = `
-            SELECT r.*, 
-                   e.name as equipment_name,
-                   e.model as equipment_model,
-                   r.engineer_name,
-                   el.error_title
-            FROM repairs r
-            LEFT JOIN error_logs el ON r.error_log_id = el.id
-            LEFT JOIN equipment e ON el.equipment_id = e.id
-            WHERE 1=1
-        `;
-        const params = [];
-
-        if (req.user.role_name !== 'SUPER_ADMIN') {
-            sql += ' AND e.hospital_id = ?';
-            params.push(req.user.hospital_id);
-        }
-
-        sql += ' ORDER BY r.created_at DESC';
-        const repairs = await query(sql, params);
-        res.json({ success: true, repairs });
-    } catch (error) {
-        console.error('Get repairs error:', error);
-        res.status(500).json({ success: false, message: 'Failed to fetch repairs' });
-    }
-});
-
-app.get('/api/repairs/:id', authenticate, async (req, res) => {
-    try {
-        const { id } = req.params;
-        
-        let sql = `
-            SELECT r.*, 
-                   e.name as equipment_name,
-                   e.model as equipment_model,
-                   r.engineer_name,
-                   el.error_title
-            FROM repairs r
-            LEFT JOIN error_logs el ON r.error_log_id = el.id
-            LEFT JOIN equipment e ON el.equipment_id = e.id
-            WHERE r.id = ?
-        `;
-        const params = [id];
-
-        if (req.user.role_name !== 'SUPER_ADMIN') {
-            sql += ' AND e.hospital_id = ?';
-            params.push(req.user.hospital_id);
-        }
-
-        const repairs = await query(sql, params);
-        if (repairs.length === 0) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Repair not found' 
-            });
-        }
-
-        const spareParts = await query('SELECT * FROM spare_parts WHERE repair_id = ?', [id]);
-
-        res.json({
-            success: true,
-            repair: repairs[0],
-            spare_parts: spareParts
-        });
-    } catch (error) {
-        console.error('Get repair error:', error);
-        res.status(500).json({ success: false, message: 'Failed to fetch repair' });
-    }
-});
-
-app.post('/api/repairs', authenticate, async (req, res) => {
-    try {
-        const { 
-            error_log_id, 
-            engineer_name,
-            root_cause, problem_analysis, 
-            corrective_action, repair_procedure, solution_description, 
-            time_taken, spare_part_used, remarks,
-            repair_date,
-            spare_parts,
-            attachments
-        } = req.body;
-
-        console.log('🛠️ Creating repair...');
-        console.log('👤 User:', req.user.email, 'Role:', req.user.role_name);
-        console.log('📦 Payload:', req.body);
-
-        const isSuperAdmin = req.user.role_name === 'SUPER_ADMIN';
-        const isEngineer = req.user.role_name === 'ENGINEER';
-
-        if (!isSuperAdmin && !isEngineer) {
-            return res.status(403).json({ 
-                success: false, 
-                message: 'Only Engineers and Super Admin can create repairs' 
-            });
-        }
-
-        if (!error_log_id) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Error log is required' 
-            });
-        }
-
-        const errorCheck = await query(
-            'SELECT id, equipment_id, error_title FROM error_logs WHERE id = ?',
-            [error_log_id]
-        );
-        
-        if (errorCheck.length === 0) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Error log not found' 
-            });
-        }
-
-        const equipmentCheck = await query(
-            'SELECT id, name, hospital_id FROM equipment WHERE id = ?',
-            [errorCheck[0].equipment_id]
-        );
-        
-        if (equipmentCheck.length === 0) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Equipment not found' 
-            });
-        }
-
-        const finalEngineerName = engineer_name || req.user.full_name || '';
-        if (!finalEngineerName.trim()) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Engineer name is required' 
-            });
-        }
-
-        const spareUsed = spare_part_used === 'Yes' ? 1 : 0;
-
-        const result = await query(
-            `INSERT INTO repairs 
-             (error_log_id, engineer_id, engineer_name, root_cause, problem_analysis, 
-              corrective_action, repair_procedure, solution_description, 
-              time_taken, spare_part_used, remarks, repair_date, attachments)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-                parseInt(error_log_id),
-                req.user.id,
-                finalEngineerName.trim(),
-                root_cause || '',
-                problem_analysis || '',
-                corrective_action || '',
-                repair_procedure || '',
-                solution_description || '',
-                time_taken ? parseInt(time_taken) : 0,
-                spareUsed,
-                remarks || '',
-                repair_date || new Date().toISOString().slice(0, 19).replace('T', ' '),
-                attachments || ''
-            ]
-        );
-
-        console.log('✅ Repair created. ID:', result.insertId);
-
-        if (spare_parts && Array.isArray(spare_parts) && spare_parts.length > 0) {
-            for (const part of spare_parts) {
-                await query(
-                    `INSERT INTO repair_spare_parts 
-                     (repair_id, part_name, part_number, brand, quantity, unit_cost, total_cost, installation_notes)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-                    [
-                        result.insertId,
-                        part.part_name || '',
-                        part.part_number || '',
-                        part.brand || '',
-                        part.quantity || 1,
-                        part.unit_cost || 0,
-                        part.total_cost || 0,
-                        part.installation_notes || ''
-                    ]
-                );
-            }
-            console.log(`✅ Added ${spare_parts.length} spare parts`);
-        }
-
-        try {
-            await query(
-                `UPDATE error_logs SET status = 'In Progress' WHERE id = ?`,
-                [error_log_id]
-            );
-            console.log('✅ Error status updated to In Progress');
-        } catch (updateError) {
-            console.log('⚠️ Could not update error status:', updateError.message);
-        }
-
-        await createNotification(
-            1,
-            'New Repair Created',
-            `Repair created for "${equipmentCheck[0].name}" - ${errorCheck[0].error_title}`,
-            'Repair',
-            result.insertId,
-            'repairs'
-        );
-
-        await notifyAdmins(
-            equipmentCheck[0].hospital_id,
-            'New Repair Started',
-            `Repair started for "${equipmentCheck[0].name}"`,
-            'Repair',
-            result.insertId,
-            'repairs'
-        );
-
-        res.status(201).json({
-            success: true,
-            message: 'Repair recorded successfully',
-            repair: { 
-                id: result.insertId,
-                equipment_name: equipmentCheck[0].name
-            }
-        });
-
-    } catch (error) {
-        console.error('❌ Create repair error:', error);
-        console.error('❌ SQL:', error.sql);
-        res.status(500).json({ 
-            success: false, 
-            message: 'Database error: ' + error.message 
-        });
-    }
-});
-
-app.put('/api/repairs/:id', authenticate, async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { 
-            root_cause, problem_analysis, corrective_action, 
-            repair_procedure, solution_description, time_taken, 
-            spare_part_used, remarks, 
-            engineer_name,
-            attachments
-        } = req.body;
-
-        console.log('🔄 Updating repair:', id);
-        console.log('👤 User:', req.user.email, 'Role:', req.user.role_name);
-
-        if (req.user.role_name !== 'SUPER_ADMIN') {
-            return res.status(403).json({ 
-                success: false, 
-                message: 'Only Super Admin can update repairs' 
-            });
-        }
-
-        const existing = await query('SELECT * FROM repairs WHERE id = ?', [id]);
-        if (existing.length === 0) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Repair not found' 
-            });
-        }
-
-        const spareUsed = spare_part_used === 'Yes' ? 1 : 0;
-
-        await query(
-            `UPDATE repairs SET 
-             root_cause = ?, problem_analysis = ?, corrective_action = ?,
-             repair_procedure = ?, solution_description = ?, time_taken = ?,
-             spare_part_used = ?, remarks = ?,
-             engineer_name = ?,
-             attachments = ?
-             WHERE id = ?`,
-            [
-                root_cause || existing[0].root_cause,
-                problem_analysis || existing[0].problem_analysis,
-                corrective_action || existing[0].corrective_action,
-                repair_procedure || existing[0].repair_procedure,
-                solution_description || existing[0].solution_description,
-                time_taken || existing[0].time_taken,
-                spareUsed,
-                remarks || existing[0].remarks,
-                engineer_name || existing[0].engineer_name,
-                attachments !== undefined ? attachments : existing[0].attachments,
-                id
-            ]
-        );
-
-        const hasRootCause = root_cause && root_cause.trim() !== '';
-        const hasSolution = solution_description && solution_description.trim() !== '';
-        const hasProcedure = repair_procedure && repair_procedure.trim() !== '';
-        
-        if (hasRootCause && hasSolution && hasProcedure) {
-            const repairData = await query(
-                'SELECT error_log_id FROM repairs WHERE id = ?',
-                [id]
-            );
-            
-            if (repairData.length > 0 && repairData[0].error_log_id) {
-                const existingKB = await query(
-                    'SELECT id FROM knowledge_base WHERE error_title LIKE ? AND equipment_id IN (SELECT equipment_id FROM error_logs WHERE id = ?)',
-                    [`%${existing[0].root_cause?.substring(0, 30)}%`, repairData[0].error_log_id]
-                );
-                
-                if (existingKB.length === 0) {
-                    await query(
-                        `INSERT INTO knowledge_base 
-                         (equipment_id, error_code, error_title, error_description, 
-                          root_cause, solution, repair_procedure, time_taken, 
-                          spare_parts_used, created_by)
-                         SELECT el.equipment_id, el.error_code, el.error_title, 
-                                el.error_description, r.root_cause, 
-                                r.solution_description, r.repair_procedure, 
-                                r.time_taken, 
-                                CASE WHEN r.spare_part_used = 1 THEN 'Yes' ELSE 'No' END,
-                                ? 
-                         FROM repairs r
-                         LEFT JOIN error_logs el ON r.error_log_id = el.id
-                         WHERE r.id = ?`,
-                        [req.user.id || 1, id]
-                    );
-                    console.log('📚 Auto-saved to knowledge base from repair:', id);
-                }
-            }
-        }
-
-        console.log('✅ Repair updated:', id);
-        res.json({ 
-            success: true, 
-            message: 'Repair updated successfully' 
-        });
-    } catch (error) {
-        console.error('❌ Update repair error:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: 'Failed to update repair: ' + error.message 
-        });
-    }
-});
-
-app.delete('/api/repairs/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
-    try {
-        const { id } = req.params;
-        console.log('🗑️ Deleting repair ID:', id);
-        
-        const existing = await query('SELECT * FROM repairs WHERE id = ?', [id]);
-        if (existing.length === 0) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Repair not found' 
-            });
-        }
-
-        await query('DELETE FROM spare_parts WHERE repair_id = ?', [id]);
-        await query('DELETE FROM repairs WHERE id = ?', [id]);
-
-        console.log('✅ Repair deleted successfully:', id);
-        res.json({ 
-            success: true, 
-            message: 'Repair deleted successfully' 
-        });
-    } catch (error) {
-        console.error('❌ Repair DELETE error:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: 'Database error: ' + error.message 
-        });
-    }
-});
+app.use('/api/repairs', repairRoutes);
+console.log('🔧 Repair routes registered from routes/repairs.js');
 
 // ============================================================
 // ✅ SPARE PARTS ROUTES
@@ -2582,10 +2238,9 @@ app.get('/api/spare-parts', authenticate, async (req, res) => {
                    e.name as equipment_name,
                    e.model as equipment_model,
                    r.engineer_name
-            FROM spare_parts sp
+            FROM repair_spare_parts sp
             LEFT JOIN repairs r ON sp.repair_id = r.id
-            LEFT JOIN error_logs el ON r.error_log_id = el.id
-            LEFT JOIN equipment e ON el.equipment_id = e.id
+            LEFT JOIN equipment e ON r.equipment_id = e.id
             WHERE 1=1
         `;
         const params = [];
@@ -2612,10 +2267,9 @@ app.get('/api/spare-parts/:id', authenticate, async (req, res) => {
             SELECT sp.*, 
                    e.name as equipment_name,
                    r.engineer_name
-            FROM spare_parts sp
+            FROM repair_spare_parts sp
             LEFT JOIN repairs r ON sp.repair_id = r.id
-            LEFT JOIN error_logs el ON r.error_log_id = el.id
-            LEFT JOIN equipment e ON el.equipment_id = e.id
+            LEFT JOIN equipment e ON r.equipment_id = e.id
             WHERE sp.id = ?
         `;
         const params = [id];
@@ -2664,7 +2318,7 @@ app.post('/api/spare-parts', authenticate, async (req, res) => {
         }
 
         const result = await query(
-            `INSERT INTO spare_parts 
+            `INSERT INTO repair_spare_parts 
              (repair_id, part_name, part_number, brand, 
               quantity, unit_cost, total_cost, compatible_equipment, 
               installation_notes, manufacturer)
@@ -2687,10 +2341,9 @@ app.post('/api/spare-parts', authenticate, async (req, res) => {
 
         const newSparePart = await query(
             `SELECT sp.*, e.name as equipment_name
-             FROM spare_parts sp
+             FROM repair_spare_parts sp
              LEFT JOIN repairs r ON sp.repair_id = r.id
-             LEFT JOIN error_logs el ON r.error_log_id = el.id
-             LEFT JOIN equipment e ON el.equipment_id = e.id
+             LEFT JOIN equipment e ON r.equipment_id = e.id
              WHERE sp.id = ?`,
             [result.insertId]
         );
@@ -2720,7 +2373,7 @@ app.put('/api/spare-parts/:id', authenticate, authorize('SUPER_ADMIN'), async (r
 
         console.log('🔄 Updating spare part:', id);
 
-        const existing = await query('SELECT * FROM spare_parts WHERE id = ?', [id]);
+        const existing = await query('SELECT * FROM repair_spare_parts WHERE id = ?', [id]);
         if (existing.length === 0) {
             return res.status(404).json({ 
                 success: false, 
@@ -2729,7 +2382,7 @@ app.put('/api/spare-parts/:id', authenticate, authorize('SUPER_ADMIN'), async (r
         }
 
         await query(
-            `UPDATE spare_parts SET 
+            `UPDATE repair_spare_parts SET 
              part_name = ?,
              part_number = ?,
              brand = ?,
@@ -2772,7 +2425,7 @@ app.delete('/api/spare-parts/:id', authenticate, authorize('SUPER_ADMIN'), async
         const { id } = req.params;
         console.log('🗑️ Deleting spare part ID:', id);
         
-        const existing = await query('SELECT * FROM spare_parts WHERE id = ?', [id]);
+        const existing = await query('SELECT * FROM repair_spare_parts WHERE id = ?', [id]);
         if (existing.length === 0) {
             return res.status(404).json({ 
                 success: false, 
@@ -2780,7 +2433,7 @@ app.delete('/api/spare-parts/:id', authenticate, authorize('SUPER_ADMIN'), async
             });
         }
 
-        await query('DELETE FROM spare_parts WHERE id = ?', [id]);
+        await query('DELETE FROM repair_spare_parts WHERE id = ?', [id]);
 
         console.log('✅ Spare part deleted successfully:', id);
         res.json({ 
@@ -2810,10 +2463,9 @@ app.get('/api/spare-parts/:id/downtime', authenticate, async (req, res) => {
                     r.id as repair_id,
                     e.name as equipment_name,
                     e.id as equipment_id
-             FROM spare_parts sp
+             FROM repair_spare_parts sp
              LEFT JOIN repairs r ON sp.repair_id = r.id
-             LEFT JOIN error_logs el ON r.error_log_id = el.id
-             LEFT JOIN equipment e ON el.equipment_id = e.id
+             LEFT JOIN equipment e ON r.equipment_id = e.id
              WHERE sp.id = ?`,
             [id]
         );
@@ -2855,11 +2507,9 @@ app.get('/api/spare-parts/:id/downtime', authenticate, async (req, res) => {
         
         const repairs = await query(
             `SELECT r.*, 
-                    e.name as equipment_name,
-                    el.error_title
+                    e.name as equipment_name
              FROM repairs r
-             LEFT JOIN error_logs el ON r.error_log_id = el.id
-             LEFT JOIN equipment e ON el.equipment_id = e.id
+             LEFT JOIN equipment e ON r.equipment_id = e.id
              WHERE r.id = ? OR r.spare_part_used = 1`,
             [sparePart.repair_id]
         );
@@ -3529,18 +3179,17 @@ app.get('/api/search', authenticate, async (req, res) => {
         results.errors = await query(errorSql, errorParams);
 
         let repairSql = `
-            SELECT r.id, r.root_cause, r.repair_date,
+            SELECT r.id, r.repair_date,
                    eq.name as equipment_name,
-                   r.engineer_name
+                   r.engineer_name,
+                   r.problem_analysis
             FROM repairs r
-            LEFT JOIN error_logs e ON r.error_log_id = e.id
-            LEFT JOIN equipment eq ON e.equipment_id = eq.id
-            WHERE LOWER(r.root_cause) LIKE ? 
-               OR LOWER(r.solution_description) LIKE ? 
+            LEFT JOIN equipment eq ON r.equipment_id = eq.id
+            WHERE LOWER(r.problem_analysis) LIKE ? 
                OR LOWER(r.repair_procedure) LIKE ? 
                OR LOWER(r.engineer_name) LIKE ?
         `;
-        const repairParams = [searchTerm, searchTerm, searchTerm, searchTerm];
+        const repairParams = [searchTerm, searchTerm, searchTerm];
 
         if (req.user.role_name !== 'SUPER_ADMIN') {
             repairSql += ' AND eq.hospital_id = ?';
@@ -3570,10 +3219,9 @@ app.get('/api/search', authenticate, async (req, res) => {
                    s.brand, s.quantity, s.unit_cost,
                    eq.name as equipment_name,
                    r.engineer_name
-            FROM spare_parts s
+            FROM repair_spare_parts s
             LEFT JOIN repairs r ON s.repair_id = r.id
-            LEFT JOIN error_logs e ON r.error_log_id = e.id
-            LEFT JOIN equipment eq ON e.equipment_id = eq.id
+            LEFT JOIN equipment eq ON r.equipment_id = eq.id
             WHERE LOWER(s.part_name) LIKE ? 
                OR LOWER(s.part_number) LIKE ? 
                OR LOWER(s.brand) LIKE ?
@@ -4161,7 +3809,7 @@ app.get('/api/dashboard/stats', authenticate, async (req, res) => {
                 query("SELECT COUNT(*) as count FROM repairs"),
                 query("SELECT COUNT(*) as count FROM maintenance_schedule WHERE status = 'Overdue' OR (next_due_date < CURDATE() AND status != 'Completed')"),
                 query("SELECT COUNT(*) as count FROM purchase_orders WHERE status = 'Pending Approval'"),
-                query("SELECT COUNT(*) as count FROM spare_parts WHERE quantity < 5")
+                query("SELECT COUNT(*) as count FROM repair_spare_parts WHERE quantity < 5")
             ]);
 
             stats = {
@@ -4171,7 +3819,7 @@ app.get('/api/dashboard/stats', authenticate, async (req, res) => {
                 totalEngineers: totalEngineers[0]?.count || 0,
                 totalUsers: totalUsers[0]?.count || 0,
                 totalErrors: totalErrors[0]?.count || 0,
-                criticalErrors: 0, // ✅ Removed priority column
+                criticalErrors: 0,
                 totalRepairs: totalRepairs[0]?.count || 0,
                 maintenanceDue: maintenanceDue[0]?.count || 0,
                 pendingPurchaseOrders: pendingPurchaseOrders[0]?.count || 0,
@@ -4188,11 +3836,11 @@ app.get('/api/dashboard/stats', authenticate, async (req, res) => {
                 maintenanceDue
             ] = await Promise.all([
                 query("SELECT COUNT(*) as count FROM equipment WHERE hospital_id = ? AND status != 'Inactive'", [hospitalId]),
-                query("SELECT COUNT(*) as count FROM repairs WHERE engineer_id = ?", [userId]),
+                query("SELECT COUNT(*) as count FROM repairs WHERE engineer_name = ?", [fullName]),
                 query("SELECT COUNT(*) as count FROM maintenance_schedule WHERE LOWER(engineer_name) = LOWER(?) AND status NOT IN ('Completed', 'Cancelled')", [fullName]),
                 query("SELECT COUNT(*) as count FROM error_logs WHERE reported_by = ?", [userId]),
                 query("SELECT COUNT(*) as count FROM error_logs WHERE equipment_id IN (SELECT id FROM equipment WHERE hospital_id = ?)", [hospitalId]),
-                query("SELECT COUNT(*) as count FROM repairs WHERE error_log_id IN (SELECT id FROM error_logs WHERE equipment_id IN (SELECT id FROM equipment WHERE hospital_id = ?))", [hospitalId]),
+                query("SELECT COUNT(*) as count FROM repairs WHERE equipment_id IN (SELECT id FROM equipment WHERE hospital_id = ?)", [hospitalId]),
                 query("SELECT COUNT(*) as count FROM maintenance_schedule WHERE status NOT IN ('Completed', 'Cancelled') AND (status = 'Overdue' OR DATE(next_due_date) <= CURDATE()) AND equipment_id IN (SELECT id FROM equipment WHERE hospital_id = ?)", [hospitalId])
             ]);
 
@@ -4212,7 +3860,7 @@ app.get('/api/dashboard/stats', authenticate, async (req, res) => {
                 totalEngineers: 0,
                 totalUsers: 0,
                 totalErrors: totalErrors[0]?.count || 0,
-                criticalErrors: 0, // ✅ Removed priority column
+                criticalErrors: 0,
                 totalRepairs: totalRepairs[0]?.count || 0,
                 maintenanceDue: maintenanceDue[0]?.count || 0,
                 pendingPurchaseOrders: 0,
@@ -4236,10 +3884,10 @@ app.get('/api/dashboard/stats', authenticate, async (req, res) => {
                 query("SELECT COUNT(*) as count FROM users WHERE hospital_id = ? AND role_id = 3 AND is_active = 1", [hospitalId]),
                 query("SELECT COUNT(*) as count FROM users WHERE hospital_id = ? AND is_active = 1", [hospitalId]),
                 query("SELECT COUNT(*) as count FROM error_logs WHERE equipment_id IN (SELECT id FROM equipment WHERE hospital_id = ?)", [hospitalId]),
-                query("SELECT COUNT(*) as count FROM repairs WHERE error_log_id IN (SELECT id FROM error_logs WHERE equipment_id IN (SELECT id FROM equipment WHERE hospital_id = ?))", [hospitalId]),
+                query("SELECT COUNT(*) as count FROM repairs WHERE equipment_id IN (SELECT id FROM equipment WHERE hospital_id = ?)", [hospitalId]),
                 query("SELECT COUNT(*) as count FROM maintenance_schedule WHERE status != 'Completed' AND (status = 'Overdue' OR next_due_date < CURDATE()) AND equipment_id IN (SELECT id FROM equipment WHERE hospital_id = ?)", [hospitalId]),
                 query("SELECT COUNT(*) as count FROM purchase_orders WHERE hospital_id = ? AND status = 'Pending Approval'", [hospitalId]),
-                query("SELECT COUNT(*) as count FROM spare_parts WHERE quantity < 5 AND repair_id IN (SELECT id FROM repairs WHERE error_log_id IN (SELECT id FROM error_logs WHERE equipment_id IN (SELECT id FROM equipment WHERE hospital_id = ?)))", [hospitalId])
+                query("SELECT COUNT(*) as count FROM repair_spare_parts WHERE quantity < 5 AND repair_id IN (SELECT id FROM repairs WHERE equipment_id IN (SELECT id FROM equipment WHERE hospital_id = ?))", [hospitalId])
             ]);
 
             stats = {
@@ -4249,7 +3897,7 @@ app.get('/api/dashboard/stats', authenticate, async (req, res) => {
                 totalEngineers: totalEngineers[0]?.count || 0,
                 totalUsers: totalUsers[0]?.count || 0,
                 totalErrors: totalErrors[0]?.count || 0,
-                criticalErrors: 0, // ✅ Removed priority column
+                criticalErrors: 0,
                 totalRepairs: totalRepairs[0]?.count || 0,
                 maintenanceDue: maintenanceDue[0]?.count || 0,
                 pendingPurchaseOrders: pendingPurchaseOrders[0]?.count || 0,
@@ -4291,21 +3939,18 @@ app.get('/api/dashboard/stats', authenticate, async (req, res) => {
 // ============================================================
 // ✅ SERVICE DOCUMENTATION ROUTES
 // ============================================================
-const serviceDocumentationRoutes = require('./routes/serviceDocumentation');
 app.use('/api/service-documentation', serviceDocumentationRoutes);
 console.log('📄 Service Documentation routes registered');
 
 // ============================================================
 // ✅ TRAINING ROUTES - REGISTERED HERE
 // ============================================================
-const trainingRoutes = require('./routes/training');
 app.use('/api/training', trainingRoutes);
 console.log('📚 Training routes registered');
 
 // ============================================================
 // ✅ AMC ROUTES - IMPORTED FROM routes/amc.js
 // ============================================================
-const amcRoutes = require('./routes/amc');
 app.use('/api/amc', amcRoutes);
 console.log('📋 AMC routes registered from routes/amc.js with auto-status update');
 
@@ -5064,5 +4709,9 @@ if (require.main === module) {
     console.log('   - GET /api/equipment/categories/all: ENGINEER sees own + global categories');
     console.log('📅 Equipment table uses date_of_installation instead of installation_year');
     console.log('📊 Dashboard stats: priority column removed (criticalErrors = 0)');
+    console.log('🏥 Hospital routes: director field added to POST and PUT');
+    console.log('🔧 FIXED: Removed engineer_id from POST /api/repairs');
+    console.log('🔧 FIXED: Changed error_log_id to equipment_id in repairs routes');
+    console.log('🗑️ FIXED: DELETE /api/repairs/:id uses routes/repairs.js with ON DELETE CASCADE');
     console.log('========================================');
 }

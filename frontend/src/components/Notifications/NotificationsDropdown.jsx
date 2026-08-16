@@ -1,3 +1,8 @@
+// src/components/Notifications/NotificationsDropdown.jsx
+// ✅ Notifications Dropdown Component
+// ✅ Fixed: elevation issue resolved
+// ✅ Added: Sound toggle, click outside to close, escape key support
+
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Box,
@@ -293,6 +298,7 @@ const NotificationsDropdown = ({ open, anchorEl, onClose }) => {
 
   return (
     <>
+      {/* ✅ FIXED: Removed elevation={30} - using boxShadow instead */}
       <Paper
         ref={dropdownRef}
         sx={{

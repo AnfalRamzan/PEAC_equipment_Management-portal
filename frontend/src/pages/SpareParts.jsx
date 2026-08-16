@@ -2552,7 +2552,7 @@ const SpareParts = () => {
               textTransform: 'none',
               boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
               '&:hover': { 
-                bgcolor: colors.darkNavyHover,
+               bgcolor: colors.darkNavyHover,
                 boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
               },
               transition: 'all 0.3s ease',

@@ -8,6 +8,7 @@
 // ✅ CHANGED: Equipment Status options - Active, Inactive, Warranty, Annual Maintenance, Self Maintained
 // ✅ REMOVED: All emojis from status options (clean text only)
 // ✅ REMOVED: CSV export option (keeping Excel and PDF only)
+// ✅ FIXED: Total Engineers and Total Errors stats now show actual counts
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -82,7 +83,7 @@ import {
   Build,
   Warning,
 } from '@mui/icons-material'
-import { equipmentService, hospitalService } from '../api/services'
+import { equipmentService, hospitalService, userService } from '../api/services'
 import { toast } from 'react-toastify'
 import { useSelector } from 'react-redux'
 import FileUpload from '../components/FileUpload'
@@ -181,6 +182,8 @@ const apiEndpoints = {
   getDepartmentsByHospital: (hospitalId) => api.get(`/departments/hospital/${hospitalId}`),
   createCategory: (data) => api.post('/equipment/categories', data),
   createDepartment: (data) => api.post('/departments', data),
+  getErrors: () => api.get('/errors'),
+  getUsers: () => api.get('/users'),
 }
 
 const getFullImageUrl = (url) => {
@@ -379,6 +382,9 @@ const Equipment = () => {
   const [categories, setCategories] = useState([])
   const [hospitals, setHospitals] = useState([])
   const [departments, setDepartments] = useState([])
+  // ✅ ADDED: users and errors state
+  const [users, setUsers] = useState([])
+  const [errors, setErrors] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [openDialog, setOpenDialog] = useState(false)
@@ -437,6 +443,7 @@ const Equipment = () => {
     fetchAllData()
   }, [])
 
+  // ✅ UPDATED: Fetch users and errors as well
   const fetchAllData = async () => {
     setLoading(true)
     try {
@@ -444,7 +451,9 @@ const Equipment = () => {
         fetchEquipment(),
         fetchCategories(),
         fetchHospitals(),
-        fetchDepartments()
+        fetchDepartments(),
+        fetchUsers(),    // ✅ Added
+        fetchErrors()    // ✅ Added
       ])
     } catch (error) {
       console.error('Error fetching data:', error)
@@ -517,6 +526,40 @@ const Equipment = () => {
     }
   }
 
+  // ✅ NEW: Fetch users
+  const fetchUsers = async () => {
+    try {
+      const response = await apiEndpoints.getUsers()
+      if (response.data && response.data.success) {
+        setUsers(response.data.users || [])
+      } else if (Array.isArray(response.data)) {
+        setUsers(response.data)
+      } else {
+        setUsers([])
+      }
+    } catch (error) {
+      console.error('Users fetch error:', error)
+      setUsers([])
+    }
+  }
+
+  // ✅ NEW: Fetch errors
+  const fetchErrors = async () => {
+    try {
+      const response = await apiEndpoints.getErrors()
+      if (response.data && response.data.success) {
+        setErrors(response.data.errors || [])
+      } else if (Array.isArray(response.data)) {
+        setErrors(response.data)
+      } else {
+        setErrors([])
+      }
+    } catch (error) {
+      console.error('Errors fetch error:', error)
+      setErrors([])
+    }
+  }
+
   const checkSerialNumber = async (serialNumber, excludeId = null) => {
     if (!serialNumber || serialNumber.trim() === '') {
       setSerialStatus({ isValid: true, message: '', isChecking: false })
@@ -554,7 +597,7 @@ const Equipment = () => {
     }
   }
 
-  // ✅ Stats Cards Data - ALL ICONS SAME THEME COLOR (Light Cyan)
+  // ✅ FIXED: Stats Cards - Now using dynamic data for engineers and errors
   const statsCards = [
     {
       title: 'Total Equipment',
@@ -574,7 +617,8 @@ const Equipment = () => {
     },
     {
       title: 'Total Engineers',
-      value: 0,
+      // ✅ Calculate from users data
+      value: users.filter(u => u.role === 'ENGINEER' || u.role_name === 'ENGINEER').length,
       icon: <Engineering />,
       color: colors.lightCyan,
       bg: 'rgba(103, 232, 249, 0.08)',
@@ -582,7 +626,8 @@ const Equipment = () => {
     },
     {
       title: 'Total Errors',
-      value: 0,
+      // ✅ Use errors data
+      value: errors.length,
       icon: <ErrorOutline />,
       color: colors.lightCyan,
       bg: 'rgba(103, 232, 249, 0.08)',
@@ -739,8 +784,6 @@ const Equipment = () => {
 
   const handleExportClick = (event) => setExportAnchorEl(event.currentTarget)
   const handleExportClose = () => setExportAnchorEl(null)
-
-  // ❌ CSV export removed - keeping only Excel and PDF
 
   const exportToExcel = () => {
     try {
@@ -1051,7 +1094,7 @@ const Equipment = () => {
           <Button 
             variant="outlined" 
             startIcon={<Refresh />} 
-            onClick={fetchEquipment} 
+            onClick={fetchAllData} 
             size="small"
             sx={{ 
               borderColor: colors.lightCyan,

@@ -5,6 +5,7 @@
 // ✅ ADDED: resolved_at column support
 // ✅ FIXED: Engineer report filtering
 // ✅ FIXED: Status update with resolved_at
+// ✅ FIXED: DELETE route with cascade delete for linked repairs and spare parts
 
 const express = require('express');
 const router = express.Router();
@@ -497,16 +498,65 @@ router.patch('/:id/status', authenticate, async (req, res) => {
 });
 
 // ============================================
-// ✅ DELETE ERROR - ONLY SUPER ADMIN
+// ✅ DELETE ERROR - ONLY SUPER ADMIN with Cascade Delete
 // ============================================
 router.delete('/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     try {
         const { id } = req.params;
+        
+        console.log('🗑️ Deleting error ID:', id);
+        
+        // ✅ Check if error exists
+        const existing = await query(
+            'SELECT id, equipment_id, error_title FROM error_logs WHERE id = ?',
+            [id]
+        );
+        
+        if (existing.length === 0) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Error not found' 
+            });
+        }
+        
+        console.log(`📌 Error: "${existing[0].error_title}" (ID: ${id})`);
+        
+        // ✅ Find linked repairs
+        const repairs = await query(
+            'SELECT id FROM repairs WHERE error_log_id = ?',
+            [id]
+        );
+        
+        if (repairs.length > 0) {
+            console.log(`🔗 Found ${repairs.length} linked repairs, deleting them...`);
+            
+            // ✅ Delete spare parts linked to each repair
+            for (const repair of repairs) {
+                await query('DELETE FROM spare_parts WHERE repair_id = ?', [repair.id]);
+                console.log(`   🗑️ Deleted spare parts for repair ID: ${repair.id}`);
+            }
+            
+            // ✅ Delete repairs
+            await query('DELETE FROM repairs WHERE error_log_id = ?', [id]);
+            console.log(`   🗑️ Deleted ${repairs.length} repairs`);
+        }
+        
+        // ✅ Delete the error
         await query('DELETE FROM error_logs WHERE id = ?', [id]);
-        res.json({ success: true, message: 'Error deleted successfully' });
+        
+        console.log('✅ Error deleted successfully:', id);
+        res.json({ 
+            success: true, 
+            message: 'Error deleted successfully' 
+        });
     } catch (error) {
         console.error('❌ Delete error error:', error);
-        res.status(500).json({ success: false, message: 'Failed to delete error' });
+        console.error('❌ SQL:', error.sql);
+        console.error('❌ Message:', error.message);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Failed to delete error: ' + error.message 
+        });
     }
 });
 

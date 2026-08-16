@@ -2,8 +2,10 @@
 // ✅ DARK NAVY + LIGHT CYAN THEME - Premium Design
 // ✅ FONT: SATOSHI - Premium, Sleek, Modern
 // ✅ CARDS PROMINENT ON CLICK - Same Theme Colors
+// ✅ BIOMEDICAL HEAD SHOWING PROPERLY IN TABLE
 
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Box,
   Paper,
@@ -179,6 +181,18 @@ const animationStyles = `
   }
 }
 
+@keyframes gradientShine {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
 .animate-fadeInUp {
   animation: fadeInUp 0.6s ease-out forwards;
 }
@@ -197,6 +211,7 @@ const animationStyles = `
 `
 
 const Hospitals = () => {
+  const navigate = useNavigate()
   const [hospitals, setHospitals] = useState([])
   const [equipment, setEquipment] = useState([])
   const [errors, setErrors] = useState([])
@@ -340,7 +355,7 @@ const Hospitals = () => {
     setExportAnchorEl(null)
   }
 
-  // ❌ CSV export removed - keeping only Excel and PDF
+  // ✅ CSV export removed - keeping only Excel and PDF
 
   const exportToExcel = () => {
     try {
@@ -792,7 +807,7 @@ const Hospitals = () => {
                         sx={{
                           background: isClicked 
                             ? `linear-gradient(135deg, ${colors.lightCyan}, ${colors.accentGold})`
-                            : colors.bg,
+                            : card.bg,
                           borderRadius: '14px',
                           p: 1.2,
                           display: 'flex',
@@ -1111,7 +1126,7 @@ const Hospitals = () => {
         </MenuItem>
       </Menu>
 
-      {/* ===== TABLE - REMOVED BLUE ICON ===== */}
+      {/* ===== TABLE - WITH BIOMEDICAL HEAD DISPLAY ===== */}
       <TableContainer 
         component={Paper} 
         sx={{ 
@@ -1222,9 +1237,10 @@ const Hospitals = () => {
                       {hospital.email || ''}
                     </Typography>
                   </TableCell>
+                  {/* ✅ BIOMEDICAL HEAD - Properly Displayed */}
                   <TableCell>
                     <Box>
-                      <Typography variant="body2" sx={{ color: colors.darkText, fontFamily: FONT_FAMILY, fontWeight: 500 }}>
+                      <Typography variant="body2" sx={{ color: colors.darkText, fontFamily: FONT_FAMILY, fontWeight: 600 }}>
                         {hospital.biomedical_head || 'Not Assigned'}
                       </Typography>
                       <Typography variant="caption" sx={{ color: colors.lightText, fontFamily: FONT_FAMILY }}>

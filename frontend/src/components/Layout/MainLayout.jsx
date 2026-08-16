@@ -597,10 +597,7 @@ const MainLayout = () => {
     handleMenuClose();
   };
 
-  const handleProfileClick = () => {
-    navigate('/profile');
-    handleMenuClose();
-  };
+  // ✅ Profile handler removed - No longer needed
 
   const handleUsersClick = () => {
     navigate('/users');
@@ -1425,15 +1422,7 @@ const MainLayout = () => {
                 }
               }}
             >
-              <MenuItem onClick={handleProfileClick} sx={{ 
-                '&:hover': { bgcolor: 'rgba(103, 232, 249, 0.05)' },
-                fontFamily: FONT_FAMILY,
-              }}>
-                <ListItemIcon>
-                  <AccountCircle sx={{ color: '#0F172A' }} fontSize="small" />
-                </ListItemIcon>
-                Profile
-              </MenuItem>
+              {/* ✅ PROFILE OPTION REMOVED */}
 
               {isAdmin && (
                 <MenuItem onClick={handleUsersClick} sx={{ 

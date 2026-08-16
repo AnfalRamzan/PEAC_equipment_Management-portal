@@ -6,6 +6,8 @@
 // ✅ REMOVED: Time column from table
 // ✅ KEPT: Problem Analysis, Repair Procedure, Spare Parts, Remarks
 // ✅ ADDED: Export functionality (Excel & PDF only, no CSV)
+// ✅ FIXED: REMOVED error_log_id from form (auto-select error from page context)
+// ✅ KEPT: engineer_name (user types manually)
 
 import React, { useState, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
@@ -504,8 +506,8 @@ const Repairs = () => {
 
   const [uploadedFiles, setUploadedFiles] = useState([])
 
+  // ✅ FIXED: REMOVED error_log_id from formData
   const [formData, setFormData] = useState({
-    error_log_id: '',
     equipment_id: '',
     engineer_name: '',
     problem_analysis: '',
@@ -520,18 +522,20 @@ const Repairs = () => {
     fetchData()
   }, [])
 
+  // ✅ REMOVED: useEffect for error_log_id auto-fill (no longer needed)
+
+  // ✅ NEW: Auto-set equipment_id from location state or URL params
   useEffect(() => {
-    if (formData.error_log_id) {
-      const selectedError = errors.find(e => e.id === parseInt(formData.error_log_id))
-      if (selectedError) {
-        setFormData(prev => ({
-          ...prev,
-          equipment_id: selectedError.equipment_id || '',
-          problem_analysis: selectedError.error_description || selectedError.error_title || '',
-        }))
-      }
+    const params = new URLSearchParams(location.search)
+    const equipmentId = params.get('equipment_id')
+    
+    if (equipmentId) {
+      setFormData(prev => ({
+        ...prev,
+        equipment_id: equipmentId
+      }))
     }
-  }, [formData.error_log_id, errors])
+  }, [location])
 
   const fetchData = async () => {
     setLoading(true)
@@ -659,6 +663,7 @@ const Repairs = () => {
     toast.success('File removed')
   }
 
+  // ✅ FIXED: REMOVED error_log_id from handleOpenDialog
   const handleOpenDialog = () => {
     if (!isEngineer && !isSuperAdmin) {
       toast.error('You do not have permission to create repairs')
@@ -666,7 +671,6 @@ const Repairs = () => {
     }
     
     setFormData({
-      error_log_id: '',
       equipment_id: '',
       engineer_name: '',
       problem_analysis: '',
@@ -768,6 +772,7 @@ const Repairs = () => {
     toast.info('Spare part removed')
   }
 
+  // ✅ FIXED: REMOVED error_log_id from handleSubmit
   const handleSubmit = async () => {
     if (!isEngineer && !isSuperAdmin) {
       toast.error('You do not have permission to create repairs')
@@ -775,14 +780,13 @@ const Repairs = () => {
     }
     
     try {
-      if (!formData.error_log_id) {
-        toast.error('Please select an error to repair')
+      if (!formData.equipment_id) {
+        toast.error('Equipment is required')
         return
       }
 
       const payload = {
-        error_log_id: parseInt(formData.error_log_id),
-        equipment_id: formData.equipment_id ? parseInt(formData.equipment_id) : null,
+        equipment_id: parseInt(formData.equipment_id),
         engineer_name: formData.engineer_name || user?.full_name || '',
         problem_analysis: formData.problem_analysis || '',
         repair_procedure: formData.repair_procedure || '',
@@ -793,14 +797,10 @@ const Repairs = () => {
         attachments: formData.attachments || ''
       }
 
-      console.log('📤 Submitting repair with attachments:', payload.attachments)
+      console.log('📤 Submitting repair:', payload)
 
       await repairService.create(payload)
       toast.success('Repair recorded successfully')
-      
-      if (formData.error_log_id) {
-        await errorService.update(formData.error_log_id, { status: 'In Progress' })
-      }
       
       fetchData()
       handleCloseDialog()
@@ -1346,7 +1346,7 @@ const Repairs = () => {
         </Table>
       </TableContainer>
 
-      {/* Add Repair Dialog - same as before */}
+      {/* ✅ Add Repair Dialog - FIXED: REMOVED error_log_id field */}
       <Dialog 
         open={openDialog} 
         onClose={handleCloseDialog} 
@@ -1379,14 +1379,15 @@ const Repairs = () => {
         
         <DialogContent dividers sx={{ px: 4, py: 3 }}>
           <Grid container spacing={2.5}>
+            {/* ✅ KEPT: Equipment Selection */}
             <Grid item xs={12}>
               <FormControl fullWidth>
-                <InputLabel sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Select Error to Repair</InputLabel>
+                <InputLabel sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Select Equipment</InputLabel>
                 <Select
-                  name="error_log_id"
-                  value={formData.error_log_id}
+                  name="equipment_id"
+                  value={formData.equipment_id}
                   onChange={handleFormChange}
-                  label="Select Error to Repair"
+                  label="Select Equipment"
                   sx={{
                     borderRadius: 2,
                     '& .MuiOutlinedInput-root': {
@@ -1398,16 +1399,42 @@ const Repairs = () => {
                     }
                   }}
                 >
-                  <MenuItem value="">Select an error</MenuItem>
-                  {errors.filter(e => e.status !== 'Resolved').map((error) => (
-                    <MenuItem key={error.id} value={error.id} sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                      {error.error_title} - {error.equipment_name} ({error.status})
+                  <MenuItem value="">Select equipment</MenuItem>
+                  {equipment.map((eq) => (
+                    <MenuItem key={eq.id} value={eq.id} sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                      {eq.name} {eq.model ? `(${eq.model})` : ''}
                     </MenuItem>
                   ))}
                 </Select>
               </FormControl>
             </Grid>
 
+            {/* ✅ KEPT: Engineer Name - User types manually */}
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                name="engineer_name"
+                label="Engineer Name"
+                value={formData.engineer_name}
+                onChange={handleFormChange}
+                helperText="Enter the engineer's name"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                  },
+                  '& .MuiInputBase-input': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                  },
+                  '& .MuiInputLabel-root': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                  }
+                }}
+              />
+            </Grid>
+
+            {/* ✅ KEPT: Problem Analysis */}
             <Grid item xs={12}>
               <TextField
                 fullWidth
@@ -1433,6 +1460,7 @@ const Repairs = () => {
               />
             </Grid>
 
+            {/* ✅ KEPT: Repair Procedure */}
             <Grid item xs={12}>
               <TextField
                 fullWidth
@@ -1458,6 +1486,7 @@ const Repairs = () => {
               />
             </Grid>
 
+            {/* ✅ KEPT: Spare Parts Used */}
             <Grid item xs={12}>
               <FormControl fullWidth>
                 <InputLabel sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Spare Parts Used</InputLabel>
@@ -1618,6 +1647,7 @@ const Repairs = () => {
               </>
             )}
 
+            {/* ✅ KEPT: Remarks */}
             <Grid item xs={12}>
               <TextField
                 fullWidth
@@ -1643,6 +1673,7 @@ const Repairs = () => {
               />
             </Grid>
 
+            {/* ✅ KEPT: Attachments */}
             <Grid item xs={12}>
               <Typography variant="body2" sx={{ mb: 1, color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                 Attachments (Images, Videos, Documents)
@@ -1667,6 +1698,7 @@ const Repairs = () => {
               />
             </Grid>
 
+            {/* ✅ KEPT: Repair Date */}
             <Grid item xs={12}>
               <TextField
                 fullWidth
