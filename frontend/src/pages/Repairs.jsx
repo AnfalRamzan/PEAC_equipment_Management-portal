@@ -8,6 +8,8 @@
 // ✅ ADDED: Export functionality (Excel & PDF only, no CSV)
 // ✅ FIXED: REMOVED error_log_id from form (auto-select error from page context)
 // ✅ KEPT: engineer_name (user types manually)
+// ✅ ADDED: Hospital column in main table
+// ✅ ADDED: Hospital filter in filter menu
 
 import React, { useState, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
@@ -76,7 +78,7 @@ import {
   FileDownload,
   FilterList,
 } from '@mui/icons-material'
-import { repairService, errorService, equipmentService } from '../api/services'
+import { repairService, errorService, equipmentService, hospitalService } from '../api/services'
 import { toast } from 'react-toastify'
 import { useSelector } from 'react-redux'
 import FileUpload from '../components/FileUpload'
@@ -482,12 +484,20 @@ const Repairs = () => {
   const [repairs, setRepairs] = useState([])
   const [errors, setErrors] = useState([])
   const [equipment, setEquipment] = useState([])
+  const [hospitals, setHospitals] = useState([]) // ✅ ADDED: Hospitals state
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [openDialog, setOpenDialog] = useState(false)
   const [openViewDialog, setOpenViewDialog] = useState(false)
   const [viewingRepair, setViewingRepair] = useState(null)
   const [viewTabValue, setViewTabValue] = useState(0)
+  
+  // ✅ Filter State
+  const [filterAnchorEl, setFilterAnchorEl] = useState(null)
+  const [filters, setFilters] = useState({
+    hospital: '',
+    equipment: '',
+  })
   
   // ✅ Export Menu State
   const [exportAnchorEl, setExportAnchorEl] = useState(null)
@@ -522,8 +532,6 @@ const Repairs = () => {
     fetchData()
   }, [])
 
-  // ✅ REMOVED: useEffect for error_log_id auto-fill (no longer needed)
-
   // ✅ NEW: Auto-set equipment_id from location state or URL params
   useEffect(() => {
     const params = new URLSearchParams(location.search)
@@ -540,20 +548,41 @@ const Repairs = () => {
   const fetchData = async () => {
     setLoading(true)
     try {
-      const [repairsRes, errorsRes, equipmentRes] = await Promise.all([
+      const [repairsRes, errorsRes, equipmentRes, hospitalsRes] = await Promise.all([
         repairService.getAll(),
         errorService.getAll(),
-        equipmentService.getAll()
+        equipmentService.getAll(),
+        hospitalService.getAll() // ✅ ADDED: Fetch hospitals
       ])
       setRepairs(repairsRes.data.repairs || [])
       setErrors(errorsRes.data.errors || [])
       setEquipment(equipmentRes.data.equipment || [])
+      setHospitals(hospitalsRes.data.hospitals || []) // ✅ ADDED: Set hospitals
     } catch (error) {
       console.error('❌ Fetch error:', error)
       toast.error('Failed to fetch data')
     } finally {
       setLoading(false)
     }
+  }
+
+  // ============================================================
+  // ✅ FILTER HANDLERS
+  // ============================================================
+  const handleFilterClick = (event) => setFilterAnchorEl(event.currentTarget)
+  const handleFilterClose = () => setFilterAnchorEl(null)
+
+  const handleFilterChange = (e) => {
+    setFilters({ ...filters, [e.target.name]: e.target.value })
+  }
+
+  const clearFilters = () => {
+    setFilters({ 
+      hospital: '',
+      equipment: '',
+    })
+    setFilterAnchorEl(null)
+    toast.info('Filters cleared')
   }
 
   // ============================================================
@@ -566,6 +595,7 @@ const Repairs = () => {
     try {
       const data = filteredRepairs.map(r => ({
         'Equipment': r.equipment_name || '',
+        'Hospital': r.hospital_name || r.hospital?.name || '',
         'Engineer': r.engineer_name || '',
         'Problem Analysis': r.problem_analysis || r.root_cause || '',
         'Repair Procedure': r.repair_procedure || r.corrective_action || '',
@@ -598,6 +628,7 @@ const Repairs = () => {
       
       const tableData = filteredRepairs.map(r => [
         r.equipment_name || '',
+        r.hospital_name || r.hospital?.name || '',
         r.engineer_name || '',
         (r.problem_analysis || r.root_cause || '').substring(0, 30),
         r.spare_part_used ? 'Yes' : 'No',
@@ -605,7 +636,7 @@ const Repairs = () => {
         r.created_at ? new Date(r.created_at).toLocaleDateString() : ''
       ])
       autoTable(doc, {
-        head: [['Equipment', 'Engineer', 'Problem', 'Spare Used', 'Date']],
+        head: [['Equipment', 'Hospital', 'Engineer', 'Problem', 'Spare Used', 'Date']],
         body: tableData,
         startY: 40,
         styles: { fontSize: 7, cellPadding: 2 },
@@ -830,12 +861,20 @@ const Repairs = () => {
     }
   }
 
+  // ✅ FILTERED REPAIRS - With Hospital & Equipment filters
   const filteredRepairs = repairs.filter(repair => {
     const matchesSearch = repair.equipment_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           repair.engineer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           repair.problem_analysis?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           repair.repair_procedure?.toLowerCase().includes(searchTerm.toLowerCase())
-    return matchesSearch
+    
+    // ✅ Hospital filter
+    const matchesHospital = !filters.hospital || repair.hospital_id === parseInt(filters.hospital)
+    
+    // ✅ Equipment filter
+    const matchesEquipment = !filters.equipment || repair.equipment_id === parseInt(filters.equipment)
+    
+    return matchesSearch && matchesHospital && matchesEquipment
   })
 
   const getAttachmentCount = (attachments) => {
@@ -951,6 +990,28 @@ const Repairs = () => {
             <Refresh sx={{ fontSize: 18, mr: 0.5 }} />
             Refresh
           </Button>
+
+          {/* ✅ FILTER BUTTON */}
+          <Button 
+            variant="contained"
+            startIcon={<FilterList />} 
+            onClick={handleFilterClick}
+            sx={{ 
+              bgcolor: colors.darkNavy,
+              color: colors.text,
+              borderRadius: 2,
+              textTransform: 'none',
+              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+              '&:hover': { 
+                bgcolor: colors.darkNavyHover,
+                boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
+                transform: 'translateY(-2px)',
+              },
+              transition: 'all 0.3s ease',
+            }}
+          >
+            Filter
+          </Button>
           
           {/* ✅ EXPORT BUTTON - Like other pages */}
           <Button 
@@ -999,6 +1060,110 @@ const Repairs = () => {
           )}
         </Box>
       </Box>
+
+      {/* ✅ FILTER MENU */}
+      <Menu
+        anchorEl={filterAnchorEl}
+        open={Boolean(filterAnchorEl)}
+        onClose={handleFilterClose}
+        PaperProps={{ 
+          sx: { 
+            p: 2.5, 
+            width: 280,
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+            borderRadius: 3,
+          } 
+        }}
+      >
+        <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy, mb: 2 }}>
+          Filter Repairs
+        </Typography>
+        
+        {/* ✅ Hospital Filter */}
+        <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+          <InputLabel sx={{ color: colors.lightText }}>Hospital</InputLabel>
+          <Select 
+            name="hospital" 
+            value={filters.hospital} 
+            onChange={handleFilterChange} 
+            label="Hospital"
+            sx={{
+              borderRadius: 2,
+              '& .MuiOutlinedInput-root': {
+                '&:hover fieldset': { borderColor: colors.lightCyan },
+                '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+              }
+            }}
+          >
+            <MenuItem value="">All</MenuItem>
+            {hospitals.map(h => (
+              <MenuItem key={h.id} value={h.id}>{h.name}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        {/* ✅ Equipment Filter */}
+        <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+          <InputLabel sx={{ color: colors.lightText }}>Equipment</InputLabel>
+          <Select 
+            name="equipment" 
+            value={filters.equipment} 
+            onChange={handleFilterChange} 
+            label="Equipment"
+            sx={{
+              borderRadius: 2,
+              '& .MuiOutlinedInput-root': {
+                '&:hover fieldset': { borderColor: colors.lightCyan },
+                '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+              }
+            }}
+          >
+            <MenuItem value="">All</MenuItem>
+            {equipment.map(eq => (
+              <MenuItem key={eq.id} value={eq.id}>{eq.name}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button 
+            variant="contained" 
+            onClick={handleFilterClose} 
+            fullWidth 
+            size="small"
+            sx={{ 
+              bgcolor: colors.darkNavy,
+              borderRadius: 2,
+              textTransform: 'none',
+              '&:hover': { 
+                bgcolor: colors.darkNavyHover,
+                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`
+              },
+            }}
+          >
+            Apply
+          </Button>
+          <Button 
+            variant="outlined" 
+            onClick={clearFilters} 
+            fullWidth 
+            size="small"
+            sx={{ 
+              borderColor: colors.borderColor,
+              color: colors.darkNavy,
+              borderRadius: 2,
+              textTransform: 'none',
+              '&:hover': { 
+                borderColor: colors.lightCyan,
+                backgroundColor: 'rgba(103, 232, 249, 0.04)'
+              }
+            }}
+          >
+            Clear
+          </Button>
+        </Box>
+      </Menu>
 
       {/* ✅ EXPORT MENU - Excel & PDF only (no CSV) */}
       <Menu
@@ -1203,7 +1368,7 @@ const Repairs = () => {
         </Box>
       </Paper>
 
-      {/* Table */}
+      {/* Table - WITH HOSPITAL COLUMN ADDED */}
       <TableContainer 
         component={Paper} 
         sx={{ 
@@ -1217,6 +1382,7 @@ const Repairs = () => {
           <TableHead sx={{ bgcolor: colors.darkNavy }}>
             <TableRow>
               <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Equipment</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Hospital</TableCell> {/* ✅ ADDED */}
               <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Engineer</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Problem</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Spare Used</TableCell>
@@ -1228,14 +1394,14 @@ const Repairs = () => {
           <TableBody>
             {filteredRepairs.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
+                <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
                   <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
                     <Build sx={{ fontSize: 48, color: colors.borderColor }} />
                     <Typography variant="body1" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                       No repairs found
                     </Typography>
                     <Typography variant="caption" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                      Try adjusting your search
+                      Try adjusting your search or filters
                     </Typography>
                   </Box>
                 </TableCell>
@@ -1258,6 +1424,9 @@ const Repairs = () => {
                     <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                       {repair.equipment_name || 'N/A'}
                     </Typography>
+                  </TableCell>
+                  <TableCell sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                    {repair.hospital_name || repair.hospital?.name || 'N/A'}
                   </TableCell>
                   <TableCell sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                     {repair.engineer_name || 'N/A'}
@@ -1766,7 +1935,7 @@ const Repairs = () => {
         </DialogActions>
       </Dialog>
 
-      {/* View Repair Dialog */}
+      {/* View Repair Dialog - WITH HOSPITAL IN VIEW */}
       <Dialog 
         open={openViewDialog} 
         onClose={handleCloseView} 
@@ -1839,12 +2008,15 @@ const Repairs = () => {
                 </Tabs>
               </Box>
 
-              {/* Tab 0: Details */}
+              {/* Tab 0: Details - WITH HOSPITAL */}
               {viewTabValue === 0 && (
                 <Grid container spacing={2.5}>
                   <Grid item xs={12}>
                     <Typography variant="h6" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                       {viewingRepair.equipment_name || 'N/A'}
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                      Hospital: {viewingRepair.hospital_name || viewingRepair.hospital?.name || 'N/A'}
                     </Typography>
                     <Typography variant="body2" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                       Repaired by: {viewingRepair.engineer_name || 'N/A'}

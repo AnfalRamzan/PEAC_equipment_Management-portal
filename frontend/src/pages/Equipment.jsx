@@ -5,10 +5,12 @@
 // ✅ FIXED: HOSPITAL_ADMIN can now create and edit equipment
 // ✅ ADDED: Purchase Date column
 // ✅ CHANGED: installation_year to date_of_installation
-// ✅ CHANGED: Equipment Status options - Active, Inactive, Warranty, Annual Maintenance, Self Maintained
+// ✅ CHANGED: Equipment Status options - Warranty, Annual Maintenance, Self Maintained (REMOVED Active & Inactive)
 // ✅ REMOVED: All emojis from status options (clean text only)
 // ✅ REMOVED: CSV export option (keeping Excel and PDF only)
 // ✅ FIXED: Total Engineers and Total Errors stats now show actual counts
+// ✅ ADDED: Hospital fields - Hospital Name, Hospital Address, Hospital Phone, Hospital Email
+// ✅ ADDED: Hospital column in table
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -82,6 +84,10 @@ import {
   ErrorOutline,
   Build,
   Warning,
+  LocationOn,
+  Phone,
+  Email,
+  Business,
 } from '@mui/icons-material'
 import { equipmentService, hospitalService, userService } from '../api/services'
 import { toast } from 'react-toastify'
@@ -162,14 +168,13 @@ const animationStyles = `
 }
 `
 
-// ✅ Status color mapping
+// ✅ Status color mapping (UPDATED - Only 3 statuses)
 const getStatusColor = (status) => {
   switch (status) {
-    case 'Active': return '#22C55E'
-    case 'Warranty': return '#3B82F6'
-    case 'Annual Maintenance': return '#F59E0B'
-    case 'Self Maintained': return '#8B5CF6'
-    default: return '#EF4444' // Inactive or unknown
+    case 'Warranty': return '#3B82F6'      // Blue
+    case 'Annual Maintenance': return '#F59E0B'  // Yellow/Orange
+    case 'Self Maintained': return '#8B5CF6'     // Purple
+    default: return '#94A3B8' // Grey for unknown
   }
 }
 
@@ -382,7 +387,6 @@ const Equipment = () => {
   const [categories, setCategories] = useState([])
   const [hospitals, setHospitals] = useState([])
   const [departments, setDepartments] = useState([])
-  // ✅ ADDED: users and errors state
   const [users, setUsers] = useState([])
   const [errors, setErrors] = useState([])
   const [loading, setLoading] = useState(true)
@@ -429,8 +433,13 @@ const Equipment = () => {
     hospital_id: '',
     department_id: '',
     location: '',
-    status: 'Active',
-    image_url: ''
+    status: 'Warranty',
+    image_url: '',
+    // ✅ ADDED: Hospital fields for display
+    hospital_name: '',
+    hospital_address: '',
+    hospital_phone: '',
+    hospital_email: '',
   })
 
   const [touched, setTouched] = useState({
@@ -452,8 +461,8 @@ const Equipment = () => {
         fetchCategories(),
         fetchHospitals(),
         fetchDepartments(),
-        fetchUsers(),    // ✅ Added
-        fetchErrors()    // ✅ Added
+        fetchUsers(),
+        fetchErrors()
       ])
     } catch (error) {
       console.error('Error fetching data:', error)
@@ -617,7 +626,6 @@ const Equipment = () => {
     },
     {
       title: 'Total Engineers',
-      // ✅ Calculate from users data
       value: users.filter(u => u.role === 'ENGINEER' || u.role_name === 'ENGINEER').length,
       icon: <Engineering />,
       color: colors.lightCyan,
@@ -626,7 +634,6 @@ const Equipment = () => {
     },
     {
       title: 'Total Errors',
-      // ✅ Use errors data
       value: errors.length,
       icon: <ErrorOutline />,
       color: colors.lightCyan,
@@ -735,13 +742,22 @@ const Equipment = () => {
     }
   }
 
+  // ✅ Enhanced View Details with Hospital Fields
   const handleViewDetails = (equip) => {
     const imageUrls = equip.image_url ? equip.image_url.split(',').filter(Boolean) : []
+    
+    // Find hospital details from hospitals list
+    const hospital = hospitals.find(h => h.id === equip.hospital_id)
     
     setSelectedEquipment({
       ...equip,
       image_url: equip.image_url || '',
       images: imageUrls,
+      // ✅ Add hospital details
+      hospital_name: hospital?.name || equip.hospital_name || 'N/A',
+      hospital_address: hospital?.address || equip.hospital_address || 'N/A',
+      hospital_phone: hospital?.phone || equip.hospital_phone || 'N/A',
+      hospital_email: hospital?.email || equip.hospital_email || 'N/A',
       errors: [
         { id: 1, error_title: 'Power supply failure', created_at: '2024-01-15T10:30:00', status: 'Resolved' },
         { id: 2, error_title: 'Sensor calibration error', created_at: '2024-02-20T14:45:00', status: 'In Progress' },
@@ -795,7 +811,10 @@ const Equipment = () => {
         'Serial Number': e.serial_number || '',
         'Installation Date': e.date_of_installation || '',
         'Purchase Date': e.purchase_date || '',
-        'Status': e.status || ''
+        'Hospital': e.hospital_name || '',
+        'Status': e.status || '',
+        'Department': e.department_name || '',
+        'Location': e.location || '',
       }))
       const ws = XLSX.utils.json_to_sheet(data)
       const wb = XLSX.utils.book_new()
@@ -820,15 +839,22 @@ const Equipment = () => {
       doc.text(`Total Equipment: ${filteredEquipment.length}`, 14, 34)
       
       const tableData = filteredEquipment.map(e => [
-        e.name, e.category_name || '', e.manufacturer || '', e.model || '', 
-        e.date_of_installation || '', e.purchase_date || '', e.status || ''
+        e.name, 
+        e.category_name || '', 
+        e.manufacturer || '', 
+        e.model || '', 
+        e.date_of_installation || '', 
+        e.purchase_date || '', 
+        e.hospital_name || '',
+        e.status || '',
+        e.department_name || '',
       ])
       autoTable(doc, {
-        head: [['Equipment', 'Category', 'Manufacturer', 'Model', 'Installation Date', 'Purchase Date', 'Status']],
+        head: [['Equipment', 'Category', 'Manufacturer', 'Model', 'Installation Date', 'Purchase Date', 'Hospital', 'Status', 'Department']],
         body: tableData,
         startY: 40,
-        styles: { fontSize: 7, cellPadding: 2 },
-        headStyles: { fillColor: colors.darkNavy, textColor: '#FFFFFF', fontSize: 8 },
+        styles: { fontSize: 6, cellPadding: 2 },
+        headStyles: { fillColor: colors.darkNavy, textColor: '#FFFFFF', fontSize: 7 },
         alternateRowStyles: { fillColor: '#F5F7FA' },
         margin: { left: 10, right: 10 }
       })
@@ -864,8 +890,12 @@ const Equipment = () => {
         hospital_id: equip.hospital_id || defaultHospitalId,
         department_id: equip.department_id || '',
         location: equip.location || '',
-        status: equip.status || 'Active',
-        image_url: equip.image_url || ''
+        status: equip.status || 'Warranty',
+        image_url: equip.image_url || '',
+        hospital_name: equip.hospital_name || '',
+        hospital_address: equip.hospital_address || '',
+        hospital_phone: equip.hospital_phone || '',
+        hospital_email: equip.hospital_email || '',
       })
       
       if (equip.serial_number) {
@@ -898,8 +928,12 @@ const Equipment = () => {
         hospital_id: defaultHospitalId,
         department_id: '',
         location: '',
-        status: 'Active',
-        image_url: ''
+        status: 'Warranty',
+        image_url: '',
+        hospital_name: '',
+        hospital_address: '',
+        hospital_phone: '',
+        hospital_email: '',
       })
       setUploadedImages([])
       setSerialStatus({ isValid: true, message: '', isChecking: false })
@@ -975,7 +1009,7 @@ const Equipment = () => {
         hospital_id: hospitalId,
         department_id: formData.department_id ? parseInt(formData.department_id) : null,
         location: formData.location || '',
-        status: formData.status || 'Active',
+        status: formData.status || 'Warranty',
         image_url: formData.image_url || ''
       }
 
@@ -1090,7 +1124,6 @@ const Equipment = () => {
         </Box>
         
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          {/* ✅ REFRESH BUTTON - BORDER STYLE (Fills on hover/click) */}
           <Button 
             variant="outlined" 
             startIcon={<Refresh />} 
@@ -1192,7 +1225,6 @@ const Equipment = () => {
                   onClick={() => handleCardClick(card.path, index)}
                   className={isClicked ? 'prominent-active' : ''}
                 >
-                  {/* ✅ Prominent Glow Overlay */}
                   {isClicked && (
                     <Box
                       sx={{
@@ -1270,7 +1302,6 @@ const Equipment = () => {
                       </Box>
                     </Box>
                     
-                    {/* ✅ Prominent indicator dots */}
                     <Box sx={{ display: 'flex', gap: 0.5, mt: 1 }}>
                       <Box sx={{
                         width: isClicked ? 8 : 6,
@@ -1346,7 +1377,6 @@ const Equipment = () => {
             }}
           />
           
-          {/* ✅ FILTER BUTTON - PROMINENT SOLID */}
           <Button 
             variant="contained"
             startIcon={<FilterList />} 
@@ -1368,7 +1398,6 @@ const Equipment = () => {
             Filter
           </Button>
           
-          {/* ✅ EXPORT BUTTON - PROMINENT SOLID */}
           <Button 
             variant="contained"
             startIcon={<Download />} 
@@ -1489,8 +1518,6 @@ const Equipment = () => {
             }}
           >
             <MenuItem value="">All</MenuItem>
-            <MenuItem value="Active">Active</MenuItem>
-            <MenuItem value="Inactive">Inactive</MenuItem>
             <MenuItem value="Warranty">Warranty</MenuItem>
             <MenuItem value="Annual Maintenance">Annual Maintenance</MenuItem>
             <MenuItem value="Self Maintained">Self Maintained</MenuItem>
@@ -1536,7 +1563,7 @@ const Equipment = () => {
         </Box>
       </Menu>
 
-      {/* ===== EXPORT MENU - CSV REMOVED, KEEPING EXCEL & PDF ===== */}
+      {/* ===== EXPORT MENU ===== */}
       <Menu
         anchorEl={exportAnchorEl}
         open={Boolean(exportAnchorEl)}
@@ -1551,7 +1578,6 @@ const Equipment = () => {
           } 
         }}
       >
-        {/* ✅ Excel Export Option */}
         <MenuItem 
           onClick={exportToExcel} 
           sx={{ 
@@ -1568,7 +1594,6 @@ const Equipment = () => {
           </Box>
         </MenuItem>
         
-        {/* ✅ PDF Export Option */}
         <MenuItem 
           onClick={exportToPDF} 
           sx={{ 
@@ -1607,6 +1632,7 @@ const Equipment = () => {
               <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Serial No.</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Installation Date</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Purchase Date</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Hospital</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Status</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }} align="center">Actions</TableCell>
             </TableRow>
@@ -1614,7 +1640,7 @@ const Equipment = () => {
           <TableBody>
             {filteredEquipment.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} align="center" sx={{ py: 6 }}>
+                <TableCell colSpan={10} align="center" sx={{ py: 6 }}>
                   <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
                     <MedicalServices sx={{ fontSize: 48, color: colors.borderColor }} />
                     <Typography variant="body1" sx={{ color: colors.lightText }}>
@@ -1655,12 +1681,15 @@ const Equipment = () => {
                   <TableCell sx={{ color: colors.lightText }}>
                     {item.purchase_date ? new Date(item.purchase_date).toLocaleDateString() : '-'}
                   </TableCell>
+                  <TableCell sx={{ color: colors.darkNavy, fontWeight: 500 }}>
+                    {item.hospital_name || '-'}
+                  </TableCell>
                   <TableCell>
                     <Chip
-                      label={item.status || 'Active'}
+                      label={item.status || 'Warranty'}
                       size="small"
                       sx={{
-                        bgcolor: getStatusColor(item.status || 'Active'),
+                        bgcolor: getStatusColor(item.status || 'Warranty'),
                         color: 'white',
                         fontWeight: 600,
                         fontSize: '11px',
@@ -1790,10 +1819,10 @@ const Equipment = () => {
                     </Typography>
                     <Box sx={{ display: 'flex', alignItems: 'center', mt: 1, gap: 2 }}>
                       <Chip
-                        label={selectedEquipment.status || 'Active'}
+                        label={selectedEquipment.status || 'Warranty'}
                         size="small"
                         sx={{
-                          bgcolor: getStatusColor(selectedEquipment.status || 'Active'),
+                          bgcolor: getStatusColor(selectedEquipment.status || 'Warranty'),
                           color: 'white',
                           fontWeight: 600,
                           height: 26,
@@ -1841,16 +1870,75 @@ const Equipment = () => {
                     </Typography>
                   </Grid>
                   <Grid item xs={12} md={6}>
-                    <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600 }}>Hospital</Typography>
-                    <Typography variant="body1" sx={{ color: colors.darkNavy }}>{selectedEquipment.hospital_name || 'N/A'}</Typography>
-                  </Grid>
-                  <Grid item xs={12} md={6}>
                     <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600 }}>Department</Typography>
                     <Typography variant="body1" sx={{ color: colors.darkNavy }}>{selectedEquipment.department_name || 'N/A'}</Typography>
                   </Grid>
                   <Grid item xs={12}>
                     <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600 }}>Location</Typography>
                     <Typography variant="body1" sx={{ color: colors.darkNavy }}>{selectedEquipment.location || 'N/A'}</Typography>
+                  </Grid>
+
+                  {/* ✅ HOSPITAL DETAILS SECTION - NEW */}
+                  <Grid item xs={12}>
+                    <Divider sx={{ my: 2, borderColor: colors.borderColor }} />
+                    <Typography variant="subtitle2" fontWeight={700} sx={{ color: colors.darkNavy, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <LocalHospital fontSize="small" sx={{ color: colors.lightCyanDark }} />
+                      Hospital Details
+                    </Typography>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} md={6}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Business fontSize="small" sx={{ color: colors.lightText }} />
+                          <Box>
+                            <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600, display: 'block' }}>
+                              Hospital Name
+                            </Typography>
+                            <Typography variant="body1" sx={{ color: colors.darkNavy }}>
+                              {selectedEquipment.hospital_name || 'N/A'}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <LocationOn fontSize="small" sx={{ color: colors.lightText }} />
+                          <Box>
+                            <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600, display: 'block' }}>
+                              Hospital Address
+                            </Typography>
+                            <Typography variant="body1" sx={{ color: colors.darkNavy }}>
+                              {selectedEquipment.hospital_address || 'N/A'}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Phone fontSize="small" sx={{ color: colors.lightText }} />
+                          <Box>
+                            <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600, display: 'block' }}>
+                              Hospital Phone
+                            </Typography>
+                            <Typography variant="body1" sx={{ color: colors.darkNavy }}>
+                              {selectedEquipment.hospital_phone || 'N/A'}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </Grid>
+                      <Grid item xs={12} md={6}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Email fontSize="small" sx={{ color: colors.lightText }} />
+                          <Box>
+                            <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600, display: 'block' }}>
+                              Hospital Email
+                            </Typography>
+                            <Typography variant="body1" sx={{ color: colors.darkNavy }}>
+                              {selectedEquipment.hospital_email || 'N/A'}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </Grid>
+                    </Grid>
                   </Grid>
                 </Grid>
               )}
@@ -2480,8 +2568,6 @@ const Equipment = () => {
                       }
                     }}
                   >
-                    <MenuItem value="Active">Active</MenuItem>
-                    <MenuItem value="Inactive">Inactive</MenuItem>
                     <MenuItem value="Warranty">Warranty</MenuItem>
                     <MenuItem value="Annual Maintenance">Annual Maintenance</MenuItem>
                     <MenuItem value="Self Maintained">Self Maintained</MenuItem>

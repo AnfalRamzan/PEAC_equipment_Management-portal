@@ -1,14 +1,13 @@
 // src/pages/SpareParts.jsx
+// ✅ STANDALONE INVENTORY - No links to other modules
 // ✅ DARK NAVY + LIGHT CYAN THEME - Matching Equipment page
 // ✅ WITH ATTACHMENT TAB VIEW + PREVIEW
 // ✅ AUTO-STATUS: In Stock / Low Stock / Out of Stock
 // ✅ PKR CURRENCY FORMATTING FIXED
 // ✅ DOWNTIME TRACKING ADDED
-// ✅ UPDATED: Stats cards design matches Equipment page
-// ✅ UPDATED: Header with Filter and Export buttons
-// ✅ ADDED: Export functionality (CSV, Excel, PDF)
-// ✅ ADDED: Filter menu popup
-// ✅ ADDED: Animations
+// ✅ Everyone can Add and View, only Super Admin can Edit and Delete
+// ✅ Hospital & Equipment as Text Fields (stored directly in spare_parts table)
+// ✅ REMOVED: Brand, Manufacturer, Compatible Equipment (Legacy)
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -84,8 +83,10 @@ import {
   MedicalServices,
   ErrorOutline,
   Schedule,
+  LocalHospital,
+  Business,
 } from '@mui/icons-material'
-import { sparePartService, repairService } from '../api/services'
+import { sparePartService, equipmentService, hospitalService } from '../api/services'
 import { toast } from 'react-toastify'
 import { useSelector } from 'react-redux'
 import { useNavigate } from 'react-router-dom'
@@ -129,7 +130,7 @@ const colors = {
   bgGradientEnd: '#E8EEF5',
 }
 
-// ✅ Animation Styles - Same as Equipment page
+// ✅ Animation Styles
 const animationStyles = `
 @keyframes fadeInUp {
   from {
@@ -190,7 +191,6 @@ const getFullImageUrl = (url) => {
   return url
 }
 
-// ✅ Helper function to check file type
 const isImageFile = (url) => {
   if (!url) return false
   const ext = url.split('.').pop()?.toLowerCase() || ''
@@ -353,7 +353,6 @@ const AttachmentGrid = ({ attachments, onFileClick }) => {
                 </Box>
               )}
               
-              {/* Overlay with file name and open button */}
               <Box 
                 className="attachment-overlay"
                 sx={{ 
@@ -410,7 +409,6 @@ const AttachmentGrid = ({ attachments, onFileClick }) => {
         })}
       </ImageList>
 
-      {/* ✅ Preview Dialog */}
       <PreviewDialog
         open={previewOpen}
         onClose={() => setPreviewOpen(false)}
@@ -512,20 +510,18 @@ const SpareParts = () => {
   
   const { user } = useSelector((state) => state.auth)
   
+  // ✅ HOSPITAL_ADMIN cannot access
   if (user?.role === 'HOSPITAL_ADMIN') {
     return <AccessDenied message="Hospital Administrators cannot access Spare Parts Inventory." />
   }
   
-  const isEngineer = user?.role === 'ENGINEER'
-  const isSuperAdmin = user?.role === 'SUPER_ADMIN'
-  
-  const canCreate = isEngineer || isSuperAdmin
-  const canEdit = isEngineer || isSuperAdmin
-  const canDelete = isSuperAdmin
-  const canUseInRepair = isEngineer
+  // ✅ Everyone can view and add, only Super Admin can edit/delete
+  const canView = true
+  const canAdd = true
+  const canEdit = user?.role === 'SUPER_ADMIN'
+  const canDelete = user?.role === 'SUPER_ADMIN'
 
   const [spareParts, setSpareParts] = useState([])
-  const [repairs, setRepairs] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [openDialog, setOpenDialog] = useState(false)
@@ -537,21 +533,19 @@ const SpareParts = () => {
   const [exportAnchorEl, setExportAnchorEl] = useState(null)
   
   const [filters, setFilters] = useState({
-    brand: '',
-    compatible_equipment: '',
-    status: ''
+    hospital_name: '',
+    equipment_name: '',
+    status: '',
   })
   
   const [formData, setFormData] = useState({
-    repair_id: '',
     part_name: '',
     part_number: '',
-    brand: '',
-    manufacturer: '',
     quantity: 1,
     unit_cost: '',
     total_cost: '',
-    compatible_equipment: '',
+    hospital_name: '',
+    equipment_name: '',
     installation_notes: '',
     image_url: '',
     minimum_stock_level: 5
@@ -559,10 +553,9 @@ const SpareParts = () => {
 
   useEffect(() => {
     fetchSpareParts()
-    fetchRepairs()
   }, [])
 
-  // ✅ FETCH SPARE PARTS WITH DOWNTIME
+  // ✅ FETCH SPARE PARTS
   const fetchSpareParts = async () => {
     setLoading(true)
     try {
@@ -600,15 +593,6 @@ const SpareParts = () => {
     }
   }
 
-  const fetchRepairs = async () => {
-    try {
-      const response = await repairService.getAll()
-      setRepairs(response.data.repairs || [])
-    } catch (error) {
-      console.error('Failed to fetch repairs:', error)
-    }
-  }
-
   // ✅ Status-based calculations
   const lowStockItems = spareParts.filter(p => p.quantity <= (p.minimum_stock_level || 5) && p.quantity > 0)
   const outOfStockItems = spareParts.filter(p => p.quantity <= 0)
@@ -623,18 +607,16 @@ const SpareParts = () => {
 
   const exportToCSV = () => {
     try {
-      const headers = ['Part Name', 'Part Number', 'Brand', 'Manufacturer', 'Quantity', 'Min Stock', 'Status', 'Unit Cost', 'Total Cost', 'Compatible Equipment']
+      const headers = ['Hospital', 'Equipment', 'Part Name', 'Part Number', 'Quantity', 'Status', 'Unit Cost', 'Total Cost']
       const rows = filteredParts.map(p => [
+        p.hospital_name || '',
+        p.equipment_name || '',
         p.part_name || '',
         p.part_number || '',
-        p.brand || '',
-        p.manufacturer || '',
         p.quantity || 0,
-        p.minimum_stock_level || 5,
         getStatus(p.quantity, p.minimum_stock_level).label,
         p.unit_cost || 0,
-        p.total_cost || 0,
-        p.compatible_equipment || ''
+        p.total_cost || 0
       ])
       let csv = headers.join(',') + '\n'
       rows.forEach(row => { csv += row.join(',') + '\n' })
@@ -655,16 +637,14 @@ const SpareParts = () => {
   const exportToExcel = () => {
     try {
       const data = filteredParts.map(p => ({
+        'Hospital': p.hospital_name || '',
+        'Equipment': p.equipment_name || '',
         'Part Name': p.part_name || '',
         'Part Number': p.part_number || '',
-        'Brand': p.brand || '',
-        'Manufacturer': p.manufacturer || '',
         'Quantity': p.quantity || 0,
-        'Min Stock': p.minimum_stock_level || 5,
         'Status': getStatus(p.quantity, p.minimum_stock_level).label,
         'Unit Cost': p.unit_cost || 0,
-        'Total Cost': p.total_cost || 0,
-        'Compatible Equipment': p.compatible_equipment || ''
+        'Total Cost': p.total_cost || 0
       }))
       const ws = XLSX.utils.json_to_sheet(data)
       const wb = XLSX.utils.book_new()
@@ -689,15 +669,16 @@ const SpareParts = () => {
       doc.text(`Total Parts: ${filteredParts.length}`, 14, 34)
       
       const tableData = filteredParts.map(p => [
+        p.hospital_name || '',
+        p.equipment_name || '',
         p.part_name || '',
         p.part_number || '',
-        p.brand || '',
         p.quantity || 0,
         getStatus(p.quantity, p.minimum_stock_level).label,
         formatPKR(p.unit_cost)
       ])
       autoTable(doc, {
-        head: [['Part Name', 'Part Number', 'Brand', 'Qty', 'Status', 'Unit Cost']],
+        head: [['Hospital', 'Equipment', 'Part Name', 'Part Number', 'Qty', 'Status', 'Unit Cost']],
         body: tableData,
         startY: 40,
         styles: { fontSize: 7, cellPadding: 2 },
@@ -724,7 +705,7 @@ const SpareParts = () => {
   }
 
   const clearFilters = () => {
-    setFilters({ brand: '', compatible_equipment: '', status: '' })
+    setFilters({ hospital_name: '', equipment_name: '', status: '' })
     setFilterAnchorEl(null)
     toast.info('Filters cleared')
   }
@@ -733,7 +714,6 @@ const SpareParts = () => {
     setViewTabValue(newValue)
   }
 
-  // ✅ Get all attachments from a spare part
   const getAllAttachments = (part) => {
     const all = []
     if (part.image_url) {
@@ -743,18 +723,21 @@ const SpareParts = () => {
   }
 
   const handleOpenDialog = (part = null) => {
+    if (part && !canEdit) {
+      toast.error('Only Super Admin can edit spare parts')
+      return
+    }
+    
     if (part) {
       setEditingPart(part)
       setFormData({
-        repair_id: part.repair_id || '',
         part_name: part.part_name || '',
         part_number: part.part_number || '',
-        brand: part.brand || '',
-        manufacturer: part.manufacturer || '',
         quantity: part.quantity || 1,
         unit_cost: part.unit_cost || '',
         total_cost: part.total_cost || '',
-        compatible_equipment: part.compatible_equipment || '',
+        hospital_name: part.hospital_name || '',
+        equipment_name: part.equipment_name || '',
         installation_notes: part.installation_notes || '',
         image_url: part.image_url || '',
         minimum_stock_level: part.minimum_stock_level || 5
@@ -762,15 +745,13 @@ const SpareParts = () => {
     } else {
       setEditingPart(null)
       setFormData({
-        repair_id: '',
         part_name: '',
         part_number: '',
-        brand: '',
-        manufacturer: '',
         quantity: 1,
         unit_cost: '',
         total_cost: '',
-        compatible_equipment: '',
+        hospital_name: '',
+        equipment_name: '',
         installation_notes: '',
         image_url: '',
         minimum_stock_level: 5
@@ -857,22 +838,34 @@ const SpareParts = () => {
         return
       }
 
+      if (!formData.hospital_name || formData.hospital_name.trim() === '') {
+        toast.error('Hospital name is required')
+        return
+      }
+
+      if (!formData.equipment_name || formData.equipment_name.trim() === '') {
+        toast.error('Equipment name is required')
+        return
+      }
+
       const submitData = {
-        repair_id: formData.repair_id ? parseInt(formData.repair_id) : null,
         part_name: formData.part_name.trim(),
         part_number: formData.part_number || null,
-        brand: formData.brand || null,
-        manufacturer: formData.manufacturer || null,
         quantity: parseInt(formData.quantity) || 1,
         unit_cost: parseFloat(formData.unit_cost) || 0,
         total_cost: parseFloat(formData.total_cost) || 0,
-        compatible_equipment: formData.compatible_equipment || null,
+        hospital_name: formData.hospital_name.trim(),
+        equipment_name: formData.equipment_name.trim(),
         installation_notes: formData.installation_notes || null,
         image_url: formData.image_url || null,
         minimum_stock_level: parseInt(formData.minimum_stock_level) || 5
       }
 
       if (editingPart) {
+        if (!canEdit) {
+          toast.error('Only Super Admin can edit spare parts')
+          return
+        }
         await sparePartService.update(editingPart.id, submitData)
         toast.success('Spare part updated successfully')
       } else {
@@ -907,23 +900,18 @@ const SpareParts = () => {
     }
   }
 
-  const handleUseInRepair = (part) => {
-    navigate(`/repairs?part_id=${part.id}`)
-    toast.info(`Selected ${part.part_name} for repair`)
-  }
-
   const filteredParts = spareParts.filter(part => {
     const matchesSearch = part.part_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           part.part_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          part.brand?.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesBrand = !filters.brand || part.brand?.toLowerCase().includes(filters.brand.toLowerCase())
-    const matchesEquipment = !filters.compatible_equipment || 
-      part.compatible_equipment?.toLowerCase().includes(filters.compatible_equipment.toLowerCase())
+                          part.hospital_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          part.equipment_name?.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesHospital = !filters.hospital_name || part.hospital_name?.toLowerCase().includes(filters.hospital_name.toLowerCase())
+    const matchesEquipment = !filters.equipment_name || part.equipment_name?.toLowerCase().includes(filters.equipment_name.toLowerCase())
     const matchesStatus = !filters.status || getStatus(part.quantity, part.minimum_stock_level).label === filters.status
-    return matchesSearch && matchesBrand && matchesEquipment && matchesStatus
+    return matchesSearch && matchesHospital && matchesEquipment && matchesStatus
   })
 
-  // ✅ Stats Cards Data - Same design as Equipment page
+  // ✅ Stats Cards
   const statsCards = [
     {
       title: 'Total Parts',
@@ -976,9 +964,7 @@ const SpareParts = () => {
     }}>
       <style>{animationStyles}</style>
 
-      {/* ============================================================
-          HEADER - Same as Equipment page
-          ============================================================ */}
+      {/* HEADER */}
       <Box sx={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
@@ -1015,12 +1001,11 @@ const SpareParts = () => {
               mt: 0.5,
             }}
           >
-            Manage spare parts inventory and track stock levels
+            Manage spare parts inventory with equipment and hospital associations
           </Typography>
         </Box>
         
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-          {/* ✅ REFRESH BUTTON - BORDER STYLE */}
           <Button 
             variant="outlined" 
             startIcon={<Refresh />} 
@@ -1029,7 +1014,6 @@ const SpareParts = () => {
             sx={{ 
               borderColor: colors.lightCyan,
               color: colors.lightCyan,
-              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
               textTransform: 'none',
               borderRadius: 2,
               transition: 'all 0.3s ease',
@@ -1040,18 +1024,11 @@ const SpareParts = () => {
                 boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
                 transform: 'translateY(-2px)',
               },
-              '&:active': {
-                bgcolor: colors.lightCyan,
-                color: colors.darkNavy,
-                borderColor: colors.lightCyan,
-                transform: 'scale(0.96)',
-              }
             }}
           >
             Refresh
           </Button>
           
-          {/* ✅ FILTER BUTTON */}
           <Button 
             variant="contained"
             startIcon={<FilterList />} 
@@ -1073,7 +1050,6 @@ const SpareParts = () => {
             Filter
           </Button>
           
-          {/* ✅ EXPORT BUTTON */}
           <Button 
             variant="contained"
             startIcon={<Download />} 
@@ -1095,34 +1071,30 @@ const SpareParts = () => {
             Export
           </Button>
           
-          {canCreate && (
-            <Button
-              variant="contained"
-              startIcon={<Add />}
-              onClick={() => handleOpenDialog()}
-              sx={{ 
-                bgcolor: colors.darkNavy,
-                color: colors.text,
-                borderRadius: 2,
-                textTransform: 'none',
-                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
-                '&:hover': { 
-                  bgcolor: colors.darkNavyHover,
-                  boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
-                  transform: 'translateY(-2px)',
-                },
-                transition: 'all 0.3s ease',
-              }}
-            >
-              Add Spare Part
-            </Button>
-          )}
+          <Button
+            variant="contained"
+            startIcon={<Add />}
+            onClick={() => handleOpenDialog()}
+            sx={{ 
+              bgcolor: colors.darkNavy,
+              color: colors.text,
+              borderRadius: 2,
+              textTransform: 'none',
+              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+              '&:hover': { 
+                bgcolor: colors.darkNavyHover,
+                boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
+                transform: 'translateY(-2px)',
+              },
+              transition: 'all 0.3s ease',
+            }}
+          >
+            Add Spare Part
+          </Button>
         </Box>
       </Box>
 
-      {/* ============================================================
-          OUT OF STOCK ALERT
-          ============================================================ */}
+      {/* ALERTS */}
       {outOfStockItems.length > 0 && (
         <Alert 
           severity="error" 
@@ -1133,37 +1105,14 @@ const SpareParts = () => {
             '& .MuiAlert-icon': { color: colors.error }
           }}
           icon={<WarningIcon />}
-          action={
-            <Button 
-              size="small" 
-              variant="outlined"
-              startIcon={<ShoppingCart />}
-              onClick={() => navigate('/procurement')}
-              sx={{ 
-                mt: 0.5,
-                borderColor: colors.error,
-                color: colors.error,
-                '&:hover': { 
-                  borderColor: colors.lightCyan, 
-                  color: colors.lightCyanDark,
-                  backgroundColor: 'rgba(103, 232, 249, 0.04)'
-                }
-              }}
-            >
-              Order Now
-            </Button>
-          }
         >
           <Typography variant="body2">
             <strong>{outOfStockItems.length}</strong> spare part{outOfStockItems.length > 1 ? 's are' : ' is'} <strong>Out of Stock</strong>!
-            Please order immediately.
+            Please restock immediately.
           </Typography>
         </Alert>
       )}
 
-      {/* ============================================================
-          LOW STOCK ALERT
-          ============================================================ */}
       {lowStockItems.length > 0 && (
         <Alert 
           severity="warning" 
@@ -1174,36 +1123,15 @@ const SpareParts = () => {
             '& .MuiAlert-icon': { color: colors.warning }
           }}
           icon={<WarningIcon />}
-          action={
-            <Button 
-              size="small" 
-              variant="outlined"
-              startIcon={<ShoppingCart />}
-              onClick={() => navigate('/procurement')}
-              sx={{ 
-                mt: 0.5,
-                borderColor: colors.warning,
-                color: colors.warning,
-                '&:hover': { 
-                  borderColor: colors.lightCyan, 
-                  color: colors.lightCyanDark,
-                  backgroundColor: 'rgba(103, 232, 249, 0.04)'
-                }
-              }}
-            >
-              Create Purchase Request
-            </Button>
-          }
         >
           <Typography variant="body2">
             <strong>{lowStockItems.length}</strong> spare part{lowStockItems.length > 1 ? 's are' : ' is'} low in stock!
+            Please consider restocking.
           </Typography>
         </Alert>
       )}
 
-      {/* ============================================================
-          STATS CARDS - Same design as Equipment page
-          ============================================================ */}
+      {/* STATS CARDS */}
       <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }} sx={{ mb: 3 }}>
         {statsCards.map((card, index) => (
           <Grid item xs={6} sm={2.4} key={index}>
@@ -1287,9 +1215,7 @@ const SpareParts = () => {
         ))}
       </Grid>
 
-      {/* ============================================================
-          SEARCH - Only search bar
-          ============================================================ */}
+      {/* SEARCH */}
       <Paper sx={{ 
         p: 2, 
         mb: 3, 
@@ -1302,7 +1228,7 @@ const SpareParts = () => {
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
           <TextField
             size="small"
-            placeholder="Search by name, part number or brand..."
+            placeholder="Search by part name, part number, equipment or hospital..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             sx={{ flexGrow: 1, minWidth: 200 }}
@@ -1319,7 +1245,6 @@ const SpareParts = () => {
                   '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                 },
                 '& .MuiInputBase-input': {
-                  fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                   fontSize: '0.9rem',
                 }
               }
@@ -1328,9 +1253,7 @@ const SpareParts = () => {
         </Box>
       </Paper>
 
-      {/* ============================================================
-          FILTER MENU - Same as Equipment page
-          ============================================================ */}
+      {/* FILTER MENU */}
       <Menu
         anchorEl={filterAnchorEl}
         open={Boolean(filterAnchorEl)}
@@ -1338,7 +1261,7 @@ const SpareParts = () => {
         PaperProps={{ 
           sx: { 
             p: 2.5, 
-            width: 280,
+            width: 300,
             border: `1px solid ${colors.borderColor}`,
             boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
             borderRadius: 3,
@@ -1348,15 +1271,15 @@ const SpareParts = () => {
         <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy, mb: 2 }}>
           Filter Spare Parts
         </Typography>
-        
+
         <TextField
           fullWidth 
           size="small" 
-          label="Brand" 
-          name="brand"
-          value={filters.brand} 
+          label="Hospital Name" 
+          name="hospital_name"
+          value={filters.hospital_name} 
           onChange={handleFilterChange}
-          placeholder="Filter by brand" 
+          placeholder="Filter by hospital" 
           sx={{ 
             mb: 2,
             '& .MuiOutlinedInput-root': {
@@ -1370,9 +1293,9 @@ const SpareParts = () => {
         <TextField
           fullWidth 
           size="small" 
-          label="Compatible Equipment" 
-          name="compatible_equipment"
-          value={filters.compatible_equipment} 
+          label="Equipment Name" 
+          name="equipment_name"
+          value={filters.equipment_name} 
           onChange={handleFilterChange}
           placeholder="Filter by equipment" 
           sx={{ 
@@ -1446,9 +1369,7 @@ const SpareParts = () => {
         </Box>
       </Menu>
 
-      {/* ============================================================
-          EXPORT MENU - Same as Equipment page
-          ============================================================ */}
+      {/* EXPORT MENU */}
       <Menu
         anchorEl={exportAnchorEl}
         open={Boolean(exportAnchorEl)}
@@ -1463,45 +1384,21 @@ const SpareParts = () => {
           } 
         }}
       >
-        <MenuItem 
-          onClick={exportToCSV} 
-          sx={{ 
-            borderRadius: 1,
-            '&:hover': { 
-              bgcolor: 'rgba(103, 232, 249, 0.08)',
-            } 
-          }}
-        >
+        <MenuItem onClick={exportToCSV} sx={{ borderRadius: 1, '&:hover': { bgcolor: 'rgba(103, 232, 249, 0.08)' } }}>
           <FileDownload sx={{ mr: 1.5, fontSize: 20, color: colors.lightCyanDark }} /> 
           <Box>
             <Typography variant="body2" fontWeight={500}>CSV</Typography>
             <Typography variant="caption" sx={{ color: colors.lightText }}>Comma separated values</Typography>
           </Box>
         </MenuItem>
-        <MenuItem 
-          onClick={exportToExcel} 
-          sx={{ 
-            borderRadius: 1,
-            '&:hover': { 
-              bgcolor: 'rgba(103, 232, 249, 0.08)',
-            } 
-          }}
-        >
+        <MenuItem onClick={exportToExcel} sx={{ borderRadius: 1, '&:hover': { bgcolor: 'rgba(103, 232, 249, 0.08)' } }}>
           <FileDownload sx={{ mr: 1.5, fontSize: 20, color: colors.lightCyanDark }} />
           <Box>
             <Typography variant="body2" fontWeight={500}>Excel</Typography>
             <Typography variant="caption" sx={{ color: colors.lightText }}>.xlsx format</Typography>
           </Box>
         </MenuItem>
-        <MenuItem 
-          onClick={exportToPDF} 
-          sx={{ 
-            borderRadius: 1,
-            '&:hover': { 
-              bgcolor: 'rgba(103, 232, 249, 0.08)',
-            } 
-          }}
-        >
+        <MenuItem onClick={exportToPDF} sx={{ borderRadius: 1, '&:hover': { bgcolor: 'rgba(103, 232, 249, 0.08)' } }}>
           <FileDownload sx={{ mr: 1.5, fontSize: 20, color: colors.lightCyanDark }} />
           <Box>
             <Typography variant="body2" fontWeight={500}>PDF</Typography>
@@ -1510,9 +1407,7 @@ const SpareParts = () => {
         </MenuItem>
       </Menu>
 
-      {/* ============================================================
-          TABLE
-          ============================================================ */}
+      {/* TABLE */}
       <TableContainer 
         component={Paper} 
         sx={{ 
@@ -1525,28 +1420,27 @@ const SpareParts = () => {
         <Table>
           <TableHead sx={{ bgcolor: colors.darkNavy }}>
             <TableRow>
-              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Part Name</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Part Number</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Brand</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Quantity</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Min Stock</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Status</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Unit Cost</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Total Cost</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Downtime</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }} align="center">Actions</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Hospital</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Equipment</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Part Name</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Part Number</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Qty</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Min Stock</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Status</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Unit Cost</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }} align="center">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {filteredParts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={10} align="center" sx={{ py: 6 }}>
+                <TableCell colSpan={9} align="center" sx={{ py: 6 }}>
                   <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
                     <Inventory sx={{ fontSize: 48, color: colors.borderColor }} />
-                    <Typography variant="body1" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                    <Typography variant="body1" sx={{ color: colors.lightText }}>
                       No spare parts found
                     </Typography>
-                    <Typography variant="caption" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                    <Typography variant="caption" sx={{ color: colors.lightText }}>
                       Try adjusting your search or filters
                     </Typography>
                   </Box>
@@ -1571,17 +1465,30 @@ const SpareParts = () => {
                       '&:last-child td': { borderBottom: 0 }
                     }}
                   >
+                    <TableCell sx={{ color: colors.darkNavy, fontWeight: 500 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <LocalHospital sx={{ fontSize: 14, color: colors.lightCyanDark }} />
+                        {part.hospital_name || '-'}
+                      </Box>
+                    </TableCell>
+                    
+                    <TableCell sx={{ color: colors.darkNavy, fontWeight: 500 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <MedicalServices sx={{ fontSize: 14, color: colors.lightCyanDark }} />
+                        {part.equipment_name || '-'}
+                      </Box>
+                    </TableCell>
+                    
                     <TableCell>
-                      <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                      <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkNavy }}>
                         {part.part_name}
                       </Typography>
                     </TableCell>
-                    <TableCell sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                    
+                    <TableCell sx={{ color: colors.lightText }}>
                       {part.part_number || '-'}
                     </TableCell>
-                    <TableCell sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                      {part.brand || '-'}
-                    </TableCell>
+                    
                     <TableCell>
                       <Chip 
                         label={part.quantity} 
@@ -1597,6 +1504,7 @@ const SpareParts = () => {
                         }}
                       />
                     </TableCell>
+                    
                     <TableCell>
                       <Chip 
                         label={part.minimum_stock_level || 5} 
@@ -1611,6 +1519,7 @@ const SpareParts = () => {
                         }}
                       />
                     </TableCell>
+                    
                     <TableCell>
                       <Chip 
                         label={status.label} 
@@ -1627,26 +1536,11 @@ const SpareParts = () => {
                         }}
                       />
                     </TableCell>
-                    <TableCell sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                    
+                    <TableCell sx={{ color: colors.darkNavy }}>
                       {formatPKR(part.unit_cost)}
                     </TableCell>
-                    <TableCell sx={{ color: colors.darkNavy, fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                      {formatPKR(part.total_cost)}
-                    </TableCell>
-                    <TableCell>
-                      <Chip 
-                        label={`${Number(part.total_downtime_days || 0).toFixed(1)} days`}
-                        size="small"
-                        sx={{
-                          bgcolor: Number(part.total_downtime_days || 0) > 5 ? colors.error : colors.warning,
-                          color: 'white',
-                          fontWeight: 600,
-                          height: 26,
-                          fontSize: '11px',
-                          borderRadius: 2,
-                        }}
-                      />
-                    </TableCell>
+                    
                     <TableCell align="center">
                       <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5, flexWrap: 'wrap' }}>
                         <Tooltip title="View Details">
@@ -1664,24 +1558,6 @@ const SpareParts = () => {
                             <Visibility fontSize="small" />
                           </IconButton>
                         </Tooltip>
-                        
-                        {canUseInRepair && (
-                          <Tooltip title="Use in Repair">
-                            <IconButton 
-                              size="small" 
-                              onClick={() => handleUseInRepair(part)}
-                              sx={{ 
-                                color: colors.darkNavy, 
-                                '&:hover': { 
-                                  color: colors.lightCyanDark,
-                                  backgroundColor: 'rgba(103, 232, 249, 0.08)'
-                                } 
-                              }}
-                            >
-                              <Build fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
                         
                         {canEdit && (
                           <Tooltip title="Edit">
@@ -1727,9 +1603,7 @@ const SpareParts = () => {
         </Table>
       </TableContainer>
 
-      {/* ============================================================
-          VIEW SPARE PART DIALOG WITH TABS + DOWNTIME
-          ============================================================ */}
+      {/* VIEW DIALOG */}
       <Dialog 
         open={openViewDialog} 
         onClose={handleCloseView} 
@@ -1751,7 +1625,7 @@ const SpareParts = () => {
           py: 2.5,
         }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" fontWeight={600} sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Typography variant="h6" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
               <Inventory sx={{ fontSize: 28 }} />
               Spare Part Details
             </Typography>
@@ -1764,7 +1638,6 @@ const SpareParts = () => {
         <DialogContent dividers sx={{ p: 0 }}>
           {viewingPart && (
             <Box>
-              {/* Tabs */}
               <Tabs 
                 value={viewTabValue} 
                 onChange={handleTabChange}
@@ -1777,7 +1650,6 @@ const SpareParts = () => {
                     fontWeight: 500,
                     fontSize: '14px',
                     color: colors.lightText,
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                     '&.Mui-selected': {
                       color: colors.darkNavy,
                       fontWeight: 600,
@@ -1798,76 +1670,49 @@ const SpareParts = () => {
                 />
               </Tabs>
 
-              {/* Tab 0: Details */}
               {viewTabValue === 0 && (
                 <Box sx={{ p: 3 }}>
                   <Grid container spacing={2.5}>
                     <Grid item xs={12} md={6}>
-                      <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                      <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600 }}>
+                        <LocalHospital sx={{ fontSize: 16, verticalAlign: 'middle', mr: 0.5 }} />
+                        Hospital
+                      </Typography>
+                      <Typography variant="body1" sx={{ color: colors.darkNavy }}>
+                        {viewingPart.hospital_name || '-'}
+                      </Typography>
+                    </Grid>
+
+                    <Grid item xs={12} md={6}>
+                      <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600 }}>
+                        <MedicalServices sx={{ fontSize: 16, verticalAlign: 'middle', mr: 0.5 }} />
+                        Equipment
+                      </Typography>
+                      <Typography variant="body1" sx={{ color: colors.darkNavy }}>
+                        {viewingPart.equipment_name || '-'}
+                      </Typography>
+                    </Grid>
+
+                    <Grid item xs={12} md={6}>
+                      <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600 }}>
                         Part Name
                       </Typography>
-                      <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                      <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy }}>
                         {viewingPart.part_name}
                       </Typography>
                     </Grid>
+
                     <Grid item xs={12} md={6}>
-                      <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                      <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600 }}>
                         Part Number
                       </Typography>
-                      <Typography variant="body1" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                      <Typography variant="body1" sx={{ color: colors.darkNavy }}>
                         {viewingPart.part_number || '-'}
                       </Typography>
                     </Grid>
+
                     <Grid item xs={12} md={4}>
-                      <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
-                        Brand
-                      </Typography>
-                      <Typography variant="body1" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                        {viewingPart.brand || '-'}
-                      </Typography>
-                    </Grid>
-                    <Grid item xs={12} md={4}>
-                      <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
-                        Manufacturer
-                      </Typography>
-                      <Typography variant="body1" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                        {viewingPart.manufacturer || '-'}
-                      </Typography>
-                    </Grid>
-                    <Grid item xs={12} md={4}>
-                      <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
-                        Quantity
-                      </Typography>
-                      <Typography variant="body1" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                        {viewingPart.quantity}
-                      </Typography>
-                    </Grid>
-                    <Grid item xs={12} md={4}>
-                      <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
-                        Minimum Stock Level
-                      </Typography>
-                      <Typography variant="body1" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                        {viewingPart.minimum_stock_level || 5}
-                      </Typography>
-                    </Grid>
-                    <Grid item xs={12} md={4}>
-                      <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
-                        Unit Cost
-                      </Typography>
-                      <Typography variant="body1" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                        {formatPKR(viewingPart.unit_cost)}
-                      </Typography>
-                    </Grid>
-                    <Grid item xs={12} md={4}>
-                      <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
-                        Total Cost
-                      </Typography>
-                      <Typography variant="body1" fontWeight={600} sx={{ color: colors.lightCyanDark, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                        {formatPKR(viewingPart.total_cost)}
-                      </Typography>
-                    </Grid>
-                    <Grid item xs={12} md={4}>
-                      <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                      <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600 }}>
                         Status
                       </Typography>
                       <Chip 
@@ -1883,43 +1728,80 @@ const SpareParts = () => {
                       />
                     </Grid>
 
-                    {/* ✅ DOWNTIME SECTION */}
+                    <Grid item xs={12} md={4}>
+                      <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600 }}>
+                        Quantity
+                      </Typography>
+                      <Typography variant="body1" sx={{ color: colors.darkNavy }}>
+                        {viewingPart.quantity}
+                      </Typography>
+                    </Grid>
+
+                    <Grid item xs={12} md={4}>
+                      <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600 }}>
+                        Minimum Stock Level
+                      </Typography>
+                      <Typography variant="body1" sx={{ color: colors.darkNavy }}>
+                        {viewingPart.minimum_stock_level || 5}
+                      </Typography>
+                    </Grid>
+
+                    <Grid item xs={12} md={6}>
+                      <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600 }}>
+                        Unit Cost
+                      </Typography>
+                      <Typography variant="body1" sx={{ color: colors.darkNavy }}>
+                        {formatPKR(viewingPart.unit_cost)}
+                      </Typography>
+                    </Grid>
+
+                    <Grid item xs={12} md={6}>
+                      <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600 }}>
+                        Total Cost
+                      </Typography>
+                      <Typography variant="body1" sx={{ color: colors.darkNavy }}>
+                        {formatPKR(viewingPart.total_cost)}
+                      </Typography>
+                    </Grid>
+
+                    {/* Downtime Section */}
                     <Grid item xs={12}>
-                      <Typography variant="subtitle2" sx={{ color: colors.lightText, mb: 1, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                      <Divider sx={{ my: 2 }} />
+                      <Typography variant="subtitle2" sx={{ color: colors.lightText, mb: 1, fontWeight: 600 }}>
                         <TimerOff sx={{ fontSize: 18, verticalAlign: 'middle', mr: 1 }} />
                         Downtime History
                       </Typography>
                       <Paper sx={{ p: 2, bgcolor: colors.mainBg, borderRadius: 2, border: `1px solid ${colors.borderColor}` }}>
                         <Grid container spacing={2}>
                           <Grid item xs={6} md={3}>
-                            <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                            <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
                               Times Out of Stock
                             </Typography>
-                            <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                            <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkNavy }}>
                               {viewingPart.times_out_of_stock || 0}
                             </Typography>
                           </Grid>
                           <Grid item xs={6} md={3}>
-                            <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                            <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
                               First Out of Stock
                             </Typography>
-                            <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                            <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkNavy }}>
                               {viewingPart.first_out_of_stock ? new Date(viewingPart.first_out_of_stock).toLocaleString() : '-'}
                             </Typography>
                           </Grid>
                           <Grid item xs={6} md={3}>
-                            <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                            <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
                               Last Out of Stock
                             </Typography>
-                            <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                            <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkNavy }}>
                               {viewingPart.last_out_of_stock ? new Date(viewingPart.last_out_of_stock).toLocaleString() : '-'}
                             </Typography>
                           </Grid>
                           <Grid item xs={6} md={3}>
-                            <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                            <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
                               Total Downtime
                             </Typography>
-                            <Typography variant="body2" fontWeight={700} sx={{ color: colors.error, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                            <Typography variant="body2" fontWeight={700} sx={{ color: colors.error }}>
                               {Number(viewingPart.total_downtime_days || 0).toFixed(1)} days
                             </Typography>
                           </Grid>
@@ -1927,20 +1809,9 @@ const SpareParts = () => {
                       </Paper>
                     </Grid>
 
-                    {viewingPart.compatible_equipment && (
-                      <Grid item xs={12}>
-                        <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
-                          Compatible Equipment
-                        </Typography>
-                        <Typography variant="body1" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                          {viewingPart.compatible_equipment}
-                        </Typography>
-                      </Grid>
-                    )}
-
                     {viewingPart.installation_notes && (
                       <Grid item xs={12}>
-                        <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                        <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600 }}>
                           Installation Notes
                         </Typography>
                         <Paper sx={{ 
@@ -1949,27 +1820,16 @@ const SpareParts = () => {
                           borderRadius: 2,
                           border: `1px solid ${colors.borderColor}`
                         }}>
-                          <Typography variant="body2" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                          <Typography variant="body2" sx={{ color: colors.darkNavy }}>
                             {viewingPart.installation_notes}
                           </Typography>
                         </Paper>
                       </Grid>
                     )}
-                    
-                    {viewingPart.repair_id && (
-                      <Grid item xs={12}>
-                        <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
-                          Associated Repair
-                        </Typography>
-                        <Typography variant="body1" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                          Repair #{viewingPart.repair_id}
-                        </Typography>
-                      </Grid>
-                    )}
 
                     <Grid item xs={12}>
-                      <Divider sx={{ my: 2, borderColor: colors.borderColor }} />
-                      <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }} gutterBottom>
+                      <Divider sx={{ my: 2 }} />
+                      <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>
                         <History sx={{ fontSize: 18, verticalAlign: 'middle', mr: 1 }} />
                         Stock Movement History
                       </Typography>
@@ -1978,19 +1838,19 @@ const SpareParts = () => {
                           <Table size="small">
                             <TableHead sx={{ bgcolor: colors.mainBg }}>
                               <TableRow>
-                                <TableCell sx={{ fontWeight: 600, color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Date</TableCell>
-                                <TableCell sx={{ fontWeight: 600, color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Action</TableCell>
-                                <TableCell sx={{ fontWeight: 600, color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Quantity</TableCell>
-                                <TableCell sx={{ fontWeight: 600, color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Reference</TableCell>
+                                <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }}>Date</TableCell>
+                                <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }}>Action</TableCell>
+                                <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }}>Quantity</TableCell>
+                                <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }}>Reference</TableCell>
                               </TableRow>
                             </TableHead>
                             <TableBody>
                               {viewingPart.movements.map((mov, idx) => (
                                 <TableRow key={idx} hover>
-                                  <TableCell sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                                  <TableCell sx={{ color: colors.darkNavy }}>
                                     {new Date(mov.created_at).toLocaleString()}
                                   </TableCell>
-                                  <TableCell sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                                  <TableCell sx={{ color: colors.darkNavy }}>
                                     {mov.type === 'IN' ? 'Stock In' : 'Stock Out'}
                                   </TableCell>
                                   <TableCell>
@@ -1998,13 +1858,12 @@ const SpareParts = () => {
                                       sx={{ 
                                         color: mov.type === 'IN' ? colors.success : colors.error,
                                         fontWeight: 600,
-                                        fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                                       }}
                                     >
                                       {mov.type === 'IN' ? '+' : '-'}{mov.quantity}
                                     </Typography>
                                   </TableCell>
-                                  <TableCell sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                                  <TableCell sx={{ color: colors.darkNavy }}>
                                     {mov.reference_type === 'purchase' ? `PO #${mov.reference_id}` : 
                                      mov.reference_type === 'repair' ? `Repair #${mov.reference_id}` : 
                                      mov.reference_type || 'N/A'}
@@ -2015,7 +1874,7 @@ const SpareParts = () => {
                           </Table>
                         </TableContainer>
                       ) : (
-                        <Typography variant="body2" sx={{ color: colors.lightText, py: 2, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                        <Typography variant="body2" sx={{ color: colors.lightText, py: 2 }}>
                           No stock movements recorded
                         </Typography>
                       )}
@@ -2024,13 +1883,12 @@ const SpareParts = () => {
                 </Box>
               )}
 
-              {/* Tab 1: Attachments */}
               {viewTabValue === 1 && (
                 <Box sx={{ p: 3 }}>
-                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy, mb: 2, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy, mb: 2 }}>
                     Attachments ({getAllAttachments(viewingPart).length})
                   </Typography>
-                  <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 2, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                  <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 2 }}>
                     Click on any file to preview it.
                   </Typography>
                   
@@ -2063,57 +1921,32 @@ const SpareParts = () => {
           >
             Close
           </Button>
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            {canEdit && viewingPart && (
-              <Button
-                variant="outlined"
-                onClick={() => {
-                  setOpenViewDialog(false)
-                  handleOpenDialog(viewingPart)
-                }}
-                sx={{ 
-                  borderColor: colors.darkNavy, 
-                  color: colors.darkNavy, 
-                  '&:hover': { 
-                    borderColor: colors.lightCyan, 
-                    color: colors.lightCyanDark,
-                    backgroundColor: 'rgba(103, 232, 249, 0.04)'
-                  },
-                  textTransform: 'none',
-                  borderRadius: 2,
-                }}
-              >
-                Edit
-              </Button>
-            )}
-            {canUseInRepair && viewingPart && (
-              <Button
-                variant="contained"
-                onClick={() => {
-                  setOpenViewDialog(false)
-                  handleUseInRepair(viewingPart)
-                }}
-                sx={{ 
-                  bgcolor: colors.darkNavy, 
-                  '&:hover': { 
-                    bgcolor: colors.darkNavyHover,
-                    boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
-                  },
-                  textTransform: 'none',
-                  borderRadius: 2,
-                }}
-                startIcon={<Build />}
-              >
-                Use in Repair
-              </Button>
-            )}
-          </Box>
+          {canEdit && viewingPart && (
+            <Button
+              variant="outlined"
+              onClick={() => {
+                setOpenViewDialog(false)
+                handleOpenDialog(viewingPart)
+              }}
+              sx={{ 
+                borderColor: colors.darkNavy, 
+                color: colors.darkNavy, 
+                '&:hover': { 
+                  borderColor: colors.lightCyan, 
+                  color: colors.lightCyanDark,
+                  backgroundColor: 'rgba(103, 232, 249, 0.04)'
+                },
+                textTransform: 'none',
+                borderRadius: 2,
+              }}
+            >
+              Edit
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
 
-      {/* ============================================================
-          ADD/EDIT DIALOG
-          ============================================================ */}
+      {/* ADD/EDIT DIALOG */}
       <Dialog 
         open={openDialog} 
         onClose={handleCloseDialog} 
@@ -2134,7 +1967,7 @@ const SpareParts = () => {
           py: 2.5,
         }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" fontWeight={600} sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Typography variant="h6" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
               {editingPart ? <Edit sx={{ fontSize: 28 }} /> : <Add sx={{ fontSize: 28 }} />}
               {editingPart ? 'Edit Spare Part' : 'Add New Spare Part'}
             </Typography>
@@ -2145,35 +1978,59 @@ const SpareParts = () => {
         </DialogTitle>
         <DialogContent dividers sx={{ px: 4, py: 3 }}>
           <Grid container spacing={2.5}>
-            <Grid item xs={12}>
-              <FormControl fullWidth>
-                <InputLabel sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Associated Repair</InputLabel>
-                <Select
-                  name="repair_id"
-                  value={formData.repair_id}
-                  onChange={handleFormChange}
-                  label="Associated Repair"
-                  sx={{
+            {/* Hospital Name - TEXT FIELD */}
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                required
+                label="Hospital Name *"
+                name="hospital_name"
+                value={formData.hospital_name}
+                onChange={handleFormChange}
+                placeholder="Enter hospital name"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
                     borderRadius: 2,
-                    '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.lightCyan },
-                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                    },
-                    '& .MuiSelect-select': {
-                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                    }
-                  }}
-                >
-                  <MenuItem value="" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>None (General Stock)</MenuItem>
-                  {repairs.map(repair => (
-                    <MenuItem key={repair.id} value={repair.id} sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                      Repair #{repair.id} - {repair.equipment_name}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                  },
+                  '& .MuiInputBase-input': {
+                    fontSize: '0.9rem',
+                  },
+                  '& .MuiInputLabel-root': {
+                    fontSize: '0.9rem',
+                  }
+                }}
+              />
             </Grid>
 
+            {/* Equipment Name - TEXT FIELD */}
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                required
+                label="Equipment Name *"
+                name="equipment_name"
+                value={formData.equipment_name}
+                onChange={handleFormChange}
+                placeholder="Enter equipment name"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                  },
+                  '& .MuiInputBase-input': {
+                    fontSize: '0.9rem',
+                  },
+                  '& .MuiInputLabel-root': {
+                    fontSize: '0.9rem',
+                  }
+                }}
+              />
+            </Grid>
+
+            {/* Part Name */}
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
@@ -2190,15 +2047,16 @@ const SpareParts = () => {
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   },
                   '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                    fontSize: '0.9rem',
                   },
                   '& .MuiInputLabel-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                    fontSize: '0.9rem',
                   }
                 }}
               />
             </Grid>
 
+            {/* Part Number */}
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
@@ -2214,63 +2072,16 @@ const SpareParts = () => {
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   },
                   '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                    fontSize: '0.9rem',
                   },
                   '& .MuiInputLabel-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                    fontSize: '0.9rem',
                   }
                 }}
               />
             </Grid>
 
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Brand"
-                name="brand"
-                value={formData.brand}
-                onChange={handleFormChange}
-                placeholder="Enter brand name"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                    '&:hover fieldset': { borderColor: colors.lightCyan },
-                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                  },
-                  '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  },
-                  '& .MuiInputLabel-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  }
-                }}
-              />
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Manufacturer"
-                name="manufacturer"
-                value={formData.manufacturer}
-                onChange={handleFormChange}
-                placeholder="Enter manufacturer name"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                    '&:hover fieldset': { borderColor: colors.lightCyan },
-                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                  },
-                  '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  },
-                  '& .MuiInputLabel-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  }
-                }}
-              />
-            </Grid>
-
+            {/* Quantity */}
             <Grid item xs={12} md={4}>
               <TextField
                 fullWidth
@@ -2288,18 +2099,19 @@ const SpareParts = () => {
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   },
                   '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                    fontSize: '0.9rem',
                   },
                   '& .MuiInputLabel-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                    fontSize: '0.9rem',
                   },
                   '& .MuiFormHelperText-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                    fontSize: '0.75rem',
                   }
                 }}
               />
             </Grid>
 
+            {/* Minimum Stock Level */}
             <Grid item xs={12} md={4}>
               <TextField
                 fullWidth
@@ -2317,18 +2129,19 @@ const SpareParts = () => {
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   },
                   '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                    fontSize: '0.9rem',
                   },
                   '& .MuiInputLabel-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                    fontSize: '0.9rem',
                   },
                   '& .MuiFormHelperText-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                    fontSize: '0.75rem',
                   }
                 }}
               />
             </Grid>
 
+            {/* Unit Cost */}
             <Grid item xs={12} md={4}>
               <TextField
                 fullWidth
@@ -2349,18 +2162,19 @@ const SpareParts = () => {
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   },
                   '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                    fontSize: '0.9rem',
                   },
                   '& .MuiInputLabel-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                    fontSize: '0.9rem',
                   },
                   '& .MuiFormHelperText-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                    fontSize: '0.75rem',
                   }
                 }}
               />
             </Grid>
 
+            {/* Total Cost - Auto-calculated */}
             <Grid item xs={12}>
               <TextField
                 fullWidth
@@ -2382,42 +2196,19 @@ const SpareParts = () => {
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   },
                   '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                    fontSize: '0.9rem',
                   },
                   '& .MuiInputLabel-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                    fontSize: '0.9rem',
                   },
                   '& .MuiFormHelperText-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                    fontSize: '0.75rem',
                   }
                 }}
               />
             </Grid>
 
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Compatible Equipment"
-                name="compatible_equipment"
-                value={formData.compatible_equipment}
-                onChange={handleFormChange}
-                placeholder="e.g., Ventilator, Patient Monitor, ECG Machine"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                    '&:hover fieldset': { borderColor: colors.lightCyan },
-                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                  },
-                  '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  },
-                  '& .MuiInputLabel-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  }
-                }}
-              />
-            </Grid>
-
+            {/* Installation Notes */}
             <Grid item xs={12}>
               <TextField
                 fullWidth
@@ -2435,17 +2226,18 @@ const SpareParts = () => {
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   },
                   '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                    fontSize: '0.9rem',
                   },
                   '& .MuiInputLabel-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                    fontSize: '0.9rem',
                   }
                 }}
               />
             </Grid>
 
+            {/* Image Upload */}
             <Grid item xs={12}>
-              <Typography variant="subtitle2" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }} gutterBottom>
+              <Typography variant="subtitle2" sx={{ color: colors.lightText }} gutterBottom>
                 <Image sx={{ fontSize: 18, verticalAlign: 'middle', mr: 1 }} />
                 Spare Part Image
               </Typography>
@@ -2486,7 +2278,7 @@ const SpareParts = () => {
               
               {formData.image_url && (
                 <Box sx={{ mt: 2 }}>
-                  <Typography variant="caption" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }} gutterBottom display="block">
+                  <Typography variant="caption" sx={{ color: colors.lightText }} gutterBottom display="block">
                     Current Image:
                   </Typography>
                   <Box
@@ -2508,6 +2300,7 @@ const SpareParts = () => {
               )}
             </Grid>
 
+            {/* Calculation Preview */}
             <Grid item xs={12}>
               <Paper sx={{ 
                 p: 2, 
@@ -2515,10 +2308,10 @@ const SpareParts = () => {
                 border: `1px solid ${colors.borderColor}`,
                 borderRadius: 2
               }}>
-                <Typography variant="caption" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                <Typography variant="caption" sx={{ color: colors.lightText }}>
                   <strong>Calculation Preview:</strong> {formData.quantity || 0} × {formData.unit_cost || 0} = {formatPKR(formData.total_cost)}
                 </Typography>
-                <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', mt: 0.5, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', mt: 0.5 }}>
                   <strong>Status Preview:</strong> {getStatus(parseInt(formData.quantity) || 0, parseInt(formData.minimum_stock_level) || 5).label}
                 </Typography>
               </Paper>
@@ -2536,7 +2329,6 @@ const SpareParts = () => {
               '&:hover': { 
                 backgroundColor: 'rgba(103, 232, 249, 0.04)'
               },
-              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
             }}
           >
             Cancel
@@ -2552,7 +2344,7 @@ const SpareParts = () => {
               textTransform: 'none',
               boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
               '&:hover': { 
-               bgcolor: colors.darkNavyHover,
+                bgcolor: colors.darkNavyHover,
                 boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
               },
               transition: 'all 0.3s ease',

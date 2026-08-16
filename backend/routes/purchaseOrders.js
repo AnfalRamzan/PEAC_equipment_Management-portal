@@ -1,4 +1,6 @@
 // backend/routes/purchaseOrders.js
+// ✅ UPDATED: Removed status column
+// ✅ UPDATED: Uses hospital (text) and equipment (text) instead of hospital_id
 
 const express = require('express');
 const router = express.Router();
@@ -12,18 +14,20 @@ router.get('/', authenticate, async (req, res) => {
     try {
         let sql = `
             SELECT p.*, 
-                   h.name as hospital_name,
                    u.full_name as created_by_name
             FROM purchase_orders p
-            LEFT JOIN hospitals h ON p.hospital_id = h.id
             LEFT JOIN users u ON p.created_by = u.id
             WHERE 1=1
         `;
         const params = [];
 
-        if (req.user.role_name !== 'SUPER_ADMIN') {
-            sql += ' AND p.hospital_id = ?';
-            params.push(req.user.hospital_id);
+        // Filter by hospital name for non-super admins
+        if (req.user.role_name !== 'SUPER_ADMIN' && req.user.hospital_id) {
+            const hospitalResult = await query('SELECT name FROM hospitals WHERE id = ?', [req.user.hospital_id]);
+            if (hospitalResult.length > 0) {
+                sql += ' AND p.hospital = ?';
+                params.push(hospitalResult[0].name);
+            }
         }
 
         sql += ' ORDER BY p.created_at DESC';
@@ -44,20 +48,12 @@ router.get('/:id', authenticate, async (req, res) => {
         const { id } = req.params;
         
         let sql = `
-            SELECT p.*, 
-                   h.name as hospital_name,
-                   u.full_name as created_by_name
+            SELECT p.*, u.full_name as created_by_name
             FROM purchase_orders p
-            LEFT JOIN hospitals h ON p.hospital_id = h.id
             LEFT JOIN users u ON p.created_by = u.id
             WHERE p.id = ?
         `;
         const params = [id];
-
-        if (req.user.role_name !== 'SUPER_ADMIN') {
-            sql += ' AND p.hospital_id = ?';
-            params.push(req.user.hospital_id);
-        }
 
         const orders = await query(sql, params);
         if (orders.length === 0) {
@@ -83,7 +79,7 @@ router.get('/:id', authenticate, async (req, res) => {
 });
 
 // ============================================
-// ✅ CREATE PURCHASE ORDER - UPDATED
+// ✅ CREATE PURCHASE ORDER - STATUS REMOVED
 // ============================================
 router.post('/', authenticate, async (req, res) => {
     try {
@@ -105,19 +101,21 @@ router.post('/', authenticate, async (req, res) => {
             currency
         } = req.body;
 
-        console.log('📦 Creating purchase order with data:', { hospital, equipment, vendor_name, po_number, currency });
+        console.log('📦 Creating purchase order with data:', { 
+            hospital, equipment, vendor_name, po_number, currency 
+        });
 
         // ✅ Validate required fields
         if (!hospital || hospital.trim() === '') {
             return res.status(400).json({ 
                 success: false, 
-                message: 'Hospital name is required' 
+                message: 'Hospital is required' 
             });
         }
         if (!equipment || equipment.trim() === '') {
             return res.status(400).json({ 
                 success: false, 
-                message: 'Equipment name is required' 
+                message: 'Equipment is required' 
             });
         }
         if (!vendor_name || vendor_name.trim() === '') {
@@ -133,7 +131,16 @@ router.post('/', authenticate, async (req, res) => {
             });
         }
 
-        // ✅ Insert with new columns
+        // ✅ Check if PO number already exists
+        const existingPO = await query('SELECT id FROM purchase_orders WHERE po_number = ?', [po_number.trim()]);
+        if (existingPO.length > 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'PO number already exists. Please use a unique PO number.'
+            });
+        }
+
+        // ✅ Insert with new columns - STATUS REMOVED
         const result = await query(
             `INSERT INTO purchase_orders (
                 hospital,
@@ -150,9 +157,8 @@ router.post('/', authenticate, async (req, res) => {
                 currency,
                 notes,
                 documents,
-                created_by,
-                status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                created_by
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 hospital.trim(),
                 equipment.trim(),
@@ -168,8 +174,7 @@ router.post('/', authenticate, async (req, res) => {
                 currency || 'PKR',
                 notes || '',
                 documents || '',
-                req.user.id,
-                'Draft'
+                req.user.id
             ]
         );
 
@@ -242,7 +247,7 @@ router.post('/', authenticate, async (req, res) => {
 });
 
 // ============================================
-// ✅ UPDATE PURCHASE ORDER - UPDATED
+// ✅ UPDATE PURCHASE ORDER - STATUS REMOVED
 // ============================================
 router.put('/:id', authenticate, async (req, res) => {
     try {
@@ -262,8 +267,7 @@ router.put('/:id', authenticate, async (req, res) => {
             currency,
             notes,
             items,
-            documents,
-            status
+            documents
         } = req.body;
 
         console.log('🔄 Updating purchase order:', id);
@@ -276,7 +280,7 @@ router.put('/:id', authenticate, async (req, res) => {
             });
         }
 
-        // ✅ Check if user has permission
+        // ✅ Only Super Admin can edit
         if (req.user.role_name !== 'SUPER_ADMIN') {
             return res.status(403).json({
                 success: false,
@@ -284,7 +288,7 @@ router.put('/:id', authenticate, async (req, res) => {
             });
         }
 
-        // ✅ Update with new columns
+        // ✅ Update with new columns - STATUS REMOVED
         await query(
             `UPDATE purchase_orders SET 
                 hospital = ?,
@@ -300,8 +304,7 @@ router.put('/:id', authenticate, async (req, res) => {
                 total_amount = ?,
                 currency = ?,
                 notes = ?,
-                documents = ?,
-                status = ?
+                documents = ?
             WHERE id = ?`,
             [
                 hospital || existing[0].hospital,
@@ -318,7 +321,6 @@ router.put('/:id', authenticate, async (req, res) => {
                 currency || existing[0].currency || 'PKR',
                 notes || existing[0].notes,
                 documents || existing[0].documents,
-                status || existing[0].status,
                 id
             ]
         );
@@ -382,6 +384,7 @@ router.delete('/:id', authenticate, async (req, res) => {
     try {
         const { id } = req.params;
         
+        // ✅ Only Super Admin can delete
         if (req.user.role_name !== 'SUPER_ADMIN') {
             return res.status(403).json({
                 success: false,
@@ -394,14 +397,6 @@ router.delete('/:id', authenticate, async (req, res) => {
             return res.status(404).json({ 
                 success: false, 
                 message: 'Purchase order not found' 
-            });
-        }
-
-        // ✅ Only Draft orders can be deleted
-        if (existing[0].status !== 'Draft') {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Only Draft orders can be deleted' 
             });
         }
 
@@ -419,77 +414,6 @@ router.delete('/:id', authenticate, async (req, res) => {
         res.status(500).json({ 
             success: false, 
             message: 'Database error: ' + error.message 
-        });
-    }
-});
-
-// ============================================
-// ✅ UPDATE PURCHASE ORDER STATUS
-// ============================================
-router.patch('/:id/status', authenticate, async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { status } = req.body;
-
-        if (!status) {
-            return res.status(400).json({
-                success: false,
-                message: 'Status is required'
-            });
-        }
-
-        const validStatuses = ['Draft', 'Pending Approval', 'Approved', 'Ordered', 'Received', 'Cancelled'];
-        if (!validStatuses.includes(status)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid status'
-            });
-        }
-
-        const existing = await query('SELECT * FROM purchase_orders WHERE id = ?', [id]);
-        if (existing.length === 0) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Purchase order not found' 
-            });
-        }
-
-        // ✅ Only Super Admin can change status beyond Draft
-        if (req.user.role_name !== 'SUPER_ADMIN' && status !== 'Draft') {
-            return res.status(403).json({
-                success: false,
-                message: 'Only Super Admin can change order status'
-            });
-        }
-
-        // ✅ Update status with timestamp
-        let statusUpdate = 'status = ?';
-        const params = [status, id];
-
-        if (status === 'Approved') {
-            statusUpdate = 'status = ?, approved_at = NOW()';
-            params.unshift(status);
-        } else if (status === 'Ordered') {
-            statusUpdate = 'status = ?, ordered_at = NOW()';
-            params.unshift(status);
-        } else if (status === 'Received') {
-            statusUpdate = 'status = ?, received_at = NOW()';
-            params.unshift(status);
-        }
-
-        await query(`UPDATE purchase_orders SET ${statusUpdate} WHERE id = ?`, params);
-
-        console.log('✅ Purchase order status updated:', id, '->', status);
-        res.json({ 
-            success: true, 
-            message: `Purchase order status updated to ${status}` 
-        });
-
-    } catch (error) {
-        console.error('❌ Update status error:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: 'Failed to update status: ' + error.message 
         });
     }
 });

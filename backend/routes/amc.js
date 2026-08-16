@@ -1,5 +1,6 @@
 // backend/routes/amc.js
 // ✅ AMC Routes with Auto-Status Update (Pending, In Progress, Expired)
+// ✅ ADDED: hospital_name field in all queries
 
 const express = require('express');
 const router = express.Router();
@@ -78,7 +79,7 @@ router.get('/', authenticate, async (req, res) => {
                    e.name as equipment_name, 
                    e.model as equipment_model,
                    e.manufacturer as equipment_manufacturer,
-                   h.name as hospital_name,
+                   COALESCE(a.hospital_name, h.name) as hospital_name,
                    CASE
                        WHEN a.start_date > CURDATE() THEN 'Pending'
                        WHEN a.end_date < CURDATE() THEN 'Expired'
@@ -121,7 +122,7 @@ router.get('/:id', authenticate, async (req, res) => {
                    e.name as equipment_name, 
                    e.model as equipment_model,
                    e.manufacturer as equipment_manufacturer,
-                   h.name as hospital_name,
+                   COALESCE(a.hospital_name, h.name) as hospital_name,
                    CASE
                        WHEN a.start_date > CURDATE() THEN 'Pending'
                        WHEN a.end_date < CURDATE() THEN 'Expired'
@@ -168,7 +169,7 @@ router.get('/status/:status', authenticate, async (req, res) => {
             SELECT a.*, 
                    e.name as equipment_name, 
                    e.model as equipment_model,
-                   h.name as hospital_name
+                   COALESCE(a.hospital_name, h.name) as hospital_name
             FROM amc_contracts a
             LEFT JOIN equipment e ON a.equipment_id = e.id
             LEFT JOIN hospitals h ON e.hospital_id = h.id
@@ -232,16 +233,28 @@ router.post('/', authenticate, async (req, res) => {
             });
         }
 
+        // ✅ Get hospital_name from equipment
+        const equipmentData = await query(
+            `SELECT e.*, h.name as hospital_name 
+             FROM equipment e 
+             LEFT JOIN hospitals h ON e.hospital_id = h.id 
+             WHERE e.id = ?`,
+            [equipment_id]
+        );
+        
+        const hospitalName = equipmentData.length > 0 ? equipmentData[0].hospital_name : null;
+
         // ✅ Auto-calculate status based on dates
         const statusInfo = getStatusInfo(start_date, end_date);
 
         const result = await query(
             `INSERT INTO amc_contracts 
-             (equipment_id, vendor_name, contract_number, start_date, end_date, 
+             (equipment_id, hospital_name, vendor_name, contract_number, start_date, end_date, 
               cost, contact_person, contact_phone, notes, document_url, status, is_active)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 equipment_id,
+                hospitalName,
                 vendor_name.trim(),
                 contract_number || null,
                 start_date || null,
@@ -259,9 +272,11 @@ router.post('/', authenticate, async (req, res) => {
         console.log('✅ AMC contract created. ID:', result.insertId);
 
         const newContract = await query(
-            `SELECT a.*, e.name as equipment_name 
+            `SELECT a.*, e.name as equipment_name,
+                    COALESCE(a.hospital_name, h.name) as hospital_name
              FROM amc_contracts a
              LEFT JOIN equipment e ON a.equipment_id = e.id
+             LEFT JOIN hospitals h ON e.hospital_id = h.id
              WHERE a.id = ?`,
             [result.insertId]
         );
@@ -309,6 +324,19 @@ router.put('/:id', authenticate, async (req, res) => {
             });
         }
 
+        // ✅ Get hospital_name from equipment if equipment_id changed
+        let hospitalName = existing[0].hospital_name;
+        if (equipment_id && equipment_id !== existing[0].equipment_id) {
+            const equipmentData = await query(
+                `SELECT e.*, h.name as hospital_name 
+                 FROM equipment e 
+                 LEFT JOIN hospitals h ON e.hospital_id = h.id 
+                 WHERE e.id = ?`,
+                [equipment_id]
+            );
+            hospitalName = equipmentData.length > 0 ? equipmentData[0].hospital_name : null;
+        }
+
         // ✅ Auto-calculate status
         const finalStartDate = start_date || existing[0].start_date;
         const finalEndDate = end_date || existing[0].end_date;
@@ -317,6 +345,7 @@ router.put('/:id', authenticate, async (req, res) => {
         await query(
             `UPDATE amc_contracts SET 
              equipment_id = ?,
+             hospital_name = ?,
              vendor_name = ?,
              contract_number = ?,
              start_date = ?,
@@ -332,6 +361,7 @@ router.put('/:id', authenticate, async (req, res) => {
              WHERE id = ?`,
             [
                 equipment_id || existing[0].equipment_id,
+                hospitalName,
                 vendor_name || existing[0].vendor_name,
                 contract_number || existing[0].contract_number,
                 finalStartDate,
@@ -353,9 +383,11 @@ router.put('/:id', authenticate, async (req, res) => {
         await autoUpdateStatus(id);
 
         const updatedContract = await query(
-            `SELECT a.*, e.name as equipment_name 
+            `SELECT a.*, e.name as equipment_name,
+                    COALESCE(a.hospital_name, h.name) as hospital_name
              FROM amc_contracts a
              LEFT JOIN equipment e ON a.equipment_id = e.id
+             LEFT JOIN hospitals h ON e.hospital_id = h.id
              WHERE a.id = ?`,
             [id]
         );
@@ -434,20 +466,25 @@ router.post('/:id/renew', authenticate, authorize('SUPER_ADMIN'), async (req, re
         // ✅ Auto-calculate status
         const statusInfo = getStatusInfo(existing[0].start_date, end_date);
 
-        await query(
-            `INSERT INTO amc_renewal_history 
-             (contract_id, previous_end_date, new_end_date, previous_cost, new_cost, renewed_by, renewal_notes)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [
-                id,
-                existing[0].end_date,
-                end_date,
-                existing[0].cost,
-                cost || existing[0].cost,
-                req.user.id,
-                notes || 'Renewed'
-            ]
-        );
+        // ✅ Create renewal history (if table exists)
+        try {
+            await query(
+                `INSERT INTO amc_renewal_history 
+                 (contract_id, previous_end_date, new_end_date, previous_cost, new_cost, renewed_by, renewal_notes)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    id,
+                    existing[0].end_date,
+                    end_date,
+                    existing[0].cost,
+                    cost || existing[0].cost,
+                    req.user.id,
+                    notes || 'Renewed'
+                ]
+            );
+        } catch (historyError) {
+            console.log('⚠️ Renewal history table not found, skipping...');
+        }
 
         await query(
             `UPDATE amc_contracts SET 
@@ -474,9 +511,11 @@ router.post('/:id/renew', authenticate, authorize('SUPER_ADMIN'), async (req, re
         console.log('✅ AMC contract renewed:', id);
 
         const renewedContract = await query(
-            `SELECT a.*, e.name as equipment_name 
+            `SELECT a.*, e.name as equipment_name,
+                    COALESCE(a.hospital_name, h.name) as hospital_name
              FROM amc_contracts a
              LEFT JOIN equipment e ON a.equipment_id = e.id
+             LEFT JOIN hospitals h ON e.hospital_id = h.id
              WHERE a.id = ?`,
             [id]
         );

@@ -1,8 +1,9 @@
 // src/components/Layout/MainLayout.jsx
+// ✅ UPDATED: Purchase Orders REMOVED from sidebar
+// ✅ UPDATED: Service Doc. → Documentation
+// ✅ UPDATED: Maintenance → Preventive Maintenance
+// ✅ Procurement KEPT (not removed)
 // ✅ DARK NAVY + LIGHT CYAN THEME - PREMIUM GLITTER EFFECT SIDEBAR
-// ✅ Balanced spacing, NO SCROLL, Click highlights prominently
-// ✅ FULLY RESPONSIVE - NO SCROLLING
-// ✅ FONT: SATOSHI - Premium, Sleek, Modern
 
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -422,7 +423,11 @@ const sendBrowserNotification = (title, message, options = {}) => {
 };
 
 // ============================================================
-// ✅ MENU ITEMS - ALL ITEMS INCLUDING PROCUREMENT
+// ✅ MENU ITEMS - UPDATED
+// ✅ Purchase Orders REMOVED
+// ✅ Service Doc. → Documentation
+// ✅ Maintenance → Preventive Maintenance
+// ✅ Procurement KEPT (not removed)
 // ============================================================
 const menuItems = [
   { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
@@ -433,12 +438,12 @@ const menuItems = [
   { text: 'Knowledge Base', icon: <EmojiObjects />, path: '/knowledge-base' },
   { text: 'Reports', icon: <Assessment />, path: '/reports' },
   { text: 'Training', icon: <School />, path: '/training' },
-  { text: 'Maintenance', icon: <Handyman />, path: '/maintenance' },
+  { text: 'Preventive Maintenance', icon: <Handyman />, path: '/maintenance' },
   { text: 'Spare Parts', icon: <Inventory />, path: '/spare-parts' },
-  { text: 'Service Doc.', icon: <Description />, path: '/service-documentation' },
+  { text: 'Documentation', icon: <Description />, path: '/service-documentation' },
   { text: 'AMC Contracts', icon: <Gavel />, path: '/amc' },
-  { text: 'Purchase Orders', icon: <ShoppingCart />, path: '/purchase-orders' },
   { text: 'Procurement', icon: <LocalShipping />, path: '/procurement' },
+  // ❌ Purchase Orders REMOVED
 ];
 
 // ============================================================
@@ -596,8 +601,6 @@ const MainLayout = () => {
     }
     handleMenuClose();
   };
-
-  // ✅ Profile handler removed - No longer needed
 
   const handleUsersClick = () => {
     navigate('/users');
@@ -1422,8 +1425,6 @@ const MainLayout = () => {
                 }
               }}
             >
-              {/* ✅ PROFILE OPTION REMOVED */}
-
               {isAdmin && (
                 <MenuItem onClick={handleUsersClick} sx={{ 
                   '&:hover': { bgcolor: 'rgba(103, 232, 249, 0.05)' },

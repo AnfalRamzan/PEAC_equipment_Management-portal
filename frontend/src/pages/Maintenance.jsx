@@ -5,6 +5,8 @@
 // ✅ ADDED: Export functionality (Excel, PDF only - no CSV)
 // ✅ ADDED: Filter menu popup
 // ✅ ADDED: Animations
+// ✅ ADDED: Hospital column in main table
+// ✅ ADDED: Hospital filter in filter menu
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -64,8 +66,9 @@ import {
   CheckCircle,
   Warning,
   ErrorOutline,
+  LocalHospital,
 } from '@mui/icons-material'
-import { maintenanceService, equipmentService } from '../api/services'
+import { maintenanceService, equipmentService, hospitalService } from '../api/services'
 import { toast } from 'react-toastify'
 import { useSelector } from 'react-redux'
 import AccessDenied from '../components/Auth/AccessDenied'
@@ -165,6 +168,7 @@ const Maintenance = () => {
 
   const [schedules, setSchedules] = useState([])
   const [equipment, setEquipment] = useState([])
+  const [hospitals, setHospitals] = useState([]) // ✅ ADDED: Hospitals state
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [openDialog, setOpenDialog] = useState(false)
@@ -174,10 +178,12 @@ const Maintenance = () => {
   const [filterAnchorEl, setFilterAnchorEl] = useState(null)
   const [exportAnchorEl, setExportAnchorEl] = useState(null)
   
+  // ✅ UPDATED: Filters with Hospital
   const [filters, setFilters] = useState({
     status: '',
     frequency: '',
-    maintenance_type: ''
+    maintenance_type: '',
+    hospital: '', // ✅ ADDED: Hospital filter
   })
   
   const [formData, setFormData] = useState({
@@ -197,6 +203,7 @@ const Maintenance = () => {
   useEffect(() => {
     fetchSchedules()
     fetchEquipment()
+    fetchHospitals() // ✅ ADDED: Fetch hospitals
   }, [])
 
   const fetchSchedules = async () => {
@@ -221,6 +228,16 @@ const Maintenance = () => {
     }
   }
 
+  // ✅ ADDED: Fetch hospitals
+  const fetchHospitals = async () => {
+    try {
+      const response = await hospitalService.getAll()
+      setHospitals(response.data.hospitals || [])
+    } catch (error) {
+      console.error('Failed to fetch hospitals:', error)
+    }
+  }
+
   // ============================================================
   // ✅ EXPORT HANDLERS - CSV REMOVED, KEEPING EXCEL & PDF
   // ============================================================
@@ -233,6 +250,7 @@ const Maintenance = () => {
     try {
       const data = filteredSchedules.map(s => ({
         'Equipment': s.equipment_name || '',
+        'Hospital': s.hospital_name || s.hospital?.name || '',
         'Type': s.maintenance_type || '',
         'Frequency': s.frequency || '',
         'Engineer': s.engineer_name || '',
@@ -264,6 +282,7 @@ const Maintenance = () => {
       
       const tableData = filteredSchedules.map(s => [
         s.equipment_name || '',
+        s.hospital_name || s.hospital?.name || '',
         s.maintenance_type || '',
         s.frequency || '',
         s.engineer_name || '',
@@ -271,7 +290,7 @@ const Maintenance = () => {
         s.status || ''
       ])
       autoTable(doc, {
-        head: [['Equipment', 'Type', 'Frequency', 'Engineer', 'Next Due', 'Status']],
+        head: [['Equipment', 'Hospital', 'Type', 'Frequency', 'Engineer', 'Next Due', 'Status']],
         body: tableData,
         startY: 40,
         styles: { fontSize: 7, cellPadding: 2 },
@@ -298,7 +317,12 @@ const Maintenance = () => {
   }
 
   const clearFilters = () => {
-    setFilters({ status: '', frequency: '', maintenance_type: '' })
+    setFilters({ 
+      status: '', 
+      frequency: '', 
+      maintenance_type: '',
+      hospital: '' // ✅ ADDED
+    })
     setFilterAnchorEl(null)
     toast.info('Filters cleared')
   }
@@ -466,6 +490,7 @@ const Maintenance = () => {
     return new Date(date) < new Date()
   }
 
+  // ✅ UPDATED: Filtered Schedules with Hospital filter
   const filteredSchedules = schedules.filter(schedule => {
     const matchesSearch = schedule.equipment_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           schedule.maintenance_type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -473,7 +498,9 @@ const Maintenance = () => {
     const matchesStatus = !filters.status || schedule.status === filters.status
     const matchesFrequency = !filters.frequency || schedule.frequency === filters.frequency
     const matchesType = !filters.maintenance_type || schedule.maintenance_type === filters.maintenance_type
-    return matchesSearch && matchesStatus && matchesFrequency && matchesType
+    // ✅ ADDED: Hospital filter
+    const matchesHospital = !filters.hospital || schedule.hospital_id === parseInt(filters.hospital)
+    return matchesSearch && matchesStatus && matchesFrequency && matchesType && matchesHospital
   })
 
   const totalSchedules = schedules.length
@@ -840,7 +867,7 @@ const Maintenance = () => {
       </Paper>
 
       {/* ============================================================
-          FILTER MENU - Same as Equipment page
+          FILTER MENU - With Hospital filter added
           ============================================================ */}
       <Menu
         anchorEl={filterAnchorEl}
@@ -859,6 +886,29 @@ const Maintenance = () => {
         <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy, mb: 2 }}>
           Filter Schedules
         </Typography>
+        
+        {/* ✅ Hospital Filter - ADDED */}
+        <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+          <InputLabel sx={{ color: colors.lightText }}>Hospital</InputLabel>
+          <Select 
+            name="hospital" 
+            value={filters.hospital} 
+            onChange={handleFilterChange} 
+            label="Hospital"
+            sx={{
+              borderRadius: 2,
+              '& .MuiOutlinedInput-root': {
+                '&:hover fieldset': { borderColor: colors.lightCyan },
+                '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+              }
+            }}
+          >
+            <MenuItem value="">All</MenuItem>
+            {hospitals.map(h => (
+              <MenuItem key={h.id} value={h.id}>{h.name}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
         
         <FormControl fullWidth size="small" sx={{ mb: 2 }}>
           <InputLabel sx={{ color: colors.lightText }}>Status</InputLabel>
@@ -1022,7 +1072,7 @@ const Maintenance = () => {
       </Menu>
 
       {/* ============================================================
-          TABLE
+          TABLE - WITH HOSPITAL COLUMN ADDED
           ============================================================ */}
       <TableContainer 
         component={Paper} 
@@ -1037,6 +1087,7 @@ const Maintenance = () => {
           <TableHead sx={{ bgcolor: colors.darkNavy }}>
             <TableRow>
               <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Equipment</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Hospital</TableCell> {/* ✅ ADDED */}
               <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Type</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Engineer</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Frequency</TableCell>
@@ -1049,7 +1100,7 @@ const Maintenance = () => {
           <TableBody>
             {filteredSchedules.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
+                <TableCell colSpan={9} align="center" sx={{ py: 6 }}>
                   <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
                     <Build sx={{ fontSize: 48, color: colors.borderColor }} />
                     <Typography variant="body1" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
@@ -1083,6 +1134,9 @@ const Maintenance = () => {
                       <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                         {schedule.equipment_name || 'N/A'}
                       </Typography>
+                    </TableCell>
+                    <TableCell sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                      {schedule.hospital_name || schedule.hospital?.name || 'N/A'}
                     </TableCell>
                     <TableCell sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                       {schedule.maintenance_type || 'Preventive'}
@@ -1592,7 +1646,7 @@ const Maintenance = () => {
       </Dialog>
 
       {/* ============================================================
-          VIEW DIALOG
+          VIEW DIALOG - WITH HOSPITAL
           ============================================================ */}
       <Dialog 
         open={openViewDialog} 
@@ -1633,6 +1687,14 @@ const Maintenance = () => {
                   </Typography>
                   <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                     {viewingSchedule.equipment_name || 'N/A'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                    Hospital
+                  </Typography>
+                  <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                    {viewingSchedule.hospital_name || viewingSchedule.hospital?.name || 'N/A'}
                   </Typography>
                 </Grid>
                 <Grid item xs={12} md={6}>

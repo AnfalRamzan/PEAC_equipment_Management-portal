@@ -18,6 +18,7 @@
 // ✅ FIXED: Removed priority column references from dashboard stats
 // ✅ FIXED: Added 'director' field to hospital POST and PUT routes
 // ✅ FIXED: Changed all repair_spare_parts to spare_parts (correct table name)
+// ✅ REMOVED: status column from purchase_orders
 
 // ============================================================
 // ✅ LOAD ENVIRONMENT VARIABLES FIRST
@@ -3962,25 +3963,32 @@ app.use('/api/reports', reportsRoutes);
 console.log('📊 Reports routes registered from routes/reports.js');
 
 // ============================================================
-// ✅ PURCHASE ORDERS ROUTES
+// ✅ PURCHASE ORDERS ROUTES - UPDATED (STATUS REMOVED)
 // ============================================================
+
+// ✅ GET ALL PURCHASE ORDERS
 app.get('/api/purchase-orders', authenticate, async (req, res) => {
     try {
         let sql = `
-            SELECT p.*, h.name as hospital_name, u.full_name as created_by_name
+            SELECT p.*, 
+                   u.full_name as created_by_name
             FROM purchase_orders p
-            LEFT JOIN hospitals h ON p.hospital_id = h.id
             LEFT JOIN users u ON p.created_by = u.id
             WHERE 1=1
         `;
         const params = [];
 
-        if (req.user.role_name !== 'SUPER_ADMIN') {
-            sql += ' AND p.hospital_id = ?';
-            params.push(req.user.hospital_id);
+        // Filter by hospital name for non-super admins
+        if (req.user.role_name !== 'SUPER_ADMIN' && req.user.hospital_id) {
+            const hospitalResult = await query('SELECT name FROM hospitals WHERE id = ?', [req.user.hospital_id]);
+            if (hospitalResult.length > 0) {
+                sql += ' AND p.hospital = ?';
+                params.push(hospitalResult[0].name);
+            }
         }
 
         sql += ' ORDER BY p.created_at DESC';
+        
         const orders = await query(sql, params);
         res.json({ success: true, orders });
     } catch (error) {
@@ -3989,23 +3997,18 @@ app.get('/api/purchase-orders', authenticate, async (req, res) => {
     }
 });
 
+// ✅ GET SINGLE PURCHASE ORDER
 app.get('/api/purchase-orders/:id', authenticate, async (req, res) => {
     try {
         const { id } = req.params;
         
         let sql = `
-            SELECT p.*, h.name as hospital_name, u.full_name as created_by_name
+            SELECT p.*, u.full_name as created_by_name
             FROM purchase_orders p
-            LEFT JOIN hospitals h ON p.hospital_id = h.id
             LEFT JOIN users u ON p.created_by = u.id
             WHERE p.id = ?
         `;
         const params = [id];
-
-        if (req.user.role_name !== 'SUPER_ADMIN') {
-            sql += ' AND p.hospital_id = ?';
-            params.push(req.user.hospital_id);
-        }
 
         const orders = await query(sql, params);
         if (orders.length === 0) {
@@ -4030,63 +4033,100 @@ app.get('/api/purchase-orders/:id', authenticate, async (req, res) => {
     }
 });
 
-app.post('/api/purchase-orders', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
+// ✅ CREATE PURCHASE ORDER - STATUS REMOVED
+app.post('/api/purchase-orders', authenticate, async (req, res) => {
     try {
         const { 
-            hospital_id, vendor_name, po_number, order_date, 
-            delivery_date, total_amount, notes, status, approved_by, items
+            hospital,
+            equipment,
+            vendor_name,
+            vendor_contact,
+            vendor_email,
+            vendor_address,
+            vendor_phone,
+            po_number,
+            order_date,
+            delivery_date,
+            total_amount,
+            notes,
+            items,
+            documents,
+            currency
         } = req.body;
 
-        console.log('📦 Creating purchase order:', po_number);
+        console.log('📦 Creating purchase order with data:', { 
+            hospital, equipment, vendor_name, po_number, currency 
+        });
 
-        if (!hospital_id) {
+        // ✅ Validate required fields
+        if (!hospital || hospital.trim() === '') {
             return res.status(400).json({ 
                 success: false, 
                 message: 'Hospital is required' 
             });
         }
-        
-        if (!vendor_name) {
+        if (!equipment || equipment.trim() === '') {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Equipment is required' 
+            });
+        }
+        if (!vendor_name || vendor_name.trim() === '') {
             return res.status(400).json({ 
                 success: false, 
                 message: 'Vendor name is required' 
             });
         }
-        
-        if (!po_number) {
+        if (!po_number || po_number.trim() === '') {
             return res.status(400).json({ 
                 success: false, 
                 message: 'PO number is required' 
             });
         }
 
-        let finalHospitalId = hospital_id;
-        if (req.user.role_name === 'HOSPITAL_ADMIN') {
-            finalHospitalId = req.user.hospital_id;
+        // ✅ Check if PO number already exists
+        const existingPO = await query('SELECT id FROM purchase_orders WHERE po_number = ?', [po_number.trim()]);
+        if (existingPO.length > 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'PO number already exists. Please use a unique PO number.'
+            });
         }
 
-        let approvedById = null;
-        if (approved_by && approved_by !== '') {
-            approvedById = parseInt(approved_by);
-            if (isNaN(approvedById)) {
-                approvedById = null;
-            }
-        }
-
+        // ✅ Insert with new columns - STATUS REMOVED
         const result = await query(
-            `INSERT INTO purchase_orders 
-             (hospital_id, vendor_name, po_number, order_date, 
-              delivery_date, total_amount, notes, status, created_by)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-                parseInt(finalHospitalId),
+            `INSERT INTO purchase_orders (
+                hospital,
+                equipment,
                 vendor_name,
+                vendor_contact,
+                vendor_email,
+                vendor_address,
+                vendor_phone,
                 po_number,
+                order_date,
+                delivery_date,
+                total_amount,
+                currency,
+                notes,
+                documents,
+                created_by
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                hospital.trim(),
+                equipment.trim(),
+                vendor_name.trim(),
+                vendor_contact || '',
+                vendor_email || '',
+                vendor_address || '',
+                vendor_phone || '',
+                po_number.trim(),
                 order_date || null,
                 delivery_date || null,
-                parseFloat(total_amount) || 0,
+                total_amount || 0,
+                currency || 'PKR',
                 notes || '',
-                status || 'Draft',
+                documents || '',
                 req.user.id
             ]
         );
@@ -4094,6 +4134,7 @@ app.post('/api/purchase-orders', authenticate, authorize('SUPER_ADMIN'), async (
         const orderId = result.insertId;
         console.log('✅ Purchase order created. ID:', orderId);
 
+        // ✅ Insert items
         if (items && Array.isArray(items) && items.length > 0) {
             try {
                 for (const item of items) {
@@ -4118,10 +4159,11 @@ app.post('/api/purchase-orders', authenticate, authorize('SUPER_ADMIN'), async (
             }
         }
 
+        // ✅ Get created order
         const newOrder = await query(
-            `SELECT p.*, h.name as hospital_name 
+            `SELECT p.*, u.full_name as created_by_name 
              FROM purchase_orders p
-             LEFT JOIN hospitals h ON p.hospital_id = h.id
+             LEFT JOIN users u ON p.created_by = u.id
              WHERE p.id = ?`,
             [orderId]
         );
@@ -4129,15 +4171,6 @@ app.post('/api/purchase-orders', authenticate, authorize('SUPER_ADMIN'), async (
         const orderItems = await query(
             'SELECT * FROM purchase_order_items WHERE purchase_order_id = ?',
             [orderId]
-        );
-
-        await createNotification(
-            1,
-            'New Purchase Order Created',
-            `Purchase Order ${po_number} created by ${req.user.full_name}`,
-            'PurchaseOrder',
-            orderId,
-            'purchase-orders'
         );
 
         res.status(201).json({
@@ -4150,24 +4183,43 @@ app.post('/api/purchase-orders', authenticate, authorize('SUPER_ADMIN'), async (
         });
 
     } catch (error) {
-        console.error('❌ Create purchase order error:');
-        console.error('Message:', error.message);
-        console.error('SQL:', error.sql);
-        console.error('SQL Message:', error.sqlMessage);
-        console.error('========================================');
+        console.error('❌ Create purchase order error:', error);
         
+        if (error.code === 'ER_DUP_ENTRY') {
+            return res.status(400).json({
+                success: false,
+                message: 'PO number already exists. Please use a unique PO number.'
+            });
+        }
+
         res.status(500).json({ 
             success: false, 
-            message: 'Database error: ' + error.message,
-            sqlError: error.sqlMessage || null
+            message: 'Database error: ' + error.message
         });
     }
 });
 
-app.put('/api/purchase-orders/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
+// ✅ UPDATE PURCHASE ORDER - STATUS REMOVED
+app.put('/api/purchase-orders/:id', authenticate, async (req, res) => {
     try {
         const { id } = req.params;
-        const { status } = req.body;
+        const { 
+            hospital,
+            equipment,
+            vendor_name,
+            vendor_contact,
+            vendor_email,
+            vendor_address,
+            vendor_phone,
+            po_number,
+            order_date,
+            delivery_date,
+            total_amount,
+            currency,
+            notes,
+            items,
+            documents
+        } = req.body;
 
         console.log('🔄 Updating purchase order:', id);
 
@@ -4179,48 +4231,94 @@ app.put('/api/purchase-orders/:id', authenticate, authorize('SUPER_ADMIN'), asyn
             });
         }
 
-        const currentStatus = existing[0].status;
-        const allowedTransitions = {
-            'Draft': ['Pending Approval', 'Cancelled'],
-            'Pending Approval': ['Approved', 'Cancelled'],
-            'Approved': ['Ordered'],
-            'Ordered': ['Received'],
-            'Received': [],
-            'Cancelled': []
-        };
-
-        if (!allowedTransitions[currentStatus]?.includes(status)) {
-            return res.status(400).json({
-                success: false,
-                message: `Invalid status transition from '${currentStatus}' to '${status}'`
-            });
-        }
-
-        if (status === 'Approved' && req.user.role_name !== 'SUPER_ADMIN') {
+        // ✅ Only Super Admin can edit
+        if (req.user.role_name !== 'SUPER_ADMIN') {
             return res.status(403).json({
                 success: false,
-                message: 'Only Super Admin can approve orders'
+                message: 'Only Super Admin can edit purchase orders'
             });
         }
 
-        await query('UPDATE purchase_orders SET status = ? WHERE id = ?', [status, id]);
+        // ✅ Update with new columns - STATUS REMOVED
+        await query(
+            `UPDATE purchase_orders SET 
+                hospital = ?,
+                equipment = ?,
+                vendor_name = ?,
+                vendor_contact = ?,
+                vendor_email = ?,
+                vendor_address = ?,
+                vendor_phone = ?,
+                po_number = ?,
+                order_date = ?,
+                delivery_date = ?,
+                total_amount = ?,
+                currency = ?,
+                notes = ?,
+                documents = ?
+            WHERE id = ?`,
+            [
+                hospital || existing[0].hospital,
+                equipment || existing[0].equipment,
+                vendor_name || existing[0].vendor_name,
+                vendor_contact || '',
+                vendor_email || '',
+                vendor_address || '',
+                vendor_phone || '',
+                po_number || existing[0].po_number,
+                order_date || existing[0].order_date,
+                delivery_date || existing[0].delivery_date,
+                total_amount || existing[0].total_amount,
+                currency || existing[0].currency || 'PKR',
+                notes || existing[0].notes,
+                documents || existing[0].documents,
+                id
+            ]
+        );
 
-        if (status === 'Approved') {
-            await notifyAdmins(
-                existing[0].hospital_id,
-                'Purchase Order Approved',
-                `Purchase Order ${existing[0].po_number} has been approved`,
-                'PurchaseOrder',
-                id,
-                'purchase-orders'
-            );
+        // ✅ Update items (delete old, insert new)
+        await query('DELETE FROM purchase_order_items WHERE purchase_order_id = ?', [id]);
+        
+        if (items && Array.isArray(items) && items.length > 0) {
+            for (const item of items) {
+                if (item.description && item.description.trim() !== '') {
+                    await query(
+                        `INSERT INTO purchase_order_items 
+                         (purchase_order_id, description, quantity, unit_price, total)
+                         VALUES (?, ?, ?, ?, ?)`,
+                        [
+                            id,
+                            item.description.trim(),
+                            parseInt(item.quantity) || 1,
+                            parseFloat(item.unit_price) || 0,
+                            parseFloat(item.total) || 0
+                        ]
+                    );
+                }
+            }
         }
 
-        console.log('✅ Purchase order updated:', id, '->', status);
+        console.log('✅ Purchase order updated:', id);
+
+        const updatedOrder = await query(
+            `SELECT p.*, u.full_name as created_by_name 
+             FROM purchase_orders p
+             LEFT JOIN users u ON p.created_by = u.id
+             WHERE p.id = ?`,
+            [id]
+        );
+
+        const orderItems = await query(
+            'SELECT * FROM purchase_order_items WHERE purchase_order_id = ?',
+            [id]
+        );
+
         res.json({ 
             success: true, 
-            message: `Purchase order status updated to ${status}` 
+            message: 'Purchase order updated successfully',
+            order: { ...updatedOrder[0], items: orderItems }
         });
+
     } catch (error) {
         console.error('❌ Update purchase order error:', error);
         res.status(500).json({ 
@@ -4230,23 +4328,24 @@ app.put('/api/purchase-orders/:id', authenticate, authorize('SUPER_ADMIN'), asyn
     }
 });
 
-app.delete('/api/purchase-orders/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
+// ✅ DELETE PURCHASE ORDER
+app.delete('/api/purchase-orders/:id', authenticate, async (req, res) => {
     try {
         const { id } = req.params;
-        console.log('🗑️ Deleting purchase order ID:', id);
         
+        // ✅ Only Super Admin can delete
+        if (req.user.role_name !== 'SUPER_ADMIN') {
+            return res.status(403).json({
+                success: false,
+                message: 'Only Super Admin can delete purchase orders'
+            });
+        }
+
         const existing = await query('SELECT * FROM purchase_orders WHERE id = ?', [id]);
         if (existing.length === 0) {
             return res.status(404).json({ 
                 success: false, 
                 message: 'Purchase order not found' 
-            });
-        }
-
-        if (existing[0].status !== 'Draft') {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Only Draft orders can be deleted' 
             });
         }
 
@@ -4258,6 +4357,7 @@ app.delete('/api/purchase-orders/:id', authenticate, authorize('SUPER_ADMIN'), a
             success: true, 
             message: 'Purchase order deleted successfully' 
         });
+
     } catch (error) {
         console.error('❌ Purchase order DELETE error:', error);
         res.status(500).json({ 
@@ -4266,6 +4366,8 @@ app.delete('/api/purchase-orders/:id', authenticate, authorize('SUPER_ADMIN'), a
         });
     }
 });
+
+console.log('📦 Purchase Order routes registered (STATUS REMOVED - hospital, equipment, currency added)');
 
 // ============================================================
 // ✅ PROCUREMENT ROUTES
@@ -4715,5 +4817,7 @@ if (require.main === module) {
     console.log('🔧 FIXED: Changed error_log_id to equipment_id in repairs routes');
     console.log('🗑️ FIXED: DELETE /api/repairs/:id uses routes/repairs.js with ON DELETE CASCADE');
     console.log('🔩 FIXED: All spare_parts routes now use correct table name "spare_parts"');
+    console.log('📦 Purchase Order routes: STATUS column removed');
+    console.log('📦 Purchase Order routes: hospital, equipment, currency, vendor_phone added');
     console.log('========================================');
 }

@@ -6,6 +6,7 @@
 // ✅ FIXED: engineer_name from users table when engineer_id provided
 // ✅ ADDED: Auto-update Overdue status
 // ✅ ADDED: date_of_installation support
+// ✅ UPDATED: Equipment status filter - Warranty, Annual Maintenance, Self Maintained only
 
 const express = require('express');
 const router = express.Router();
@@ -64,6 +65,7 @@ router.get('/', authenticate, async (req, res) => {
                    e.model as equipment_model,
                    e.serial_number,
                    e.date_of_installation,
+                   e.status as equipment_status,
                    h.name as hospital_name,
                    COALESCE(u.full_name, m.engineer_name) as engineer_name,
                    u.email as engineer_email
@@ -82,11 +84,18 @@ router.get('/', authenticate, async (req, res) => {
             console.log('🔍 Filtering maintenance for engineer_id:', req.query.engineer_id);
         }
 
-        // ✅ ADD: Status filter
+        // ✅ ADD: Status filter (maintenance status)
         if (req.query.status) {
             sql += ' AND m.status = ?';
             params.push(req.query.status);
             console.log('🔍 Filtering maintenance by status:', req.query.status);
+        }
+
+        // ✅ ADD: Equipment status filter (NEW - using new enum values)
+        if (req.query.equipment_status) {
+            sql += ' AND e.status = ?';
+            params.push(req.query.equipment_status);
+            console.log('🔍 Filtering by equipment status:', req.query.equipment_status);
         }
 
         // ✅ ADD: Equipment filter
@@ -144,6 +153,7 @@ router.get('/:id', authenticate, async (req, res) => {
                    e.model as equipment_model,
                    e.serial_number,
                    e.date_of_installation,
+                   e.status as equipment_status,
                    h.name as hospital_name,
                    COALESCE(u.full_name, m.engineer_name) as engineer_name,
                    u.email as engineer_email
@@ -357,6 +367,7 @@ router.post('/', authenticate, async (req, res) => {
                     e.model as equipment_model,
                     e.serial_number,
                     e.date_of_installation,
+                    e.status as equipment_status,
                     h.name as hospital_name,
                     COALESCE(u.full_name, m.engineer_name) as engineer_name
              FROM maintenance_schedule m
@@ -562,6 +573,7 @@ router.put('/:id', authenticate, async (req, res) => {
                     e.model as equipment_model,
                     e.serial_number,
                     e.date_of_installation,
+                    e.status as equipment_status,
                     h.name as hospital_name,
                     COALESCE(u.full_name, m.engineer_name) as engineer_name,
                     u.email as engineer_email
@@ -601,7 +613,8 @@ router.get('/equipment/:equipmentId', authenticate, async (req, res) => {
                    u.email as engineer_email,
                    e.name as equipment_name,
                    e.model as equipment_model,
-                   e.date_of_installation
+                   e.date_of_installation,
+                   e.status as equipment_status
             FROM maintenance_schedule m
             LEFT JOIN users u ON m.engineer_id = u.id
             LEFT JOIN equipment e ON m.equipment_id = e.id
@@ -637,6 +650,7 @@ router.get('/my-maintenance', authenticate, async (req, res) => {
                    e.model as equipment_model,
                    e.serial_number,
                    e.date_of_installation,
+                   e.status as equipment_status,
                    h.name as hospital_name
             FROM maintenance_schedule m
             LEFT JOIN equipment e ON m.equipment_id = e.id
@@ -674,18 +688,22 @@ router.get('/stats/summary', authenticate, async (req, res) => {
         let sql = `
             SELECT 
                 COUNT(*) as total,
-                SUM(CASE WHEN status = 'Scheduled' THEN 1 ELSE 0 END) as scheduled,
-                SUM(CASE WHEN status = 'In Progress' THEN 1 ELSE 0 END) as in_progress,
-                SUM(CASE WHEN status = 'Completed' THEN 1 ELSE 0 END) as completed,
-                SUM(CASE WHEN status = 'Overdue' THEN 1 ELSE 0 END) as overdue,
-                SUM(CASE WHEN status = 'Cancelled' THEN 1 ELSE 0 END) as cancelled,
-                SUM(CASE WHEN priority = 'Critical' THEN 1 ELSE 0 END) as critical,
-                SUM(CASE WHEN priority = 'High' THEN 1 ELSE 0 END) as high_priority,
-                SUM(CASE WHEN priority = 'Medium' THEN 1 ELSE 0 END) as medium_priority,
-                SUM(CASE WHEN priority = 'Low' THEN 1 ELSE 0 END) as low_priority,
-                SUM(CASE WHEN next_due_date < CURDATE() AND status NOT IN ('Completed', 'Cancelled') THEN 1 ELSE 0 END) as past_due,
-                SUM(CASE WHEN next_due_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY) AND status NOT IN ('Completed', 'Cancelled') THEN 1 ELSE 0 END) as due_this_week,
-                SUM(CASE WHEN next_due_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY) AND status NOT IN ('Completed', 'Cancelled') THEN 1 ELSE 0 END) as due_this_month
+                SUM(CASE WHEN m.status = 'Scheduled' THEN 1 ELSE 0 END) as scheduled,
+                SUM(CASE WHEN m.status = 'In Progress' THEN 1 ELSE 0 END) as in_progress,
+                SUM(CASE WHEN m.status = 'Completed' THEN 1 ELSE 0 END) as completed,
+                SUM(CASE WHEN m.status = 'Overdue' THEN 1 ELSE 0 END) as overdue,
+                SUM(CASE WHEN m.status = 'Cancelled' THEN 1 ELSE 0 END) as cancelled,
+                SUM(CASE WHEN m.priority = 'Critical' THEN 1 ELSE 0 END) as critical,
+                SUM(CASE WHEN m.priority = 'High' THEN 1 ELSE 0 END) as high_priority,
+                SUM(CASE WHEN m.priority = 'Medium' THEN 1 ELSE 0 END) as medium_priority,
+                SUM(CASE WHEN m.priority = 'Low' THEN 1 ELSE 0 END) as low_priority,
+                SUM(CASE WHEN m.next_due_date < CURDATE() AND m.status NOT IN ('Completed', 'Cancelled') THEN 1 ELSE 0 END) as past_due,
+                SUM(CASE WHEN m.next_due_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY) AND m.status NOT IN ('Completed', 'Cancelled') THEN 1 ELSE 0 END) as due_this_week,
+                SUM(CASE WHEN m.next_due_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY) AND m.status NOT IN ('Completed', 'Cancelled') THEN 1 ELSE 0 END) as due_this_month,
+                -- Equipment status breakdown (NEW)
+                SUM(CASE WHEN e.status = 'Warranty' THEN 1 ELSE 0 END) as warranty_equipment,
+                SUM(CASE WHEN e.status = 'Annual Maintenance' THEN 1 ELSE 0 END) as annual_maintenance_equipment,
+                SUM(CASE WHEN e.status = 'Self Maintained' THEN 1 ELSE 0 END) as self_maintained_equipment
             FROM maintenance_schedule m
             LEFT JOIN equipment e ON m.equipment_id = e.id
             WHERE 1=1
@@ -824,6 +842,7 @@ router.get('/overdue', authenticate, async (req, res) => {
                    e.model as equipment_model,
                    e.serial_number,
                    e.date_of_installation,
+                   e.status as equipment_status,
                    h.name as hospital_name,
                    COALESCE(u.full_name, m.engineer_name) as engineer_name
             FROM maintenance_schedule m

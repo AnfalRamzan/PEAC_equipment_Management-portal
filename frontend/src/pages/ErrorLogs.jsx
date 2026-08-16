@@ -9,6 +9,11 @@
 // ✅ ADDED: Full filter menu like Equipment page (Category, Manufacturer, Status, Hospital)
 // ✅ FIXED: Filter and Export buttons moved to header next to Refresh button (like Equipment page)
 // ✅ REMOVED: CSV export option (keeping Excel and PDF only)
+// ✅ ADDED: Equipment filter in filter menu
+// ✅ ADDED: Hospital column in main table
+// ✅ ADDED: Downtime calculation - from error creation to resolution
+// ✅ UPDATED: Downtime shows ONLY days with 2 decimal places (e.g., 1.60d, 5.25d)
+// ✅ FIXED: No hours display anywhere - only days
 
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -77,6 +82,7 @@ import {
   FilterList,
   Download,
   FileDownload,
+  TimerOff,
 } from '@mui/icons-material'
 import { errorService, equipmentService, hospitalService, userService } from '../api/services'
 import { toast } from 'react-toastify'
@@ -181,17 +187,64 @@ const getFileName = (url) => {
   return parts[parts.length - 1] || 'File'
 }
 
+// ✅ Calculate downtime in days only - with 2 decimal places (NO HOURS)
+const calculateDowntime = (error) => {
+  if (!error) return { hours: 0, days: 0, display: '0.00d' }
+  
+  // If status is Resolved, calculate from creation to resolution
+  if (error.status === 'Resolved') {
+    const startDate = error.error_date || error.created_at
+    const endDate = error.resolved_at || error.updated_at
+    
+    if (startDate && endDate) {
+      const start = new Date(startDate)
+      const end = new Date(endDate)
+      const diffMs = end - start
+      const diffHours = diffMs / (1000 * 60 * 60)
+      const diffDays = diffHours / 24
+      
+      if (diffHours > 0) {
+        return { 
+          hours: diffHours, 
+          days: diffDays,
+          display: `${diffDays.toFixed(2)}d`
+        }
+      }
+    }
+  }
+  
+  // If still open, calculate from creation to now
+  const startDate = error.error_date || error.created_at
+  if (startDate) {
+    const start = new Date(startDate)
+    const now = new Date()
+    const diffMs = now - start
+    const diffHours = diffMs / (1000 * 60 * 60)
+    const diffDays = diffHours / 24
+    
+    if (diffHours > 0) {
+      return { 
+        hours: diffHours, 
+        days: diffDays,
+        display: `${diffDays.toFixed(2)}d`
+      }
+    }
+  }
+  
+  return { hours: 0, days: 0, display: '0.00d' }
+}
+
 // ✅ STATUS CHIP - Same style as Equipment page with proper colors
 const StatusChip = ({ status }) => {
   const getStatusColor = (status) => {
     const s = status?.toLowerCase() || 'pending'
     switch(s) {
       case 'resolved':
-        return { bg: '#22C55E', color: 'white' } // Success green
+        return { bg: '#22C55E', color: 'white' }
       case 'in progress':
-        return { bg: '#F59E0B', color: 'white' } // Warning orange
+        return { bg: '#F59E0B', color: 'white' }
       case 'pending':
-        return { bg: '#EF4444', color: 'white' } // Error red
+        return { bg: '#EF4444', color: 'white' }
       default:
         return { bg: '#9E9E9E', color: 'white' }
     }
@@ -549,12 +602,13 @@ const ErrorLogs = () => {
     error_date: ''
   })
 
-  // ✅ Filters - Same as Equipment page
+  // ✅ Filters
   const [filters, setFilters] = useState({
     category: '',
     manufacturer: '',
     status: '',
     hospital: '',
+    equipment: '',
     fromDate: '',
     toDate: ''
   })
@@ -586,7 +640,7 @@ const ErrorLogs = () => {
   }, [])
 
   // ============================================================
-  // ✅ DATA FETCHING FUNCTIONS - WITH FORCE REFRESH
+  // ✅ DATA FETCHING FUNCTIONS
   // ============================================================
   const fetchErrors = async (showLoading = true) => {
     if (showLoading) {
@@ -671,7 +725,7 @@ const ErrorLogs = () => {
   }
 
   // ============================================================
-  // ✅ FILTER HANDLERS - Same as Equipment page
+  // ✅ FILTER HANDLERS
   // ============================================================
   const handleFilterClick = (event) => setFilterAnchorEl(event.currentTarget)
   const handleFilterClose = () => setFilterAnchorEl(null)
@@ -686,6 +740,7 @@ const ErrorLogs = () => {
       manufacturer: '', 
       status: '', 
       hospital: '',
+      equipment: '',
       fromDate: '',
       toDate: ''
     })
@@ -694,24 +749,27 @@ const ErrorLogs = () => {
   }
 
   // ============================================================
-  // ✅ EXPORT HANDLERS - CSV REMOVED, KEEPING EXCEL & PDF
+  // ✅ EXPORT HANDLERS
   // ============================================================
   const handleExportClick = (event) => setExportAnchorEl(event.currentTarget)
   const handleExportClose = () => setExportAnchorEl(null)
 
-  // ❌ CSV export removed - keeping only Excel and PDF
-
   const exportToExcel = () => {
     try {
-      const data = filteredErrors.map(e => ({
-        'Error Title': e.error_title || '',
-        'Error Code': e.error_code || '',
-        'Equipment': e.equipment_name || '',
-        'Status': e.status || '',
-        'Reporting Date': e.error_date ? new Date(e.error_date).toLocaleDateString() : '',
-        'Resolution Date': e.status === 'Resolved' ? (e.resolved_at ? new Date(e.resolved_at).toLocaleDateString() : e.updated_at ? new Date(e.updated_at).toLocaleDateString() : '') : '',
-        'Reported By': e.reported_by_name || ''
-      }))
+      const data = filteredErrors.map(e => {
+        const downtime = calculateDowntime(e)
+        return {
+          'Error Title': e.error_title || '',
+          'Error Code': e.error_code || '',
+          'Equipment': e.equipment_name || '',
+          'Hospital': e.hospital_name || e.hospital?.name || '',
+          'Status': e.status || '',
+          'Reporting Date': e.error_date ? new Date(e.error_date).toLocaleDateString() : '',
+          'Resolution Date': e.status === 'Resolved' ? (e.resolved_at ? new Date(e.resolved_at).toLocaleDateString() : e.updated_at ? new Date(e.updated_at).toLocaleDateString() : '') : '',
+          'Downtime (Days)': downtime.days.toFixed(2),
+          'Reported By': e.reported_by_name || ''
+        }
+      })
       const ws = XLSX.utils.json_to_sheet(data)
       const wb = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(wb, ws, 'Error Logs')
@@ -734,15 +792,20 @@ const ErrorLogs = () => {
       doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 28)
       doc.text(`Total Errors: ${filteredErrors.length}`, 14, 34)
       
-      const tableData = filteredErrors.map(e => [
-        e.error_title || '',
-        e.equipment_name || '',
-        e.status || '',
-        e.error_date ? new Date(e.error_date).toLocaleDateString() : '',
-        e.status === 'Resolved' ? (e.resolved_at ? new Date(e.resolved_at).toLocaleDateString() : e.updated_at ? new Date(e.updated_at).toLocaleDateString() : '') : '',
-      ])
+      const tableData = filteredErrors.map(e => {
+        const downtime = calculateDowntime(e)
+        return [
+          e.error_title || '',
+          e.equipment_name || '',
+          e.hospital_name || e.hospital?.name || '',
+          e.status || '',
+          e.error_date ? new Date(e.error_date).toLocaleDateString() : '',
+          e.status === 'Resolved' ? (e.resolved_at ? new Date(e.resolved_at).toLocaleDateString() : e.updated_at ? new Date(e.updated_at).toLocaleDateString() : '') : '',
+          downtime.display
+        ]
+      })
       autoTable(doc, {
-        head: [['Error', 'Equipment', 'Status', 'Reporting Date', 'Resolution Date']],
+        head: [['Error', 'Equipment', 'Hospital', 'Status', 'Reporting Date', 'Resolution Date', 'Downtime']],
         body: tableData,
         startY: 40,
         styles: { fontSize: 7, cellPadding: 2 },
@@ -759,7 +822,7 @@ const ErrorLogs = () => {
   }
 
   // ============================================================
-  // ✅ VALIDATION FUNCTIONS - Priority removed
+  // ✅ VALIDATION FUNCTIONS
   // ============================================================
   const validateField = (name, value) => {
     let error = ''
@@ -785,7 +848,6 @@ const ErrorLogs = () => {
     setErrors_validation(prev => ({ ...prev, [name]: error }))
   }
 
-  // ✅ CHANGED: Priority validation removed
   const isFormValid = () => {
     const equipmentError = validateField('equipment_id', errorFormData.equipment_id)
     const titleError = validateField('error_title', errorFormData.error_title)
@@ -850,7 +912,8 @@ const ErrorLogs = () => {
   const handleViewError = (error) => {
     setViewingError({
       ...error,
-      attachments: error.attachments || ''
+      attachments: error.attachments || '',
+      downtime: calculateDowntime(error)
     })
     setOpenViewDialog(true)
   }
@@ -861,7 +924,7 @@ const ErrorLogs = () => {
   }
 
   // ============================================================
-  // ✅ STATUS UPDATE HANDLERS - FIXED (No frontend permission check)
+  // ✅ STATUS UPDATE HANDLERS
   // ============================================================
   const handleOpenStatusDialog = (error) => {
     setSelectedErrorForStatus(error)
@@ -876,7 +939,6 @@ const ErrorLogs = () => {
     setStatusUpdating(false)
   }
 
-  // ✅ FIXED: Status Update Handler - No frontend permission check
   const handleStatusUpdate = async () => {
     if (!selectedErrorForStatus || !newStatus) {
       toast.error('Please select a status')
@@ -963,7 +1025,6 @@ const ErrorLogs = () => {
     }
   }
 
-  // ✅ CHANGED: Submit Data - Priority removed
   const handleSubmit = async () => {
     if (!isEngineer) {
       toast.error('Only Engineers can report errors')
@@ -1017,7 +1078,7 @@ const ErrorLogs = () => {
   }
 
   // ============================================================
-  // ✅ FILTERED DATA - With full filters like Equipment page
+  // ✅ FILTERED DATA
   // ============================================================
   const filteredErrors = errors.filter(error => {
     const matchesSearch = error.error_title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -1028,22 +1089,26 @@ const ErrorLogs = () => {
     const matchesFromDate = !filters.fromDate || new Date(errorDate) >= new Date(filters.fromDate)
     const matchesToDate = !filters.toDate || new Date(errorDate) <= new Date(filters.toDate)
     
-    // Equipment filters
     const matchesCategory = !filters.category || error.category_id === parseInt(filters.category)
     const matchesManufacturer = !filters.manufacturer || 
       error.manufacturer?.toLowerCase().includes(filters.manufacturer.toLowerCase())
     const matchesStatus = !filters.status || error.status === filters.status
     const matchesHospital = !filters.hospital || error.hospital_id === parseInt(filters.hospital)
+    const matchesEquipment = !filters.equipment || error.equipment_id === parseInt(filters.equipment)
     
     return matchesSearch && matchesFromDate && matchesToDate && 
-           matchesCategory && matchesManufacturer && matchesStatus && matchesHospital
+           matchesCategory && matchesManufacturer && matchesStatus && 
+           matchesHospital && matchesEquipment
   })
 
   const totalErrors = errors.length
   const openErrors = errors.filter(e => e.status === 'Pending' || e.status === 'In Progress').length
   const resolvedErrors = errors.filter(e => e.status === 'Resolved').length
 
-  // ✅ Stats Cards Data - ALL ICONS SAME THEME COLOR (Light Cyan)
+  // ✅ Total downtime calculation for all errors (only days)
+  const totalDowntimeDays = errors.reduce((sum, e) => sum + calculateDowntime(e).days, 0)
+
+  // ✅ Stats Cards Data
   const statsCards = [
     {
       title: 'Total Errors',
@@ -1070,12 +1135,12 @@ const ErrorLogs = () => {
       path: '/errors?status=resolved'
     },
     {
-      title: 'Engineers',
-      value: users.length,
-      icon: <Engineering />,
+      title: 'Total Downtime',
+      value: `${totalDowntimeDays.toFixed(2)}d`,
+      icon: <TimerOff />,
       color: colors.lightCyan,
       bg: 'rgba(103, 232, 249, 0.08)',
-      path: '/users?role=ENGINEER'
+      path: '/errors'
     },
   ]
 
@@ -1091,7 +1156,7 @@ const ErrorLogs = () => {
     }}>
       <style>{animationStyles}</style>
 
-      {/* Header - With Filter and Export buttons in header like Equipment page */}
+      {/* Header */}
       <Box sx={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
@@ -1128,14 +1193,13 @@ const ErrorLogs = () => {
               mt: 0.5,
             }}
           >
-            Track and manage equipment errors
+            Track and manage equipment errors with downtime tracking
           </Typography>
         </Box>
         
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
           {refreshing && <CircularProgress size={20} sx={{ color: colors.lightCyan }} />}
           
-          {/* ✅ REFRESH BUTTON - BORDER STYLE (Fills on hover/click) */}
           <Button
             variant="outlined"
             startIcon={<Refresh />}
@@ -1167,7 +1231,6 @@ const ErrorLogs = () => {
             {refreshing ? 'Refreshing...' : 'Refresh'}
           </Button>
           
-          {/* ✅ FILTER BUTTON - In header like Equipment page */}
           <Button 
             variant="contained"
             startIcon={<FilterList />} 
@@ -1189,7 +1252,6 @@ const ErrorLogs = () => {
             Filter
           </Button>
           
-          {/* ✅ EXPORT BUTTON - In header like Equipment page */}
           <Button 
             variant="contained"
             startIcon={<Download />} 
@@ -1237,7 +1299,7 @@ const ErrorLogs = () => {
         </Box>
       </Box>
 
-      {/* Stats Cards - All icons same theme color */}
+      {/* Stats Cards */}
       <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }} sx={{ mb: 3 }}>
         {statsCards.map((card, index) => (
           <Grid item xs={6} sm={3} key={index}>
@@ -1318,7 +1380,7 @@ const ErrorLogs = () => {
         ))}
       </Grid>
 
-      {/* Search - Only search bar, no filter/export buttons */}
+      {/* Search */}
       <Paper sx={{ 
         p: 2, 
         mb: 3, 
@@ -1357,7 +1419,7 @@ const ErrorLogs = () => {
         </Box>
       </Paper>
 
-      {/* ✅ FILTER MENU - Same as Equipment page */}
+      {/* FILTER MENU */}
       <Menu
         anchorEl={filterAnchorEl}
         open={Boolean(filterAnchorEl)}
@@ -1376,7 +1438,6 @@ const ErrorLogs = () => {
           Filter Errors
         </Typography>
         
-        {/* ✅ Category Filter */}
         <FormControl fullWidth size="small" sx={{ mb: 2 }}>
           <InputLabel sx={{ color: colors.lightText }}>Category</InputLabel>
           <Select 
@@ -1399,7 +1460,6 @@ const ErrorLogs = () => {
           </Select>
         </FormControl>
 
-        {/* ✅ Hospital Filter */}
         <FormControl fullWidth size="small" sx={{ mb: 2 }}>
           <InputLabel sx={{ color: colors.lightText }}>Hospital</InputLabel>
           <Select 
@@ -1422,7 +1482,28 @@ const ErrorLogs = () => {
           </Select>
         </FormControl>
 
-        {/* ✅ Manufacturer Filter */}
+        <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+          <InputLabel sx={{ color: colors.lightText }}>Equipment</InputLabel>
+          <Select 
+            name="equipment" 
+            value={filters.equipment} 
+            onChange={handleFilterChange} 
+            label="Equipment"
+            sx={{
+              borderRadius: 2,
+              '& .MuiOutlinedInput-root': {
+                '&:hover fieldset': { borderColor: colors.lightCyan },
+                '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+              }
+            }}
+          >
+            <MenuItem value="">All</MenuItem>
+            {equipment.map(eq => (
+              <MenuItem key={eq.id} value={eq.id}>{eq.name}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
         <TextField
           fullWidth 
           size="small" 
@@ -1441,7 +1522,6 @@ const ErrorLogs = () => {
           }}
         />
 
-        {/* ✅ Status Filter */}
         <FormControl fullWidth size="small" sx={{ mb: 2 }}>
           <InputLabel sx={{ color: colors.lightText }}>Status</InputLabel>
           <Select 
@@ -1464,7 +1544,6 @@ const ErrorLogs = () => {
           </Select>
         </FormControl>
 
-        {/* ✅ Date Range Filters */}
         <TextField
           fullWidth
           size="small"
@@ -1542,7 +1621,7 @@ const ErrorLogs = () => {
         </Box>
       </Menu>
 
-      {/* ✅ EXPORT MENU - CSV REMOVED, KEEPING EXCEL & PDF */}
+      {/* EXPORT MENU */}
       <Menu
         anchorEl={exportAnchorEl}
         open={Boolean(exportAnchorEl)}
@@ -1557,7 +1636,6 @@ const ErrorLogs = () => {
           } 
         }}
       >
-        {/* ✅ Excel Export Option */}
         <MenuItem 
           onClick={exportToExcel} 
           sx={{ 
@@ -1574,7 +1652,6 @@ const ErrorLogs = () => {
           </Box>
         </MenuItem>
         
-        {/* ✅ PDF Export Option */}
         <MenuItem 
           onClick={exportToPDF} 
           sx={{ 
@@ -1592,7 +1669,7 @@ const ErrorLogs = () => {
         </MenuItem>
       </Menu>
 
-      {/* Table - Only 3 statuses */}
+      {/* Table */}
       <TableContainer 
         component={Paper} 
         sx={{ 
@@ -1607,16 +1684,18 @@ const ErrorLogs = () => {
             <TableRow>
               <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Error</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Equipment</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Hospital</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Status</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Reporting Date</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Resolution Date</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }} align="center">Downtime</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2, textAlign: 'center' }}>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {filteredErrors.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
+                <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
                   <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
                     <ErrorOutline sx={{ fontSize: 48, color: colors.borderColor }} />
                     <Typography variant="body1" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
@@ -1629,73 +1708,81 @@ const ErrorLogs = () => {
                 </TableCell>
               </TableRow>
             ) : (
-              filteredErrors.map((error, index) => (
-                <TableRow 
-                  key={error.id} 
-                  hover
-                  sx={{
-                    transition: 'all 0.2s ease',
-                    animation: `fadeInUp 0.4s ease-out ${index * 0.05}s both`,
-                    '&:hover': {
-                      backgroundColor: 'rgba(103, 232, 249, 0.04)',
-                    },
-                    '&:last-child td': { borderBottom: 0 }
-                  }}
-                >
-                  <TableCell>
-                    <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                      {error.error_title}
-                    </Typography>
-                    <Typography variant="caption" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                      {error.error_code || 'No code'}
-                    </Typography>
-                  </TableCell>
-                  <TableCell sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                    {error.equipment_name}
-                  </TableCell>
-                  <TableCell>
-                    <StatusChip status={error.status || 'Pending'} />
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                      {error.error_date ? new Date(error.error_date).toLocaleDateString() : 
-                       error.created_at ? new Date(error.created_at).toLocaleDateString() : 'N/A'}
-                    </Typography>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2" sx={{ 
-                      color: error.status === 'Resolved' ? colors.success : colors.lightText,
-                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif"
-                    }}>
-                      {error.status === 'Resolved' ? 
-                        (error.resolved_at ? new Date(error.resolved_at).toLocaleDateString() : 
-                         error.updated_at ? new Date(error.updated_at).toLocaleDateString() : 'N/A') : 
-                        '-'}
-                    </Typography>
-                  </TableCell>
-                  <TableCell align="center">
-                    <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5, flexWrap: 'wrap' }}>
-                      <Tooltip title="View Details">
-                        <IconButton 
-                          size="small" 
-                          onClick={() => handleViewError(error)}
-                          sx={{ 
-                            color: colors.darkNavy, 
-                            '&:hover': { 
-                              color: colors.lightCyanDark,
-                              backgroundColor: 'rgba(103, 232, 249, 0.08)'
-                            } 
+              filteredErrors.map((error, index) => {
+                const downtime = calculateDowntime(error)
+                const downtimeColor = downtime.days > 7 ? colors.error : 
+                                     downtime.days > 3 ? colors.warning : colors.lightText
+                
+                return (
+                  <TableRow 
+                    key={error.id} 
+                    hover
+                    sx={{
+                      transition: 'all 0.2s ease',
+                      animation: `fadeInUp 0.4s ease-out ${index * 0.05}s both`,
+                      '&:hover': {
+                        backgroundColor: 'rgba(103, 232, 249, 0.04)',
+                      },
+                      '&:last-child td': { borderBottom: 0 }
+                    }}
+                  >
+                    <TableCell>
+                      <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                        {error.error_title}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                        {error.error_code || 'No code'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                      {error.equipment_name}
+                    </TableCell>
+                    <TableCell sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                      {error.hospital_name || error.hospital?.name || 'N/A'}
+                    </TableCell>
+                    <TableCell>
+                      <StatusChip status={error.status || 'Pending'} />
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                        {error.error_date ? new Date(error.error_date).toLocaleDateString() : 
+                         error.created_at ? new Date(error.created_at).toLocaleDateString() : 'N/A'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" sx={{ 
+                        color: error.status === 'Resolved' ? colors.success : colors.lightText,
+                        fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif"
+                      }}>
+                        {error.status === 'Resolved' ? 
+                          (error.resolved_at ? new Date(error.resolved_at).toLocaleDateString() : 
+                           error.updated_at ? new Date(error.updated_at).toLocaleDateString() : 'N/A') : 
+                          '-'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="center">
+                      <Tooltip title={`${downtime.days.toFixed(2)} days`}>
+                        <Chip
+                          label={downtime.display}
+                          size="small"
+                          sx={{
+                            bgcolor: downtimeColor,
+                            color: downtimeColor === colors.lightText ? colors.darkNavy : 'white',
+                            fontWeight: 600,
+                            fontSize: '10px',
+                            height: 22,
+                            borderRadius: 2,
+                            minWidth: 50,
                           }}
-                        >
-                          <Visibility fontSize="small" />
-                        </IconButton>
+                        />
                       </Tooltip>
-                      
-                      {(isSuperAdmin || isEngineer) && (
-                        <Tooltip title="Update Status">
+                    </TableCell>
+                    <TableCell align="center">
+                      <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+                        <Tooltip title="View Details">
                           <IconButton 
                             size="small" 
-                            onClick={() => handleOpenStatusDialog(error)}
+                            onClick={() => handleViewError(error)}
                             sx={{ 
                               color: colors.darkNavy, 
                               '&:hover': { 
@@ -1704,31 +1791,49 @@ const ErrorLogs = () => {
                               } 
                             }}
                           >
-                            <Edit fontSize="small" />
+                            <Visibility fontSize="small" />
                           </IconButton>
                         </Tooltip>
-                      )}
-                      
-                      {canDelete && (
-                        <Tooltip title="Delete Error">
-                          <IconButton 
-                            size="small" 
-                            color="error" 
-                            onClick={() => handleErrorDelete(error.id)}
-                            sx={{
-                              '&:hover': {
-                                backgroundColor: 'rgba(239, 68, 68, 0.08)'
-                              }
-                            }}
-                          >
-                            <Delete fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                    </Box>
-                  </TableCell>
-                </TableRow>
-              ))
+                        
+                        {(isSuperAdmin || isEngineer) && (
+                          <Tooltip title="Update Status">
+                            <IconButton 
+                              size="small" 
+                              onClick={() => handleOpenStatusDialog(error)}
+                              sx={{ 
+                                color: colors.darkNavy, 
+                                '&:hover': { 
+                                  color: colors.lightCyanDark,
+                                  backgroundColor: 'rgba(103, 232, 249, 0.08)'
+                                } 
+                              }}
+                            >
+                              <Edit fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                        
+                        {canDelete && (
+                          <Tooltip title="Delete Error">
+                            <IconButton 
+                              size="small" 
+                              color="error" 
+                              onClick={() => handleErrorDelete(error.id)}
+                              sx={{
+                                '&:hover': {
+                                  backgroundColor: 'rgba(239, 68, 68, 0.08)'
+                                }
+                              }}
+                            >
+                              <Delete fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                )
+              })
             )}
           </TableBody>
         </Table>
@@ -1974,7 +2079,7 @@ const ErrorLogs = () => {
         </DialogActions>
       </Dialog>
 
-      {/* VIEW ERROR DIALOG */}
+      {/* VIEW ERROR DIALOG - Downtime only days */}
       <Dialog 
         open={openViewDialog} 
         onClose={handleCloseView} 
@@ -2042,9 +2147,47 @@ const ErrorLogs = () => {
                 
                 <Grid item xs={6}>
                   <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                    Hospital
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: colors.darkNavy, fontWeight: 500, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                    {viewingError.hospital_name || viewingError.hospital?.name || 'N/A'}
+                  </Typography>
+                </Grid>
+                
+                <Grid item xs={4}>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
                     Status
                   </Typography>
                   <StatusChip status={viewingError.status || 'Pending'} />
+                </Grid>
+                
+                <Grid item xs={4}>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                    Downtime
+                  </Typography>
+                  {viewingError.downtime && (
+                    <Chip
+                      label={`${viewingError.downtime.display} (${viewingError.downtime.days.toFixed(2)} days)`}
+                      size="small"
+                      sx={{
+                        bgcolor: viewingError.downtime.days > 7 ? colors.error : 
+                                 viewingError.downtime.days > 3 ? colors.warning : colors.lightCyan,
+                        color: viewingError.downtime.days > 3 ? 'white' : colors.darkNavy,
+                        fontWeight: 600,
+                        height: 26,
+                        borderRadius: 2,
+                      }}
+                    />
+                  )}
+                </Grid>
+                
+                <Grid item xs={4}>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                    Reported By
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                    {viewingError.reported_by_name || 'Unknown'}
+                  </Typography>
                 </Grid>
                 
                 <Grid item xs={12}>
@@ -2053,15 +2196,6 @@ const ErrorLogs = () => {
                   </Typography>
                   <Typography variant="body2" sx={{ color: colors.darkText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                     {viewingError.error_description || 'No description provided'}
-                  </Typography>
-                </Grid>
-                
-                <Grid item xs={6}>
-                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
-                    Reported By
-                  </Typography>
-                  <Typography variant="body2" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                    {viewingError.reported_by_name || 'Unknown'}
                   </Typography>
                 </Grid>
                 
@@ -2104,7 +2238,7 @@ const ErrorLogs = () => {
         )}
       </Dialog>
 
-      {/* STATUS UPDATE DIALOG - Only 3 statuses */}
+      {/* STATUS UPDATE DIALOG */}
       <Dialog 
         open={openStatusDialog} 
         onClose={handleCloseStatusDialog} 

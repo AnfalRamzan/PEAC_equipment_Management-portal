@@ -4,15 +4,15 @@
 // ✅ All CRUD operations working
 // ✅ Renew functionality
 // ✅ File upload for documents
-// ✅ Export to CSV, Excel, PDF
+// ✅ Export to Excel, PDF (CSV REMOVED)
 // ✅ Expiry alerts
 // ✅ Status auto-set by backend (field removed from form)
 // ✅ Field name: document_url (instead of documents)
 // ✅ Date picker fixed with min/max validation
 // ✅ Currency: PKR (Pakistani Rupee)
-// ✅ UPDATED: Stats cards design matches Equipment page
-// ✅ UPDATED: Header with Filter and Export buttons
-// ✅ ADDED: Animations
+// ✅ ADDED: Hospital column in table
+// ✅ ADDED: Hospital filter in filter menu
+// ✅ REMOVED: All Stats Cards (Total Contracts, Active, Pending, Expired, Average, Highest)
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -63,8 +63,6 @@ import {
   Refresh,
   FileDownload,
   FilterList,
-  TrendingUp,
-  TrendingDown,
   Warning,
   Autorenew,
   Description,
@@ -72,27 +70,20 @@ import {
   CheckCircle,
   Cancel,
   Schedule,
-  Receipt,
   Person,
   Phone,
-  Email,
-  LocationOn,
-  Print,
   MedicalServices,
-  ErrorOutline,
-  Build,
 } from '@mui/icons-material'
 import { amcService, equipmentService } from '../api/services'
 import { toast } from 'react-toastify'
 import { useSelector } from 'react-redux'
-import AccessDenied from '../components/Auth/AccessDenied'
 import FileUpload from '../components/FileUpload'
 import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
 // ============================================================
-// ✅ DARK NAVY + LIGHT CYAN THEME COLORS - Matching Equipment page
+// ✅ DARK NAVY + LIGHT CYAN THEME COLORS
 // ============================================================
 const colors = {
   darkNavy: '#0F172A',
@@ -124,7 +115,7 @@ const colors = {
   bgGradientEnd: '#E8EEF5',
 }
 
-// ✅ Animation Styles - Same as Equipment page
+// ✅ Animation Styles
 const animationStyles = `
 @keyframes fadeInUp {
   from {
@@ -135,27 +126,6 @@ const animationStyles = `
     opacity: 1;
     transform: translateY(0);
   }
-}
-
-@keyframes prominentGlow {
-  0% {
-    box-shadow: 0 0 20px rgba(103, 232, 249, 0.2), 0 0 40px rgba(103, 232, 249, 0.1);
-    border-color: rgba(103, 232, 249, 0.3);
-  }
-  50% {
-    box-shadow: 0 0 40px rgba(103, 232, 249, 0.4), 0 0 80px rgba(103, 232, 249, 0.2);
-    border-color: rgba(103, 232, 249, 0.6);
-  }
-  100% {
-    box-shadow: 0 0 20px rgba(103, 232, 249, 0.2), 0 0 40px rgba(103, 232, 249, 0.1);
-    border-color: rgba(103, 232, 249, 0.3);
-  }
-}
-
-@keyframes gradientShine {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
 }
 `
 
@@ -224,15 +194,11 @@ const getExpiryStatus = (endDate) => {
 const AMC = () => {
   const { user } = useSelector((state) => state.auth)
   
-  if (user?.role === 'HOSPITAL_ADMIN') {
-    return <AccessDenied message="Hospital Administrators cannot access AMC Contracts." />
-  }
-  
-  const canCreate = user?.role === 'ENGINEER' || user?.role === 'SUPER_ADMIN'
-  const canEdit = user?.role === 'ENGINEER' || user?.role === 'SUPER_ADMIN'
+  // ✅ PERMISSIONS
+  const canCreate = user?.role === 'ENGINEER'
+  const canEdit = user?.role === 'SUPER_ADMIN'
   const canDelete = user?.role === 'SUPER_ADMIN'
   const canRenew = user?.role === 'SUPER_ADMIN'
-  const canView = user?.role === 'SUPER_ADMIN' || user?.role === 'ENGINEER'
 
   const [contracts, setContracts] = useState([])
   const [equipment, setEquipment] = useState([])
@@ -253,7 +219,9 @@ const AMC = () => {
   })
   
   const [filters, setFilters] = useState({
-    status: ''
+    status: '',
+    hospital: '',
+    equipment_id: ''
   })
   
   const [formData, setFormData] = useState({
@@ -269,6 +237,9 @@ const AMC = () => {
     document_url: ''
   })
 
+  const uniqueHospitals = [...new Set(equipment.map(e => e.hospital_name).filter(Boolean))]
+  const equipmentOptions = equipment.map(e => ({ id: e.id, name: e.name, model: e.model }))
+
   useEffect(() => {
     fetchContracts()
     fetchEquipment()
@@ -278,7 +249,11 @@ const AMC = () => {
     setLoading(true)
     try {
       const response = await amcService.getAll()
-      setContracts(response.data.contracts || [])
+      const contractsWithHospital = (response.data.contracts || []).map(c => ({
+        ...c,
+        hospital_name: c.hospital_name || c.equipment?.hospital_name || 'N/A'
+      }))
+      setContracts(contractsWithHospital)
     } catch (error) {
       console.error('Fetch contracts error:', error)
       toast.error('Failed to fetch AMC contracts')
@@ -307,7 +282,7 @@ const AMC = () => {
   }
 
   const clearFilters = () => {
-    setFilters({ status: '' })
+    setFilters({ status: '', hospital: '', equipment_id: '' })
     setSearchTerm('')
     setFilterAnchorEl(null)
     toast.info('Filters cleared')
@@ -319,40 +294,11 @@ const AMC = () => {
   const handleExportClick = (event) => setExportAnchorEl(event.currentTarget)
   const handleExportClose = () => setExportAnchorEl(null)
 
-  const exportToCSV = () => {
-    try {
-      const headers = ['Equipment', 'Vendor', 'Contract #', 'Start Date', 'End Date', 'Cost (PKR)', 'Status', 'Contact Person', 'Contact Phone']
-      const rows = filteredContracts.map(c => [
-        c.equipment_name || 'N/A',
-        c.vendor_name || '',
-        c.contract_number || 'N/A',
-        c.start_date || '',
-        c.end_date || '',
-        c.cost ? parseFloat(c.cost).toLocaleString('en-PK') : '0',
-        c.status || '',
-        c.contact_person || '',
-        c.contact_phone || ''
-      ])
-      let csv = headers.join(',') + '\n'
-      rows.forEach(row => { csv += row.join(',') + '\n' })
-      const blob = new Blob([csv], { type: 'text/csv' })
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `amc_contracts_${new Date().toISOString().split('T')[0]}.csv`
-      a.click()
-      window.URL.revokeObjectURL(url)
-      toast.success('CSV exported!')
-      handleExportClose()
-    } catch (error) {
-      toast.error('Export failed: ' + error.message)
-    }
-  }
-
   const exportToExcel = () => {
     try {
       const data = filteredContracts.map(c => ({
         'Equipment': c.equipment_name || 'N/A',
+        'Hospital': c.hospital_name || 'N/A',
         'Vendor': c.vendor_name || '',
         'Contract #': c.contract_number || 'N/A',
         'Start Date': c.start_date || '',
@@ -386,6 +332,7 @@ const AMC = () => {
       
       const tableData = filteredContracts.map(c => [
         c.equipment_name || 'N/A',
+        c.hospital_name || 'N/A',
         c.vendor_name || '',
         c.contract_number || 'N/A',
         c.start_date || '',
@@ -394,7 +341,7 @@ const AMC = () => {
         c.status || ''
       ])
       autoTable(doc, {
-        head: [['Equipment', 'Vendor', 'Contract #', 'Start Date', 'End Date', 'Cost (PKR)', 'Status']],
+        head: [['Equipment', 'Hospital', 'Vendor', 'Contract #', 'Start Date', 'End Date', 'Cost (PKR)', 'Status']],
         body: tableData,
         startY: 40,
         styles: { fontSize: 7, cellPadding: 2 },
@@ -415,11 +362,11 @@ const AMC = () => {
   // ============================================================
   const handleOpenDialog = (contract = null) => {
     if (contract && !canEdit) {
-      toast.error('You do not have permission to edit AMC contracts')
+      toast.error('Only Super Admin can edit AMC contracts')
       return
     }
     if (!contract && !canCreate) {
-      toast.error('You do not have permission to create AMC contracts')
+      toast.error('Only Engineer can create AMC contracts')
       return
     }
     
@@ -478,8 +425,12 @@ const AMC = () => {
   }
 
   const handleSubmit = async () => {
-    if (!canCreate && !canEdit) {
-      toast.error('You do not have permission to create or edit AMC contracts')
+    if (editingContract && !canEdit) {
+      toast.error('Only Super Admin can edit AMC contracts')
+      return
+    }
+    if (!editingContract && !canCreate) {
+      toast.error('Only Engineer can create AMC contracts')
       return
     }
     
@@ -488,8 +439,6 @@ const AMC = () => {
         ...formData,
         document_url: formData.document_url || ''
       }
-      
-      console.log('📤 Submitting AMC data:', submitData)
       
       if (editingContract) {
         await amcService.update(editingContract.id, submitData)
@@ -551,52 +500,21 @@ const AMC = () => {
     }
   }
 
-  const totalContracts = contracts.length
-  const activeContracts = contracts.filter(c => c.status === 'Active').length
-  const expiredContracts = contracts.filter(c => c.status === 'Expired').length
-  const pendingContracts = contracts.filter(c => c.status === 'Pending').length
+  // ✅ Get expiring soon count
   const expiringSoon = contracts.filter(c => isExpiringSoon(c.end_date) && c.status === 'Active').length
-  const totalCostPKR = contracts.reduce((sum, c) => sum + (parseFloat(c.cost) || 0), 0)
 
+  // ✅ Filtered contracts with hospital and equipment filters
   const filteredContracts = contracts.filter(contract => {
     const matchesSearch = contract.vendor_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           contract.contract_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           contract.equipment_name?.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = !filters.status || contract.status === filters.status
-    return matchesSearch && matchesStatus
+    const matchesHospital = !filters.hospital || 
+                           contract.hospital_name === filters.hospital || 
+                           contract.equipment?.hospital_name === filters.hospital
+    const matchesEquipment = !filters.equipment_id || contract.equipment_id === parseInt(filters.equipment_id)
+    return matchesSearch && matchesStatus && matchesHospital && matchesEquipment
   })
-
-  // ✅ Stats Cards Data - Same design as Equipment page
-  const statsCards = [
-    {
-      title: 'Total Contracts',
-      value: totalContracts,
-      icon: <Autorenew />,
-      color: colors.lightCyan,
-      bg: 'rgba(103, 232, 249, 0.08)',
-    },
-    {
-      title: 'Active',
-      value: activeContracts,
-      icon: <CheckCircle />,
-      color: colors.lightCyan,
-      bg: 'rgba(103, 232, 249, 0.08)',
-    },
-    {
-      title: 'Pending',
-      value: pendingContracts,
-      icon: <Schedule />,
-      color: colors.lightCyan,
-      bg: 'rgba(103, 232, 249, 0.08)',
-    },
-    {
-      title: 'Expired',
-      value: expiredContracts,
-      icon: <Cancel />,
-      color: colors.lightCyan,
-      bg: 'rgba(103, 232, 249, 0.08)',
-    },
-  ]
 
   if (loading) {
     return <LinearProgress sx={{ bgcolor: colors.borderColor, '& .MuiLinearProgress-bar': { bgcolor: colors.lightCyan } }} />
@@ -613,7 +531,7 @@ const AMC = () => {
       <style>{animationStyles}</style>
 
       {/* ============================================================
-          HEADER - Same as Equipment page
+          HEADER
           ============================================================ */}
       <Box sx={{ 
         display: 'flex', 
@@ -656,7 +574,6 @@ const AMC = () => {
         </Box>
         
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-          {/* ✅ REFRESH BUTTON - BORDER STYLE */}
           <Button 
             variant="outlined" 
             startIcon={<Refresh />} 
@@ -676,18 +593,11 @@ const AMC = () => {
                 boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
                 transform: 'translateY(-2px)',
               },
-              '&:active': {
-                bgcolor: colors.lightCyan,
-                color: colors.darkNavy,
-                borderColor: colors.lightCyan,
-                transform: 'scale(0.96)',
-              }
             }}
           >
             Refresh
           </Button>
           
-          {/* ✅ FILTER BUTTON */}
           <Button 
             variant="contained"
             startIcon={<FilterList />} 
@@ -709,7 +619,6 @@ const AMC = () => {
             Filter
           </Button>
           
-          {/* ✅ EXPORT BUTTON */}
           <Button 
             variant="contained"
             startIcon={<Download />} 
@@ -786,195 +695,7 @@ const AMC = () => {
       )}
 
       {/* ============================================================
-          STATS CARDS - Same design as Equipment page
-          ============================================================ */}
-      <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }} sx={{ mb: 3 }}>
-        {statsCards.map((card, index) => (
-          <Grid item xs={6} sm={3} key={index}>
-            <Grow in timeout={300 + index * 100}>
-              <Card sx={{ 
-                borderRadius: 3,
-                border: `1px solid ${colors.borderColor}`,
-                boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-                transition: 'all 0.3s ease',
-                position: 'relative',
-                overflow: 'hidden',
-                '&:hover': {
-                  transform: 'translateY(-4px)',
-                  boxShadow: `0 8px 30px ${colors.lightCyanGlow}`,
-                  borderColor: colors.lightCyan,
-                },
-                '&::before': {
-                  content: '""',
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  height: 3,
-                  background: `linear-gradient(90deg, ${colors.lightCyan}, ${colors.accentGold})`,
-                  borderRadius: '3px 3px 0 0',
-                }
-              }}>
-                <CardContent sx={{ p: { xs: 1.5, sm: 2 }, position: 'relative' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Box>
-                      <Typography 
-                        variant="caption" 
-                        sx={{ 
-                          color: colors.lightText,
-                          fontWeight: 500,
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.5px',
-                          fontSize: '0.6rem',
-                        }}
-                      >
-                        {card.title}
-                      </Typography>
-                      <Typography 
-                        variant="h5" 
-                        sx={{ 
-                          fontWeight: 700,
-                          color: colors.darkNavy,
-                          fontSize: { xs: '1.3rem', sm: '1.6rem', md: '1.8rem' },
-                          mt: 0.5,
-                        }}
-                      >
-                        {card.value}
-                      </Typography>
-                    </Box>
-                    <Box
-                      sx={{
-                        background: card.bg,
-                        borderRadius: '14px',
-                        p: 1.2,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        width: 42,
-                        height: 42,
-                        color: card.color,
-                        transition: 'all 0.3s ease',
-                      }}
-                    >
-                      {React.cloneElement(card.icon, { 
-                        sx: { 
-                          fontSize: 22,
-                          color: card.color,
-                        } 
-                      })}
-                    </Box>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grow>
-          </Grid>
-        ))}
-      </Grid>
-
-      {/* ============================================================
-          TOTAL VALUE CARDS
-          ============================================================ */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={4}>
-          <Card sx={{ 
-            borderRadius: 3, 
-            border: `1px solid ${colors.borderColor}`,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-            bgcolor: colors.cardBg,
-            position: 'relative',
-            overflow: 'hidden',
-            '&::before': {
-              content: '""',
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              height: 3,
-              background: `linear-gradient(90deg, ${colors.success}, ${colors.lightCyan})`,
-              borderRadius: '3px 3px 0 0',
-            }
-          }}>
-            <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 500 }}>
-                Total Contract Value
-              </Typography>
-              <Typography variant="h5" sx={{ color: colors.success, fontWeight: 700 }}>
-                {formatPKR(totalCostPKR)}
-              </Typography>
-              <Typography variant="caption" sx={{ color: colors.lightText }}>
-                All AMC contracts combined
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={4}>
-          <Card sx={{ 
-            borderRadius: 3, 
-            border: `1px solid ${colors.borderColor}`,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-            bgcolor: colors.cardBg,
-            position: 'relative',
-            overflow: 'hidden',
-            '&::before': {
-              content: '""',
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              height: 3,
-              background: `linear-gradient(90deg, ${colors.lightCyan}, ${colors.accentGold})`,
-              borderRadius: '3px 3px 0 0',
-            }
-          }}>
-            <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 500 }}>
-                Average Contract Value
-              </Typography>
-              <Typography variant="h5" sx={{ color: colors.lightCyanDark, fontWeight: 700 }}>
-                {totalContracts > 0 ? formatPKR(totalCostPKR / totalContracts) : 'Rs. 0'}
-              </Typography>
-              <Typography variant="caption" sx={{ color: colors.lightText }}>
-                Per AMC contract average
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={4}>
-          <Card sx={{ 
-            borderRadius: 3, 
-            border: `1px solid ${colors.borderColor}`,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-            bgcolor: colors.cardBg,
-            position: 'relative',
-            overflow: 'hidden',
-            '&::before': {
-              content: '""',
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              height: 3,
-              background: `linear-gradient(90deg, ${colors.warning}, ${colors.accentGold})`,
-              borderRadius: '3px 3px 0 0',
-            }
-          }}>
-            <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 500 }}>
-                Highest Value Contract
-              </Typography>
-              <Typography variant="h5" sx={{ color: colors.warning, fontWeight: 700 }}>
-                {contracts.length > 0 ? formatPKR(Math.max(...contracts.map(c => parseFloat(c.cost) || 0))) : 'Rs. 0'}
-              </Typography>
-              <Typography variant="caption" sx={{ color: colors.lightText }}>
-                Maximum contract value
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
-      {/* ============================================================
-          SEARCH - Only search bar
+          SEARCH
           ============================================================ */}
       <Paper sx={{ 
         p: 2, 
@@ -1004,10 +725,6 @@ const AMC = () => {
                   '&:hover fieldset': { borderColor: colors.lightCyan },
                   '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                 },
-                '& .MuiInputBase-input': {
-                  fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  fontSize: '0.9rem',
-                }
               }
             }}
           />
@@ -1015,7 +732,7 @@ const AMC = () => {
       </Paper>
 
       {/* ============================================================
-          FILTER MENU - Same as Equipment page
+          FILTER MENU
           ============================================================ */}
       <Menu
         anchorEl={filterAnchorEl}
@@ -1024,7 +741,7 @@ const AMC = () => {
         PaperProps={{ 
           sx: { 
             p: 2.5, 
-            width: 280,
+            width: 320,
             border: `1px solid ${colors.borderColor}`,
             boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
             borderRadius: 3,
@@ -1054,6 +771,62 @@ const AMC = () => {
             <MenuItem value="Active">Active</MenuItem>
             <MenuItem value="Expired">Expired</MenuItem>
             <MenuItem value="Pending">Pending</MenuItem>
+          </Select>
+        </FormControl>
+
+        <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+          <InputLabel sx={{ color: colors.lightText }}>
+            <Business sx={{ fontSize: 16, verticalAlign: 'middle', mr: 0.5 }} />
+            Hospital
+          </InputLabel>
+          <Select 
+            name="hospital" 
+            value={filters.hospital} 
+            onChange={handleFilterChange} 
+            label="Hospital"
+            sx={{
+              borderRadius: 2,
+              '& .MuiOutlinedInput-root': {
+                '&:hover fieldset': { borderColor: colors.lightCyan },
+                '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+              }
+            }}
+          >
+            <MenuItem value="">All Hospitals</MenuItem>
+            {uniqueHospitals.map((hospital) => (
+              <MenuItem key={hospital} value={hospital}>
+                <Business sx={{ fontSize: 16, color: colors.lightCyanDark, mr: 1 }} />
+                {hospital}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+          <InputLabel sx={{ color: colors.lightText }}>
+            <MedicalServices sx={{ fontSize: 16, verticalAlign: 'middle', mr: 0.5 }} />
+            Equipment
+          </InputLabel>
+          <Select 
+            name="equipment_id" 
+            value={filters.equipment_id} 
+            onChange={handleFilterChange} 
+            label="Equipment"
+            sx={{
+              borderRadius: 2,
+              '& .MuiOutlinedInput-root': {
+                '&:hover fieldset': { borderColor: colors.lightCyan },
+                '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+              }
+            }}
+          >
+            <MenuItem value="">All Equipment</MenuItem>
+            {equipmentOptions.map((eq) => (
+              <MenuItem key={eq.id} value={eq.id}>
+                <MedicalServices sx={{ fontSize: 16, color: colors.lightCyanDark, mr: 1 }} />
+                {eq.name} {eq.model ? `- ${eq.model}` : ''}
+              </MenuItem>
+            ))}
           </Select>
         </FormControl>
 
@@ -1115,7 +888,7 @@ const AMC = () => {
       </Menu>
 
       {/* ============================================================
-          EXPORT MENU - Same as Equipment page
+          EXPORT MENU
           ============================================================ */}
       <Menu
         anchorEl={exportAnchorEl}
@@ -1131,21 +904,6 @@ const AMC = () => {
           } 
         }}
       >
-        <MenuItem 
-          onClick={exportToCSV} 
-          sx={{ 
-            borderRadius: 1,
-            '&:hover': { 
-              bgcolor: 'rgba(103, 232, 249, 0.08)',
-            } 
-          }}
-        >
-          <FileDownload sx={{ mr: 1.5, fontSize: 20, color: colors.lightCyanDark }} /> 
-          <Box>
-            <Typography variant="body2" fontWeight={500}>CSV</Typography>
-            <Typography variant="caption" sx={{ color: colors.lightText }}>Comma separated values</Typography>
-          </Box>
-        </MenuItem>
         <MenuItem 
           onClick={exportToExcel} 
           sx={{ 
@@ -1195,6 +953,7 @@ const AMC = () => {
           <TableHead sx={{ bgcolor: colors.darkNavy }}>
             <TableRow>
               <TableCell sx={{ color: colors.text, fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Equipment</TableCell>
+              <TableCell sx={{ color: colors.text, fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Hospital</TableCell>
               <TableCell sx={{ color: colors.text, fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Vendor</TableCell>
               <TableCell sx={{ color: colors.text, fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Contract #</TableCell>
               <TableCell sx={{ color: colors.text, fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Start Date</TableCell>
@@ -1207,7 +966,7 @@ const AMC = () => {
           <TableBody>
             {filteredContracts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
+                <TableCell colSpan={9} align="center" sx={{ py: 6 }}>
                   <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
                     <Autorenew sx={{ fontSize: 48, color: colors.borderColor }} />
                     <Typography variant="body1" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
@@ -1261,6 +1020,14 @@ const AMC = () => {
                       <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                         {contract.equipment_name || 'N/A'}
                       </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <Business sx={{ fontSize: 14, color: colors.lightCyanDark }} />
+                        <Typography variant="body2" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                          {contract.hospital_name || 'N/A'}
+                        </Typography>
+                      </Box>
                     </TableCell>
                     <TableCell sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                       {contract.vendor_name}
@@ -1442,15 +1209,12 @@ const AMC = () => {
                       '&:hover fieldset': { borderColor: colors.lightCyan },
                       '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                     },
-                    '& .MuiSelect-select': {
-                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                    }
                   }}
                 >
-                  <MenuItem value="" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Select Equipment</MenuItem>
+                  <MenuItem value="">Select Equipment</MenuItem>
                   {equipment.map(item => (
-                    <MenuItem key={item.id} value={item.id} sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                      {item.name} - {item.model || 'No Model'}
+                    <MenuItem key={item.id} value={item.id}>
+                      {item.name} - {item.model || 'No Model'} {item.hospital_name ? `(${item.hospital_name})` : ''}
                     </MenuItem>
                   ))}
                 </Select>
@@ -1471,12 +1235,6 @@ const AMC = () => {
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   },
-                  '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  },
-                  '& .MuiInputLabel-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  }
                 }}
               />
             </Grid>
@@ -1494,12 +1252,6 @@ const AMC = () => {
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   },
-                  '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  },
-                  '& .MuiInputLabel-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  }
                 }}
               />
             </Grid>
@@ -1513,20 +1265,12 @@ const AMC = () => {
                 value={formData.start_date || ''}
                 onChange={handleFormChange}
                 InputLabelProps={{ shrink: true }}
-                InputProps={{
-                  inputProps: {
-                    max: formData.end_date || undefined
-                  }
-                }}
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     borderRadius: 2,
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   },
-                  '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  }
                 }}
               />
             </Grid>
@@ -1540,20 +1284,12 @@ const AMC = () => {
                 value={formData.end_date || ''}
                 onChange={handleFormChange}
                 InputLabelProps={{ shrink: true }}
-                InputProps={{
-                  inputProps: {
-                    min: formData.start_date || undefined
-                  }
-                }}
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     borderRadius: 2,
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   },
-                  '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  }
                 }}
               />
             </Grid>
@@ -1570,7 +1306,7 @@ const AMC = () => {
                   inputProps: { min: 0, step: 0.01 },
                   startAdornment: (
                     <InputAdornment position="start">
-                      <Typography sx={{ color: colors.lightText, fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>PKR</Typography>
+                      <Typography sx={{ color: colors.lightText, fontWeight: 600 }}>PKR</Typography>
                     </InputAdornment>
                   )
                 }}
@@ -1581,15 +1317,6 @@ const AMC = () => {
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   },
-                  '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  },
-                  '& .MuiInputLabel-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  },
-                  '& .MuiFormHelperText-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  }
                 }}
               />
             </Grid>
@@ -1607,12 +1334,6 @@ const AMC = () => {
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   },
-                  '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  },
-                  '& .MuiInputLabel-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  }
                 }}
               />
             </Grid>
@@ -1630,12 +1351,6 @@ const AMC = () => {
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   },
-                  '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  },
-                  '& .MuiInputLabel-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  }
                 }}
               />
             </Grid>
@@ -1656,18 +1371,12 @@ const AMC = () => {
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   },
-                  '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  },
-                  '& .MuiInputLabel-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  }
                 }}
               />
             </Grid>
 
             <Grid item xs={12}>
-              <Typography variant="subtitle2" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }} gutterBottom>
+              <Typography variant="subtitle2" sx={{ color: colors.lightText }} gutterBottom>
                 <AttachFile sx={{ fontSize: 18, verticalAlign: 'middle', mr: 1 }} />
                 Contract Document
               </Typography>
@@ -1692,7 +1401,7 @@ const AMC = () => {
                   }
                 }}
                 onUploadError={(error) => toast.error('Upload failed: ' + error)}
-                onDelete={(file) => {
+                onDelete={() => {
                   setFormData(prev => ({
                     ...prev,
                     document_url: ''
@@ -1739,7 +1448,6 @@ const AMC = () => {
               '&:hover': { 
                 backgroundColor: 'rgba(103, 232, 249, 0.04)'
               },
-              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
             }}
           >
             Cancel
@@ -1790,7 +1498,7 @@ const AMC = () => {
           py: 2.5,
         }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+            <Typography variant="h6" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
               <Autorenew sx={{ fontSize: 28 }} />
               Renew AMC Contract
             </Typography>
@@ -1801,7 +1509,7 @@ const AMC = () => {
         </DialogTitle>
         <DialogContent dividers sx={{ borderColor: colors.borderColor, px: 4, py: 3 }}>
           <Alert severity="info" sx={{ mb: 2, borderRadius: 2, border: `1px solid rgba(59, 130, 246, 0.2)` }}>
-            <Typography variant="body2" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+            <Typography variant="body2">
               <strong>Renew Contract:</strong> Extend the AMC contract with a new end date and updated cost.
               Status will be auto-updated by the system.
             </Typography>
@@ -1822,9 +1530,6 @@ const AMC = () => {
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   },
-                  '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  }
                 }}
               />
             </Grid>
@@ -1839,7 +1544,7 @@ const AMC = () => {
                   inputProps: { min: 0, step: 0.01 },
                   startAdornment: (
                     <InputAdornment position="start">
-                      <Typography sx={{ color: colors.lightText, fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>PKR</Typography>
+                      <Typography sx={{ color: colors.lightText, fontWeight: 600 }}>PKR</Typography>
                     </InputAdornment>
                   )
                 }}
@@ -1850,15 +1555,6 @@ const AMC = () => {
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   },
-                  '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  },
-                  '& .MuiInputLabel-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  },
-                  '& .MuiFormHelperText-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  }
                 }}
               />
             </Grid>
@@ -1875,7 +1571,6 @@ const AMC = () => {
               '&:hover': { 
                 backgroundColor: 'rgba(103, 232, 249, 0.04)'
               },
-              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
             }}
           >
             Cancel
@@ -1927,7 +1622,7 @@ const AMC = () => {
           py: 2.5,
         }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+            <Typography variant="h6" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
               <Autorenew sx={{ fontSize: 28 }} />
               AMC Contract Details
             </Typography>
@@ -1945,7 +1640,7 @@ const AMC = () => {
                     <Autorenew sx={{ fontSize: 28, color: colors.text }} />
                   </Avatar>
                   <Box>
-                    <Typography variant="h6" fontWeight={600} sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                    <Typography variant="h6" fontWeight={600} sx={{ color: colors.darkNavy }}>
                       {viewingContract.contract_number || 'AMC Contract'}
                     </Typography>
                     <Box sx={{ display: 'flex', gap: 1, mt: 0.5, flexWrap: 'wrap' }}>
@@ -1987,52 +1682,60 @@ const AMC = () => {
               </Grid>
 
               <Grid item xs={12} md={6}>
-                <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600 }}>
                   Equipment
                 </Typography>
-                <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy }}>
                   {viewingContract.equipment_name || 'N/A'}
                 </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
-                <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600 }}>
+                  Hospital
+                </Typography>
+                <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy }}>
+                  {viewingContract.hospital_name || 'N/A'}
+                </Typography>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600 }}>
                   Vendor
                 </Typography>
-                <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy }}>
                   {viewingContract.vendor_name}
                 </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
-                <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600 }}>
                   Contract Number
                 </Typography>
-                <Typography variant="body1" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                <Typography variant="body1" sx={{ color: colors.darkNavy }}>
                   {viewingContract.contract_number || 'N/A'}
                 </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
-                <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600 }}>
                   Cost (PKR)
                 </Typography>
-                <Typography variant="body1" fontWeight={600} sx={{ color: colors.lightCyanDark, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                <Typography variant="body1" fontWeight={600} sx={{ color: colors.lightCyanDark }}>
                   {formatPKR(viewingContract.cost)}
                 </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
-                <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600 }}>
                   <CalendarToday sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
                   Start Date
                 </Typography>
-                <Typography variant="body1" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                <Typography variant="body1" sx={{ color: colors.darkNavy }}>
                   {viewingContract.start_date ? new Date(viewingContract.start_date).toLocaleDateString() : '-'}
                 </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
-                <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600 }}>
                   <CalendarToday sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
                   End Date
                 </Typography>
-                <Typography variant="body1" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                <Typography variant="body1" sx={{ color: colors.darkNavy }}>
                   {viewingContract.end_date ? new Date(viewingContract.end_date).toLocaleDateString() : '-'}
                 </Typography>
               </Grid>
@@ -2042,27 +1745,27 @@ const AMC = () => {
               </Grid>
 
               <Grid item xs={12} md={6}>
-                <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600 }}>
                   <Person sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
                   Contact Person
                 </Typography>
-                <Typography variant="body1" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                <Typography variant="body1" sx={{ color: colors.darkNavy }}>
                   {viewingContract.contact_person || '-'}
                 </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
-                <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600 }}>
                   <Phone sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} />
                   Contact Phone
                 </Typography>
-                <Typography variant="body1" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                <Typography variant="body1" sx={{ color: colors.darkNavy }}>
                   {viewingContract.contact_phone || '-'}
                 </Typography>
               </Grid>
 
               {viewingContract.notes && (
                 <Grid item xs={12}>
-                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600 }}>
                     Notes
                   </Typography>
                   <Paper sx={{ 
@@ -2072,7 +1775,7 @@ const AMC = () => {
                     border: `1px solid ${colors.borderColor}`,
                     mt: 0.5,
                   }}>
-                    <Typography variant="body2" sx={{ color: colors.darkText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                    <Typography variant="body2" sx={{ color: colors.darkText }}>
                       {viewingContract.notes}
                     </Typography>
                   </Paper>
@@ -2082,7 +1785,7 @@ const AMC = () => {
               {viewingContract.document_url && (
                 <Grid item xs={12}>
                   <Divider sx={{ borderColor: colors.borderColor }} />
-                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600, mt: 2, mb: 1 }}>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600, mt: 2, mb: 1 }}>
                     <AttachFile sx={{ fontSize: 16, verticalAlign: 'middle', mr: 0.5 }} />
                     Contract Document
                   </Typography>
