@@ -19,6 +19,7 @@
 // ✅ UPDATED: Unified /error-summary endpoint for daily/weekly/monthly/yearly
 // ✅ FIXED: Hospital report response mapping - /error-logs returns { success: true, errors: [...] }
 // ✅ FIXED: Spare Parts case - removed individual downtime API calls
+// ✅ THEME: All icons use Light Cyan color, Refresh border style, buttons prominent
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import {
@@ -419,7 +420,6 @@ const getCleanExportData = (data, reportType) => {
     }))
   }
 
-  // ✅ MAINTENANCE EXPORT
   if (reportType === 'maintenance' || reportType === 'my-maintenance') {
     return data.map(r => ({
       'Equipment': r.equipment_name || r.name || 'N/A',
@@ -433,7 +433,6 @@ const getCleanExportData = (data, reportType) => {
     }))
   }
 
-  // ✅ SPARE PARTS EXPORT - Combined Usage + Downtime (FIXED)
   if (reportType === 'spare-parts' || reportType === 'my-spare-parts') {
     return data.map(r => ({
       'Part Name': r.part_name || 'N/A',
@@ -450,7 +449,6 @@ const getCleanExportData = (data, reportType) => {
     }))
   }
 
-  // ✅ EQUIPMENT WISE REPORT EXPORT - with Spare Parts Stats
   if (reportType === 'equipment-status') {
     return data.map(r => ({
       'Equipment': r.equipment_name || 'N/A',
@@ -473,7 +471,6 @@ const getCleanExportData = (data, reportType) => {
     }))
   }
 
-  // ✅ HOSPITAL REPORT EXPORT
   if (reportType === 'hospital') {
     return data.map(r => ({
       'Hospital': r.name || 'N/A',
@@ -551,7 +548,6 @@ const calculateExportSummary = (rows, reportType) => {
     }
   }
 
-  // ✅ MAINTENANCE SUMMARY
   if (reportType === 'maintenance' || reportType === 'my-maintenance') {
     const total = rows.length
     const overdue = rows.filter(r => r['Status'] === 'Overdue' || r.is_overdue).length
@@ -569,7 +565,6 @@ const calculateExportSummary = (rows, reportType) => {
     }
   }
 
-  // ✅ SPARE PARTS SUMMARY - Combined Usage + Downtime (FIXED)
   if (reportType === 'spare-parts' || reportType === 'my-spare-parts') {
     const inStock = rows.filter(r => r['Status'] === 'In Stock').length
     const lowStock = rows.filter(r => r['Status'] === 'Low Stock').length
@@ -586,7 +581,6 @@ const calculateExportSummary = (rows, reportType) => {
     }
   }
 
-  // ✅ EQUIPMENT WISE REPORT SUMMARY
   if (reportType === 'equipment-status') {
     const totalEquipment = rows.length
     const totalErrors = rows.reduce((s, r) => s + num(r['Total Errors']), 0)
@@ -616,7 +610,6 @@ const calculateExportSummary = (rows, reportType) => {
     }
   }
 
-  // ✅ HOSPITAL REPORT SUMMARY
   if (reportType === 'hospital') {
     const totalHospitals = rows.length
     const totalEquipment = rows.reduce((s, r) => s + num(r['Total Equipment']), 0)
@@ -783,7 +776,7 @@ const exportToPDF = (data, filename = 'report', reportType = '') => {
 }
 
 // ============================================================
-// ✅ STATS CARD COMPONENT
+// ✅ STATS CARD COMPONENT - Updated with Light Cyan icons
 // ============================================================
 const StatsCard = ({ title, value, color, bgColor, icon, loading, subtitle }) => {
   return (
@@ -818,18 +811,23 @@ const StatsCard = ({ title, value, color, bgColor, icon, loading, subtitle }) =>
                 mb: 1
               }}>
                 <Avatar sx={{
-                  bgcolor: color || '#0F172A',
+                  bgcolor: 'rgba(103, 232, 249, 0.08)',
                   width: 40,
                   height: 40,
-                  boxShadow: `0 4px 16px ${color || '#0F172A'}44`
+                  boxShadow: 'none',
                 }}>
-                  {icon}
+                  {React.cloneElement(icon, { 
+                    sx: { 
+                      fontSize: 22,
+                      color: colors.lightCyan,
+                    } 
+                  })}
                 </Avatar>
               </Box>
               <Typography
                 variant="h4"
                 sx={{
-                  color: color || '#0F172A',
+                  color: '#0F172A',
                   fontWeight: 700,
                   fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' }
                 }}
@@ -1181,14 +1179,12 @@ const SuperAdminReports = () => {
     fetchHospitals()
   }, [])
 
-  // ✅ Load cached data on mount
   useEffect(() => {
     const loadCachedData = () => {
       try {
         const cached = localStorage.getItem('reportData_cache')
         if (cached) {
           const parsed = JSON.parse(cached)
-          // ✅ Check if cache is not too old (5 minutes)
           if (Date.now() - parsed.timestamp < 5 * 60 * 1000) {
             console.log('📦 Loading cached report data...')
             setReportData({
@@ -1217,13 +1213,11 @@ const SuperAdminReports = () => {
     const cachedLoaded = loadCachedData()
     setInitialLoadDone(true)
     
-    // ✅ If no cache or cache expired, generate fresh data
     if (!cachedLoaded) {
       generateReport('downtime', 'monthly')
     }
   }, [])
 
-  // ✅ Save data to localStorage when it changes
   useEffect(() => {
     if (reportData?.data?.length > 0) {
       try {
@@ -1247,7 +1241,6 @@ const SuperAdminReports = () => {
     { value: 'yearly', label: 'Yearly' }
   ]
 
-  // ✅ UPDATED - Super Admin Report Types
   const superAdminReportTypes = [
     { value: 'downtime', label: '📉 Equipment Downtime Report' },
     { value: 'equipment-status', label: '📊 Equipment Wise Report' },
@@ -1270,7 +1263,6 @@ const SuperAdminReports = () => {
     }
   ]
 
-  // ✅ generateReport with unified error-summary endpoint
   const generateReport = useCallback(async (type, periodVal) => {
     const reportTypeVal = type || reportType
     const periodValActual = periodVal || period
@@ -1336,16 +1328,14 @@ const SuperAdminReports = () => {
           break
         }
 
-        // ✅ UNIFIED ERROR SUMMARY ENDPOINT - daily/weekly/monthly/yearly
         case 'monthly':
         case 'weekly':
         case 'daily':
         case 'yearly': {
           try {
-            // ✅ Use the new unified error-summary endpoint
             const response = await api.get('/reports/error-summary', {
               params: {
-                period: reportTypeVal, // daily, weekly, monthly, yearly
+                period: reportTypeVal,
                 month: new Date().getMonth() + 1,
                 year: new Date().getFullYear(),
                 hospital_id: filters.hospital || undefined,
@@ -1356,10 +1346,8 @@ const SuperAdminReports = () => {
             const reportData = response.data.data || {};
             const summary = reportData.summary || {};
             
-            // ✅ Data from trend
             data = reportData.trend || [];
             
-            // ✅ Add summary to data
             data._summary = {
               total_errors: summary.total_errors || 0,
               resolved: summary.resolved || 0,
@@ -1374,11 +1362,10 @@ const SuperAdminReports = () => {
                 : 0
             };
             
-            // ✅ Equipment breakdown and top errors for view dialog
             data._equipment = reportData.equipment_breakdown || [];
             data._topErrors = reportData.top_errors || [];
             
-            console.log(`✅ ${reportTypeVal} Error Report:`, data.length, 'rows with equipment & hospital names');
+            console.log(`✅ ${reportTypeVal} Error Report:`, data.length, 'rows');
             
             break;
           } catch (error) {
@@ -1389,7 +1376,6 @@ const SuperAdminReports = () => {
           }
         }
 
-        // ✅ EQUIPMENT WISE REPORT CASE
         case 'equipment-status': {
           try {
             const [equipmentRes, errorsRes, repairsRes, sparePartsRes] = await Promise.all([
@@ -1404,7 +1390,6 @@ const SuperAdminReports = () => {
             const repairs = repairsRes.data.repairs || [];
             const spareParts = sparePartsRes.data.spareParts || [];
 
-            // Apply filters
             let filteredEquipment = equipment;
             if (filters.hospital) {
               filteredEquipment = equipment.filter(e => 
@@ -1417,7 +1402,6 @@ const SuperAdminReports = () => {
               );
             }
 
-            // Build equipment data with all details
             const equipmentData = filteredEquipment.map(eq => {
               const eqErrors = errors.filter(e => e.equipment_id === eq.id);
               const eqRepairs = repairs.filter(r => {
@@ -1426,7 +1410,6 @@ const SuperAdminReports = () => {
               });
               const eqSpareParts = spareParts.filter(sp => sp.equipment_id === eq.id);
 
-              // Calculate downtime from resolved errors
               let downtimeHours = 0;
               const resolvedErrors = eqErrors.filter(e => ['Resolved', 'Closed', 'Completed'].includes(e.status));
               resolvedErrors.forEach(e => {
@@ -1436,7 +1419,6 @@ const SuperAdminReports = () => {
                 }
               });
 
-              // Calculate inactive and maintenance time based on status
               let inactiveHours = 0;
               let maintenanceHours = 0;
               
@@ -1464,20 +1446,16 @@ const SuperAdminReports = () => {
                 location: eq.location || 'N/A',
                 installation_year: eq.installation_year || 'N/A',
                 equipment_added_on: eq.created_at || 'N/A',
-                // Status duration
                 total_inactive_hours: inactiveHours.toFixed(1),
                 total_maintenance_hours: maintenanceHours.toFixed(1),
                 total_downtime_hours: totalDowntimeHours.toFixed(1),
                 total_downtime_days: (totalDowntimeHours / 24).toFixed(2),
-                // Error stats
                 total_errors: eqErrors.length,
                 open_errors: eqErrors.filter(e => ['Pending', 'In Progress', 'Open'].includes(e.status)).length,
                 resolved_errors: resolvedErrors.length,
                 critical_errors: eqErrors.filter(e => e.severity === 'Critical' || e.priority === 'Critical').length,
-                // Repair stats
                 total_repairs: eqRepairs.length,
                 completed_repairs: eqRepairs.filter(r => r.status === 'Completed').length,
-                // Spare parts stats
                 total_spare_parts: eqSpareParts.length,
                 spare_parts_in_stock: eqSpareParts.filter(sp => sp.status === 'In Stock').length,
                 spare_parts_low_stock: eqSpareParts.filter(sp => sp.status === 'Low Stock').length,
@@ -1486,7 +1464,6 @@ const SuperAdminReports = () => {
               };
             });
 
-            // Calculate summary stats
             const stats = {
               total: equipmentData.length,
               active: equipmentData.filter(d => d.current_status === 'Active').length,
@@ -1512,12 +1489,10 @@ const SuperAdminReports = () => {
           }
         }
 
-        // ✅ MAINTENANCE REPORT CASE
         case 'maintenance': {
           const response = await api.get('/maintenance')
           let maintenanceData = response.data.schedules || response.data || []
           
-          // Apply date filters
           if (filters.startDate) {
             const start = new Date(`${filters.startDate}T00:00:00`)
             maintenanceData = maintenanceData.filter(m => {
@@ -1543,18 +1518,14 @@ const SuperAdminReports = () => {
             )
           }
 
-          // Get errors for downtime calculation
           const errorsRes = await api.get('/errors')
           const allErrors = errorsRes.data.errors || []
           
-          // Calculate downtime for each maintenance
           const dataWithDowntime = maintenanceData.map(m => {
-            // Get errors for this equipment
             const equipmentErrors = allErrors.filter(e => 
               e.equipment_id === m.equipment_id
             )
             
-            // Calculate total downtime (resolved errors only)
             let totalDowntimeHours = 0
             let resolvedErrors = 0
             let criticalErrors = 0
@@ -1577,7 +1548,6 @@ const SuperAdminReports = () => {
             
             const downtimeDays = totalDowntimeHours / 24
             
-            // Check if overdue
             const isOverdue = m.next_due_date && new Date(m.next_due_date) < new Date()
             const isCompleted = String(m.status).toLowerCase() === 'completed'
             
@@ -1596,14 +1566,12 @@ const SuperAdminReports = () => {
             }
           })
           
-          // Sort: Overdue first, then by next_due_date
           dataWithDowntime.sort((a, b) => {
             if (a.is_overdue && !b.is_overdue) return -1
             if (!a.is_overdue && b.is_overdue) return 1
             return (a.next_due_date || '').localeCompare(b.next_due_date || '')
           })
           
-          // Calculate summary stats
           const stats = {
             total: dataWithDowntime.length,
             scheduled: dataWithDowntime.filter(m => m.status === 'Scheduled').length,
@@ -1619,34 +1587,27 @@ const SuperAdminReports = () => {
             critical_errors: dataWithDowntime.reduce((sum, m) => sum + (m.critical_errors || 0), 0)
           }
           
-          // Add summary to data
           dataWithDowntime._summary = stats
           data = dataWithDowntime
           break
         }
 
-        // ✅ SPARE PARTS CASE - FIXED (removed individual downtime API calls)
         case 'spare-parts': {
           try {
-            // Get all spare parts
             const response = await api.get('/spare-parts')
             const allParts = response.data.spareParts || []
             
             console.log('🔩 Spare Parts Raw:', allParts.length)
             
-            // Get equipment for reference
             const equipmentRes = await api.get('/equipment')
             const equipment = equipmentRes.data.equipment || []
             
             console.log('🛠️ Equipment:', equipment.length)
             
-            // ✅ Build spare parts data with equipment info
             const dataWithDetails = allParts.map(part => {
-              // Find equipment using this part based on compatible_equipment field
               let equipmentNames = []
               let equipmentIds = []
               
-              // Check if part has compatible_equipment field
               if (part.compatible_equipment) {
                 const compatibleList = part.compatible_equipment.split(',').map(s => s.trim().toLowerCase())
                 equipment.forEach(eq => {
@@ -1658,7 +1619,6 @@ const SuperAdminReports = () => {
                 })
               }
               
-              // Also check if any equipment has this part_id
               equipment.forEach(eq => {
                 if (String(eq.part_id) === String(part.id)) {
                   if (!equipmentNames.includes(eq.name)) {
@@ -1668,7 +1628,6 @@ const SuperAdminReports = () => {
                 }
               })
               
-              // If equipment_id is directly on part
               if (part.equipment_id) {
                 const eq = equipment.find(e => String(e.id) === String(part.equipment_id))
                 if (eq && !equipmentNames.includes(eq.name)) {
@@ -1677,12 +1636,10 @@ const SuperAdminReports = () => {
                 }
               }
               
-              // If still no equipment, mark as N/A
               if (equipmentNames.length === 0) {
                 equipmentNames = ['N/A']
               }
               
-              // Calculate downtime days - use available fields from part data
               const downtimeDays = part.total_downtime_days || part.downtime_days || 0
               const totalDowntimeHours = part.total_downtime_hours || part.downtime_hours || 0
               
@@ -1698,24 +1655,20 @@ const SuperAdminReports = () => {
                 unit_cost: part.unit_cost || 0,
                 total_cost: part.total_cost || 0,
                 compatible_equipment: part.compatible_equipment || 'N/A',
-                // ✅ Usage Stats (from backend)
                 times_used: part.times_used || 0,
                 last_used_at: part.last_used_at || null,
-                // ✅ Downtime Stats (from backend)
                 times_out_of_stock: part.times_out_of_stock || 0,
                 first_out_of_stock: part.first_out_of_stock || null,
                 last_back_in_stock: part.last_back_in_stock || null,
                 total_downtime_hours: Number(totalDowntimeHours) || 0,
                 total_downtime_days: Number(downtimeDays).toFixed(1),
                 is_currently_out: part.status === 'Out of Stock',
-                // ✅ Equipment Info
                 equipment_count: equipmentNames.length,
                 equipment_names: equipmentNames.join(', '),
                 equipment_ids: equipmentIds
               }
             })
             
-            // Apply filters
             let filteredData = dataWithDetails
             if (filters.status) {
               filteredData = filteredData.filter(p => 
@@ -1732,7 +1685,6 @@ const SuperAdminReports = () => {
               )
             }
             
-            // Calculate summary stats
             const stats = {
               total_parts: filteredData.length,
               out_of_stock: filteredData.filter(p => p.status === 'Out of Stock').length,
@@ -1749,7 +1701,6 @@ const SuperAdminReports = () => {
             data = filteredData
             
             console.log('✅ Spare Parts Data with Equipment:', data.length)
-            console.log('📊 Sample:', data[0])
             break
           } catch (error) {
             console.error('❌ Spare parts error:', error)
@@ -1820,9 +1771,7 @@ const SuperAdminReports = () => {
           break
         }
 
-        // ✅ HOSPITAL REPORT CASE - FIXED RESPONSE MAPPING
         case 'hospital': {
-          // ✅ FIXED: Using /error-logs API with correct response mapping
           const [hospitalsRes, equipmentRes, errorLogsRes] = await Promise.all([
             api.get('/hospitals'),
             api.get('/equipment'),
@@ -1831,15 +1780,12 @@ const SuperAdminReports = () => {
           
           const hospitals = hospitalsRes.data.hospitals || []
           const equipment = equipmentRes.data.equipment || []
-          
-          // ✅ FIX: The API returns { success: true, errors: [...] }
           const errorLogs = errorLogsRes.data.errors || []
           
           console.log('🏥 Hospitals:', hospitals.length)
           console.log('🛠️ Equipment:', equipment.length)
           console.log('❌ Error Logs:', errorLogs.length)
 
-          // Apply filters
           let filteredEquipment = equipment
           if (filters.hospital) {
             filteredEquipment = equipment.filter(e => 
@@ -1868,7 +1814,6 @@ const SuperAdminReports = () => {
             })
           }
 
-          // Build hospital data
           const hospitalData = hospitals
             .filter(h => !filters.hospital || String(h.id) === String(filters.hospital))
             .map(h => {
@@ -1880,7 +1825,6 @@ const SuperAdminReports = () => {
                 equipmentIds.includes(e.equipment_id)
               )
 
-              // Calculate stats
               const totalEquipment = hospitalEquipment.length
               const totalErrors = hospitalErrors.length
               const resolvedErrors = hospitalErrors.filter(e => e.status === 'Resolved' || e.status === 'Closed').length
@@ -1888,7 +1832,6 @@ const SuperAdminReports = () => {
               const inProgressErrors = hospitalErrors.filter(e => e.status === 'In Progress').length
               const criticalErrors = hospitalErrors.filter(e => e.priority === 'Critical' || e.severity === 'Critical').length
 
-              // Calculate downtime
               let downtimeHours = 0
               hospitalErrors.forEach(e => {
                 if (e.status === 'Resolved' || e.status === 'Closed') {
@@ -1905,13 +1848,11 @@ const SuperAdminReports = () => {
                 }
               })
 
-              // Calculate availability
               const totalPossibleHours = totalEquipment * 8760
               const availability = totalPossibleHours > 0 
                 ? Number((Math.max(0, ((totalPossibleHours - downtimeHours) / totalPossibleHours) * 100)).toFixed(1))
                 : 100
 
-              // Resolution rate
               const resolutionRate = totalErrors > 0 
                 ? Number(((resolvedErrors / totalErrors) * 100).toFixed(1))
                 : 0
@@ -1940,7 +1881,6 @@ const SuperAdminReports = () => {
               }
             })
 
-          // Add summary
           const summary = {
             total_hospitals: hospitalData.length,
             total_equipment: hospitalData.reduce((sum, d) => sum + d.total_equipment, 0),
@@ -1959,11 +1899,9 @@ const SuperAdminReports = () => {
           data = hospitalData
           
           console.log('✅ Hospital Data:', data.length, 'hospitals')
-          console.log('📊 Summary:', summary)
           break
         }
 
-        // ✅ AMC CASE - CLOSED REMOVED, ONLY RESOLVED FOR DOWNTIME
         case 'amc': {
           const response = await api.get('/amc')
           const contracts = response.data.contracts || []
@@ -2053,7 +1991,6 @@ const SuperAdminReports = () => {
     }
   }, [reportType, period, filters])
 
-  // ✅ Fixed useEffect with proper dependencies
   useEffect(() => {
     if (initialLoadDone && !reportData) {
       generateReport(reportType, period)
@@ -2293,6 +2230,7 @@ const SuperAdminReports = () => {
           width: { xs: '100%', sm: 'auto' },
           justifyContent: { xs: 'flex-start', sm: 'flex-end' }
         }}>
+          {/* ✅ REFRESH BUTTON - BORDER STYLE */}
           <Button
             variant="outlined"
             onClick={handleRefresh}
@@ -2300,22 +2238,33 @@ const SuperAdminReports = () => {
             size={isMobile ? 'small' : 'medium'}
             sx={{
               flex: { xs: '1 1 auto', sm: 'none' },
-              borderColor: '#0F172A',
-              color: '#0F172A',
-              '&:hover': { 
-                borderColor: '#67E8F9', 
-                color: '#67E8F9',
-                boxShadow: '0 0 20px rgba(103, 232, 249, 0.1)',
-                bgcolor: 'rgba(103, 232, 249, 0.05)',
-              },
+              borderColor: colors.lightCyan,
+              color: colors.lightCyan,
+              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
               borderRadius: 2,
               textTransform: 'none',
               fontWeight: 600,
+              transition: 'all 0.3s ease',
+              '&:hover': { 
+                bgcolor: colors.lightCyan,
+                color: colors.darkNavy,
+                borderColor: colors.lightCyan,
+                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+                transform: 'translateY(-2px)',
+              },
+              '&:active': {
+                bgcolor: colors.lightCyan,
+                color: colors.darkNavy,
+                borderColor: colors.lightCyan,
+                transform: 'scale(0.96)',
+              }
             }}
             startIcon={loading ? <Refresh sx={{ animation: 'spin 1s linear infinite' }} /> : <Refresh />}
           >
             {loading ? 'Loading...' : 'Refresh'}
           </Button>
+
+          {/* ✅ EXPORT BUTTON - PROMINENT SOLID */}
           <Button
             variant="contained"
             onClick={handleExportClick}
@@ -2323,15 +2272,19 @@ const SuperAdminReports = () => {
             size={isMobile ? 'small' : 'medium'}
             sx={{
               flex: { xs: '1 1 auto', sm: 'none' },
-              bgcolor: '#0F172A',
-              '&:hover': { 
-                bgcolor: '#1E3A5F',
-                boxShadow: '0 4px 24px rgba(103, 232, 249, 0.3)',
-              },
-              boxShadow: '0 4px 16px rgba(103, 232, 249, 0.15)',
+              bgcolor: colors.darkNavy,
+              color: colors.text,
+              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
               borderRadius: 2,
+              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
               textTransform: 'none',
               fontWeight: 600,
+              '&:hover': { 
+                bgcolor: colors.darkNavyHover,
+                boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
+                transform: 'translateY(-2px)',
+              },
+              transition: 'all 0.3s ease',
             }}
             startIcon={<Download />}
           >
@@ -2388,15 +2341,14 @@ const SuperAdminReports = () => {
         </MenuItem>
       </Menu>
 
-      {/* ✅ STATS CARDS - Super Admin Report Stats */}
+      {/* STATS CARDS - Super Admin Report Stats */}
       {isEquipmentWiseReport ? (
         <Grid container spacing={isMobile ? 1 : 2} sx={{ mb: 3 }}>
           <Grid item xs={6} sm={2.4}>
             <StatsCard
               title="Total Equipment"
               value={filteredData._summary?.total || filteredData.length}
-              color="#0F172A"
-              icon={<MedicalServices sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<MedicalServices sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2404,9 +2356,7 @@ const SuperAdminReports = () => {
             <StatsCard
               title="Active"
               value={filteredData._summary?.active || 0}
-              color="#22C55E"
-              bgColor="#22C55E10"
-              icon={<CheckCircle sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<CheckCircle sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2414,9 +2364,7 @@ const SuperAdminReports = () => {
             <StatsCard
               title="Inactive"
               value={filteredData._summary?.inactive || 0}
-              color="#EF4444"
-              bgColor="#EF444410"
-              icon={<Cancel sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<Cancel sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2424,9 +2372,7 @@ const SuperAdminReports = () => {
             <StatsCard
               title="Maintenance"
               value={filteredData._summary?.maintenance || 0}
-              color="#F59E0B"
-              bgColor="#F59E0B10"
-              icon={<Build sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<Build sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2435,9 +2381,7 @@ const SuperAdminReports = () => {
               title="Total Downtime"
               value={Number(filteredData._summary?.total_downtime_days || 0).toFixed(1)}
               subtitle="Days"
-              color="#EF4444"
-              bgColor="#EF444410"
-              icon={<TimerOff sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<TimerOff sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2448,8 +2392,7 @@ const SuperAdminReports = () => {
             <StatsCard
               title="Total Hospitals"
               value={filteredData._summary?.total_hospitals || filteredData.length}
-              color="#0F172A"
-              icon={<Business sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<Business sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2457,9 +2400,7 @@ const SuperAdminReports = () => {
             <StatsCard
               title="Total Equipment"
               value={filteredData._summary?.total_equipment || 0}
-              color="#3B82F6"
-              bgColor="#3B82F610"
-              icon={<MedicalServices sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<MedicalServices sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2467,9 +2408,7 @@ const SuperAdminReports = () => {
             <StatsCard
               title="Total Errors"
               value={filteredData._summary?.total_errors || 0}
-              color="#EF4444"
-              bgColor="#EF444410"
-              icon={<ErrorOutline sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<ErrorOutline sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2477,9 +2416,7 @@ const SuperAdminReports = () => {
             <StatsCard
               title="Resolved"
               value={filteredData._summary?.total_resolved || 0}
-              color="#22C55E"
-              bgColor="#22C55E10"
-              icon={<CheckCircle sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<CheckCircle sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2488,9 +2425,7 @@ const SuperAdminReports = () => {
               title="Total Downtime"
               value={Number(filteredData._summary?.total_downtime_days || 0).toFixed(1)}
               subtitle="Days"
-              color="#EF4444"
-              bgColor="#EF444410"
-              icon={<TimerOff sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<TimerOff sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2501,8 +2436,7 @@ const SuperAdminReports = () => {
             <StatsCard
               title="Total Tasks"
               value={filteredData._summary?.total || filteredData.length}
-              color="#0F172A"
-              icon={<Assessment sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<Assessment sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2510,9 +2444,7 @@ const SuperAdminReports = () => {
             <StatsCard
               title="Scheduled"
               value={filteredData._summary?.scheduled || 0}
-              color="#3B82F6"
-              bgColor="#3B82F610"
-              icon={<Schedule sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<Schedule sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2520,9 +2452,7 @@ const SuperAdminReports = () => {
             <StatsCard
               title="In Progress"
               value={filteredData._summary?.in_progress || 0}
-              color="#F59E0B"
-              bgColor="#F59E0B10"
-              icon={<Build sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<Build sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2530,9 +2460,7 @@ const SuperAdminReports = () => {
             <StatsCard
               title="Overdue"
               value={filteredData._summary?.overdue || 0}
-              color="#EF4444"
-              bgColor="#EF444410"
-              icon={<Warning sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<Warning sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2541,9 +2469,7 @@ const SuperAdminReports = () => {
               title="Downtime"
               value={filteredData._summary?.total_downtime_days || '0'}
               subtitle="Days"
-              color="#EF4444"
-              bgColor="#EF444410"
-              icon={<TimerOff sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<TimerOff sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2554,8 +2480,7 @@ const SuperAdminReports = () => {
             <StatsCard
               title="Total Contracts"
               value={filteredData.length}
-              color="#0F172A"
-              icon={<Receipt sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<Receipt sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2563,9 +2488,7 @@ const SuperAdminReports = () => {
             <StatsCard
               title="Active"
               value={filteredData.filter(d => d.status === 'Active' || d.status === 'In Progress').length}
-              color="#22C55E"
-              bgColor="#22C55E10"
-              icon={<CheckCircle sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<CheckCircle sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2573,9 +2496,7 @@ const SuperAdminReports = () => {
             <StatsCard
               title="Expired"
               value={filteredData.filter(d => d.status === 'Expired').length}
-              color="#EF4444"
-              bgColor="#EF444410"
-              icon={<Cancel sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<Cancel sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2583,9 +2504,7 @@ const SuperAdminReports = () => {
             <StatsCard
               title="Total Errors"
               value={filteredData.reduce((sum, row) => sum + (row.total_errors || 0), 0)}
-              color="#F59E0B"
-              bgColor="#F59E0B10"
-              icon={<ErrorOutline sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<ErrorOutline sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2593,9 +2512,7 @@ const SuperAdminReports = () => {
             <StatsCard
               title="Total Downtime"
               value={`${Number(filteredData.reduce((sum, row) => sum + parseFloat(row.total_downtime_days || 0), 0)).toFixed(1)} days`}
-              color="#EF4444"
-              bgColor="#EF444410"
-              icon={<TimerOff sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<TimerOff sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2606,8 +2523,7 @@ const SuperAdminReports = () => {
             <StatsCard
               title="Total Parts"
               value={filteredData.length}
-              color="#0F172A"
-              icon={<Inventory sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<Inventory sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2615,9 +2531,7 @@ const SuperAdminReports = () => {
             <StatsCard
               title="In Stock"
               value={filteredData._summary?.in_stock || 0}
-              color="#22C55E"
-              bgColor="#22C55E10"
-              icon={<CheckCircle sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<CheckCircle sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2625,9 +2539,7 @@ const SuperAdminReports = () => {
             <StatsCard
               title="Low Stock"
               value={filteredData._summary?.low_stock || 0}
-              color="#F59E0B"
-              bgColor="#F59E0B10"
-              icon={<Warning sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<Warning sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2635,9 +2547,7 @@ const SuperAdminReports = () => {
             <StatsCard
               title="Out of Stock"
               value={filteredData._summary?.out_of_stock || 0}
-              color="#EF4444"
-              bgColor="#EF444410"
-              icon={<Cancel sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<Cancel sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2646,9 +2556,7 @@ const SuperAdminReports = () => {
               title="Total Downtime"
               value={Number(filteredData._summary?.total_downtime_days || 0).toFixed(1)}
               subtitle="Days"
-              color="#EF4444"
-              bgColor="#EF444410"
-              icon={<TimerOff sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<TimerOff sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2659,8 +2567,7 @@ const SuperAdminReports = () => {
             <StatsCard
               title="Equipment"
               value={filteredData.length}
-              color="#0F172A"
-              icon={<MedicalServices sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<MedicalServices sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2668,9 +2575,7 @@ const SuperAdminReports = () => {
             <StatsCard
               title="Total Failures"
               value={filteredData.reduce((sum, row) => sum + num(row['Total Failures']), 0)}
-              color="#F59E0B"
-              bgColor="#F59E0B10"
-              icon={<ErrorOutline sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<ErrorOutline sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2678,9 +2583,7 @@ const SuperAdminReports = () => {
             <StatsCard
               title="Critical Failures"
               value={filteredData.reduce((sum, row) => sum + num(row['Critical Failures']), 0)}
-              color="#EF4444"
-              bgColor="#EF444410"
-              icon={<Warning sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<Warning sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2688,9 +2591,7 @@ const SuperAdminReports = () => {
             <StatsCard
               title="Total Downtime"
               value={`${Number(filteredData.reduce((sum, row) => sum + parseFloat(row['Total Downtime (Days)'] || 0), 0)).toFixed(1)} days`}
-              color="#EF4444"
-              bgColor="#EF444410"
-              icon={<TimerOff sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<TimerOff sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2702,9 +2603,7 @@ const SuperAdminReports = () => {
                   .map(row => parseFloat(String(row['Availability %'] || '').replace('%', '')))
                   .filter(Number.isFinite)
               ).toFixed(1)}%`}
-              color="#6f42c1"
-              bgColor="#f3e5f5"
-              icon={<TrendingUp sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<TrendingUp sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2715,8 +2614,7 @@ const SuperAdminReports = () => {
             <StatsCard
               title="Total Engineers"
               value={filteredData.length}
-              color="#0F172A"
-              icon={<Engineering sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<Engineering sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2724,8 +2622,7 @@ const SuperAdminReports = () => {
             <StatsCard
               title="Total Repairs"
               value={filteredData.reduce((sum, row) => sum + row.total_repairs, 0)}
-              color="#0F172A"
-              icon={<Build sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<Build sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2733,9 +2630,7 @@ const SuperAdminReports = () => {
             <StatsCard
               title="Completed"
               value={filteredData.reduce((sum, row) => sum + row.completed, 0)}
-              color="#22C55E"
-              bgColor="#22C55E10"
-              icon={<CheckCircle sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<CheckCircle sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2743,9 +2638,7 @@ const SuperAdminReports = () => {
             <StatsCard
               title="Pending"
               value={filteredData.reduce((sum, row) => sum + row.pending, 0)}
-              color="#F59E0B"
-              bgColor="#F59E0B10"
-              icon={<Schedule sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<Schedule sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2753,9 +2646,7 @@ const SuperAdminReports = () => {
             <StatsCard
               title="Avg Days"
               value={`${(filteredData.reduce((sum, row) => sum + parseFloat(row.avg_days || 0), 0) / (filteredData.length || 1)).toFixed(1)} days`}
-              color="#6f42c1"
-              bgColor="#f3e5f5"
-              icon={<TimerOff sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<TimerOff sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2766,8 +2657,7 @@ const SuperAdminReports = () => {
             <StatsCard
               title="Total Errors"
               value={filteredData._summary?.total_errors || 0}
-              color="#0F172A"
-              icon={<Assessment sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<Assessment sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2775,9 +2665,7 @@ const SuperAdminReports = () => {
             <StatsCard
               title="Resolved"
               value={filteredData._summary?.resolved || 0}
-              color="#22C55E"
-              bgColor="#22C55E10"
-              icon={<CheckCircle sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<CheckCircle sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2785,9 +2673,7 @@ const SuperAdminReports = () => {
             <StatsCard
               title="Pending"
               value={filteredData._summary?.pending || 0}
-              color="#F59E0B"
-              bgColor="#F59E0B10"
-              icon={<Schedule sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<Schedule sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2795,9 +2681,7 @@ const SuperAdminReports = () => {
             <StatsCard
               title="Critical"
               value={filteredData._summary?.critical || 0}
-              color="#EF4444"
-              bgColor="#EF444410"
-              icon={<Warning sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<Warning sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2805,9 +2689,7 @@ const SuperAdminReports = () => {
             <StatsCard
               title="Resolution Rate"
               value={filteredData._summary?.resolution_rate || '0.0%'}
-              color="#6f42c1"
-              bgColor="#f3e5f5"
-              icon={<BarChart sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<BarChart sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2818,8 +2700,7 @@ const SuperAdminReports = () => {
             <StatsCard
               title="Total Records"
               value={totalRecords}
-              color="#0F172A"
-              icon={<Assessment sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<Assessment sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2827,9 +2708,7 @@ const SuperAdminReports = () => {
             <StatsCard
               title="Active"
               value={filteredData.filter(d => d.status === 'Active' || d.status === 'Completed' || d.status === 'Resolved').length}
-              color="#22C55E"
-              bgColor="#22C55E10"
-              icon={<CheckCircle sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<CheckCircle sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2837,9 +2716,7 @@ const SuperAdminReports = () => {
             <StatsCard
               title="Pending"
               value={filteredData.filter(d => d.status === 'Pending' || d.status === 'In Progress' || d.status === 'Scheduled').length}
-              color="#F59E0B"
-              bgColor="#F59E0B10"
-              icon={<Schedule sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<Schedule sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2847,9 +2724,7 @@ const SuperAdminReports = () => {
             <StatsCard
               title="Critical"
               value={filteredData.filter(d => d.severity === 'Critical' || d.priority === 'Critical' || d.critical_errors > 0).length}
-              color="#EF4444"
-              bgColor="#EF444410"
-              icon={<Warning sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<Warning sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2857,9 +2732,7 @@ const SuperAdminReports = () => {
             <StatsCard
               title="Downtime"
               value={`${Number(filteredData.reduce((sum, row) => sum + parseFloat(row['Total Downtime (Days)'] || row.downtime_days || 0), 0)).toFixed(1)} days`}
-              color="#EF4444"
-              bgColor="#EF444410"
-              icon={<TimerOff sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<TimerOff sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2985,39 +2858,50 @@ const SuperAdminReports = () => {
                   ))}
                 </Select>
               </FormControl>
+
+              {/* ✅ FILTER BUTTON - PROMINENT SOLID */}
               <Button
-                variant="outlined"
+                variant="contained"
                 onClick={handleFilterClick}
                 sx={{
-                  borderColor: '#0F172A',
-                  color: '#0F172A',
-                  '&:hover': { 
-                    borderColor: '#67E8F9', 
-                    color: '#67E8F9',
-                    bgcolor: 'rgba(103, 232, 249, 0.05)',
-                  },
+                  bgcolor: colors.darkNavy,
+                  color: colors.text,
+                  fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                   borderRadius: 2,
+                  boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
                   textTransform: 'none',
                   fontWeight: 600,
+                  '&:hover': { 
+                    bgcolor: colors.darkNavyHover,
+                    boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
+                    transform: 'translateY(-2px)',
+                  },
+                  transition: 'all 0.3s ease',
                 }}
                 startIcon={<FilterList />}
               >
                 Filter
               </Button>
+
+              {/* ✅ GENERATE REPORT BUTTON - PROMINENT SOLID */}
               <Button
                 variant="contained"
                 onClick={() => generateReport(reportType, period)}
                 disabled={loading}
                 sx={{
-                  bgcolor: '#0F172A',
-                  '&:hover': { 
-                    bgcolor: '#1E3A5F',
-                    boxShadow: '0 4px 24px rgba(103, 232, 249, 0.3)',
-                  },
+                  bgcolor: colors.darkNavy,
+                  color: colors.text,
+                  fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                   borderRadius: 2,
-                  boxShadow: '0 4px 16px rgba(103, 232, 249, 0.15)',
+                  boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
                   textTransform: 'none',
                   fontWeight: 600,
+                  '&:hover': { 
+                    bgcolor: colors.darkNavyHover,
+                    boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
+                    transform: 'translateY(-2px)',
+                  },
+                  transition: 'all 0.3s ease',
                 }}
                 startIcon={<Refresh />}
               >
@@ -3105,14 +2989,16 @@ const SuperAdminReports = () => {
                   onClick={() => generateReport(reportType, period)}
                   disabled={loading}
                   sx={{
-                    bgcolor: '#0F172A',
-                    '&:hover': { 
-                      bgcolor: '#1E3A5F',
-                      boxShadow: '0 4px 24px rgba(103, 232, 249, 0.3)',
-                    },
+                    bgcolor: colors.darkNavy,
+                    color: colors.text,
                     borderRadius: 2,
+                    boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
                     textTransform: 'none',
                     fontWeight: 600,
+                    '&:hover': { 
+                      bgcolor: colors.darkNavyHover,
+                      boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
+                    },
                   }}
                   fullWidth
                   size="small"
@@ -3147,7 +3033,7 @@ const SuperAdminReports = () => {
         additionalFilters={additionalFilters}
       />
 
-      {/* ✅ TABLE - Super Admin Report Table */}
+      {/* TABLE - Super Admin Report Table */}
       <Paper sx={{ 
         borderRadius: 3, 
         overflow: 'hidden', 
@@ -3162,7 +3048,6 @@ const SuperAdminReports = () => {
             }}>
               <TableRow>
                 {isEquipmentWiseReport ? (
-                  // ✅ EQUIPMENT WISE REPORT TABLE HEADERS
                   <>
                     <TableCell sx={{ color: 'white', fontWeight: 700 }}>Equipment</TableCell>
                     <TableCell sx={{ color: 'white', fontWeight: 700 }}>Model</TableCell>
@@ -3177,7 +3062,6 @@ const SuperAdminReports = () => {
                     <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Actions</TableCell>
                   </>
                 ) : isHospitalReport ? (
-                  // ✅ HOSPITAL REPORT TABLE HEADERS
                   <>
                     <TableCell sx={{ color: 'white', fontWeight: 700 }}>Hospital</TableCell>
                     <TableCell sx={{ color: 'white', fontWeight: 700 }}>City</TableCell>
@@ -3192,34 +3076,31 @@ const SuperAdminReports = () => {
                     <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Actions</TableCell>
                   </>
                 ) : isMaintenanceReport ? (
-                  // ✅ MAINTENANCE TABLE HEADERS
                   <>
-                    <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Equipment</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Type</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Next Due</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Status</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Engineer</TableCell>
-                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Downtime (Days)</TableCell>
-                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Availability</TableCell>
-                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Actions</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 700 }}>Equipment</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 700 }}>Type</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 700 }}>Next Due</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 700 }}>Status</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 700 }}>Engineer</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Downtime (Days)</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Availability</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Actions</TableCell>
                   </>
                 ) : isAMCReport ? (
-                  // ✅ AMC Table Headers
                   <>
-                    <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Contract</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Equipment</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Hospital</TableCell>
-                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Status</TableCell>
-                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Errors</TableCell>
-                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Pending</TableCell>
-                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>In Progress</TableCell>
-                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Resolved</TableCell>
-                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Downtime (Days)</TableCell>
-                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Days Left</TableCell>
-                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Actions</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 700 }}>Contract</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 700 }}>Equipment</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 700 }}>Hospital</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Status</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Errors</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Pending</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>In Progress</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Resolved</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Downtime (Days)</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Days Left</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Actions</TableCell>
                   </>
                 ) : isSparePartsReport ? (
-                  // ✅ SPARE PARTS TABLE HEADERS
                   <>
                     <TableCell sx={{ color: 'white', fontWeight: 700 }}>Part Name</TableCell>
                     <TableCell sx={{ color: 'white', fontWeight: 700 }}>Part #</TableCell>
@@ -3235,51 +3116,50 @@ const SuperAdminReports = () => {
                   </>
                 ) : reportType === 'downtime' ? (
                   <>
-                    <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Equipment</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Hospital</TableCell>
-                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Failures</TableCell>
-                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Critical</TableCell>
-                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Downtime (Days)</TableCell>
-                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Availability</TableCell>
-                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Actions</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 700 }}>Equipment</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 700 }}>Hospital</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Failures</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Critical</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Downtime (Days)</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Availability</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Actions</TableCell>
                   </>
                 ) : reportType === 'engineer-performance' ? (
                   <>
-                    <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Engineer</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Hospital</TableCell>
-                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Total Repairs</TableCell>
-                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Completed</TableCell>
-                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Pending</TableCell>
-                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Critical</TableCell>
-                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Avg Days</TableCell>
-                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Completion Rate</TableCell>
-                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Status</TableCell>
-                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Actions</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 700 }}>Engineer</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 700 }}>Hospital</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Total Repairs</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Completed</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Pending</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Critical</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Avg Days</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Completion Rate</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Status</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Actions</TableCell>
                   </>
                 ) : isErrorReport ? (
-                  // ✅ ERROR REPORT TABLE HEADERS WITH EQUIPMENT & HOSPITAL
                   <>
-                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>
                       {reportType === 'daily' ? 'Date' : 
                        reportType === 'weekly' ? 'Week' : 
                        reportType === 'monthly' ? 'Month' : 'Year'}
                     </TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Equipment</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Hospital</TableCell>
-                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Total</TableCell>
-                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Resolved</TableCell>
-                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Pending</TableCell>
-                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>In Progress</TableCell>
-                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Critical</TableCell>
-                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Actions</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 700 }}>Equipment</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 700 }}>Hospital</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Total</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Resolved</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Pending</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>In Progress</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Critical</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Actions</TableCell>
                   </>
                 ) : (
                   <>
-                    <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Title</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Type</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Status</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Date</TableCell>
-                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700, letterSpacing: '0.5px' }}>Actions</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 700 }}>Title</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 700 }}>Type</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 700 }}>Status</TableCell>
+                    <TableCell sx={{ color: 'white', fontWeight: 700 }}>Date</TableCell>
+                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Actions</TableCell>
                   </>
                 )}
               </TableRow>
@@ -3338,7 +3218,6 @@ const SuperAdminReports = () => {
                     }}
                   >
                     {isEquipmentWiseReport ? (
-                      // ✅ EQUIPMENT WISE REPORT TABLE ROWS
                       <>
                         <TableCell>
                           <Typography variant="body2" fontWeight={500} sx={{ color: '#0F172A' }}>
@@ -3424,7 +3303,6 @@ const SuperAdminReports = () => {
                         </TableCell>
                       </>
                     ) : isHospitalReport ? (
-                      // ✅ HOSPITAL REPORT TABLE ROWS
                       <>
                         <TableCell>
                           <Typography variant="body2" fontWeight={600} sx={{ color: '#0F172A' }}>
@@ -3499,7 +3377,6 @@ const SuperAdminReports = () => {
                         </TableCell>
                       </>
                     ) : isMaintenanceReport ? (
-                      // ✅ MAINTENANCE TABLE ROWS
                       <>
                         <TableCell>
                           <Typography variant="body2" fontWeight={500} sx={{ color: '#0F172A' }}>
@@ -3584,7 +3461,6 @@ const SuperAdminReports = () => {
                         </TableCell>
                       </>
                     ) : isAMCReport ? (
-                      // ✅ AMC Table Rows
                       <>
                         <TableCell>
                           <Typography variant="body2" fontWeight={600} sx={{ color: '#0F172A' }}>
@@ -3707,7 +3583,6 @@ const SuperAdminReports = () => {
                         </TableCell>
                       </>
                     ) : isSparePartsReport ? (
-                      // ✅ SPARE PARTS TABLE ROWS
                       <>
                         <TableCell>
                           <Typography variant="body2" fontWeight={500} sx={{ color: '#0F172A' }}>
@@ -3903,7 +3778,6 @@ const SuperAdminReports = () => {
                         </TableCell>
                       </>
                     ) : isErrorReport ? (
-                      // ✅ ERROR REPORT TABLE ROWS WITH EQUIPMENT & HOSPITAL
                       <>
                         <TableCell align="center">
                           <Typography variant="body2" fontWeight={600} sx={{ color: '#0F172A' }}>
@@ -4087,7 +3961,6 @@ const SuperAdminReports = () => {
                 </Paper>
               </Grid>
 
-              {/* ✅ Equipment Wise Report - Spare Parts Section */}
               {isEquipmentWiseReport && selectedItem && (selectedItem.total_spare_parts !== undefined) && (
                 <Grid item xs={12}>
                   <Typography variant="subtitle2" sx={{ color: '#64748B', mb: 1, fontWeight: 600 }}>
@@ -4137,7 +4010,6 @@ const SuperAdminReports = () => {
                 </Grid>
               )}
 
-              {/* ✅ Maintenance Schedule Section */}
               {selectedItem.last_maintenance_date !== undefined && (
                 <Grid item xs={12} md={6}>
                   <Typography variant="subtitle2" sx={{ color: '#64748B', mb: 1, fontWeight: 600 }}>
@@ -4166,7 +4038,6 @@ const SuperAdminReports = () => {
                 </Grid>
               )}
 
-              {/* ✅ Downtime & Availability Section */}
               {selectedItem.total_downtime_days !== undefined && (
                 <Grid item xs={12} md={6}>
                   <Typography variant="subtitle2" sx={{ color: '#64748B', mb: 1, fontWeight: 600 }}>
@@ -4222,7 +4093,6 @@ const SuperAdminReports = () => {
                 </Grid>
               )}
 
-              {/* Spare Parts Details */}
               {selectedItem.part_name !== undefined && !isEquipmentWiseReport && (
                 <Grid item xs={12} md={6}>
                   <Typography variant="subtitle2" sx={{ color: '#64748B', mb: 1, fontWeight: 600 }}>
@@ -4275,7 +4145,6 @@ const SuperAdminReports = () => {
                 </Grid>
               )}
 
-              {/* Regular Report Information */}
               <Grid item xs={12} md={6}>
                 <Typography variant="subtitle2" sx={{ color: '#64748B', mb: 1, fontWeight: 600 }}>
                   Report Information
@@ -4361,7 +4230,6 @@ const SuperAdminReports = () => {
                       />
                     </Box>
                   )}
-                  {/* AMC Fields */}
                   {selectedItem.contract_number && (
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
                       <Typography variant="body2" sx={{ color: '#64748B' }}>Contract</Typography>
@@ -4378,7 +4246,6 @@ const SuperAdminReports = () => {
                       </Typography>
                     </Box>
                   )}
-                  {/* Engineer Performance Fields */}
                   {selectedItem.avg_days && (
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
                       <Typography variant="body2" sx={{ color: '#64748B' }}>Average Days</Typography>
@@ -4405,7 +4272,6 @@ const SuperAdminReports = () => {
                 </Paper>
               </Grid>
 
-              {/* Location Information */}
               <Grid item xs={12} md={6}>
                 <Typography variant="subtitle2" sx={{ color: '#64748B', mb: 1, fontWeight: 600 }}>
                   Location Information
@@ -4452,7 +4318,6 @@ const SuperAdminReports = () => {
                 </Paper>
               </Grid>
 
-              {/* Date & Time */}
               <Grid item xs={12}>
                 <Typography variant="subtitle2" sx={{ color: '#64748B', mb: 1, fontWeight: 600 }}>
                   Date & Time
@@ -4483,7 +4348,6 @@ const SuperAdminReports = () => {
                 </Paper>
               </Grid>
 
-              {/* Description */}
               {selectedItem.description && (
                 <Grid item xs={12}>
                   <Typography variant="subtitle2" sx={{ color: '#64748B', mb: 1, fontWeight: 600 }}>
@@ -4497,7 +4361,6 @@ const SuperAdminReports = () => {
                 </Grid>
               )}
 
-              {/* AMC Notes */}
               {selectedItem.notes && (
                 <Grid item xs={12}>
                   <Typography variant="subtitle2" sx={{ color: '#64748B', mb: 1, fontWeight: 600 }}>
@@ -4511,7 +4374,6 @@ const SuperAdminReports = () => {
                 </Grid>
               )}
 
-              {/* Export Buttons */}
               <Grid item xs={12}>
                 <Divider sx={{ my: 1, borderColor: 'rgba(103, 232, 249, 0.1)' }} />
                 <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
@@ -4618,7 +4480,6 @@ const EngineerReports = () => {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' })
   const [initialLoadDone, setInitialLoadDone] = useState(false)
 
-  // ✅ Load cached data on mount
   useEffect(() => {
     const loadCachedData = () => {
       try {
@@ -4658,7 +4519,6 @@ const EngineerReports = () => {
     }
   }, [])
 
-  // ✅ Save data to localStorage when it changes
   useEffect(() => {
     if (reportData?.data?.length > 0) {
       try {
@@ -4682,7 +4542,6 @@ const EngineerReports = () => {
     { value: 'yearly', label: 'Yearly' }
   ]
 
-  // ✅ Engineer Report Types
   const engineerReportTypes = [
     { value: 'my-downtime', label: '📉 My Equipment Downtime' },
     { value: 'my-maintenance', label: '🔧 My Maintenance Tasks' },
@@ -4693,7 +4552,6 @@ const EngineerReports = () => {
 
   const additionalFilters = []
 
-  // ✅ generateReport for Engineer
   const generateReport = useCallback(async (type, periodVal) => {
     const reportTypeVal = type || reportType
     const periodValActual = periodVal || period
@@ -4716,7 +4574,6 @@ const EngineerReports = () => {
           const errors = errorsRes.data.errors || []
           const repairs = repairsRes.data.repairs || []
 
-          // Filter equipment by engineer's hospital
           const engineerHospitalId = user?.hospital_id
           let filteredEquipment = equipment.filter(e => 
             String(e.hospital_id) === String(engineerHospitalId)
@@ -4762,13 +4619,11 @@ const EngineerReports = () => {
           const response = await api.get('/maintenance')
           let maintenanceData = response.data.schedules || response.data || []
           
-          // Filter by engineer's hospital
           const engineerHospitalId = user?.hospital_id
           maintenanceData = maintenanceData.filter(m => 
             String(m.hospital_id) === String(engineerHospitalId)
           )
           
-          // Apply date filters
           if (filters.startDate) {
             const start = new Date(`${filters.startDate}T00:00:00`)
             maintenanceData = maintenanceData.filter(m => {
@@ -4789,11 +4644,9 @@ const EngineerReports = () => {
             )
           }
 
-          // Get errors for downtime calculation
           const errorsRes = await api.get('/errors')
           const allErrors = errorsRes.data.errors || []
           
-          // Calculate downtime for each maintenance
           const dataWithDowntime = maintenanceData.map(m => {
             const equipmentErrors = allErrors.filter(e => 
               e.equipment_id === m.equipment_id
@@ -4871,7 +4724,6 @@ const EngineerReports = () => {
             const equipmentRes = await api.get('/equipment')
             const equipment = equipmentRes.data.equipment || []
             
-            // Filter by engineer's hospital
             const engineerHospitalId = user?.hospital_id
             const hospitalEquipment = equipment.filter(e => 
               String(e.hospital_id) === String(engineerHospitalId)
@@ -5034,7 +4886,6 @@ const EngineerReports = () => {
           const equipment = equipmentRes.data.equipment || []
           const errorLogs = errorLogsRes.data.errors || []
 
-          // Filter by engineer's hospital
           const engineerHospitalId = user?.hospital_id
           const engineerHospital = hospitals.find(h => String(h.id) === String(engineerHospitalId))
           
@@ -5149,7 +5000,6 @@ const EngineerReports = () => {
     }
   }, [reportType, period, filters, user])
 
-  // ✅ Fixed useEffect with proper dependencies
   useEffect(() => {
     if (initialLoadDone && !reportData) {
       generateReport(reportType, period)
@@ -5385,17 +5235,26 @@ const EngineerReports = () => {
             size={isMobile ? 'small' : 'medium'}
             sx={{
               flex: { xs: '1 1 auto', sm: 'none' },
-              borderColor: '#0F172A',
-              color: '#0F172A',
-              '&:hover': { 
-                borderColor: '#67E8F9', 
-                color: '#67E8F9',
-                boxShadow: '0 0 20px rgba(103, 232, 249, 0.1)',
-                bgcolor: 'rgba(103, 232, 249, 0.05)',
-              },
+              borderColor: colors.lightCyan,
+              color: colors.lightCyan,
+              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
               borderRadius: 2,
               textTransform: 'none',
               fontWeight: 600,
+              transition: 'all 0.3s ease',
+              '&:hover': { 
+                bgcolor: colors.lightCyan,
+                color: colors.darkNavy,
+                borderColor: colors.lightCyan,
+                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+                transform: 'translateY(-2px)',
+              },
+              '&:active': {
+                bgcolor: colors.lightCyan,
+                color: colors.darkNavy,
+                borderColor: colors.lightCyan,
+                transform: 'scale(0.96)',
+              }
             }}
             startIcon={loading ? <Refresh sx={{ animation: 'spin 1s linear infinite' }} /> : <Refresh />}
           >
@@ -5408,15 +5267,19 @@ const EngineerReports = () => {
             size={isMobile ? 'small' : 'medium'}
             sx={{
               flex: { xs: '1 1 auto', sm: 'none' },
-              bgcolor: '#0F172A',
-              '&:hover': { 
-                bgcolor: '#1E3A5F',
-                boxShadow: '0 4px 24px rgba(103, 232, 249, 0.3)',
-              },
-              boxShadow: '0 4px 16px rgba(103, 232, 249, 0.15)',
+              bgcolor: colors.darkNavy,
+              color: colors.text,
+              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
               borderRadius: 2,
+              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
               textTransform: 'none',
               fontWeight: 600,
+              '&:hover': { 
+                bgcolor: colors.darkNavyHover,
+                boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
+                transform: 'translateY(-2px)',
+              },
+              transition: 'all 0.3s ease',
             }}
             startIcon={<Download />}
           >
@@ -5473,15 +5336,14 @@ const EngineerReports = () => {
         </MenuItem>
       </Menu>
 
-      {/* ✅ STATS CARDS - Engineer Report Stats */}
+      {/* STATS CARDS - Engineer Report Stats */}
       {isMyHospitalReport ? (
         <Grid container spacing={isMobile ? 1 : 2} sx={{ mb: 3 }}>
           <Grid item xs={6} sm={2.4}>
             <StatsCard
               title="Total Equipment"
               value={filteredData._summary?.total_equipment || 0}
-              color="#0F172A"
-              icon={<MedicalServices sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<MedicalServices sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -5489,9 +5351,7 @@ const EngineerReports = () => {
             <StatsCard
               title="Total Errors"
               value={filteredData._summary?.total_errors || 0}
-              color="#EF4444"
-              bgColor="#EF444410"
-              icon={<ErrorOutline sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<ErrorOutline sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -5499,9 +5359,7 @@ const EngineerReports = () => {
             <StatsCard
               title="Resolved"
               value={filteredData._summary?.total_resolved || 0}
-              color="#22C55E"
-              bgColor="#22C55E10"
-              icon={<CheckCircle sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<CheckCircle sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -5509,9 +5367,7 @@ const EngineerReports = () => {
             <StatsCard
               title="Critical"
               value={filteredData._summary?.total_critical || 0}
-              color="#EF4444"
-              bgColor="#EF444410"
-              icon={<Warning sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<Warning sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -5519,9 +5375,7 @@ const EngineerReports = () => {
             <StatsCard
               title="Availability"
               value={filteredData._summary?.avg_availability || '100.0%'}
-              color="#6f42c1"
-              bgColor="#f3e5f5"
-              icon={<TrendingUp sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<TrendingUp sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -5532,8 +5386,7 @@ const EngineerReports = () => {
             <StatsCard
               title="Total Tasks"
               value={filteredData._summary?.total || filteredData.length}
-              color="#0F172A"
-              icon={<Assessment sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<Assessment sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -5541,9 +5394,7 @@ const EngineerReports = () => {
             <StatsCard
               title="Scheduled"
               value={filteredData._summary?.scheduled || 0}
-              color="#3B82F6"
-              bgColor="#3B82F610"
-              icon={<Schedule sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<Schedule sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -5551,9 +5402,7 @@ const EngineerReports = () => {
             <StatsCard
               title="In Progress"
               value={filteredData._summary?.in_progress || 0}
-              color="#F59E0B"
-              bgColor="#F59E0B10"
-              icon={<Build sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<Build sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -5561,9 +5410,7 @@ const EngineerReports = () => {
             <StatsCard
               title="Overdue"
               value={filteredData._summary?.overdue || 0}
-              color="#EF4444"
-              bgColor="#EF444410"
-              icon={<Warning sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<Warning sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -5572,9 +5419,7 @@ const EngineerReports = () => {
               title="Downtime"
               value={filteredData._summary?.total_downtime_days || '0'}
               subtitle="Days"
-              color="#EF4444"
-              bgColor="#EF444410"
-              icon={<TimerOff sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<TimerOff sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -5585,8 +5430,7 @@ const EngineerReports = () => {
             <StatsCard
               title="Total Parts"
               value={filteredData.length}
-              color="#0F172A"
-              icon={<Inventory sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<Inventory sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -5594,9 +5438,7 @@ const EngineerReports = () => {
             <StatsCard
               title="In Stock"
               value={filteredData._summary?.in_stock || 0}
-              color="#22C55E"
-              bgColor="#22C55E10"
-              icon={<CheckCircle sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<CheckCircle sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -5604,9 +5446,7 @@ const EngineerReports = () => {
             <StatsCard
               title="Low Stock"
               value={filteredData._summary?.low_stock || 0}
-              color="#F59E0B"
-              bgColor="#F59E0B10"
-              icon={<Warning sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<Warning sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -5614,9 +5454,7 @@ const EngineerReports = () => {
             <StatsCard
               title="Out of Stock"
               value={filteredData._summary?.out_of_stock || 0}
-              color="#EF4444"
-              bgColor="#EF444410"
-              icon={<Cancel sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<Cancel sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -5625,9 +5463,7 @@ const EngineerReports = () => {
               title="Downtime"
               value={filteredData._summary?.total_downtime_days || '0'}
               subtitle="Days"
-              color="#EF4444"
-              bgColor="#EF444410"
-              icon={<TimerOff sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<TimerOff sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -5638,8 +5474,7 @@ const EngineerReports = () => {
             <StatsCard
               title="Total Repairs"
               value={filteredData[0]?.total_repairs || 0}
-              color="#0F172A"
-              icon={<Build sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<Build sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -5647,9 +5482,7 @@ const EngineerReports = () => {
             <StatsCard
               title="Completed"
               value={filteredData[0]?.completed || 0}
-              color="#22C55E"
-              bgColor="#22C55E10"
-              icon={<CheckCircle sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<CheckCircle sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -5657,9 +5490,7 @@ const EngineerReports = () => {
             <StatsCard
               title="Pending"
               value={filteredData[0]?.pending || 0}
-              color="#F59E0B"
-              bgColor="#F59E0B10"
-              icon={<Schedule sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<Schedule sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -5667,9 +5498,7 @@ const EngineerReports = () => {
             <StatsCard
               title="Avg Days"
               value={`${filteredData[0]?.avg_days || 0} days`}
-              color="#6f42c1"
-              bgColor="#f3e5f5"
-              icon={<TimerOff sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<TimerOff sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -5677,9 +5506,7 @@ const EngineerReports = () => {
             <StatsCard
               title="Completion Rate"
               value={filteredData[0]?.completion_rate || '0%'}
-              color="#6f42c1"
-              bgColor="#f3e5f5"
-              icon={<BarChart sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<BarChart sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -5690,8 +5517,7 @@ const EngineerReports = () => {
             <StatsCard
               title="Equipment"
               value={filteredData.length}
-              color="#0F172A"
-              icon={<MedicalServices sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<MedicalServices sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -5699,9 +5525,7 @@ const EngineerReports = () => {
             <StatsCard
               title="Total Failures"
               value={filteredData.reduce((sum, row) => sum + num(row['Total Failures']), 0)}
-              color="#F59E0B"
-              bgColor="#F59E0B10"
-              icon={<ErrorOutline sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<ErrorOutline sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -5709,9 +5533,7 @@ const EngineerReports = () => {
             <StatsCard
               title="Critical Failures"
               value={filteredData.reduce((sum, row) => sum + num(row['Critical Failures']), 0)}
-              color="#EF4444"
-              bgColor="#EF444410"
-              icon={<Warning sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<Warning sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -5719,9 +5541,7 @@ const EngineerReports = () => {
             <StatsCard
               title="Total Downtime"
               value={`${Number(filteredData.reduce((sum, row) => sum + parseFloat(row['Total Downtime (Days)'] || 0), 0)).toFixed(1)} days`}
-              color="#EF4444"
-              bgColor="#EF444410"
-              icon={<TimerOff sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<TimerOff sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -5733,9 +5553,7 @@ const EngineerReports = () => {
                   .map(row => parseFloat(String(row['Availability %'] || '').replace('%', '')))
                   .filter(Number.isFinite)
               ).toFixed(1)}%`}
-              color="#6f42c1"
-              bgColor="#f3e5f5"
-              icon={<TrendingUp sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<TrendingUp sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -5746,8 +5564,7 @@ const EngineerReports = () => {
             <StatsCard
               title="Total Records"
               value={totalRecords}
-              color="#0F172A"
-              icon={<Assessment sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<Assessment sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -5755,9 +5572,7 @@ const EngineerReports = () => {
             <StatsCard
               title="Active"
               value={filteredData.filter(d => d.status === 'Active' || d.status === 'Completed' || d.status === 'Resolved').length}
-              color="#22C55E"
-              bgColor="#22C55E10"
-              icon={<CheckCircle sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<CheckCircle sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -5765,9 +5580,7 @@ const EngineerReports = () => {
             <StatsCard
               title="Pending"
               value={filteredData.filter(d => d.status === 'Pending' || d.status === 'In Progress' || d.status === 'Scheduled').length}
-              color="#F59E0B"
-              bgColor="#F59E0B10"
-              icon={<Schedule sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<Schedule sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -5775,9 +5588,7 @@ const EngineerReports = () => {
             <StatsCard
               title="Critical"
               value={filteredData.filter(d => d.severity === 'Critical' || d.priority === 'Critical' || d.critical_errors > 0).length}
-              color="#EF4444"
-              bgColor="#EF444410"
-              icon={<Warning sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<Warning sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -5785,9 +5596,7 @@ const EngineerReports = () => {
             <StatsCard
               title="Downtime"
               value={`${Number(filteredData.reduce((sum, row) => sum + parseFloat(row['Total Downtime (Days)'] || row.downtime_days || 0), 0)).toFixed(1)} days`}
-              color="#EF4444"
-              bgColor="#EF444410"
-              icon={<TimerOff sx={{ fontSize: 20, color: 'white' }} />}
+              icon={<TimerOff sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -5914,19 +5723,22 @@ const EngineerReports = () => {
                 </Select>
               </FormControl>
               <Button
-                variant="outlined"
+                variant="contained"
                 onClick={handleFilterClick}
                 sx={{
-                  borderColor: '#0F172A',
-                  color: '#0F172A',
-                  '&:hover': { 
-                    borderColor: '#67E8F9', 
-                    color: '#67E8F9',
-                    bgcolor: 'rgba(103, 232, 249, 0.05)',
-                  },
+                  bgcolor: colors.darkNavy,
+                  color: colors.text,
+                  fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                   borderRadius: 2,
+                  boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
                   textTransform: 'none',
                   fontWeight: 600,
+                  '&:hover': { 
+                    bgcolor: colors.darkNavyHover,
+                    boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
+                    transform: 'translateY(-2px)',
+                  },
+                  transition: 'all 0.3s ease',
                 }}
                 startIcon={<FilterList />}
               >
@@ -5937,15 +5749,19 @@ const EngineerReports = () => {
                 onClick={() => generateReport(reportType, period)}
                 disabled={loading}
                 sx={{
-                  bgcolor: '#0F172A',
-                  '&:hover': { 
-                    bgcolor: '#1E3A5F',
-                    boxShadow: '0 4px 24px rgba(103, 232, 249, 0.3)',
-                  },
+                  bgcolor: colors.darkNavy,
+                  color: colors.text,
+                  fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                   borderRadius: 2,
-                  boxShadow: '0 4px 16px rgba(103, 232, 249, 0.15)',
+                  boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
                   textTransform: 'none',
                   fontWeight: 600,
+                  '&:hover': { 
+                    bgcolor: colors.darkNavyHover,
+                    boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
+                    transform: 'translateY(-2px)',
+                  },
+                  transition: 'all 0.3s ease',
                 }}
                 startIcon={<Refresh />}
               >
@@ -6033,14 +5849,16 @@ const EngineerReports = () => {
                   onClick={() => generateReport(reportType, period)}
                   disabled={loading}
                   sx={{
-                    bgcolor: '#0F172A',
-                    '&:hover': { 
-                      bgcolor: '#1E3A5F',
-                      boxShadow: '0 4px 24px rgba(103, 232, 249, 0.3)',
-                    },
+                    bgcolor: colors.darkNavy,
+                    color: colors.text,
                     borderRadius: 2,
+                    boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
                     textTransform: 'none',
                     fontWeight: 600,
+                    '&:hover': { 
+                      bgcolor: colors.darkNavyHover,
+                      boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
+                    },
                   }}
                   fullWidth
                   size="small"
@@ -6075,7 +5893,7 @@ const EngineerReports = () => {
         additionalFilters={additionalFilters}
       />
 
-      {/* ✅ TABLE - Engineer Report Table */}
+      {/* TABLE - Engineer Report Table */}
       <Paper sx={{ 
         borderRadius: 3, 
         overflow: 'hidden', 
@@ -6684,7 +6502,6 @@ const EngineerReports = () => {
                 </Paper>
               </Grid>
 
-              {/* Maintenance Schedule Section */}
               {selectedItem.last_maintenance_date !== undefined && (
                 <Grid item xs={12} md={6}>
                   <Typography variant="subtitle2" sx={{ color: '#64748B', mb: 1, fontWeight: 600 }}>
@@ -6713,7 +6530,6 @@ const EngineerReports = () => {
                 </Grid>
               )}
 
-              {/* Downtime & Availability Section */}
               {selectedItem.total_downtime_days !== undefined && (
                 <Grid item xs={12} md={6}>
                   <Typography variant="subtitle2" sx={{ color: '#64748B', mb: 1, fontWeight: 600 }}>
@@ -6761,7 +6577,6 @@ const EngineerReports = () => {
                 </Grid>
               )}
 
-              {/* Spare Parts Details */}
               {selectedItem.part_name !== undefined && !isMySparePartsReport && (
                 <Grid item xs={12} md={6}>
                   <Typography variant="subtitle2" sx={{ color: '#64748B', mb: 1, fontWeight: 600 }}>
@@ -6814,7 +6629,6 @@ const EngineerReports = () => {
                 </Grid>
               )}
 
-              {/* Report Information */}
               <Grid item xs={12} md={6}>
                 <Typography variant="subtitle2" sx={{ color: '#64748B', mb: 1, fontWeight: 600 }}>
                   Report Information
@@ -6892,7 +6706,6 @@ const EngineerReports = () => {
                       />
                     </Box>
                   )}
-                  {/* Performance Fields */}
                   {selectedItem.avg_days && (
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
                       <Typography variant="body2" sx={{ color: '#64748B' }}>Average Days</Typography>
@@ -6919,7 +6732,6 @@ const EngineerReports = () => {
                 </Paper>
               </Grid>
 
-              {/* Location Information */}
               <Grid item xs={12} md={6}>
                 <Typography variant="subtitle2" sx={{ color: '#64748B', mb: 1, fontWeight: 600 }}>
                   Location Information
@@ -6950,7 +6762,6 @@ const EngineerReports = () => {
                 </Paper>
               </Grid>
 
-              {/* Date & Time */}
               <Grid item xs={12}>
                 <Typography variant="subtitle2" sx={{ color: '#64748B', mb: 1, fontWeight: 600 }}>
                   Date & Time
@@ -6965,7 +6776,6 @@ const EngineerReports = () => {
                 </Paper>
               </Grid>
 
-              {/* Description */}
               {selectedItem.description && (
                 <Grid item xs={12}>
                   <Typography variant="subtitle2" sx={{ color: '#64748B', mb: 1, fontWeight: 600 }}>
@@ -6979,7 +6789,6 @@ const EngineerReports = () => {
                 </Grid>
               )}
 
-              {/* Export Buttons */}
               <Grid item xs={12}>
                 <Divider sx={{ my: 1, borderColor: 'rgba(103, 232, 249, 0.1)' }} />
                 <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>

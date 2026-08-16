@@ -1,9 +1,14 @@
 // src/pages/SpareParts.jsx
-// ✅ DARK NAVY + LIGHT CYAN THEME - Matching Sidebar
+// ✅ DARK NAVY + LIGHT CYAN THEME - Matching Equipment page
 // ✅ WITH ATTACHMENT TAB VIEW + PREVIEW
 // ✅ AUTO-STATUS: In Stock / Low Stock / Out of Stock
 // ✅ PKR CURRENCY FORMATTING FIXED
 // ✅ DOWNTIME TRACKING ADDED
+// ✅ UPDATED: Stats cards design matches Equipment page
+// ✅ UPDATED: Header with Filter and Export buttons
+// ✅ ADDED: Export functionality (CSV, Excel, PDF)
+// ✅ ADDED: Filter menu popup
+// ✅ ADDED: Animations
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -42,6 +47,9 @@ import {
   ImageList,
   ImageListItem,
   Dialog as PreviewDialog,
+  Fade,
+  Grow,
+  Menu,
 } from '@mui/material'
 import {
   Add,
@@ -72,6 +80,10 @@ import {
   InsertDriveFile,
   Cancel,
   TimerOff,
+  FileDownload,
+  MedicalServices,
+  ErrorOutline,
+  Schedule,
 } from '@mui/icons-material'
 import { sparePartService, repairService } from '../api/services'
 import { toast } from 'react-toastify'
@@ -80,48 +92,77 @@ import { useNavigate } from 'react-router-dom'
 import AccessDenied from '../components/Auth/AccessDenied'
 import FileUpload from '../components/FileUpload'
 import api from '../api/axios'
+import * as XLSX from 'xlsx'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
 // ============================================================
-// ✅ DARK NAVY + LIGHT CYAN THEME COLORS
+// ✅ DARK NAVY + LIGHT CYAN THEME COLORS - Matching Equipment page
 // ============================================================
 const colors = {
-  // Dark Navy Base
   darkNavy: '#0F172A',
   darkNavyLight: '#1E293B',
   darkNavyDark: '#0A0F1E',
   darkNavyHover: '#1E3A5F',
-  
-  // Light Cyan Accents
   lightCyan: '#67E8F9',
   lightCyanBright: '#A5F3FC',
   lightCyanDark: '#22D3EE',
   lightCyanGlow: 'rgba(103, 232, 249, 0.15)',
   lightCyanGlowStrong: 'rgba(103, 232, 249, 0.3)',
-  
-  // Gold accent (keeping PAEC branding)
   accentGold: '#C9A227',
   goldLight: '#E8C84A',
-  
-  // Text
   text: '#FFFFFF',
   secondaryText: '#94A3B8',
   textLight: '#CBD5E1',
   cyanText: '#67E8F9',
   darkText: '#0F172A',
   lightText: '#64748B',
-  
-  // Cards/Background
   cardBg: '#FFFFFF',
   borderColor: 'rgba(103, 232, 249, 0.1)',
   shadowColor: 'rgba(15, 23, 42, 0.08)',
   mainBg: '#F1F5F9',
-  
-  // Status colors
   error: '#EF4444',
   success: '#22C55E',
   warning: '#F59E0B',
   info: '#3B82F6',
+  bgGradientStart: '#F0F4F8',
+  bgGradientEnd: '#E8EEF5',
 }
+
+// ✅ Animation Styles - Same as Equipment page
+const animationStyles = `
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes prominentGlow {
+  0% {
+    box-shadow: 0 0 20px rgba(103, 232, 249, 0.2), 0 0 40px rgba(103, 232, 249, 0.1);
+    border-color: rgba(103, 232, 249, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(103, 232, 249, 0.4), 0 0 80px rgba(103, 232, 249, 0.2);
+    border-color: rgba(103, 232, 249, 0.6);
+  }
+  100% {
+    box-shadow: 0 0 20px rgba(103, 232, 249, 0.2), 0 0 40px rgba(103, 232, 249, 0.1);
+    border-color: rgba(103, 232, 249, 0.3);
+  }
+}
+
+@keyframes gradientShine {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+`
 
 // ============================================================
 // ✅ HELPER: Get Status Based on Quantity
@@ -492,10 +533,15 @@ const SpareParts = () => {
   const [editingPart, setEditingPart] = useState(null)
   const [viewingPart, setViewingPart] = useState(null)
   const [viewTabValue, setViewTabValue] = useState(0)
+  const [filterAnchorEl, setFilterAnchorEl] = useState(null)
+  const [exportAnchorEl, setExportAnchorEl] = useState(null)
+  
   const [filters, setFilters] = useState({
     brand: '',
-    compatible_equipment: ''
+    compatible_equipment: '',
+    status: ''
   })
+  
   const [formData, setFormData] = useState({
     repair_id: '',
     part_name: '',
@@ -526,7 +572,6 @@ const SpareParts = () => {
       // ✅ Fetch downtime for each part
       const partsWithDowntime = await Promise.all(parts.map(async (part) => {
         try {
-          // Try to get downtime data from API
           const downtimeRes = await api.get(`/spare-parts/${part.id}/downtime`).catch(() => ({ data: {} }))
           return {
             ...part,
@@ -568,9 +613,121 @@ const SpareParts = () => {
   const lowStockItems = spareParts.filter(p => p.quantity <= (p.minimum_stock_level || 5) && p.quantity > 0)
   const outOfStockItems = spareParts.filter(p => p.quantity <= 0)
   const inStockItems = spareParts.filter(p => p.quantity > (p.minimum_stock_level || 5))
-  
-  // ✅ Downtime calculation
   const totalDowntimeDays = spareParts.reduce((sum, p) => sum + (p.total_downtime_days || 0), 0)
+
+  // ============================================================
+  // ✅ EXPORT HANDLERS
+  // ============================================================
+  const handleExportClick = (event) => setExportAnchorEl(event.currentTarget)
+  const handleExportClose = () => setExportAnchorEl(null)
+
+  const exportToCSV = () => {
+    try {
+      const headers = ['Part Name', 'Part Number', 'Brand', 'Manufacturer', 'Quantity', 'Min Stock', 'Status', 'Unit Cost', 'Total Cost', 'Compatible Equipment']
+      const rows = filteredParts.map(p => [
+        p.part_name || '',
+        p.part_number || '',
+        p.brand || '',
+        p.manufacturer || '',
+        p.quantity || 0,
+        p.minimum_stock_level || 5,
+        getStatus(p.quantity, p.minimum_stock_level).label,
+        p.unit_cost || 0,
+        p.total_cost || 0,
+        p.compatible_equipment || ''
+      ])
+      let csv = headers.join(',') + '\n'
+      rows.forEach(row => { csv += row.join(',') + '\n' })
+      const blob = new Blob([csv], { type: 'text/csv' })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `spare_parts_${new Date().toISOString().split('T')[0]}.csv`
+      a.click()
+      window.URL.revokeObjectURL(url)
+      toast.success('CSV exported!')
+      handleExportClose()
+    } catch (error) {
+      toast.error('Export failed: ' + error.message)
+    }
+  }
+
+  const exportToExcel = () => {
+    try {
+      const data = filteredParts.map(p => ({
+        'Part Name': p.part_name || '',
+        'Part Number': p.part_number || '',
+        'Brand': p.brand || '',
+        'Manufacturer': p.manufacturer || '',
+        'Quantity': p.quantity || 0,
+        'Min Stock': p.minimum_stock_level || 5,
+        'Status': getStatus(p.quantity, p.minimum_stock_level).label,
+        'Unit Cost': p.unit_cost || 0,
+        'Total Cost': p.total_cost || 0,
+        'Compatible Equipment': p.compatible_equipment || ''
+      }))
+      const ws = XLSX.utils.json_to_sheet(data)
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Spare Parts')
+      XLSX.writeFile(wb, `spare_parts_${new Date().toISOString().split('T')[0]}.xlsx`)
+      toast.success('Excel exported!')
+      handleExportClose()
+    } catch (error) {
+      toast.error('Export failed: ' + error.message)
+    }
+  }
+
+  const exportToPDF = () => {
+    try {
+      const doc = new jsPDF()
+      doc.setFontSize(18)
+      doc.setTextColor(colors.darkNavy)
+      doc.text('Spare Parts Report', 14, 20)
+      doc.setFontSize(10)
+      doc.setTextColor('#666666')
+      doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 28)
+      doc.text(`Total Parts: ${filteredParts.length}`, 14, 34)
+      
+      const tableData = filteredParts.map(p => [
+        p.part_name || '',
+        p.part_number || '',
+        p.brand || '',
+        p.quantity || 0,
+        getStatus(p.quantity, p.minimum_stock_level).label,
+        formatPKR(p.unit_cost)
+      ])
+      autoTable(doc, {
+        head: [['Part Name', 'Part Number', 'Brand', 'Qty', 'Status', 'Unit Cost']],
+        body: tableData,
+        startY: 40,
+        styles: { fontSize: 7, cellPadding: 2 },
+        headStyles: { fillColor: colors.darkNavy, textColor: '#FFFFFF', fontSize: 8 },
+        alternateRowStyles: { fillColor: '#F5F7FA' },
+        margin: { left: 10, right: 10 }
+      })
+      doc.save(`spare_parts_${new Date().toISOString().split('T')[0]}.pdf`)
+      toast.success('PDF exported!')
+      handleExportClose()
+    } catch (error) {
+      toast.error('Export failed: ' + error.message)
+    }
+  }
+
+  // ============================================================
+  // ✅ FILTER HANDLERS
+  // ============================================================
+  const handleFilterClick = (event) => setFilterAnchorEl(event.currentTarget)
+  const handleFilterClose = () => setFilterAnchorEl(null)
+
+  const handleFilterChange = (e) => {
+    setFilters({ ...filters, [e.target.name]: e.target.value })
+  }
+
+  const clearFilters = () => {
+    setFilters({ brand: '', compatible_equipment: '', status: '' })
+    setFilterAnchorEl(null)
+    toast.info('Filters cleared')
+  }
 
   const handleTabChange = (event, newValue) => {
     setViewTabValue(newValue)
@@ -582,9 +739,6 @@ const SpareParts = () => {
     if (part.image_url) {
       all.push(part.image_url)
     }
-    // Add any other attachment fields here if they exist
-    // if (part.attachments) { ... }
-    // if (part.documents) { ... }
     return all
   }
 
@@ -718,28 +872,20 @@ const SpareParts = () => {
         minimum_stock_level: parseInt(formData.minimum_stock_level) || 5
       }
 
-      console.log('📤 Submitting spare part data:', submitData)
-
-      let response
       if (editingPart) {
-        response = await sparePartService.update(editingPart.id, submitData)
-        toast.success('✅ Spare part updated successfully')
+        await sparePartService.update(editingPart.id, submitData)
+        toast.success('Spare part updated successfully')
       } else {
-        response = await sparePartService.create(submitData)
-        toast.success('✅ Spare part added successfully')
+        await sparePartService.create(submitData)
+        toast.success('Spare part added successfully')
       }
-
-      console.log('📥 Response:', response.data)
       
       fetchSpareParts()
       handleCloseDialog()
       
     } catch (error) {
-      console.error('❌ Submit error:', error)
-      console.error('❌ Error response:', error.response?.data)
-      
-      const errorMsg = error.response?.data?.message || 'Operation failed'
-      toast.error(errorMsg)
+      console.error('Submit error:', error)
+      toast.error(error.response?.data?.message || 'Operation failed')
     }
   }
 
@@ -771,23 +917,84 @@ const SpareParts = () => {
                           part.part_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           part.brand?.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesBrand = !filters.brand || part.brand?.toLowerCase().includes(filters.brand.toLowerCase())
-    return matchesSearch && matchesBrand
+    const matchesEquipment = !filters.compatible_equipment || 
+      part.compatible_equipment?.toLowerCase().includes(filters.compatible_equipment.toLowerCase())
+    const matchesStatus = !filters.status || getStatus(part.quantity, part.minimum_stock_level).label === filters.status
+    return matchesSearch && matchesBrand && matchesEquipment && matchesStatus
   })
+
+  // ✅ Stats Cards Data - Same design as Equipment page
+  const statsCards = [
+    {
+      title: 'Total Parts',
+      value: spareParts.length,
+      icon: <Inventory />,
+      color: colors.lightCyan,
+      bg: 'rgba(103, 232, 249, 0.08)',
+    },
+    {
+      title: 'In Stock',
+      value: inStockItems.length,
+      icon: <CheckCircle />,
+      color: colors.lightCyan,
+      bg: 'rgba(103, 232, 249, 0.08)',
+    },
+    {
+      title: 'Low Stock',
+      value: lowStockItems.length,
+      icon: <WarningIcon />,
+      color: colors.lightCyan,
+      bg: 'rgba(103, 232, 249, 0.08)',
+    },
+    {
+      title: 'Out of Stock',
+      value: outOfStockItems.length,
+      icon: <Cancel />,
+      color: colors.lightCyan,
+      bg: 'rgba(103, 232, 249, 0.08)',
+    },
+    {
+      title: 'Downtime (Days)',
+      value: totalDowntimeDays.toFixed(1),
+      icon: <TimerOff />,
+      color: colors.lightCyan,
+      bg: 'rgba(103, 232, 249, 0.08)',
+    },
+  ]
 
   if (loading) {
     return <LinearProgress sx={{ bgcolor: colors.borderColor, '& .MuiLinearProgress-bar': { bgcolor: colors.lightCyan } }} />
   }
 
   return (
-    <Box>
-      {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+    <Box sx={{ 
+      p: { xs: 1, sm: 2, md: 3 },
+      background: `linear-gradient(135deg, ${colors.bgGradientStart} 0%, ${colors.bgGradientEnd} 50%, ${colors.bgGradientStart} 100%)`,
+      minHeight: '100vh',
+      borderRadius: 0,
+      position: 'relative',
+    }}>
+      <style>{animationStyles}</style>
+
+      {/* ============================================================
+          HEADER - Same as Equipment page
+          ============================================================ */}
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        mb: 3, 
+        flexWrap: 'wrap', 
+        gap: 2,
+        animation: 'fadeInUp 0.6s ease-out',
+      }}>
+        <Box>
           <Typography 
             variant="h5" 
             sx={{ 
               fontWeight: 700, 
               color: colors.darkNavy,
+              fontSize: { xs: '1.2rem', sm: '1.4rem', md: '1.6rem' },
               '&::after': {
                 content: '""',
                 display: 'block',
@@ -801,51 +1008,110 @@ const SpareParts = () => {
           >
             Spare Parts Inventory
           </Typography>
-          <Chip 
-            icon={<Inventory sx={{ fontSize: 16 }} />}
-            label={`${spareParts.length} Parts`}
-            size="small"
+          <Typography 
+            variant="body2" 
             sx={{ 
-              bgcolor: colors.darkNavy, 
-              color: 'white',
-              fontWeight: 600,
-              '& .MuiChip-icon': { color: colors.lightCyan }
+              color: colors.lightText,
+              mt: 0.5,
             }}
-          />
+          >
+            Manage spare parts inventory and track stock levels
+          </Typography>
         </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button
-            variant="outlined"
-            startIcon={<Refresh />}
-            onClick={fetchSpareParts}
+        
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+          {/* ✅ REFRESH BUTTON - BORDER STYLE */}
+          <Button 
+            variant="outlined" 
+            startIcon={<Refresh />} 
+            onClick={fetchSpareParts} 
             size="small"
             sx={{ 
-              borderColor: colors.borderColor, 
-              color: colors.darkNavy,
+              borderColor: colors.lightCyan,
+              color: colors.lightCyan,
+              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+              textTransform: 'none',
+              borderRadius: 2,
+              transition: 'all 0.3s ease',
               '&:hover': { 
-                borderColor: colors.lightCyan, 
-                color: colors.lightCyanDark,
-                backgroundColor: 'rgba(103, 232, 249, 0.04)'
+                bgcolor: colors.lightCyan,
+                color: colors.darkNavy,
+                borderColor: colors.lightCyan,
+                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+                transform: 'translateY(-2px)',
               },
-              borderRadius: 2
+              '&:active': {
+                bgcolor: colors.lightCyan,
+                color: colors.darkNavy,
+                borderColor: colors.lightCyan,
+                transform: 'scale(0.96)',
+              }
             }}
           >
             Refresh
           </Button>
+          
+          {/* ✅ FILTER BUTTON */}
+          <Button 
+            variant="contained"
+            startIcon={<FilterList />} 
+            onClick={handleFilterClick}
+            sx={{ 
+              bgcolor: colors.darkNavy,
+              color: colors.text,
+              borderRadius: 2,
+              textTransform: 'none',
+              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+              '&:hover': { 
+                bgcolor: colors.darkNavyHover,
+                boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
+                transform: 'translateY(-2px)',
+              },
+              transition: 'all 0.3s ease',
+            }}
+          >
+            Filter
+          </Button>
+          
+          {/* ✅ EXPORT BUTTON */}
+          <Button 
+            variant="contained"
+            startIcon={<Download />} 
+            onClick={handleExportClick}
+            sx={{ 
+              bgcolor: colors.darkNavy,
+              color: colors.text,
+              borderRadius: 2,
+              textTransform: 'none',
+              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+              '&:hover': { 
+                bgcolor: colors.darkNavyHover,
+                boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
+                transform: 'translateY(-2px)',
+              },
+              transition: 'all 0.3s ease',
+            }}
+          >
+            Export
+          </Button>
+          
           {canCreate && (
             <Button
               variant="contained"
               startIcon={<Add />}
               onClick={() => handleOpenDialog()}
               sx={{ 
-                bgcolor: colors.darkNavy, 
-                '&:hover': { 
-                  bgcolor: colors.darkNavyHover,
-                  boxShadow: `0 4px 20px ${colors.lightCyanGlowStrong}`
-                },
-                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+                bgcolor: colors.darkNavy,
+                color: colors.text,
                 borderRadius: 2,
                 textTransform: 'none',
+                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+                '&:hover': { 
+                  bgcolor: colors.darkNavyHover,
+                  boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
+                  transform: 'translateY(-2px)',
+                },
+                transition: 'all 0.3s ease',
               }}
             >
               Add Spare Part
@@ -854,7 +1120,9 @@ const SpareParts = () => {
         </Box>
       </Box>
 
-      {/* ✅ OUT OF STOCK ALERT */}
+      {/* ============================================================
+          OUT OF STOCK ALERT
+          ============================================================ */}
       {outOfStockItems.length > 0 && (
         <Alert 
           severity="error" 
@@ -893,7 +1161,9 @@ const SpareParts = () => {
         </Alert>
       )}
 
-      {/* ✅ LOW STOCK ALERT */}
+      {/* ============================================================
+          LOW STOCK ALERT
+          ============================================================ */}
       {lowStockItems.length > 0 && (
         <Alert 
           severity="warning" 
@@ -927,126 +1197,107 @@ const SpareParts = () => {
         >
           <Typography variant="body2">
             <strong>{lowStockItems.length}</strong> spare part{lowStockItems.length > 1 ? 's are' : ' is'} low in stock!
-            {lowStockItems.length > 0 && lowStockItems.length <= 5 && (
-              <Box component="span" sx={{ display: 'block', mt: 0.5, fontSize: '0.8rem' }}>
-                <strong>Items:</strong> {lowStockItems.map(p => p.part_name).join(', ')}
-              </Box>
-            )}
-            {lowStockItems.length > 5 && (
-              <Box component="span" sx={{ display: 'block', mt: 0.5, fontSize: '0.8rem' }}>
-                <strong>Plus {lowStockItems.length - 5} more items...</strong>
-              </Box>
-            )}
           </Typography>
         </Alert>
       )}
 
-      {/* ✅ Stats Cards - Status Based + Downtime */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={6} sm={2.4}>
-          <Card sx={{ 
-            borderRadius: 2, 
-            border: `1px solid ${colors.borderColor}`,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-            '&:hover': {
-              borderColor: colors.lightCyan,
-              boxShadow: `0 4px 20px ${colors.lightCyanGlow}`
-            }
-          }}>
-            <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" sx={{ color: colors.darkNavy, fontWeight: 700 }}>
-                {spareParts.length}
-              </Typography>
-              <Typography variant="body2" sx={{ color: colors.lightText }}>Total Parts</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={6} sm={2.4}>
-          <Card sx={{ 
-            borderRadius: 2, 
-            border: `1px solid ${colors.success}33`,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-            bgcolor: `${colors.success}08`,
-            '&:hover': {
-              borderColor: colors.success,
-              boxShadow: `0 4px 20px rgba(34, 197, 94, 0.15)`
-            }
-          }}>
-            <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" sx={{ color: colors.success, fontWeight: 700 }}>
-                {inStockItems.length}
-              </Typography>
-              <Typography variant="body2" sx={{ color: colors.lightText }}>In Stock</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={6} sm={2.4}>
-          <Card sx={{ 
-            borderRadius: 2, 
-            border: `1px solid ${colors.warning}33`,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-            bgcolor: `${colors.warning}08`,
-            '&:hover': {
-              borderColor: colors.warning,
-              boxShadow: `0 4px 20px rgba(245, 158, 11, 0.15)`
-            }
-          }}>
-            <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" sx={{ color: colors.warning, fontWeight: 700 }}>
-                {lowStockItems.length}
-              </Typography>
-              <Typography variant="body2" sx={{ color: colors.lightText }}>Low Stock</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={6} sm={2.4}>
-          <Card sx={{ 
-            borderRadius: 2, 
-            border: `1px solid ${colors.error}33`,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-            bgcolor: `${colors.error}08`,
-            '&:hover': {
-              borderColor: colors.error,
-              boxShadow: `0 4px 20px rgba(239, 68, 68, 0.15)`
-            }
-          }}>
-            <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" sx={{ color: colors.error, fontWeight: 700 }}>
-                {outOfStockItems.length}
-              </Typography>
-              <Typography variant="body2" sx={{ color: colors.lightText }}>Out of Stock</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={6} sm={2.4}>
-          <Card sx={{ 
-            borderRadius: 2, 
-            border: `1px solid ${colors.error}33`,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-            bgcolor: `${colors.error}08`,
-            '&:hover': {
-              borderColor: colors.error,
-              boxShadow: `0 4px 20px rgba(239, 68, 68, 0.15)`
-            }
-          }}>
-            <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" sx={{ color: colors.error, fontWeight: 700 }}>
-                {totalDowntimeDays.toFixed(1)}
-              </Typography>
-              <Typography variant="body2" sx={{ color: colors.lightText }}>Total Downtime (Days)</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
+      {/* ============================================================
+          STATS CARDS - Same design as Equipment page
+          ============================================================ */}
+      <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }} sx={{ mb: 3 }}>
+        {statsCards.map((card, index) => (
+          <Grid item xs={6} sm={2.4} key={index}>
+            <Grow in timeout={300 + index * 100}>
+              <Card sx={{ 
+                borderRadius: 3,
+                border: `1px solid ${colors.borderColor}`,
+                boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+                transition: 'all 0.3s ease',
+                position: 'relative',
+                overflow: 'hidden',
+                '&:hover': {
+                  transform: 'translateY(-4px)',
+                  boxShadow: `0 8px 30px ${colors.lightCyanGlow}`,
+                  borderColor: colors.lightCyan,
+                },
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: 3,
+                  background: `linear-gradient(90deg, ${colors.lightCyan}, ${colors.accentGold})`,
+                  borderRadius: '3px 3px 0 0',
+                }
+              }}>
+                <CardContent sx={{ p: { xs: 1.5, sm: 2 }, position: 'relative' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Box>
+                      <Typography 
+                        variant="caption" 
+                        sx={{ 
+                          color: colors.lightText,
+                          fontWeight: 500,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px',
+                          fontSize: '0.6rem',
+                        }}
+                      >
+                        {card.title}
+                      </Typography>
+                      <Typography 
+                        variant="h5" 
+                        sx={{ 
+                          fontWeight: 700,
+                          color: colors.darkNavy,
+                          fontSize: { xs: '1.3rem', sm: '1.6rem', md: '1.8rem' },
+                          mt: 0.5,
+                        }}
+                      >
+                        {card.value}
+                      </Typography>
+                    </Box>
+                    <Box
+                      sx={{
+                        background: card.bg,
+                        borderRadius: '14px',
+                        p: 1.2,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: 42,
+                        height: 42,
+                        color: card.color,
+                        transition: 'all 0.3s ease',
+                      }}
+                    >
+                      {React.cloneElement(card.icon, { 
+                        sx: { 
+                          fontSize: 22,
+                          color: card.color,
+                        } 
+                      })}
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grow>
+          </Grid>
+        ))}
       </Grid>
 
-      {/* Search & Filters */}
+      {/* ============================================================
+          SEARCH - Only search bar
+          ============================================================ */}
       <Paper sx={{ 
         p: 2, 
         mb: 3, 
-        borderRadius: 2,
+        borderRadius: 3,
         border: `1px solid ${colors.borderColor}`,
         boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
         bgcolor: colors.cardBg,
+        animation: 'fadeInUp 0.7s ease-out',
       }}>
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
           <TextField
@@ -1058,91 +1309,252 @@ const SpareParts = () => {
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <Search sx={{ color: colors.lightText }} />
+                  <Search sx={{ color: colors.lightText, fontSize: 20 }} />
                 </InputAdornment>
               ),
               sx: {
+                borderRadius: 2,
                 '& .MuiOutlinedInput-root': {
                   '&:hover fieldset': { borderColor: colors.lightCyan },
                   '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                },
+                '& .MuiInputBase-input': {
+                  fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                  fontSize: '0.9rem',
                 }
               }
             }}
           />
-          <TextField
-            size="small"
-            label="Brand"
-            value={filters.brand}
-            onChange={(e) => setFilters({ ...filters, brand: e.target.value })}
-            sx={{ minWidth: 150 }}
-            InputProps={{
-              sx: {
-                '& .MuiOutlinedInput-root': {
-                  '&:hover fieldset': { borderColor: colors.lightCyan },
-                  '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                }
+        </Box>
+      </Paper>
+
+      {/* ============================================================
+          FILTER MENU - Same as Equipment page
+          ============================================================ */}
+      <Menu
+        anchorEl={filterAnchorEl}
+        open={Boolean(filterAnchorEl)}
+        onClose={handleFilterClose}
+        PaperProps={{ 
+          sx: { 
+            p: 2.5, 
+            width: 280,
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+            borderRadius: 3,
+          } 
+        }}
+      >
+        <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy, mb: 2 }}>
+          Filter Spare Parts
+        </Typography>
+        
+        <TextField
+          fullWidth 
+          size="small" 
+          label="Brand" 
+          name="brand"
+          value={filters.brand} 
+          onChange={handleFilterChange}
+          placeholder="Filter by brand" 
+          sx={{ 
+            mb: 2,
+            '& .MuiOutlinedInput-root': {
+              borderRadius: 2,
+              '&:hover fieldset': { borderColor: colors.lightCyan },
+              '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+            }
+          }}
+        />
+
+        <TextField
+          fullWidth 
+          size="small" 
+          label="Compatible Equipment" 
+          name="compatible_equipment"
+          value={filters.compatible_equipment} 
+          onChange={handleFilterChange}
+          placeholder="Filter by equipment" 
+          sx={{ 
+            mb: 2,
+            '& .MuiOutlinedInput-root': {
+              borderRadius: 2,
+              '&:hover fieldset': { borderColor: colors.lightCyan },
+              '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+            }
+          }}
+        />
+
+        <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+          <InputLabel sx={{ color: colors.lightText }}>Status</InputLabel>
+          <Select 
+            name="status" 
+            value={filters.status} 
+            onChange={handleFilterChange} 
+            label="Status"
+            sx={{
+              borderRadius: 2,
+              '& .MuiOutlinedInput-root': {
+                '&:hover fieldset': { borderColor: colors.lightCyan },
+                '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
               }
             }}
-          />
+          >
+            <MenuItem value="">All</MenuItem>
+            <MenuItem value="In Stock">In Stock</MenuItem>
+            <MenuItem value="Low Stock">Low Stock</MenuItem>
+            <MenuItem value="Out of Stock">Out of Stock</MenuItem>
+          </Select>
+        </FormControl>
+
+        <Box sx={{ display: 'flex', gap: 1 }}>
           <Button 
-            variant="outlined" 
-            startIcon={<Download />} 
+            variant="contained" 
+            onClick={handleFilterClose} 
+            fullWidth 
             size="small"
             sx={{ 
-              borderColor: colors.borderColor, 
-              color: colors.darkNavy,
+              bgcolor: colors.darkNavy,
+              borderRadius: 2,
+              textTransform: 'none',
               '&:hover': { 
-                borderColor: colors.lightCyan, 
-                color: colors.lightCyanDark,
+                bgcolor: colors.darkNavyHover,
+                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`
+              },
+            }}
+          >
+            Apply
+          </Button>
+          <Button 
+            variant="outlined" 
+            onClick={clearFilters} 
+            fullWidth 
+            size="small"
+            sx={{ 
+              borderColor: colors.borderColor,
+              color: colors.darkNavy,
+              borderRadius: 2,
+              textTransform: 'none',
+              '&:hover': { 
+                borderColor: colors.lightCyan,
                 backgroundColor: 'rgba(103, 232, 249, 0.04)'
               }
             }}
           >
-            Export
+            Clear
           </Button>
         </Box>
-      </Paper>
+      </Menu>
 
-      {/* Table */}
+      {/* ============================================================
+          EXPORT MENU - Same as Equipment page
+          ============================================================ */}
+      <Menu
+        anchorEl={exportAnchorEl}
+        open={Boolean(exportAnchorEl)}
+        onClose={handleExportClose}
+        PaperProps={{ 
+          sx: { 
+            p: 1, 
+            width: 200,
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+            borderRadius: 3,
+          } 
+        }}
+      >
+        <MenuItem 
+          onClick={exportToCSV} 
+          sx={{ 
+            borderRadius: 1,
+            '&:hover': { 
+              bgcolor: 'rgba(103, 232, 249, 0.08)',
+            } 
+          }}
+        >
+          <FileDownload sx={{ mr: 1.5, fontSize: 20, color: colors.lightCyanDark }} /> 
+          <Box>
+            <Typography variant="body2" fontWeight={500}>CSV</Typography>
+            <Typography variant="caption" sx={{ color: colors.lightText }}>Comma separated values</Typography>
+          </Box>
+        </MenuItem>
+        <MenuItem 
+          onClick={exportToExcel} 
+          sx={{ 
+            borderRadius: 1,
+            '&:hover': { 
+              bgcolor: 'rgba(103, 232, 249, 0.08)',
+            } 
+          }}
+        >
+          <FileDownload sx={{ mr: 1.5, fontSize: 20, color: colors.lightCyanDark }} />
+          <Box>
+            <Typography variant="body2" fontWeight={500}>Excel</Typography>
+            <Typography variant="caption" sx={{ color: colors.lightText }}>.xlsx format</Typography>
+          </Box>
+        </MenuItem>
+        <MenuItem 
+          onClick={exportToPDF} 
+          sx={{ 
+            borderRadius: 1,
+            '&:hover': { 
+              bgcolor: 'rgba(103, 232, 249, 0.08)',
+            } 
+          }}
+        >
+          <FileDownload sx={{ mr: 1.5, fontSize: 20, color: colors.lightCyanDark }} />
+          <Box>
+            <Typography variant="body2" fontWeight={500}>PDF</Typography>
+            <Typography variant="caption" sx={{ color: colors.lightText }}>Print ready document</Typography>
+          </Box>
+        </MenuItem>
+      </Menu>
+
+      {/* ============================================================
+          TABLE
+          ============================================================ */}
       <TableContainer 
         component={Paper} 
         sx={{ 
-          borderRadius: 2, 
+          borderRadius: 3, 
           border: `1px solid ${colors.borderColor}`,
           boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+          animation: 'fadeInUp 0.8s ease-out',
         }}
       >
         <Table>
           <TableHead sx={{ bgcolor: colors.darkNavy }}>
             <TableRow>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Part Name</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Part Number</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Brand</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Quantity</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Min Stock</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Status</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Unit Cost</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Total Cost</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Compatible Equipment</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Image</TableCell>
-              {/* ✅ DOWNTIME COLUMN */}
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Downtime</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }} align="center">Actions</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Part Name</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Part Number</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Brand</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Quantity</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Min Stock</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Status</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Unit Cost</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Total Cost</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Downtime</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }} align="center">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {filteredParts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={12} align="center">
-                  <Typography variant="body1" sx={{ py: 4, color: colors.lightText }}>
-                    No spare parts found
-                  </Typography>
+                <TableCell colSpan={10} align="center" sx={{ py: 6 }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                    <Inventory sx={{ fontSize: 48, color: colors.borderColor }} />
+                    <Typography variant="body1" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                      No spare parts found
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                      Try adjusting your search or filters
+                    </Typography>
+                  </Box>
                 </TableCell>
               </TableRow>
             ) : (
-              filteredParts.map((part) => {
+              filteredParts.map((part, index) => {
                 const status = getStatus(part.quantity, part.minimum_stock_level)
-                const imageUrl = getFullImageUrl(part.image_url)
                 const isLowStock = part.quantity <= (part.minimum_stock_level || 5)
                 
                 return (
@@ -1151,6 +1563,8 @@ const SpareParts = () => {
                     hover 
                     sx={{ 
                       bgcolor: isLowStock ? (part.quantity <= 0 ? `${colors.error}08` : `${colors.warning}08`) : 'inherit',
+                      transition: 'all 0.2s ease',
+                      animation: `fadeInUp 0.4s ease-out ${index * 0.05}s both`,
                       '&:hover': {
                         backgroundColor: isLowStock ? (part.quantity <= 0 ? `${colors.error}15` : `${colors.warning}15`) : 'rgba(103, 232, 249, 0.04)',
                       },
@@ -1158,14 +1572,16 @@ const SpareParts = () => {
                     }}
                   >
                     <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>
-                          {part.part_name}
-                        </Typography>
-                      </Box>
+                      <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                        {part.part_name}
+                      </Typography>
                     </TableCell>
-                    <TableCell sx={{ color: colors.lightText }}>{part.part_number || '-'}</TableCell>
-                    <TableCell sx={{ color: colors.lightText }}>{part.brand || '-'}</TableCell>
+                    <TableCell sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                      {part.part_number || '-'}
+                    </TableCell>
+                    <TableCell sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                      {part.brand || '-'}
+                    </TableCell>
                     <TableCell>
                       <Chip 
                         label={part.quantity} 
@@ -1174,9 +1590,10 @@ const SpareParts = () => {
                           bgcolor: part.quantity <= 0 ? colors.error : 
                                    part.quantity <= (part.minimum_stock_level || 5) ? colors.warning : colors.success,
                           color: 'white',
-                          fontWeight: 500,
-                          height: 22,
-                          fontSize: '11px'
+                          fontWeight: 600,
+                          height: 26,
+                          fontSize: '11px',
+                          borderRadius: 2,
                         }}
                       />
                     </TableCell>
@@ -1185,10 +1602,15 @@ const SpareParts = () => {
                         label={part.minimum_stock_level || 5} 
                         size="small" 
                         variant="outlined"
-                        sx={{ borderColor: colors.borderColor, color: colors.lightText }}
+                        sx={{ 
+                          borderColor: colors.borderColor, 
+                          color: colors.lightText,
+                          height: 26,
+                          borderRadius: 2,
+                          fontSize: '11px',
+                        }}
                       />
                     </TableCell>
-                    {/* ✅ STATUS COLUMN */}
                     <TableCell>
                       <Chip 
                         label={status.label} 
@@ -1198,59 +1620,35 @@ const SpareParts = () => {
                           bgcolor: status.color,
                           color: 'white',
                           fontWeight: 600,
-                          height: 24,
+                          height: 26,
                           fontSize: '11px',
+                          borderRadius: 2,
                           '& .MuiChip-icon': { color: 'white' }
                         }}
                       />
                     </TableCell>
-                    <TableCell sx={{ color: colors.darkNavy }}>{formatPKR(part.unit_cost)}</TableCell>
-                    <TableCell sx={{ color: colors.darkNavy }}>{formatPKR(part.total_cost)}</TableCell>
-                    <TableCell sx={{ color: colors.lightText }}>{part.compatible_equipment || '-'}</TableCell>
-                    <TableCell>
-                      {part.image_url ? (
-                        <Tooltip title="View Image">
-                          <Avatar 
-                            src={getFullImageUrl(part.image_url)} 
-                            alt={part.part_name}
-                            sx={{ 
-                              width: 36, 
-                              height: 36, 
-                              borderRadius: 1,
-                              border: `1px solid ${colors.borderColor}`,
-                              cursor: 'pointer',
-                              '&:hover': {
-                                transform: 'scale(1.1)',
-                                transition: 'transform 0.2s',
-                                borderColor: colors.lightCyan,
-                              }
-                            }}
-                            onClick={() => window.open(getFullImageUrl(part.image_url), '_blank')}
-                            onError={(e) => {
-                              e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="%23ccc"%3E%3Crect width="24" height="24" fill="%23f0f0f0"/%3E%3Ctext x="12" y="12" text-anchor="middle" dy=".3em" font-size="10" fill="%23999"%3ENo Image%3C/text%3E%3C/svg%3E'
-                            }}
-                          />
-                        </Tooltip>
-                      ) : (
-                        <Chip 
-                          icon={<Image sx={{ fontSize: 14 }} />}
-                          label="No Image" 
-                          size="small"
-                          sx={{ 
-                            bgcolor: colors.mainBg, 
-                            color: colors.lightText,
-                            height: 22,
-                            fontSize: '10px'
-                          }}
-                        />
-                      )}
+                    <TableCell sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                      {formatPKR(part.unit_cost)}
                     </TableCell>
-                    {/* ✅ DOWNTIME CELL */}
-                    <TableCell align="center" sx={{ color: colors.error, fontWeight: 600 }}>
-                      {Number(part.total_downtime_days || 0).toFixed(1)} days
+                    <TableCell sx={{ color: colors.darkNavy, fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                      {formatPKR(part.total_cost)}
+                    </TableCell>
+                    <TableCell>
+                      <Chip 
+                        label={`${Number(part.total_downtime_days || 0).toFixed(1)} days`}
+                        size="small"
+                        sx={{
+                          bgcolor: Number(part.total_downtime_days || 0) > 5 ? colors.error : colors.warning,
+                          color: 'white',
+                          fontWeight: 600,
+                          height: 26,
+                          fontSize: '11px',
+                          borderRadius: 2,
+                        }}
+                      />
                     </TableCell>
                     <TableCell align="center">
-                      <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5, flexWrap: 'wrap' }}>
                         <Tooltip title="View Details">
                           <IconButton 
                             size="small" 
@@ -1309,6 +1707,11 @@ const SpareParts = () => {
                               size="small" 
                               color="error" 
                               onClick={() => handleDelete(part.id)}
+                              sx={{
+                                '&:hover': {
+                                  backgroundColor: 'rgba(239, 68, 68, 0.08)'
+                                }
+                              }}
                             >
                               <Delete fontSize="small" />
                             </IconButton>
@@ -1325,7 +1728,7 @@ const SpareParts = () => {
       </TableContainer>
 
       {/* ============================================================
-          ✅ VIEW SPARE PART DIALOG WITH TABS + DOWNTIME
+          VIEW SPARE PART DIALOG WITH TABS + DOWNTIME
           ============================================================ */}
       <Dialog 
         open={openViewDialog} 
@@ -1334,7 +1737,7 @@ const SpareParts = () => {
         fullWidth
         PaperProps={{
           sx: { 
-            borderRadius: 3,
+            borderRadius: 4,
             border: `1px solid ${colors.borderColor}`,
             boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
             maxHeight: '90vh',
@@ -1345,17 +1748,14 @@ const SpareParts = () => {
           bgcolor: colors.darkNavy, 
           color: 'white',
           borderRadius: '8px 8px 0 0',
+          py: 2.5,
         }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Box>
-              <Typography variant="h6" fontWeight={600}>
-                Spare Part Details
-              </Typography>
-              <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                {viewingPart?.part_name || 'N/A'}
-              </Typography>
-            </Box>
-            <IconButton onClick={handleCloseView} sx={{ color: 'white' }}>
+            <Typography variant="h6" fontWeight={600} sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Inventory sx={{ fontSize: 28 }} />
+              Spare Part Details
+            </Typography>
+            <IconButton onClick={handleCloseView} sx={{ color: 'white', '&:hover': { color: colors.lightCyan } }}>
               <Close />
             </IconButton>
           </Box>
@@ -1375,16 +1775,19 @@ const SpareParts = () => {
                   '& .MuiTab-root': {
                     textTransform: 'none',
                     fontWeight: 500,
+                    fontSize: '14px',
                     color: colors.lightText,
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                     '&.Mui-selected': {
                       color: colors.darkNavy,
+                      fontWeight: 600,
                     },
                     '&:hover': {
                       color: colors.lightCyanDark,
                     }
                   },
                   '& .MuiTabs-indicator': {
-                    bgcolor: colors.lightCyanDark,
+                    bgcolor: colors.lightCyan,
                   }
                 }}
               >
@@ -1398,126 +1801,155 @@ const SpareParts = () => {
               {/* Tab 0: Details */}
               {viewTabValue === 0 && (
                 <Box sx={{ p: 3 }}>
-                  <Grid container spacing={2}>
+                  <Grid container spacing={2.5}>
                     <Grid item xs={12} md={6}>
-                      <Typography variant="body2" sx={{ color: colors.lightText }}>Part Name</Typography>
-                      <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy }}>
+                      <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                        Part Name
+                      </Typography>
+                      <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                         {viewingPart.part_name}
                       </Typography>
                     </Grid>
                     <Grid item xs={12} md={6}>
-                      <Typography variant="body2" sx={{ color: colors.lightText }}>Part Number</Typography>
-                      <Typography variant="body1" sx={{ color: colors.darkNavy }}>
+                      <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                        Part Number
+                      </Typography>
+                      <Typography variant="body1" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                         {viewingPart.part_number || '-'}
                       </Typography>
                     </Grid>
                     <Grid item xs={12} md={4}>
-                      <Typography variant="body2" sx={{ color: colors.lightText }}>Brand</Typography>
-                      <Typography variant="body1" sx={{ color: colors.darkNavy }}>
+                      <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                        Brand
+                      </Typography>
+                      <Typography variant="body1" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                         {viewingPart.brand || '-'}
                       </Typography>
                     </Grid>
                     <Grid item xs={12} md={4}>
-                      <Typography variant="body2" sx={{ color: colors.lightText }}>Manufacturer</Typography>
-                      <Typography variant="body1" sx={{ color: colors.darkNavy }}>
+                      <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                        Manufacturer
+                      </Typography>
+                      <Typography variant="body1" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                         {viewingPart.manufacturer || '-'}
                       </Typography>
                     </Grid>
                     <Grid item xs={12} md={4}>
-                      <Typography variant="body2" sx={{ color: colors.lightText }}>Quantity</Typography>
-                      <Typography variant="body1" sx={{ color: colors.darkNavy }}>
+                      <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                        Quantity
+                      </Typography>
+                      <Typography variant="body1" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                         {viewingPart.quantity}
                       </Typography>
                     </Grid>
                     <Grid item xs={12} md={4}>
-                      <Typography variant="body2" sx={{ color: colors.lightText }}>Minimum Stock Level</Typography>
-                      <Typography variant="body1" sx={{ color: colors.darkNavy }}>
+                      <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                        Minimum Stock Level
+                      </Typography>
+                      <Typography variant="body1" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                         {viewingPart.minimum_stock_level || 5}
                       </Typography>
                     </Grid>
                     <Grid item xs={12} md={4}>
-                      <Typography variant="body2" sx={{ color: colors.lightText }}>Unit Cost</Typography>
-                      <Typography variant="body1" sx={{ color: colors.darkNavy }}>
+                      <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                        Unit Cost
+                      </Typography>
+                      <Typography variant="body1" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                         {formatPKR(viewingPart.unit_cost)}
                       </Typography>
                     </Grid>
                     <Grid item xs={12} md={4}>
-                      <Typography variant="body2" sx={{ color: colors.lightText }}>Total Cost</Typography>
-                      <Typography variant="body1" fontWeight={600} sx={{ color: colors.lightCyanDark }}>
+                      <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                        Total Cost
+                      </Typography>
+                      <Typography variant="body1" fontWeight={600} sx={{ color: colors.lightCyanDark, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                         {formatPKR(viewingPart.total_cost)}
                       </Typography>
                     </Grid>
-                    <Grid item xs={12} md={6}>
-                      <Typography variant="body2" sx={{ color: colors.lightText }}>Compatible Equipment</Typography>
-                      <Typography variant="body1" sx={{ color: colors.darkNavy }}>
-                        {viewingPart.compatible_equipment || '-'}
+                    <Grid item xs={12} md={4}>
+                      <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                        Status
                       </Typography>
-                    </Grid>
-                    <Grid item xs={12} md={6}>
-                      <Typography variant="body2" sx={{ color: colors.lightText }}>Status</Typography>
                       <Chip 
                         label={getStatus(viewingPart.quantity, viewingPart.minimum_stock_level).label}
                         size="small"
                         sx={{
                           bgcolor: getStatus(viewingPart.quantity, viewingPart.minimum_stock_level).color,
                           color: 'white',
-                          fontWeight: 500
+                          fontWeight: 600,
+                          height: 26,
+                          borderRadius: 2,
                         }}
                       />
                     </Grid>
 
                     {/* ✅ DOWNTIME SECTION */}
                     <Grid item xs={12}>
-                      <Typography variant="subtitle2" sx={{ color: colors.lightText, mb: 1, fontWeight: 600 }}>
+                      <Typography variant="subtitle2" sx={{ color: colors.lightText, mb: 1, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
                         <TimerOff sx={{ fontSize: 18, verticalAlign: 'middle', mr: 1 }} />
                         Downtime History
                       </Typography>
                       <Paper sx={{ p: 2, bgcolor: colors.mainBg, borderRadius: 2, border: `1px solid ${colors.borderColor}` }}>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
-                          <Typography variant="body2" sx={{ color: colors.lightText }}>
-                            Times Out of Stock
-                          </Typography>
-                          <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkNavy }}>
-                            {viewingPart.times_out_of_stock || 0}
-                          </Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
-                          <Typography variant="body2" sx={{ color: colors.lightText }}>
-                            First Out of Stock
-                          </Typography>
-                          <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkNavy }}>
-                            {viewingPart.first_out_of_stock ? new Date(viewingPart.first_out_of_stock).toLocaleString() : '-'}
-                          </Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
-                          <Typography variant="body2" sx={{ color: colors.lightText }}>
-                            Last Out of Stock
-                          </Typography>
-                          <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkNavy }}>
-                            {viewingPart.last_out_of_stock ? new Date(viewingPart.last_out_of_stock).toLocaleString() : '-'}
-                          </Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
-                          <Typography variant="body2" sx={{ color: colors.lightText }}>
-                            Total Downtime
-                          </Typography>
-                          <Typography variant="body2" fontWeight={700} sx={{ color: colors.error }}>
-                            {Number(viewingPart.total_downtime_days || 0).toFixed(1)} days
-                          </Typography>
-                        </Box>
+                        <Grid container spacing={2}>
+                          <Grid item xs={6} md={3}>
+                            <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                              Times Out of Stock
+                            </Typography>
+                            <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                              {viewingPart.times_out_of_stock || 0}
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={6} md={3}>
+                            <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                              First Out of Stock
+                            </Typography>
+                            <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                              {viewingPart.first_out_of_stock ? new Date(viewingPart.first_out_of_stock).toLocaleString() : '-'}
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={6} md={3}>
+                            <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                              Last Out of Stock
+                            </Typography>
+                            <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                              {viewingPart.last_out_of_stock ? new Date(viewingPart.last_out_of_stock).toLocaleString() : '-'}
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={6} md={3}>
+                            <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                              Total Downtime
+                            </Typography>
+                            <Typography variant="body2" fontWeight={700} sx={{ color: colors.error, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                              {Number(viewingPart.total_downtime_days || 0).toFixed(1)} days
+                            </Typography>
+                          </Grid>
+                        </Grid>
                       </Paper>
                     </Grid>
 
+                    {viewingPart.compatible_equipment && (
+                      <Grid item xs={12}>
+                        <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                          Compatible Equipment
+                        </Typography>
+                        <Typography variant="body1" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                          {viewingPart.compatible_equipment}
+                        </Typography>
+                      </Grid>
+                    )}
+
                     {viewingPart.installation_notes && (
                       <Grid item xs={12}>
-                        <Typography variant="body2" sx={{ color: colors.lightText }}>Installation Notes</Typography>
+                        <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                          Installation Notes
+                        </Typography>
                         <Paper sx={{ 
                           p: 2, 
                           bgcolor: colors.mainBg, 
-                          borderRadius: 1,
+                          borderRadius: 2,
                           border: `1px solid ${colors.borderColor}`
                         }}>
-                          <Typography variant="body2" sx={{ color: colors.darkNavy }}>
+                          <Typography variant="body2" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                             {viewingPart.installation_notes}
                           </Typography>
                         </Paper>
@@ -1526,48 +1958,53 @@ const SpareParts = () => {
                     
                     {viewingPart.repair_id && (
                       <Grid item xs={12}>
-                        <Typography variant="body2" sx={{ color: colors.lightText }}>Associated Repair</Typography>
-                        <Typography variant="body1" sx={{ color: colors.darkNavy }}>Repair #{viewingPart.repair_id}</Typography>
+                        <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                          Associated Repair
+                        </Typography>
+                        <Typography variant="body1" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                          Repair #{viewingPart.repair_id}
+                        </Typography>
                       </Grid>
                     )}
 
                     <Grid item xs={12}>
                       <Divider sx={{ my: 2, borderColor: colors.borderColor }} />
-                      <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>
+                      <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }} gutterBottom>
                         <History sx={{ fontSize: 18, verticalAlign: 'middle', mr: 1 }} />
                         Stock Movement History
                       </Typography>
                       {viewingPart.movements && viewingPart.movements.length > 0 ? (
-                        <TableContainer component={Paper} variant="outlined" sx={{ mt: 1, borderColor: colors.borderColor }}>
+                        <TableContainer component={Paper} variant="outlined" sx={{ mt: 1, borderColor: colors.borderColor, borderRadius: 2 }}>
                           <Table size="small">
                             <TableHead sx={{ bgcolor: colors.mainBg }}>
                               <TableRow>
-                                <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }}>Date</TableCell>
-                                <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }}>Action</TableCell>
-                                <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }}>Quantity</TableCell>
-                                <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }}>Reference</TableCell>
+                                <TableCell sx={{ fontWeight: 600, color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Date</TableCell>
+                                <TableCell sx={{ fontWeight: 600, color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Action</TableCell>
+                                <TableCell sx={{ fontWeight: 600, color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Quantity</TableCell>
+                                <TableCell sx={{ fontWeight: 600, color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Reference</TableCell>
                               </TableRow>
                             </TableHead>
                             <TableBody>
                               {viewingPart.movements.map((mov, idx) => (
                                 <TableRow key={idx} hover>
-                                  <TableCell sx={{ color: colors.darkNavy }}>
+                                  <TableCell sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                                     {new Date(mov.created_at).toLocaleString()}
                                   </TableCell>
-                                  <TableCell sx={{ color: colors.darkNavy }}>
+                                  <TableCell sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                                     {mov.type === 'IN' ? 'Stock In' : 'Stock Out'}
                                   </TableCell>
                                   <TableCell>
                                     <Typography 
                                       sx={{ 
                                         color: mov.type === 'IN' ? colors.success : colors.error,
-                                        fontWeight: 600
+                                        fontWeight: 600,
+                                        fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                                       }}
                                     >
                                       {mov.type === 'IN' ? '+' : '-'}{mov.quantity}
                                     </Typography>
                                   </TableCell>
-                                  <TableCell sx={{ color: colors.darkNavy }}>
+                                  <TableCell sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                                     {mov.reference_type === 'purchase' ? `PO #${mov.reference_id}` : 
                                      mov.reference_type === 'repair' ? `Repair #${mov.reference_id}` : 
                                      mov.reference_type || 'N/A'}
@@ -1578,7 +2015,7 @@ const SpareParts = () => {
                           </Table>
                         </TableContainer>
                       ) : (
-                        <Typography variant="body2" sx={{ color: colors.lightText, py: 2 }}>
+                        <Typography variant="body2" sx={{ color: colors.lightText, py: 2, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                           No stock movements recorded
                         </Typography>
                       )}
@@ -1590,11 +2027,11 @@ const SpareParts = () => {
               {/* Tab 1: Attachments */}
               {viewTabValue === 1 && (
                 <Box sx={{ p: 3 }}>
-                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy, mb: 2 }}>
+                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy, mb: 2, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                     Attachments ({getAllAttachments(viewingPart).length})
                   </Typography>
-                  <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 2 }}>
-                    Click on any file to preview it. Images and videos will open in a preview dialog.
+                  <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 2, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                    Click on any file to preview it.
                   </Typography>
                   
                   <AttachmentGrid 
@@ -1606,15 +2043,22 @@ const SpareParts = () => {
           )}
         </DialogContent>
         
-        <DialogActions sx={{ p: 3, justifyContent: 'space-between' }}>
+        <DialogActions sx={{ p: 3, gap: 1 }}>
           <Button 
             onClick={handleCloseView} 
+            variant="contained"
             sx={{ 
-              color: colors.darkNavy,
-              '&:hover': { 
-                backgroundColor: 'rgba(103, 232, 249, 0.04)'
-              },
+              bgcolor: colors.darkNavy,
+              color: colors.text,
+              borderRadius: 2,
+              px: 4,
               textTransform: 'none',
+              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+              '&:hover': { 
+                bgcolor: colors.darkNavyHover,
+                boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
+              },
+              transition: 'all 0.3s ease',
             }}
           >
             Close
@@ -1653,7 +2097,7 @@ const SpareParts = () => {
                   bgcolor: colors.darkNavy, 
                   '&:hover': { 
                     bgcolor: colors.darkNavyHover,
-                    boxShadow: `0 4px 20px ${colors.lightCyanGlowStrong}`
+                    boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
                   },
                   textTransform: 'none',
                   borderRadius: 2,
@@ -1667,7 +2111,9 @@ const SpareParts = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Add/Edit Dialog - DARK NAVY + CYAN */}
+      {/* ============================================================
+          ADD/EDIT DIALOG
+          ============================================================ */}
       <Dialog 
         open={openDialog} 
         onClose={handleCloseDialog} 
@@ -1675,7 +2121,7 @@ const SpareParts = () => {
         fullWidth
         PaperProps={{
           sx: {
-            borderRadius: 3,
+            borderRadius: 4,
             border: `1px solid ${colors.borderColor}`,
             boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
           }
@@ -1685,36 +2131,42 @@ const SpareParts = () => {
           bgcolor: colors.darkNavy, 
           color: 'white',
           borderRadius: '8px 8px 0 0',
+          py: 2.5,
         }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography variant="h6" fontWeight={600}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="h6" fontWeight={600} sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              {editingPart ? <Edit sx={{ fontSize: 28 }} /> : <Add sx={{ fontSize: 28 }} />}
               {editingPart ? 'Edit Spare Part' : 'Add New Spare Part'}
             </Typography>
+            <IconButton onClick={handleCloseDialog} sx={{ color: 'white', '&:hover': { color: colors.lightCyan } }}>
+              <Close />
+            </IconButton>
           </Box>
-          <IconButton onClick={handleCloseDialog} sx={{ position: 'absolute', right: 8, top: 8, color: 'white' }}>
-            <Close />
-          </IconButton>
         </DialogTitle>
-        <DialogContent dividers>
-          <Grid container spacing={2} sx={{ mt: 0 }}>
+        <DialogContent dividers sx={{ px: 4, py: 3 }}>
+          <Grid container spacing={2.5}>
             <Grid item xs={12}>
               <FormControl fullWidth>
-                <InputLabel sx={{ color: colors.lightText }}>Associated Repair</InputLabel>
+                <InputLabel sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Associated Repair</InputLabel>
                 <Select
                   name="repair_id"
                   value={formData.repair_id}
                   onChange={handleFormChange}
                   label="Associated Repair"
                   sx={{
+                    borderRadius: 2,
                     '& .MuiOutlinedInput-root': {
                       '&:hover fieldset': { borderColor: colors.lightCyan },
                       '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                    },
+                    '& .MuiSelect-select': {
+                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                     }
                   }}
                 >
-                  <MenuItem value="">None (General Stock)</MenuItem>
+                  <MenuItem value="" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>None (General Stock)</MenuItem>
                   {repairs.map(repair => (
-                    <MenuItem key={repair.id} value={repair.id}>
+                    <MenuItem key={repair.id} value={repair.id} sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                       Repair #{repair.id} - {repair.equipment_name}
                     </MenuItem>
                   ))}
@@ -1733,8 +2185,15 @@ const SpareParts = () => {
                 placeholder="Enter part name"
                 sx={{
                   '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                  },
+                  '& .MuiInputBase-input': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                  },
+                  '& .MuiInputLabel-root': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                   }
                 }}
               />
@@ -1750,8 +2209,15 @@ const SpareParts = () => {
                 placeholder="Enter part number"
                 sx={{
                   '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                  },
+                  '& .MuiInputBase-input': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                  },
+                  '& .MuiInputLabel-root': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                   }
                 }}
               />
@@ -1767,8 +2233,15 @@ const SpareParts = () => {
                 placeholder="Enter brand name"
                 sx={{
                   '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                  },
+                  '& .MuiInputBase-input': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                  },
+                  '& .MuiInputLabel-root': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                   }
                 }}
               />
@@ -1784,8 +2257,15 @@ const SpareParts = () => {
                 placeholder="Enter manufacturer name"
                 sx={{
                   '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                  },
+                  '& .MuiInputBase-input': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                  },
+                  '& .MuiInputLabel-root': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                   }
                 }}
               />
@@ -1803,8 +2283,18 @@ const SpareParts = () => {
                 helperText="Enter quantity (minimum 0)"
                 sx={{
                   '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                  },
+                  '& .MuiInputBase-input': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                  },
+                  '& .MuiInputLabel-root': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                  },
+                  '& .MuiFormHelperText-root': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                   }
                 }}
               />
@@ -1822,8 +2312,18 @@ const SpareParts = () => {
                 helperText="Alert when stock falls below this level"
                 sx={{
                   '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                  },
+                  '& .MuiInputBase-input': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                  },
+                  '& .MuiInputLabel-root': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                  },
+                  '& .MuiFormHelperText-root': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                   }
                 }}
               />
@@ -1844,8 +2344,18 @@ const SpareParts = () => {
                 helperText="Enter cost per unit"
                 sx={{
                   '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                  },
+                  '& .MuiInputBase-input': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                  },
+                  '& .MuiInputLabel-root': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                  },
+                  '& .MuiFormHelperText-root': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                   }
                 }}
               />
@@ -1867,8 +2377,18 @@ const SpareParts = () => {
                     backgroundColor: colors.mainBg,
                   },
                   '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                  },
+                  '& .MuiInputBase-input': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                  },
+                  '& .MuiInputLabel-root': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                  },
+                  '& .MuiFormHelperText-root': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                   }
                 }}
               />
@@ -1884,8 +2404,15 @@ const SpareParts = () => {
                 placeholder="e.g., Ventilator, Patient Monitor, ECG Machine"
                 sx={{
                   '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                  },
+                  '& .MuiInputBase-input': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                  },
+                  '& .MuiInputLabel-root': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                   }
                 }}
               />
@@ -1903,15 +2430,22 @@ const SpareParts = () => {
                 placeholder="Any special instructions for installation..."
                 sx={{
                   '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                  },
+                  '& .MuiInputBase-input': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                  },
+                  '& .MuiInputLabel-root': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                   }
                 }}
               />
             </Grid>
 
             <Grid item xs={12}>
-              <Typography variant="subtitle2" sx={{ color: colors.lightText }} gutterBottom>
+              <Typography variant="subtitle2" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }} gutterBottom>
                 <Image sx={{ fontSize: 18, verticalAlign: 'middle', mr: 1 }} />
                 Spare Part Image
               </Typography>
@@ -1925,7 +2459,6 @@ const SpareParts = () => {
                 maxSize={10}
                 showPreview={true}
                 onUploadComplete={(files) => {
-                  console.log('📸 Image uploaded:', files)
                   const file = files[0]
                   if (file) {
                     const imageUrl = file.url || file.fileUrl
@@ -1953,7 +2486,7 @@ const SpareParts = () => {
               
               {formData.image_url && (
                 <Box sx={{ mt: 2 }}>
-                  <Typography variant="caption" sx={{ color: colors.lightText }} gutterBottom display="block">
+                  <Typography variant="caption" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }} gutterBottom display="block">
                     Current Image:
                   </Typography>
                   <Box
@@ -1982,25 +2515,28 @@ const SpareParts = () => {
                 border: `1px solid ${colors.borderColor}`,
                 borderRadius: 2
               }}>
-                <Typography variant="caption" sx={{ color: colors.lightText }}>
+                <Typography variant="caption" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                   <strong>Calculation Preview:</strong> {formData.quantity || 0} × {formData.unit_cost || 0} = {formatPKR(formData.total_cost)}
                 </Typography>
-                <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', mt: 0.5 }}>
+                <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', mt: 0.5, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                   <strong>Status Preview:</strong> {getStatus(parseInt(formData.quantity) || 0, parseInt(formData.minimum_stock_level) || 5).label}
                 </Typography>
               </Paper>
             </Grid>
           </Grid>
         </DialogContent>
-        <DialogActions sx={{ p: 3 }}>
+        <DialogActions sx={{ p: 3, gap: 1 }}>
           <Button 
             onClick={handleCloseDialog} 
             sx={{ 
               color: colors.darkNavy,
+              borderRadius: 2,
+              px: 3,
+              textTransform: 'none',
               '&:hover': { 
                 backgroundColor: 'rgba(103, 232, 249, 0.04)'
               },
-              textTransform: 'none',
+              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
             }}
           >
             Cancel
@@ -2009,17 +2545,20 @@ const SpareParts = () => {
             variant="contained"
             onClick={handleSubmit}
             sx={{ 
-              bgcolor: colors.darkNavy, 
+              bgcolor: colors.darkNavy,
+              color: colors.text,
+              borderRadius: 2,
+              px: 4,
+              textTransform: 'none',
+              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
               '&:hover': { 
                 bgcolor: colors.darkNavyHover,
-                boxShadow: `0 4px 20px ${colors.lightCyanGlowStrong}`
+                boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
               },
-              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
-              textTransform: 'none',
-              borderRadius: 2,
+              transition: 'all 0.3s ease',
             }}
           >
-            {editingPart ? 'Update Spare Part' : 'Add Spare Part'}
+            {editingPart ? 'Update' : 'Add'}
           </Button>
         </DialogActions>
       </Dialog>

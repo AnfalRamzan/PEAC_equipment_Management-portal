@@ -5,6 +5,10 @@
 // ✅ FIXED: Status Update - No frontend permission check (Backend handles it)
 // ✅ ADDED: Resolution Date in View Dialog
 // ✅ UPDATED: Status options - Pending, In Progress, Resolved (Completed removed)
+// ✅ FIXED: Status chips now match Equipment page style with proper colors
+// ✅ ADDED: Full filter menu like Equipment page (Category, Manufacturer, Status, Hospital)
+// ✅ FIXED: Filter and Export buttons moved to header next to Refresh button (like Equipment page)
+// ✅ REMOVED: CSV export option (keeping Excel and PDF only)
 
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -44,6 +48,9 @@ import {
   ImageListItemBar,
   Dialog as PreviewDialog,
   CircularProgress,
+  Fade,
+  Grow,
+  Menu,
 } from '@mui/material'
 import {
   Add,
@@ -63,6 +70,13 @@ import {
   Warning,
   Error as ErrorIcon,
   Info,
+  MedicalServices,
+  LocalHospital,
+  Engineering,
+  ErrorOutline,
+  FilterList,
+  Download,
+  FileDownload,
 } from '@mui/icons-material'
 import { errorService, equipmentService, hospitalService, userService } from '../api/services'
 import { toast } from 'react-toastify'
@@ -70,6 +84,9 @@ import { useSelector } from 'react-redux'
 import FileUpload from '../components/FileUpload'
 import api from '../api/axios'
 import AccessDenied from '../components/Auth/AccessDenied'
+import * as XLSX from 'xlsx'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
 // ============================================================
 // ✅ DARK NAVY + LIGHT CYAN THEME COLORS
@@ -100,7 +117,38 @@ const colors = {
   success: '#22C55E',
   warning: '#F59E0B',
   info: '#3B82F6',
+  bgGradientStart: '#F0F4F8',
+  bgGradientEnd: '#E8EEF5',
 }
+
+// ✅ Animation Styles
+const animationStyles = `
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes prominentGlow {
+  0% {
+    box-shadow: 0 0 20px rgba(103, 232, 249, 0.2), 0 0 40px rgba(103, 232, 249, 0.1);
+    border-color: rgba(103, 232, 249, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(103, 232, 249, 0.4), 0 0 80px rgba(103, 232, 249, 0.2);
+    border-color: rgba(103, 232, 249, 0.6);
+  }
+  100% {
+    box-shadow: 0 0 20px rgba(103, 232, 249, 0.2), 0 0 40px rgba(103, 232, 249, 0.1);
+    border-color: rgba(103, 232, 249, 0.3);
+  }
+}
+`
 
 // ✅ Helper function to get full URL
 const getFullUrl = (url) => {
@@ -131,6 +179,45 @@ const getFileName = (url) => {
   if (!url) return 'File'
   const parts = url.split('/')
   return parts[parts.length - 1] || 'File'
+}
+
+// ✅ STATUS CHIP - Same style as Equipment page with proper colors
+const StatusChip = ({ status }) => {
+  const getStatusColor = (status) => {
+    const s = status?.toLowerCase() || 'pending'
+    switch(s) {
+      case 'resolved':
+        return { bg: '#22C55E', color: 'white' } // Success green
+      case 'in progress':
+        return { bg: '#F59E0B', color: 'white' } // Warning orange
+      case 'pending':
+        return { bg: '#EF4444', color: 'white' } // Error red
+      default:
+        return { bg: '#9E9E9E', color: 'white' }
+    }
+  }
+
+  const { bg, color } = getStatusColor(status)
+  const displayStatus = status || 'Pending'
+
+  return (
+    <Chip
+      label={displayStatus}
+      size="small"
+      sx={{
+        bgcolor: bg,
+        color: color,
+        fontWeight: 600,
+        fontSize: '11px',
+        height: 26,
+        borderRadius: 2,
+        '& .MuiChip-label': {
+          px: 1.5,
+          fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+        }
+      }}
+    />
+  )
 }
 
 // ✅ COMPONENT: Attachment Grid with Preview
@@ -413,43 +500,6 @@ const AttachmentGrid = ({ attachments, onFileClick }) => {
   )
 }
 
-// ✅ STATUS CHIP COMPONENT - Only 3 statuses
-const StatusChip = ({ status }) => {
-  const getStatusColor = (status) => {
-    const s = status?.toLowerCase() || 'pending'
-    switch(s) {
-      case 'resolved':
-        return { bg: colors.success, icon: <CheckCircle sx={{ fontSize: 14 }} /> }
-      case 'in progress':
-        return { bg: '#FF6F00', icon: <Warning sx={{ fontSize: 14 }} /> }
-      case 'pending':
-        return { bg: colors.warning, icon: <Warning sx={{ fontSize: 14 }} /> }
-      default:
-        return { bg: '#9E9E9E', icon: <Info sx={{ fontSize: 14 }} /> }
-    }
-  }
-
-  const { bg, icon } = getStatusColor(status)
-  const displayStatus = status || 'Pending'
-
-  return (
-    <Chip 
-      label={displayStatus} 
-      size="small"
-      icon={icon}
-      sx={{
-        bgcolor: bg,
-        color: 'white',
-        fontWeight: 500,
-        height: 24,
-        fontSize: '11px',
-        '& .MuiChip-icon': { color: 'white', fontSize: 14 },
-        '& .MuiChip-label': { px: 1 },
-      }}
-    />
-  )
-}
-
 const ErrorLogs = () => {
   const { user } = useSelector((state) => state.auth)
   const navigate = useNavigate()
@@ -469,6 +519,7 @@ const ErrorLogs = () => {
   // ============================================================
   const [errors, setErrors] = useState([])
   const [equipment, setEquipment] = useState([])
+  const [categories, setCategories] = useState([])
   const [hospitals, setHospitals] = useState([])
   const [departments, setDepartments] = useState([])
   const [users, setUsers] = useState([])
@@ -479,6 +530,12 @@ const ErrorLogs = () => {
   const [openViewDialog, setOpenViewDialog] = useState(false)
   const [editingError, setEditingError] = useState(null)
   const [viewingError, setViewingError] = useState(null)
+  
+  // ✅ Filter Menu State
+  const [filterAnchorEl, setFilterAnchorEl] = useState(null)
+  
+  // ✅ Export Menu State
+  const [exportAnchorEl, setExportAnchorEl] = useState(null)
 
   // ✅ Status Update States
   const [openStatusDialog, setOpenStatusDialog] = useState(false)
@@ -492,8 +549,12 @@ const ErrorLogs = () => {
     error_date: ''
   })
 
-  // ✅ CHANGED: Filters - Priority removed, added fromDate & toDate
+  // ✅ Filters - Same as Equipment page
   const [filters, setFilters] = useState({
+    category: '',
+    manufacturer: '',
+    status: '',
+    hospital: '',
     fromDate: '',
     toDate: ''
   })
@@ -518,6 +579,7 @@ const ErrorLogs = () => {
   useEffect(() => {
     fetchErrors()
     fetchEquipment()
+    fetchCategories()
     fetchHospitals()
     fetchDepartments()
     fetchUsers()
@@ -562,6 +624,20 @@ const ErrorLogs = () => {
     }
   }
 
+  const fetchCategories = async () => {
+    try {
+      const response = await api.get('/equipment/categories/all')
+      if (response.data && response.data.success) {
+        setCategories(response.data.categories || [])
+      } else {
+        setCategories([])
+      }
+    } catch (error) {
+      console.error('Failed to fetch categories:', error)
+      setCategories([])
+    }
+  }
+
   const fetchHospitals = async () => {
     try {
       const response = await hospitalService.getAll()
@@ -591,6 +667,94 @@ const ErrorLogs = () => {
       setUsers(response.data.users || [])
     } catch (error) {
       console.error('Failed to fetch users:', error)
+    }
+  }
+
+  // ============================================================
+  // ✅ FILTER HANDLERS - Same as Equipment page
+  // ============================================================
+  const handleFilterClick = (event) => setFilterAnchorEl(event.currentTarget)
+  const handleFilterClose = () => setFilterAnchorEl(null)
+
+  const handleFilterChange = (e) => {
+    setFilters({ ...filters, [e.target.name]: e.target.value })
+  }
+
+  const clearFilters = () => {
+    setFilters({ 
+      category: '', 
+      manufacturer: '', 
+      status: '', 
+      hospital: '',
+      fromDate: '',
+      toDate: ''
+    })
+    setFilterAnchorEl(null)
+    toast.info('Filters cleared')
+  }
+
+  // ============================================================
+  // ✅ EXPORT HANDLERS - CSV REMOVED, KEEPING EXCEL & PDF
+  // ============================================================
+  const handleExportClick = (event) => setExportAnchorEl(event.currentTarget)
+  const handleExportClose = () => setExportAnchorEl(null)
+
+  // ❌ CSV export removed - keeping only Excel and PDF
+
+  const exportToExcel = () => {
+    try {
+      const data = filteredErrors.map(e => ({
+        'Error Title': e.error_title || '',
+        'Error Code': e.error_code || '',
+        'Equipment': e.equipment_name || '',
+        'Status': e.status || '',
+        'Reporting Date': e.error_date ? new Date(e.error_date).toLocaleDateString() : '',
+        'Resolution Date': e.status === 'Resolved' ? (e.resolved_at ? new Date(e.resolved_at).toLocaleDateString() : e.updated_at ? new Date(e.updated_at).toLocaleDateString() : '') : '',
+        'Reported By': e.reported_by_name || ''
+      }))
+      const ws = XLSX.utils.json_to_sheet(data)
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Error Logs')
+      XLSX.writeFile(wb, `error_logs_${new Date().toISOString().split('T')[0]}.xlsx`)
+      toast.success('Excel exported!')
+      handleExportClose()
+    } catch (error) {
+      toast.error('Export failed: ' + error.message)
+    }
+  }
+
+  const exportToPDF = () => {
+    try {
+      const doc = new jsPDF()
+      doc.setFontSize(18)
+      doc.setTextColor(colors.darkNavy)
+      doc.text('Error Logs Report', 14, 20)
+      doc.setFontSize(10)
+      doc.setTextColor('#666666')
+      doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 28)
+      doc.text(`Total Errors: ${filteredErrors.length}`, 14, 34)
+      
+      const tableData = filteredErrors.map(e => [
+        e.error_title || '',
+        e.equipment_name || '',
+        e.status || '',
+        e.error_date ? new Date(e.error_date).toLocaleDateString() : '',
+        e.status === 'Resolved' ? (e.resolved_at ? new Date(e.resolved_at).toLocaleDateString() : e.updated_at ? new Date(e.updated_at).toLocaleDateString() : '') : '',
+      ])
+      autoTable(doc, {
+        head: [['Error', 'Equipment', 'Status', 'Reporting Date', 'Resolution Date']],
+        body: tableData,
+        startY: 40,
+        styles: { fontSize: 7, cellPadding: 2 },
+        headStyles: { fillColor: colors.darkNavy, textColor: '#FFFFFF', fontSize: 8 },
+        alternateRowStyles: { fillColor: '#F5F7FA' },
+        margin: { left: 10, right: 10 }
+      })
+      doc.save(`error_logs_${new Date().toISOString().split('T')[0]}.pdf`)
+      toast.success('PDF exported!')
+      handleExportClose()
+    } catch (error) {
+      toast.error('Export failed: ' + error.message)
     }
   }
 
@@ -658,7 +822,6 @@ const ErrorLogs = () => {
     }
     
     setEditingError(null)
-    // ✅ CHANGED: Priority removed from form data
     setErrorFormData({
       equipment_id: '',
       error_code: '',
@@ -854,7 +1017,7 @@ const ErrorLogs = () => {
   }
 
   // ============================================================
-  // ✅ FILTERED DATA - Priority removed, date filters added
+  // ✅ FILTERED DATA - With full filters like Equipment page
   // ============================================================
   const filteredErrors = errors.filter(error => {
     const matchesSearch = error.error_title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -865,41 +1028,114 @@ const ErrorLogs = () => {
     const matchesFromDate = !filters.fromDate || new Date(errorDate) >= new Date(filters.fromDate)
     const matchesToDate = !filters.toDate || new Date(errorDate) <= new Date(filters.toDate)
     
-    return matchesSearch && matchesFromDate && matchesToDate
+    // Equipment filters
+    const matchesCategory = !filters.category || error.category_id === parseInt(filters.category)
+    const matchesManufacturer = !filters.manufacturer || 
+      error.manufacturer?.toLowerCase().includes(filters.manufacturer.toLowerCase())
+    const matchesStatus = !filters.status || error.status === filters.status
+    const matchesHospital = !filters.hospital || error.hospital_id === parseInt(filters.hospital)
+    
+    return matchesSearch && matchesFromDate && matchesToDate && 
+           matchesCategory && matchesManufacturer && matchesStatus && matchesHospital
   })
 
   const totalErrors = errors.length
   const openErrors = errors.filter(e => e.status === 'Pending' || e.status === 'In Progress').length
   const resolvedErrors = errors.filter(e => e.status === 'Resolved').length
 
+  // ✅ Stats Cards Data - ALL ICONS SAME THEME COLOR (Light Cyan)
+  const statsCards = [
+    {
+      title: 'Total Errors',
+      value: totalErrors,
+      icon: <ErrorOutline />,
+      color: colors.lightCyan,
+      bg: 'rgba(103, 232, 249, 0.08)',
+      path: '/errors'
+    },
+    {
+      title: 'Open',
+      value: openErrors,
+      icon: <Warning />,
+      color: colors.lightCyan,
+      bg: 'rgba(103, 232, 249, 0.08)',
+      path: '/errors?status=open'
+    },
+    {
+      title: 'Resolved',
+      value: resolvedErrors,
+      icon: <CheckCircle />,
+      color: colors.lightCyan,
+      bg: 'rgba(103, 232, 249, 0.08)',
+      path: '/errors?status=resolved'
+    },
+    {
+      title: 'Engineers',
+      value: users.length,
+      icon: <Engineering />,
+      color: colors.lightCyan,
+      bg: 'rgba(103, 232, 249, 0.08)',
+      path: '/users?role=ENGINEER'
+    },
+  ]
+
   if (loading) {
     return <LinearProgress sx={{ bgcolor: colors.borderColor, '& .MuiLinearProgress-bar': { bgcolor: colors.lightCyan } }} />
   }
 
   return (
-    <Box>
-      {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-        <Typography 
-          variant="h5" 
-          sx={{ 
-            fontWeight: 700, 
-            color: colors.darkNavy,
-            '&::after': {
-              content: '""',
-              display: 'block',
-              width: '40px',
-              height: '3px',
-              background: `linear-gradient(90deg, ${colors.lightCyan}, ${colors.darkNavy})`,
-              borderRadius: '2px',
-              marginTop: '4px',
-            }
-          }}
-        >
-          Error Logs
-        </Typography>
+    <Box sx={{ 
+      p: { xs: 1, sm: 2, md: 3 },
+      background: `linear-gradient(135deg, ${colors.bgGradientStart} 0%, ${colors.bgGradientEnd} 50%, ${colors.bgGradientStart} 100%)`,
+      minHeight: '100vh',
+    }}>
+      <style>{animationStyles}</style>
+
+      {/* Header - With Filter and Export buttons in header like Equipment page */}
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        mb: 3, 
+        flexWrap: 'wrap', 
+        gap: 2,
+        animation: 'fadeInUp 0.6s ease-out',
+      }}>
+        <Box>
+          <Typography 
+            variant="h5" 
+            sx={{ 
+              fontWeight: 700, 
+              color: colors.darkNavy,
+              fontSize: { xs: '1.2rem', sm: '1.4rem', md: '1.6rem' },
+              '&::after': {
+                content: '""',
+                display: 'block',
+                width: '40px',
+                height: '3px',
+                background: `linear-gradient(90deg, ${colors.lightCyan}, ${colors.darkNavy})`,
+                borderRadius: '2px',
+                marginTop: '4px',
+              }
+            }}
+          >
+            Error Logs
+          </Typography>
+          <Typography 
+            variant="body2" 
+            sx={{ 
+              color: colors.lightText,
+              mt: 0.5,
+            }}
+          >
+            Track and manage equipment errors
+          </Typography>
+        </Box>
+        
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
           {refreshing && <CircularProgress size={20} sx={{ color: colors.lightCyan }} />}
+          
+          {/* ✅ REFRESH BUTTON - BORDER STYLE (Fills on hover/click) */}
           <Button
             variant="outlined"
             startIcon={<Refresh />}
@@ -907,31 +1143,92 @@ const ErrorLogs = () => {
             size="small"
             disabled={refreshing}
             sx={{ 
-              borderColor: colors.borderColor, 
-              color: colors.darkNavy,
+              borderColor: colors.lightCyan,
+              color: colors.lightCyan,
+              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+              textTransform: 'none',
+              borderRadius: 2,
+              transition: 'all 0.3s ease',
               '&:hover': { 
-                borderColor: colors.lightCyan, 
-                color: colors.lightCyanDark,
-                backgroundColor: 'rgba(103, 232, 249, 0.04)'
+                bgcolor: colors.lightCyan,
+                color: colors.darkNavy,
+                borderColor: colors.lightCyan,
+                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+                transform: 'translateY(-2px)',
+              },
+              '&:active': {
+                bgcolor: colors.lightCyan,
+                color: colors.darkNavy,
+                borderColor: colors.lightCyan,
+                transform: 'scale(0.96)',
               }
             }}
           >
             {refreshing ? 'Refreshing...' : 'Refresh'}
           </Button>
+          
+          {/* ✅ FILTER BUTTON - In header like Equipment page */}
+          <Button 
+            variant="contained"
+            startIcon={<FilterList />} 
+            onClick={handleFilterClick}
+            sx={{ 
+              bgcolor: colors.darkNavy,
+              color: colors.text,
+              borderRadius: 2,
+              textTransform: 'none',
+              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+              '&:hover': { 
+                bgcolor: colors.darkNavyHover,
+                boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
+                transform: 'translateY(-2px)',
+              },
+              transition: 'all 0.3s ease',
+            }}
+          >
+            Filter
+          </Button>
+          
+          {/* ✅ EXPORT BUTTON - In header like Equipment page */}
+          <Button 
+            variant="contained"
+            startIcon={<Download />} 
+            onClick={handleExportClick}
+            sx={{ 
+              bgcolor: colors.darkNavy,
+              color: colors.text,
+              borderRadius: 2,
+              textTransform: 'none',
+              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+              '&:hover': { 
+                bgcolor: colors.darkNavyHover,
+                boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
+                transform: 'translateY(-2px)',
+              },
+              transition: 'all 0.3s ease',
+            }}
+          >
+            Export
+          </Button>
+          
           {canReport && (
             <Button
               variant="contained"
               startIcon={<Add />}
               onClick={() => handleOpenDialog()}
               sx={{ 
-                bgcolor: colors.darkNavy, 
-                '&:hover': { 
-                  bgcolor: colors.darkNavyHover,
-                  boxShadow: `0 4px 20px ${colors.lightCyanGlowStrong}`
-                },
-                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+                bgcolor: colors.darkNavy,
+                color: colors.text,
+                fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                 borderRadius: 2,
                 textTransform: 'none',
+                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+                '&:hover': { 
+                  bgcolor: colors.darkNavyHover,
+                  boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
+                  transform: 'translateY(-2px)',
+                },
+                transition: 'all 0.3s ease',
               }}
             >
               Report Error
@@ -940,93 +1237,96 @@ const ErrorLogs = () => {
         </Box>
       </Box>
 
-      {/* Stats Cards - Removed Completed */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={6} sm={3}>
-          <Card sx={{ 
-            borderRadius: 2, 
-            border: `1px solid ${colors.borderColor}`,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-            '&:hover': {
-              borderColor: colors.lightCyan,
-              boxShadow: `0 4px 20px ${colors.lightCyanGlow}`
-            }
-          }}>
-            <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" sx={{ color: colors.darkNavy, fontWeight: 700 }}>
-                {totalErrors}
-              </Typography>
-              <Typography variant="body2" sx={{ color: colors.lightText }}>Total Errors</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={6} sm={3}>
-          <Card sx={{ 
-            borderRadius: 2, 
-            border: `1px solid ${colors.warning}33`,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-            bgcolor: `${colors.warning}08`,
-            '&:hover': {
-              borderColor: colors.warning,
-              boxShadow: `0 4px 20px rgba(245, 158, 11, 0.15)`
-            }
-          }}>
-            <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" sx={{ color: colors.warning, fontWeight: 700 }}>
-                {openErrors}
-              </Typography>
-              <Typography variant="body2" sx={{ color: colors.lightText }}>Open</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={6} sm={3}>
-          <Card sx={{ 
-            borderRadius: 2, 
-            border: `1px solid ${colors.success}33`,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-            bgcolor: `${colors.success}08`,
-            '&:hover': {
-              borderColor: colors.success,
-              boxShadow: `0 4px 20px rgba(34, 197, 94, 0.15)`
-            }
-          }}>
-            <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" sx={{ color: colors.success, fontWeight: 700 }}>
-                {resolvedErrors}
-              </Typography>
-              <Typography variant="body2" sx={{ color: colors.lightText }}>Resolved</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={6} sm={3}>
-          <Card sx={{ 
-            borderRadius: 2, 
-            border: `1px solid ${colors.info}33`,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-            bgcolor: `${colors.info}08`,
-            '&:hover': {
-              borderColor: colors.info,
-              boxShadow: `0 4px 20px rgba(59, 130, 246, 0.15)`
-            }
-          }}>
-            <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" sx={{ color: colors.info, fontWeight: 700 }}>
-                {users.length}
-              </Typography>
-              <Typography variant="body2" sx={{ color: colors.lightText }}>Engineers</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
+      {/* Stats Cards - All icons same theme color */}
+      <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }} sx={{ mb: 3 }}>
+        {statsCards.map((card, index) => (
+          <Grid item xs={6} sm={3} key={index}>
+            <Grow in timeout={300 + index * 100}>
+              <Card sx={{ 
+                borderRadius: 3,
+                border: `1px solid ${colors.borderColor}`,
+                boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  transform: 'translateY(-4px)',
+                  boxShadow: `0 8px 30px ${colors.lightCyanGlow}`,
+                  borderColor: colors.lightCyan,
+                },
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: 3,
+                  background: `linear-gradient(90deg, ${colors.lightCyan}, ${colors.accentGold})`,
+                  borderRadius: '3px 3px 0 0',
+                }
+              }}>
+                <CardContent sx={{ p: { xs: 1.5, sm: 2 }, position: 'relative' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Box>
+                      <Typography 
+                        variant="caption" 
+                        sx={{ 
+                          color: colors.lightText,
+                          fontWeight: 500,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px',
+                          fontSize: '0.6rem',
+                        }}
+                      >
+                        {card.title}
+                      </Typography>
+                      <Typography 
+                        variant="h5" 
+                        sx={{ 
+                          fontWeight: 700,
+                          color: colors.darkNavy,
+                          fontSize: { xs: '1.3rem', sm: '1.6rem', md: '1.8rem' },
+                          mt: 0.5,
+                        }}
+                      >
+                        {card.value}
+                      </Typography>
+                    </Box>
+                    <Box
+                      sx={{
+                        background: card.bg,
+                        borderRadius: '14px',
+                        p: 1.2,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: 42,
+                        height: 42,
+                        color: colors.lightCyan,
+                      }}
+                    >
+                      {React.cloneElement(card.icon, { 
+                        sx: { 
+                          fontSize: 22,
+                          color: colors.lightCyan,
+                        } 
+                      })}
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grow>
+          </Grid>
+        ))}
       </Grid>
 
-      {/* Search & Filter */}
+      {/* Search - Only search bar, no filter/export buttons */}
       <Paper sx={{ 
         p: 2, 
         mb: 3, 
-        borderRadius: 2,
+        borderRadius: 3,
         border: `1px solid ${colors.borderColor}`,
         boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
         bgcolor: colors.cardBg,
+        animation: 'fadeInUp 0.7s ease-out',
       }}>
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
           <TextField
@@ -1034,77 +1334,308 @@ const ErrorLogs = () => {
             placeholder="Search errors..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            sx={{ flexGrow: 1, minWidth: 200 }}
+            sx={{ flexGrow: 1 }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <Search sx={{ color: colors.lightText }} />
+                  <Search sx={{ color: colors.lightText, fontSize: 20 }} />
                 </InputAdornment>
               ),
               sx: {
+                borderRadius: 2,
                 '& .MuiOutlinedInput-root': {
                   '&:hover fieldset': { borderColor: colors.lightCyan },
                   '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                },
+                '& .MuiInputBase-input': {
+                  fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                  fontSize: '0.9rem',
                 }
               }
             }}
           />
-          <TextField
-            size="small"
-            label="From Date"
-            type="date"
-            value={filters.fromDate || ''}
-            onChange={(e) => setFilters({ ...filters, fromDate: e.target.value })}
-            InputLabelProps={{ shrink: true }}
-            sx={{ minWidth: 150 }}
-          />
-          <TextField
-            size="small"
-            label="To Date"
-            type="date"
-            value={filters.toDate || ''}
-            onChange={(e) => setFilters({ ...filters, toDate: e.target.value })}
-            InputLabelProps={{ shrink: true }}
-            sx={{ minWidth: 150 }}
-          />
         </Box>
       </Paper>
+
+      {/* ✅ FILTER MENU - Same as Equipment page */}
+      <Menu
+        anchorEl={filterAnchorEl}
+        open={Boolean(filterAnchorEl)}
+        onClose={handleFilterClose}
+        PaperProps={{ 
+          sx: { 
+            p: 2.5, 
+            width: 280,
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+            borderRadius: 3,
+          } 
+        }}
+      >
+        <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy, mb: 2 }}>
+          Filter Errors
+        </Typography>
+        
+        {/* ✅ Category Filter */}
+        <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+          <InputLabel sx={{ color: colors.lightText }}>Category</InputLabel>
+          <Select 
+            name="category" 
+            value={filters.category} 
+            onChange={handleFilterChange} 
+            label="Category"
+            sx={{
+              borderRadius: 2,
+              '& .MuiOutlinedInput-root': {
+                '&:hover fieldset': { borderColor: colors.lightCyan },
+                '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+              }
+            }}
+          >
+            <MenuItem value="">All</MenuItem>
+            {categories.map(cat => (
+              <MenuItem key={cat.id} value={cat.id}>{cat.name}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        {/* ✅ Hospital Filter */}
+        <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+          <InputLabel sx={{ color: colors.lightText }}>Hospital</InputLabel>
+          <Select 
+            name="hospital" 
+            value={filters.hospital} 
+            onChange={handleFilterChange} 
+            label="Hospital"
+            sx={{
+              borderRadius: 2,
+              '& .MuiOutlinedInput-root': {
+                '&:hover fieldset': { borderColor: colors.lightCyan },
+                '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+              }
+            }}
+          >
+            <MenuItem value="">All</MenuItem>
+            {hospitals.map(h => (
+              <MenuItem key={h.id} value={h.id}>{h.name}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        {/* ✅ Manufacturer Filter */}
+        <TextField
+          fullWidth 
+          size="small" 
+          label="Manufacturer" 
+          name="manufacturer"
+          value={filters.manufacturer} 
+          onChange={handleFilterChange}
+          placeholder="Filter by manufacturer" 
+          sx={{ 
+            mb: 2,
+            '& .MuiOutlinedInput-root': {
+              borderRadius: 2,
+              '&:hover fieldset': { borderColor: colors.lightCyan },
+              '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+            }
+          }}
+        />
+
+        {/* ✅ Status Filter */}
+        <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+          <InputLabel sx={{ color: colors.lightText }}>Status</InputLabel>
+          <Select 
+            name="status" 
+            value={filters.status} 
+            onChange={handleFilterChange} 
+            label="Status"
+            sx={{
+              borderRadius: 2,
+              '& .MuiOutlinedInput-root': {
+                '&:hover fieldset': { borderColor: colors.lightCyan },
+                '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+              }
+            }}
+          >
+            <MenuItem value="">All</MenuItem>
+            <MenuItem value="Pending">Pending</MenuItem>
+            <MenuItem value="In Progress">In Progress</MenuItem>
+            <MenuItem value="Resolved">Resolved</MenuItem>
+          </Select>
+        </FormControl>
+
+        {/* ✅ Date Range Filters */}
+        <TextField
+          fullWidth
+          size="small"
+          label="From Date"
+          type="date"
+          name="fromDate"
+          value={filters.fromDate || ''}
+          onChange={handleFilterChange}
+          InputLabelProps={{ shrink: true }}
+          sx={{ 
+            mb: 2,
+            '& .MuiOutlinedInput-root': {
+              borderRadius: 2,
+              '&:hover fieldset': { borderColor: colors.lightCyan },
+              '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+            }
+          }}
+        />
+
+        <TextField
+          fullWidth
+          size="small"
+          label="To Date"
+          type="date"
+          name="toDate"
+          value={filters.toDate || ''}
+          onChange={handleFilterChange}
+          InputLabelProps={{ shrink: true }}
+          sx={{ 
+            mb: 2,
+            '& .MuiOutlinedInput-root': {
+              borderRadius: 2,
+              '&:hover fieldset': { borderColor: colors.lightCyan },
+              '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+            }
+          }}
+        />
+
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button 
+            variant="contained" 
+            onClick={handleFilterClose} 
+            fullWidth 
+            size="small"
+            sx={{ 
+              bgcolor: colors.darkNavy,
+              borderRadius: 2,
+              textTransform: 'none',
+              '&:hover': { 
+                bgcolor: colors.darkNavyHover,
+                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`
+              },
+            }}
+          >
+            Apply
+          </Button>
+          <Button 
+            variant="outlined" 
+            onClick={clearFilters} 
+            fullWidth 
+            size="small"
+            sx={{ 
+              borderColor: colors.borderColor,
+              color: colors.darkNavy,
+              borderRadius: 2,
+              textTransform: 'none',
+              '&:hover': { 
+                borderColor: colors.lightCyan,
+                backgroundColor: 'rgba(103, 232, 249, 0.04)'
+              }
+            }}
+          >
+            Clear
+          </Button>
+        </Box>
+      </Menu>
+
+      {/* ✅ EXPORT MENU - CSV REMOVED, KEEPING EXCEL & PDF */}
+      <Menu
+        anchorEl={exportAnchorEl}
+        open={Boolean(exportAnchorEl)}
+        onClose={handleExportClose}
+        PaperProps={{ 
+          sx: { 
+            p: 1, 
+            width: 200,
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+            borderRadius: 3,
+          } 
+        }}
+      >
+        {/* ✅ Excel Export Option */}
+        <MenuItem 
+          onClick={exportToExcel} 
+          sx={{ 
+            borderRadius: 1,
+            '&:hover': { 
+              bgcolor: 'rgba(103, 232, 249, 0.08)',
+            } 
+          }}
+        >
+          <FileDownload sx={{ mr: 1.5, fontSize: 20, color: colors.lightCyanDark }} />
+          <Box>
+            <Typography variant="body2" fontWeight={500}>Excel</Typography>
+            <Typography variant="caption" sx={{ color: colors.lightText }}>.xlsx format</Typography>
+          </Box>
+        </MenuItem>
+        
+        {/* ✅ PDF Export Option */}
+        <MenuItem 
+          onClick={exportToPDF} 
+          sx={{ 
+            borderRadius: 1,
+            '&:hover': { 
+              bgcolor: 'rgba(103, 232, 249, 0.08)',
+            } 
+          }}
+        >
+          <FileDownload sx={{ mr: 1.5, fontSize: 20, color: colors.lightCyanDark }} />
+          <Box>
+            <Typography variant="body2" fontWeight={500}>PDF</Typography>
+            <Typography variant="caption" sx={{ color: colors.lightText }}>Print ready document</Typography>
+          </Box>
+        </MenuItem>
+      </Menu>
 
       {/* Table - Only 3 statuses */}
       <TableContainer 
         component={Paper} 
         sx={{ 
-          borderRadius: 2, 
+          borderRadius: 3, 
           border: `1px solid ${colors.borderColor}`,
           boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+          animation: 'fadeInUp 0.8s ease-out',
         }}
       >
         <Table>
           <TableHead sx={{ bgcolor: colors.darkNavy }}>
             <TableRow>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Error</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Equipment</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Status</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Reporting Date</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Resolution Date</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600, textAlign: 'center' }}>Actions</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Error</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Equipment</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Status</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Reporting Date</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Resolution Date</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2, textAlign: 'center' }}>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {filteredErrors.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} align="center">
-                  <Typography variant="body1" sx={{ py: 3, color: colors.lightText }}>
-                    No errors found
-                  </Typography>
+                <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                    <ErrorOutline sx={{ fontSize: 48, color: colors.borderColor }} />
+                    <Typography variant="body1" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                      No errors found
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                      Try adjusting your search or filters
+                    </Typography>
+                  </Box>
                 </TableCell>
               </TableRow>
             ) : (
-              filteredErrors.map((error) => (
+              filteredErrors.map((error, index) => (
                 <TableRow 
                   key={error.id} 
                   hover
                   sx={{
+                    transition: 'all 0.2s ease',
+                    animation: `fadeInUp 0.4s ease-out ${index * 0.05}s both`,
                     '&:hover': {
                       backgroundColor: 'rgba(103, 232, 249, 0.04)',
                     },
@@ -1112,28 +1643,29 @@ const ErrorLogs = () => {
                   }}
                 >
                   <TableCell>
-                    <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>
+                    <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                       {error.error_title}
                     </Typography>
-                    <Typography variant="caption" sx={{ color: colors.lightText }}>
+                    <Typography variant="caption" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                       {error.error_code || 'No code'}
                     </Typography>
                   </TableCell>
-                  <TableCell sx={{ color: colors.lightText }}>
+                  <TableCell sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                     {error.equipment_name}
                   </TableCell>
                   <TableCell>
                     <StatusChip status={error.status || 'Pending'} />
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2" sx={{ color: colors.lightText }}>
+                    <Typography variant="body2" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                       {error.error_date ? new Date(error.error_date).toLocaleDateString() : 
                        error.created_at ? new Date(error.created_at).toLocaleDateString() : 'N/A'}
                     </Typography>
                   </TableCell>
                   <TableCell>
                     <Typography variant="body2" sx={{ 
-                      color: error.status === 'Resolved' ? colors.success : colors.lightText 
+                      color: error.status === 'Resolved' ? colors.success : colors.lightText,
+                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif"
                     }}>
                       {error.status === 'Resolved' ? 
                         (error.resolved_at ? new Date(error.resolved_at).toLocaleDateString() : 
@@ -1165,7 +1697,7 @@ const ErrorLogs = () => {
                             size="small" 
                             onClick={() => handleOpenStatusDialog(error)}
                             sx={{ 
-                              color: colors.info, 
+                              color: colors.darkNavy, 
                               '&:hover': { 
                                 color: colors.lightCyanDark,
                                 backgroundColor: 'rgba(103, 232, 249, 0.08)'
@@ -1183,6 +1715,11 @@ const ErrorLogs = () => {
                             size="small" 
                             color="error" 
                             onClick={() => handleErrorDelete(error.id)}
+                            sx={{
+                              '&:hover': {
+                                backgroundColor: 'rgba(239, 68, 68, 0.08)'
+                              }
+                            }}
                           >
                             <Delete fontSize="small" />
                           </IconButton>
@@ -1205,7 +1742,7 @@ const ErrorLogs = () => {
         fullWidth
         PaperProps={{
           sx: {
-            borderRadius: 3,
+            borderRadius: 4,
             border: `1px solid ${colors.borderColor}`,
             boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
           }
@@ -1215,22 +1752,24 @@ const ErrorLogs = () => {
           bgcolor: colors.darkNavy, 
           color: 'white',
           borderRadius: '8px 8px 0 0',
+          py: 2.5,
         }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" fontWeight={600}>
+            <Typography variant="h6" fontWeight={600} sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <ErrorOutline sx={{ fontSize: 28 }} />
               Report New Error
             </Typography>
-            <IconButton onClick={handleCloseDialog} sx={{ color: 'white' }}>
+            <IconButton onClick={handleCloseDialog} sx={{ color: 'white', '&:hover': { color: colors.lightCyan } }}>
               <Close />
             </IconButton>
           </Box>
         </DialogTitle>
         
-        <DialogContent dividers sx={{ mt: 1 }}>
-          <Grid container spacing={2}>
+        <DialogContent dividers sx={{ mt: 1, px: 4, py: 3 }}>
+          <Grid container spacing={2.5}>
             <Grid item xs={12}>
               <FormControl fullWidth>
-                <InputLabel>Equipment</InputLabel>
+                <InputLabel sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Equipment</InputLabel>
                 <Select
                   name="equipment_id"
                   value={errorFormData.equipment_id}
@@ -1238,15 +1777,25 @@ const ErrorLogs = () => {
                   onBlur={handleBlur}
                   error={!!errors_validation.equipment_id}
                   label="Equipment"
+                  sx={{
+                    borderRadius: 2,
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                    },
+                    '& .MuiSelect-select': {
+                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                    }
+                  }}
                 >
                   {equipment.map((eq) => (
-                    <MenuItem key={eq.id} value={eq.id}>
+                    <MenuItem key={eq.id} value={eq.id} sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                       {eq.name} - {eq.model || 'No Model'}
                     </MenuItem>
                   ))}
                 </Select>
                 {errors_validation.equipment_id && (
-                  <FormHelperText error>{errors_validation.equipment_id}</FormHelperText>
+                  <FormHelperText error sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>{errors_validation.equipment_id}</FormHelperText>
                 )}
               </FormControl>
             </Grid>
@@ -1262,6 +1811,22 @@ const ErrorLogs = () => {
                 error={!!errors_validation.error_title}
                 helperText={errors_validation.error_title}
                 required
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                  },
+                  '& .MuiInputBase-input': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                  },
+                  '& .MuiInputLabel-root': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                  },
+                  '& .MuiFormHelperText-root': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                  }
+                }}
               />
             </Grid>
             
@@ -1272,6 +1837,19 @@ const ErrorLogs = () => {
                 label="Error Code (Optional)"
                 value={errorFormData.error_code}
                 onChange={handleFormChange}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                  },
+                  '& .MuiInputBase-input': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                  },
+                  '& .MuiInputLabel-root': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                  }
+                }}
               />
             </Grid>
             
@@ -1284,6 +1862,19 @@ const ErrorLogs = () => {
                 onChange={handleFormChange}
                 multiline
                 rows={3}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                  },
+                  '& .MuiInputBase-input': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                  },
+                  '& .MuiInputLabel-root': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                  }
+                }}
               />
             </Grid>
             
@@ -1300,11 +1891,27 @@ const ErrorLogs = () => {
                 helperText={errors_validation.error_date}
                 required
                 InputLabelProps={{ shrink: true }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                  },
+                  '& .MuiInputBase-input': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                  },
+                  '& .MuiInputLabel-root': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                  },
+                  '& .MuiFormHelperText-root': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                  }
+                }}
               />
             </Grid>
             
             <Grid item xs={12}>
-              <Typography variant="body2" sx={{ mb: 1, color: colors.lightText }}>
+              <Typography variant="body2" sx={{ mb: 1, color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                 Attachments
               </Typography>
               <FileUpload
@@ -1319,8 +1926,8 @@ const ErrorLogs = () => {
                 maxSize={50}
               />
               {errorFormData.attachments && (
-                <Typography variant="caption" sx={{ color: colors.success, display: 'block', mt: 1 }}>
-                  ✅ File uploaded successfully
+                <Typography variant="caption" sx={{ color: colors.success, display: 'block', mt: 1, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                  File uploaded successfully
                 </Typography>
               )}
             </Grid>
@@ -1332,10 +1939,13 @@ const ErrorLogs = () => {
             onClick={handleCloseDialog} 
             sx={{ 
               color: colors.darkNavy,
+              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+              borderRadius: 2,
+              px: 3,
+              textTransform: 'none',
               '&:hover': { 
                 backgroundColor: 'rgba(103, 232, 249, 0.04)'
               },
-              textTransform: 'none',
             }}
           >
             Cancel
@@ -1344,14 +1954,19 @@ const ErrorLogs = () => {
             variant="contained" 
             onClick={handleSubmit}
             sx={{ 
-              bgcolor: colors.darkNavy, 
+              bgcolor: colors.darkNavy,
+              color: colors.text,
+              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+              borderRadius: 2,
+              px: 4,
+              textTransform: 'none',
+              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
               '&:hover': { 
                 bgcolor: colors.darkNavyHover,
-                boxShadow: `0 4px 20px ${colors.lightCyanGlowStrong}`
+                boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
+                transform: 'translateY(-2px)',
               },
-              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
-              textTransform: 'none',
-              borderRadius: 2,
+              transition: 'all 0.3s ease',
             }}
           >
             Report Error
@@ -1367,7 +1982,7 @@ const ErrorLogs = () => {
         fullWidth
         PaperProps={{
           sx: {
-            borderRadius: 3,
+            borderRadius: 4,
             border: `1px solid ${colors.borderColor}`,
             boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
           }
@@ -1379,9 +1994,11 @@ const ErrorLogs = () => {
               bgcolor: colors.darkNavy, 
               color: 'white',
               borderRadius: '8px 8px 0 0',
+              py: 2.5,
             }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant="h6" fontWeight={600}>
+                <Typography variant="h6" fontWeight={600} sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                  <ErrorOutline sx={{ fontSize: 28 }} />
                   Error Details
                 </Typography>
                 <Box>
@@ -1391,79 +2008,80 @@ const ErrorLogs = () => {
                       variant="outlined"
                       color="error"
                       onClick={() => handleErrorDelete(viewingError.id)}
-                      sx={{ mr: 1, color: 'white', borderColor: 'rgba(255,255,255,0.3)' }}
+                      sx={{ mr: 1, color: 'white', borderColor: 'rgba(255,255,255,0.3)', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", textTransform: 'none' }}
                     >
                       Delete
                     </Button>
                   )}
-                  <IconButton onClick={handleCloseView} sx={{ color: 'white' }}>
+                  <IconButton onClick={handleCloseView} sx={{ color: 'white', '&:hover': { color: colors.lightCyan } }}>
                     <Close />
                   </IconButton>
                 </Box>
               </Box>
             </DialogTitle>
             
-            <DialogContent dividers>
-              <Grid container spacing={2}>
+            <DialogContent dividers sx={{ px: 4, py: 3 }}>
+              <Grid container spacing={2.5}>
                 <Grid item xs={12}>
-                  <Typography variant="h6" sx={{ color: colors.darkNavy }}>
+                  <Typography variant="h6" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                     {viewingError.error_title}
                   </Typography>
-                  <Typography variant="body2" sx={{ color: colors.lightText }}>
+                  <Typography variant="body2" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                     Code: {viewingError.error_code || 'N/A'}
                   </Typography>
                 </Grid>
                 
                 <Grid item xs={6}>
-                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
                     Equipment
                   </Typography>
-                  <Typography variant="body2" sx={{ color: colors.darkNavy, fontWeight: 500 }}>
+                  <Typography variant="body2" sx={{ color: colors.darkNavy, fontWeight: 500, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                     {viewingError.equipment_name}
                   </Typography>
                 </Grid>
                 
                 <Grid item xs={6}>
-                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
                     Status
                   </Typography>
                   <StatusChip status={viewingError.status || 'Pending'} />
                 </Grid>
                 
                 <Grid item xs={12}>
-                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
                     Description
                   </Typography>
-                  <Typography variant="body2" sx={{ color: colors.darkText }}>
+                  <Typography variant="body2" sx={{ color: colors.darkText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                     {viewingError.error_description || 'No description provided'}
                   </Typography>
                 </Grid>
                 
                 <Grid item xs={6}>
-                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
                     Reported By
                   </Typography>
-                  <Typography variant="body2" sx={{ color: colors.darkNavy }}>
+                  <Typography variant="body2" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                     {viewingError.reported_by_name || 'Unknown'}
                   </Typography>
                 </Grid>
                 
                 <Grid item xs={6}>
-                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
                     Reporting Date
                   </Typography>
-                  <Typography variant="body2" sx={{ color: colors.darkNavy }}>
+                  <Typography variant="body2" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                     {viewingError.error_date ? new Date(viewingError.error_date).toLocaleString() : 
                      viewingError.created_at ? new Date(viewingError.created_at).toLocaleString() : 'N/A'}
                   </Typography>
                 </Grid>
                 
                 <Grid item xs={6}>
-                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
                     Resolution Date
                   </Typography>
                   <Typography variant="body2" sx={{ 
-                    color: viewingError.status === 'Resolved' ? colors.success : colors.lightText 
+                    color: viewingError.status === 'Resolved' ? colors.success : colors.lightText,
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif"
                   }}>
                     {viewingError.status === 'Resolved' ? 
                       (viewingError.resolved_at ? new Date(viewingError.resolved_at).toLocaleString() : 
@@ -1473,7 +2091,7 @@ const ErrorLogs = () => {
                 </Grid>
                 
                 <Grid item xs={12}>
-                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
                     Attachments
                   </Typography>
                   <AttachmentGrid 
@@ -1494,63 +2112,81 @@ const ErrorLogs = () => {
         fullWidth
         PaperProps={{
           sx: {
-            borderRadius: 3,
+            borderRadius: 4,
             border: `1px solid ${colors.borderColor}`,
             boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
           }
         }}
       >
         <DialogTitle sx={{ 
-          bgcolor: colors.info, 
+          bgcolor: colors.darkNavy, 
           color: 'white',
           borderRadius: '8px 8px 0 0',
+          py: 2.5,
         }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" fontWeight={600}>
+            <Typography variant="h6" fontWeight={600} sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Edit sx={{ fontSize: 28 }} />
               Update Error Status
             </Typography>
-            <IconButton onClick={handleCloseStatusDialog} sx={{ color: 'white' }}>
+            <IconButton onClick={handleCloseStatusDialog} sx={{ color: 'white', '&:hover': { color: colors.lightCyan } }}>
               <Close />
             </IconButton>
           </Box>
         </DialogTitle>
         
-        <DialogContent dividers sx={{ mt: 1 }}>
+        <DialogContent dividers sx={{ px: 4, py: 3 }}>
           {selectedErrorForStatus && (
             <Box>
-              <Alert severity="info" sx={{ mb: 2, borderRadius: 2 }}>
-                <Typography variant="body2" fontWeight={600}>
+              <Alert 
+                severity="info" 
+                sx={{ 
+                  mb: 2, 
+                  borderRadius: 2, 
+                  border: `1px solid rgba(103, 232, 249, 0.2)`,
+                  backgroundColor: 'rgba(103, 232, 249, 0.04)',
+                  '& .MuiAlert-icon': { color: colors.lightCyanDark },
+                  '& .MuiAlert-message': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                  }
+                }}
+              >
+                <Typography variant="body2" fontWeight={600} sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                   {selectedErrorForStatus.error_title}
                 </Typography>
-                <Typography variant="caption" sx={{ display: 'block', color: colors.lightText }}>
+                <Typography variant="caption" sx={{ display: 'block', color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                   Equipment: {selectedErrorForStatus.equipment_name}
                 </Typography>
-                <Typography variant="caption" sx={{ display: 'block', color: colors.lightText, mt: 0.5 }}>
+                <Typography variant="caption" sx={{ display: 'block', color: colors.lightText, mt: 0.5, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                   Current Status: <strong>{selectedErrorForStatus.status || 'Pending'}</strong>
                 </Typography>
                 {user?.role === 'ENGINEER' && (
-                  <Typography variant="caption" sx={{ display: 'block', color: colors.warning, mt: 0.5 }}>
-                    ℹ️ You can update any error in your hospital
+                  <Typography variant="caption" sx={{ display: 'block', color: colors.warning, mt: 0.5, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                    You can update any error in your hospital
                   </Typography>
                 )}
               </Alert>
               
               <FormControl fullWidth>
-                <InputLabel sx={{ color: colors.lightText }}>New Status</InputLabel>
+                <InputLabel sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>New Status</InputLabel>
                 <Select
                   value={newStatus}
                   onChange={(e) => setNewStatus(e.target.value)}
                   label="New Status"
                   sx={{
+                    borderRadius: 2,
                     '& .MuiOutlinedInput-root': {
                       '&:hover fieldset': { borderColor: colors.lightCyan },
                       '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                    },
+                    '& .MuiSelect-select': {
+                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                     }
                   }}
                 >
-                  <MenuItem value="Pending">Pending</MenuItem>
-                  <MenuItem value="In Progress">In Progress</MenuItem>
-                  <MenuItem value="Resolved">Resolved</MenuItem>
+                  <MenuItem value="Pending" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Pending</MenuItem>
+                  <MenuItem value="In Progress" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>In Progress</MenuItem>
+                  <MenuItem value="Resolved" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Resolved</MenuItem>
                 </Select>
               </FormControl>
             </Box>
@@ -1563,10 +2199,13 @@ const ErrorLogs = () => {
             disabled={statusUpdating}
             sx={{ 
               color: colors.darkNavy,
+              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+              borderRadius: 2,
+              px: 3,
+              textTransform: 'none',
               '&:hover': { 
                 backgroundColor: 'rgba(103, 232, 249, 0.04)'
               },
-              textTransform: 'none',
             }}
           >
             Cancel
@@ -1576,15 +2215,20 @@ const ErrorLogs = () => {
             onClick={handleStatusUpdate}
             disabled={statusUpdating}
             sx={{ 
-              bgcolor: colors.info, 
-              '&:hover': { 
-                bgcolor: '#1D4ED8',
-                boxShadow: `0 4px 20px ${colors.info}44`
-              },
-              boxShadow: `0 4px 16px ${colors.info}44`,
-              textTransform: 'none',
+              bgcolor: colors.darkNavy,
+              color: colors.text,
+              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
               borderRadius: 2,
+              px: 4,
               minWidth: 120,
+              textTransform: 'none',
+              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+              '&:hover': { 
+                bgcolor: colors.darkNavyHover,
+                boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
+                transform: 'translateY(-2px)',
+              },
+              transition: 'all 0.3s ease',
             }}
           >
             {statusUpdating ? (

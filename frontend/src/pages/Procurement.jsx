@@ -1,5 +1,8 @@
 // src/pages/Procurement.jsx
-// ✅ DARK NAVY + LIGHT CYAN THEME - Matching Sidebar
+// ✅ DARK NAVY + LIGHT CYAN THEME - Matching Equipment page
+// ✅ UPDATED: Stats cards design matches Equipment page
+// ✅ UPDATED: Header with Filter and Export buttons
+// ✅ ADDED: Animations
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -37,7 +40,9 @@ import {
   StepLabel,
   StepContent,
   Card,
-  CardContent
+  CardContent,
+  Fade,
+  Grow,
 } from '@mui/material'
 import {
   Add,
@@ -52,61 +57,95 @@ import {
   Cancel,
   Refresh,
   FileDownload,
+  FilterList,
   Warning,
   Info,
   Description,
   AttachFile,
   Print,
   Image,
-  PictureAsPdf
+  PictureAsPdf,
+  MedicalServices,
+  ErrorOutline,
+  Build,
+  Schedule,
 } from '@mui/icons-material'
 import { procurementService, equipmentService, hospitalService } from '../api/services'
 import { toast } from 'react-toastify'
 import { useSelector } from 'react-redux'
 import AccessDenied from '../components/Auth/AccessDenied'
 import FileUpload from '../components/FileUpload'
+import * as XLSX from 'xlsx'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
 // ============================================================
-// ✅ DARK NAVY + LIGHT CYAN THEME COLORS
+// ✅ DARK NAVY + LIGHT CYAN THEME COLORS - Matching Equipment page
 // ============================================================
 const colors = {
-  // Dark Navy Base
   darkNavy: '#0F172A',
   darkNavyLight: '#1E293B',
   darkNavyDark: '#0A0F1E',
   darkNavyHover: '#1E3A5F',
-  
-  // Light Cyan Accents
   lightCyan: '#67E8F9',
   lightCyanBright: '#A5F3FC',
   lightCyanDark: '#22D3EE',
   lightCyanGlow: 'rgba(103, 232, 249, 0.15)',
   lightCyanGlowStrong: 'rgba(103, 232, 249, 0.3)',
-  
-  // Gold accent (keeping PAEC branding)
   accentGold: '#C9A227',
   goldLight: '#E8C84A',
-  
-  // Text
   text: '#FFFFFF',
   secondaryText: '#94A3B8',
   textLight: '#CBD5E1',
   cyanText: '#67E8F9',
   darkText: '#0F172A',
   lightText: '#64748B',
-  
-  // Cards/Background
   cardBg: '#FFFFFF',
   borderColor: 'rgba(103, 232, 249, 0.1)',
   shadowColor: 'rgba(15, 23, 42, 0.08)',
   mainBg: '#F1F5F9',
-  
-  // Status colors
   error: '#EF4444',
   success: '#22C55E',
   warning: '#F59E0B',
   info: '#3B82F6',
+  bgGradientStart: '#F0F4F8',
+  bgGradientEnd: '#E8EEF5',
 }
+
+// ✅ Animation Styles - Same as Equipment page
+const animationStyles = `
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes prominentGlow {
+  0% {
+    box-shadow: 0 0 20px rgba(103, 232, 249, 0.2), 0 0 40px rgba(103, 232, 249, 0.1);
+    border-color: rgba(103, 232, 249, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(103, 232, 249, 0.4), 0 0 80px rgba(103, 232, 249, 0.2);
+    border-color: rgba(103, 232, 249, 0.6);
+  }
+  100% {
+    box-shadow: 0 0 20px rgba(103, 232, 249, 0.2), 0 0 40px rgba(103, 232, 249, 0.1);
+    border-color: rgba(103, 232, 249, 0.3);
+  }
+}
+
+@keyframes gradientShine {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+`
 
 // ==================== HELPER FUNCTIONS ====================
 const getFullUrl = (url) => {
@@ -120,6 +159,9 @@ const getFullUrl = (url) => {
   return url
 }
 
+// ============================================================
+// ✅ MAIN COMPONENT
+// ============================================================
 const Procurement = () => {
   const { user } = useSelector((state) => state.auth)
 
@@ -147,6 +189,7 @@ const Procurement = () => {
   const [viewingRequest, setViewingRequest] = useState(null)
   const [editingRequest, setEditingRequest] = useState(null)
   const [exportAnchorEl, setExportAnchorEl] = useState(null)
+  const [filterAnchorEl, setFilterAnchorEl] = useState(null)
   
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false)
   const [deletingRequest, setDeletingRequest] = useState(null)
@@ -206,6 +249,120 @@ const Procurement = () => {
       setHospitals(response.data.hospitals || [])
     } catch (error) {
       console.error('Failed to fetch hospitals:', error)
+    }
+  }
+
+  // ============================================================
+  // ✅ FILTER HANDLERS
+  // ============================================================
+  const handleFilterClick = (event) => setFilterAnchorEl(event.currentTarget)
+  const handleFilterClose = () => setFilterAnchorEl(null)
+
+  const handleFilterChange = (e) => {
+    setFilters({ ...filters, [e.target.name]: e.target.value })
+  }
+
+  const clearFilters = () => {
+    setFilters({ status: '', priority: '' })
+    setSearchTerm('')
+    setFilterAnchorEl(null)
+    toast.info('Filters cleared')
+  }
+
+  // ============================================================
+  // ✅ EXPORT HANDLERS
+  // ============================================================
+  const handleExportClick = (event) => setExportAnchorEl(event.currentTarget)
+  const handleExportClose = () => setExportAnchorEl(null)
+
+  const exportToCSV = () => {
+    try {
+      const headers = ['Equipment', 'Hospital', 'Manufacturer', 'Model', 'Quantity', 'Est. Cost', 'Priority', 'Status', 'Justification']
+      const rows = filteredRequests.map(r => [
+        r.equipment_name || '',
+        r.hospital_name || 'N/A',
+        r.manufacturer || '',
+        r.model || '',
+        r.quantity || 1,
+        r.estimated_cost || '',
+        r.priority || '',
+        r.status || '',
+        r.justification || ''
+      ])
+      let csv = headers.join(',') + '\n'
+      rows.forEach(row => { csv += row.join(',') + '\n' })
+      const blob = new Blob([csv], { type: 'text/csv' })
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `procurement_requests_${new Date().toISOString().split('T')[0]}.csv`
+      a.click()
+      window.URL.revokeObjectURL(url)
+      toast.success('CSV exported!')
+      handleExportClose()
+    } catch (error) {
+      toast.error('Export failed: ' + error.message)
+    }
+  }
+
+  const exportToExcel = () => {
+    try {
+      const data = filteredRequests.map(r => ({
+        'Equipment': r.equipment_name || '',
+        'Hospital': r.hospital_name || 'N/A',
+        'Manufacturer': r.manufacturer || '',
+        'Model': r.model || '',
+        'Quantity': r.quantity || 1,
+        'Est. Cost': r.estimated_cost || '',
+        'Priority': r.priority || '',
+        'Status': r.status || '',
+        'Justification': r.justification || ''
+      }))
+      const ws = XLSX.utils.json_to_sheet(data)
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Procurement')
+      XLSX.writeFile(wb, `procurement_requests_${new Date().toISOString().split('T')[0]}.xlsx`)
+      toast.success('Excel exported!')
+      handleExportClose()
+    } catch (error) {
+      toast.error('Export failed: ' + error.message)
+    }
+  }
+
+  const exportToPDF = () => {
+    try {
+      const doc = new jsPDF()
+      doc.setFontSize(18)
+      doc.setTextColor(colors.darkNavy)
+      doc.text('Procurement Requests Report', 14, 20)
+      doc.setFontSize(10)
+      doc.setTextColor('#666666')
+      doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 28)
+      doc.text(`Total Requests: ${filteredRequests.length}`, 14, 34)
+      
+      const tableData = filteredRequests.map(r => [
+        r.equipment_name || '',
+        r.hospital_name || 'N/A',
+        r.manufacturer || '',
+        r.model || '',
+        r.quantity || 1,
+        r.priority || '',
+        r.status || ''
+      ])
+      autoTable(doc, {
+        head: [['Equipment', 'Hospital', 'Manufacturer', 'Model', 'Qty', 'Priority', 'Status']],
+        body: tableData,
+        startY: 40,
+        styles: { fontSize: 7, cellPadding: 2 },
+        headStyles: { fillColor: colors.darkNavy, textColor: '#FFFFFF', fontSize: 8 },
+        alternateRowStyles: { fillColor: '#F5F7FA' },
+        margin: { left: 10, right: 10 }
+      })
+      doc.save(`procurement_requests_${new Date().toISOString().split('T')[0]}.pdf`)
+      toast.success('PDF exported!')
+      handleExportClose()
+    } catch (error) {
+      toast.error('Export failed: ' + error.message)
     }
   }
 
@@ -299,8 +456,6 @@ const Procurement = () => {
         attachments: formData.attachments || ''
       }
 
-      console.log('📤 Submitting procurement data:', submitData)
-
       if (editingRequest) {
         await procurementService.update(editingRequest.id, submitData)
         toast.success('Procurement request updated successfully')
@@ -311,7 +466,7 @@ const Procurement = () => {
       fetchRequests()
       handleCloseDialog()
     } catch (error) {
-      console.error('❌ Submit error:', error)
+      console.error('Submit error:', error)
       toast.error(error.response?.data?.message || 'Operation failed')
     }
   }
@@ -333,23 +488,15 @@ const Procurement = () => {
     setDeleteError(null)
     
     try {
-      console.log('🗑️ Deleting procurement request:', deletingRequest.id)
-      console.log('📌 Status:', deletingRequest.status)
-      
-      const response = await procurementService.delete(deletingRequest.id)
-      console.log('✅ Delete response:', response.data)
-      
+      await procurementService.delete(deletingRequest.id)
       toast.success(`Request "${deletingRequest.equipment_name}" deleted successfully`)
       fetchRequests()
       setOpenDeleteDialog(false)
       setDeletingRequest(null)
       handleCloseView()
     } catch (error) {
-      console.error('❌ Delete error:', error)
-      console.error('❌ Error response:', error.response?.data)
-      
+      console.error('Delete error:', error)
       let errorMessage = 'Failed to delete request'
-      
       if (error.response) {
         if (error.response.status === 400) {
           errorMessage = error.response.data?.message || 'Cannot delete this request'
@@ -357,13 +504,8 @@ const Procurement = () => {
             type: 'status_error',
             message: errorMessage
           })
-        } else if (error.response.status === 403) {
-          errorMessage = 'You do not have permission to delete this request'
-        } else if (error.response.status === 404) {
-          errorMessage = 'Request not found'
         }
       }
-      
       toast.error(errorMessage)
     } finally {
       setDeleting(false)
@@ -375,15 +517,12 @@ const Procurement = () => {
       toast.error('Only Super Admin can approve requests')
       return
     }
-    
     try {
-      const response = await procurementService.update(id, { status: 'Approved' })
-      console.log('✅ Approve response:', response.data)
+      await procurementService.update(id, { status: 'Approved' })
       toast.success('Procurement request approved')
       fetchRequests()
       handleCloseView()
     } catch (error) {
-      console.error('❌ Approve error:', error)
       toast.error(error.response?.data?.message || 'Failed to approve request')
     }
   }
@@ -393,15 +532,12 @@ const Procurement = () => {
       toast.error('Only Super Admin can reject requests')
       return
     }
-    
     try {
-      const response = await procurementService.update(id, { status: 'Rejected' })
-      console.log('✅ Reject response:', response.data)
+      await procurementService.update(id, { status: 'Rejected' })
       toast.success('Procurement request rejected')
       fetchRequests()
       handleCloseView()
     } catch (error) {
-      console.error('❌ Reject error:', error)
       toast.error(error.response?.data?.message || 'Failed to reject request')
     }
   }
@@ -411,15 +547,12 @@ const Procurement = () => {
       toast.error('You do not have permission to review requests')
       return
     }
-    
     try {
-      const response = await procurementService.update(id, { status: 'Under Review' })
-      console.log('✅ Review response:', response.data)
+      await procurementService.update(id, { status: 'Under Review' })
       toast.success('Request moved to Under Review')
       fetchRequests()
       handleCloseView()
     } catch (error) {
-      console.error('❌ Review error:', error)
       toast.error(error.response?.data?.message || 'Failed to review request')
     }
   }
@@ -429,89 +562,13 @@ const Procurement = () => {
       toast.error('You do not have permission to mark as procured')
       return
     }
-    
     try {
-      const response = await procurementService.update(id, { status: 'Procured' })
-      console.log('✅ Mark Procured response:', response.data)
+      await procurementService.update(id, { status: 'Procured' })
       toast.success('Request marked as Procured')
       fetchRequests()
       handleCloseView()
     } catch (error) {
-      console.error('❌ Mark Procured error:', error)
       toast.error(error.response?.data?.message || 'Failed to mark as procured')
-    }
-  }
-
-  const handleExportClick = (event) => {
-    setExportAnchorEl(event.currentTarget)
-  }
-
-  const handleExportClose = () => {
-    setExportAnchorEl(null)
-  }
-
-  const exportToCSV = () => {
-    try {
-      const headers = ['Equipment', 'Hospital', 'Manufacturer', 'Model', 'Quantity', 'Est. Cost', 'Priority', 'Status', 'Justification']
-      const rows = filteredRequests.map(r => [
-        r.equipment_name,
-        r.hospital_name || 'N/A',
-        r.manufacturer || '',
-        r.model || '',
-        r.quantity || 1,
-        r.estimated_cost || '',
-        r.priority,
-        r.status,
-        r.justification || ''
-      ])
-      
-      let csv = headers.join(',') + '\n'
-      rows.forEach(row => {
-        csv += row.join(',') + '\n'
-      })
-      
-      const blob = new Blob([csv], { type: 'text/csv' })
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `procurement_requests_${new Date().toISOString().split('T')[0]}.csv`
-      a.click()
-      window.URL.revokeObjectURL(url)
-      
-      toast.success('CSV exported successfully!')
-      handleExportClose()
-    } catch (error) {
-      toast.error('Failed to export CSV')
-    }
-  }
-
-  const exportToExcel = () => {
-    try {
-      import('xlsx').then((XLSX) => {
-        const data = filteredRequests.map(r => ({
-          'Equipment': r.equipment_name,
-          'Hospital': r.hospital_name || 'N/A',
-          'Manufacturer': r.manufacturer || '',
-          'Model': r.model || '',
-          'Quantity': r.quantity || 1,
-          'Est. Cost': r.estimated_cost || '',
-          'Priority': r.priority,
-          'Status': r.status,
-          'Justification': r.justification || ''
-        }))
-        
-        const ws = XLSX.utils.json_to_sheet(data)
-        const wb = XLSX.utils.book_new()
-        XLSX.utils.book_append_sheet(wb, ws, 'Procurement')
-        XLSX.writeFile(wb, `procurement_requests_${new Date().toISOString().split('T')[0]}.xlsx`)
-        
-        toast.success('Excel exported successfully!')
-        handleExportClose()
-      }).catch(() => {
-        toast.error('Excel library not loaded')
-      })
-    } catch (error) {
-      toast.error('Failed to export Excel')
     }
   }
 
@@ -541,64 +598,216 @@ const Procurement = () => {
   const rejectedRequests = requests.filter(r => r.status === 'Rejected').length
   const urgentRequests = requests.filter(r => r.priority === 'Urgent' && r.status !== 'Rejected').length
 
+  // ✅ Stats Cards Data - Same design as Equipment page
+  const statsCards = [
+    {
+      title: 'Total Requests',
+      value: totalRequests,
+      icon: <LocalShipping />,
+      color: colors.lightCyan,
+      bg: 'rgba(103, 232, 249, 0.08)',
+    },
+    {
+      title: 'Pending Review',
+      value: pendingRequests,
+      icon: <Schedule />,
+      color: colors.lightCyan,
+      bg: 'rgba(103, 232, 249, 0.08)',
+    },
+    {
+      title: 'Approved/Procured',
+      value: approvedRequests,
+      icon: <CheckCircle />,
+      color: colors.lightCyan,
+      bg: 'rgba(103, 232, 249, 0.08)',
+    },
+    {
+      title: 'Rejected',
+      value: rejectedRequests,
+      icon: <Cancel />,
+      color: colors.lightCyan,
+      bg: 'rgba(103, 232, 249, 0.08)',
+    },
+    {
+      title: 'Urgent',
+      value: urgentRequests,
+      icon: <Warning />,
+      color: colors.lightCyan,
+      bg: 'rgba(103, 232, 249, 0.08)',
+    },
+  ]
+
+  // ✅ Get priority color
+  const getPriorityColor = (priority) => {
+    switch(priority) {
+      case 'Urgent': return colors.error
+      case 'High': return colors.warning
+      case 'Medium': return colors.info
+      default: return colors.lightText
+    }
+  }
+
+  // ✅ Get status color
+  const getStatusColor = (status) => {
+    switch(status) {
+      case 'Approved':
+      case 'Procured': return colors.success
+      case 'Rejected': return colors.error
+      case 'Under Review': return colors.info
+      default: return colors.lightText
+    }
+  }
+
   if (loading) {
     return <LinearProgress sx={{ bgcolor: colors.borderColor, '& .MuiLinearProgress-bar': { bgcolor: colors.lightCyan } }} />
   }
 
   return (
-    <Box>
-      {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-        <Typography 
-          variant="h5" 
-          sx={{ 
-            fontWeight: 700, 
-            color: colors.darkNavy,
-            '&::after': {
-              content: '""',
-              display: 'block',
-              width: '40px',
-              height: '3px',
-              background: `linear-gradient(90deg, ${colors.lightCyan}, ${colors.darkNavy})`,
-              borderRadius: '2px',
-              marginTop: '4px',
-            }
-          }}
-        >
-          Equipment Procurement
-        </Typography>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button
-            variant="outlined"
-            startIcon={<Refresh />}
-            onClick={fetchRequests}
+    <Box sx={{ 
+      p: { xs: 1, sm: 2, md: 3 },
+      background: `linear-gradient(135deg, ${colors.bgGradientStart} 0%, ${colors.bgGradientEnd} 50%, ${colors.bgGradientStart} 100%)`,
+      minHeight: '100vh',
+      borderRadius: 0,
+      position: 'relative',
+    }}>
+      <style>{animationStyles}</style>
+
+      {/* ============================================================
+          HEADER - Same as Equipment page
+          ============================================================ */}
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        mb: 3, 
+        flexWrap: 'wrap', 
+        gap: 2,
+        animation: 'fadeInUp 0.6s ease-out',
+      }}>
+        <Box>
+          <Typography 
+            variant="h5" 
+            sx={{ 
+              fontWeight: 700, 
+              color: colors.darkNavy,
+              fontSize: { xs: '1.2rem', sm: '1.4rem', md: '1.6rem' },
+              '&::after': {
+                content: '""',
+                display: 'block',
+                width: '40px',
+                height: '3px',
+                background: `linear-gradient(90deg, ${colors.lightCyan}, ${colors.darkNavy})`,
+                borderRadius: '2px',
+                marginTop: '4px',
+              }
+            }}
+          >
+            Equipment Procurement
+          </Typography>
+          <Typography 
+            variant="body2" 
+            sx={{ 
+              color: colors.lightText,
+              mt: 0.5,
+            }}
+          >
+            Manage equipment procurement requests and approvals
+          </Typography>
+        </Box>
+        
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+          {/* ✅ REFRESH BUTTON - BORDER STYLE */}
+          <Button 
+            variant="outlined" 
+            startIcon={<Refresh />} 
+            onClick={fetchRequests} 
             size="small"
             sx={{ 
-              borderColor: colors.borderColor, 
-              color: colors.darkNavy,
+              borderColor: colors.lightCyan,
+              color: colors.lightCyan,
+              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+              textTransform: 'none',
+              borderRadius: 2,
+              transition: 'all 0.3s ease',
               '&:hover': { 
-                borderColor: colors.lightCyan, 
-                color: colors.lightCyanDark,
-                backgroundColor: 'rgba(103, 232, 249, 0.04)'
+                bgcolor: colors.lightCyan,
+                color: colors.darkNavy,
+                borderColor: colors.lightCyan,
+                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+                transform: 'translateY(-2px)',
+              },
+              '&:active': {
+                bgcolor: colors.lightCyan,
+                color: colors.darkNavy,
+                borderColor: colors.lightCyan,
+                transform: 'scale(0.96)',
               }
             }}
           >
             Refresh
           </Button>
+          
+          {/* ✅ FILTER BUTTON */}
+          <Button 
+            variant="contained"
+            startIcon={<FilterList />} 
+            onClick={handleFilterClick}
+            sx={{ 
+              bgcolor: colors.darkNavy,
+              color: colors.text,
+              borderRadius: 2,
+              textTransform: 'none',
+              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+              '&:hover': { 
+                bgcolor: colors.darkNavyHover,
+                boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
+                transform: 'translateY(-2px)',
+              },
+              transition: 'all 0.3s ease',
+            }}
+          >
+            Filter
+          </Button>
+          
+          {/* ✅ EXPORT BUTTON */}
+          <Button 
+            variant="contained"
+            startIcon={<Download />} 
+            onClick={handleExportClick}
+            sx={{ 
+              bgcolor: colors.darkNavy,
+              color: colors.text,
+              borderRadius: 2,
+              textTransform: 'none',
+              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+              '&:hover': { 
+                bgcolor: colors.darkNavyHover,
+                boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
+                transform: 'translateY(-2px)',
+              },
+              transition: 'all 0.3s ease',
+            }}
+          >
+            Export
+          </Button>
+          
           {canCreate && (
             <Button
               variant="contained"
               startIcon={<Add />}
               onClick={() => handleOpenDialog()}
               sx={{ 
-                bgcolor: colors.darkNavy, 
-                '&:hover': { 
-                  bgcolor: colors.darkNavyHover,
-                  boxShadow: `0 4px 20px ${colors.lightCyanGlowStrong}`
-                },
-                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+                bgcolor: colors.darkNavy,
+                color: colors.text,
                 borderRadius: 2,
                 textTransform: 'none',
+                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+                '&:hover': { 
+                  bgcolor: colors.darkNavyHover,
+                  boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
+                  transform: 'translateY(-2px)',
+                },
+                transition: 'all 0.3s ease',
               }}
             >
               Request Equipment
@@ -607,105 +816,9 @@ const Procurement = () => {
         </Box>
       </Box>
 
-      {/* Stats Cards - DARK NAVY + CYAN */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={6} sm={2.4}>
-          <Card sx={{ 
-            borderRadius: 2, 
-            border: `1px solid ${colors.borderColor}`,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-            '&:hover': {
-              borderColor: colors.lightCyan,
-              boxShadow: `0 4px 20px ${colors.lightCyanGlow}`
-            }
-          }}>
-            <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" sx={{ color: colors.darkNavy, fontWeight: 700 }}>
-                {totalRequests}
-              </Typography>
-              <Typography variant="body2" sx={{ color: colors.lightText }}>Total Requests</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={6} sm={2.4}>
-          <Card sx={{ 
-            borderRadius: 2, 
-            border: `1px solid ${colors.warning}33`,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-            bgcolor: `${colors.warning}08`,
-            '&:hover': {
-              borderColor: colors.warning,
-              boxShadow: `0 4px 20px rgba(245, 158, 11, 0.15)`
-            }
-          }}>
-            <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" sx={{ color: colors.warning, fontWeight: 700 }}>
-                {pendingRequests}
-              </Typography>
-              <Typography variant="body2" sx={{ color: colors.lightText }}>Pending Review</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={6} sm={2.4}>
-          <Card sx={{ 
-            borderRadius: 2, 
-            border: `1px solid ${colors.success}33`,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-            bgcolor: `${colors.success}08`,
-            '&:hover': {
-              borderColor: colors.success,
-              boxShadow: `0 4px 20px rgba(34, 197, 94, 0.15)`
-            }
-          }}>
-            <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" sx={{ color: colors.success, fontWeight: 700 }}>
-                {approvedRequests}
-              </Typography>
-              <Typography variant="body2" sx={{ color: colors.lightText }}>Approved/Procured</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={6} sm={2.4}>
-          <Card sx={{ 
-            borderRadius: 2, 
-            border: `1px solid ${colors.error}33`,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-            bgcolor: `${colors.error}08`,
-            '&:hover': {
-              borderColor: colors.error,
-              boxShadow: `0 4px 20px rgba(239, 68, 68, 0.15)`
-            }
-          }}>
-            <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" sx={{ color: colors.error, fontWeight: 700 }}>
-                {rejectedRequests}
-              </Typography>
-              <Typography variant="body2" sx={{ color: colors.lightText }}>Rejected</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={6} sm={2.4}>
-          <Card sx={{ 
-            borderRadius: 2, 
-            border: `1px solid ${colors.error}33`,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-            bgcolor: `${colors.error}08`,
-            '&:hover': {
-              borderColor: colors.error,
-              boxShadow: `0 4px 20px rgba(239, 68, 68, 0.15)`
-            }
-          }}>
-            <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" sx={{ color: colors.error, fontWeight: 700 }}>
-                {urgentRequests}
-              </Typography>
-              <Typography variant="body2" sx={{ color: colors.lightText }}>Urgent</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
-      {/* Urgent Alert */}
+      {/* ============================================================
+          URGENT ALERT
+          ============================================================ */}
       {urgentRequests > 0 && (
         <Alert 
           severity="error" 
@@ -732,16 +845,105 @@ const Procurement = () => {
         </Alert>
       )}
 
-      {/* Search & Filters - CYAN THEMED */}
+      {/* ============================================================
+          STATS CARDS - Same design as Equipment page
+          ============================================================ */}
+      <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }} sx={{ mb: 3 }}>
+        {statsCards.map((card, index) => (
+          <Grid item xs={6} sm={2.4} key={index}>
+            <Grow in timeout={300 + index * 100}>
+              <Card sx={{ 
+                borderRadius: 3,
+                border: `1px solid ${colors.borderColor}`,
+                boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+                transition: 'all 0.3s ease',
+                position: 'relative',
+                overflow: 'hidden',
+                '&:hover': {
+                  transform: 'translateY(-4px)',
+                  boxShadow: `0 8px 30px ${colors.lightCyanGlow}`,
+                  borderColor: colors.lightCyan,
+                },
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: 3,
+                  background: `linear-gradient(90deg, ${colors.lightCyan}, ${colors.accentGold})`,
+                  borderRadius: '3px 3px 0 0',
+                }
+              }}>
+                <CardContent sx={{ p: { xs: 1.5, sm: 2 }, position: 'relative' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Box>
+                      <Typography 
+                        variant="caption" 
+                        sx={{ 
+                          color: colors.lightText,
+                          fontWeight: 500,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px',
+                          fontSize: '0.6rem',
+                        }}
+                      >
+                        {card.title}
+                      </Typography>
+                      <Typography 
+                        variant="h5" 
+                        sx={{ 
+                          fontWeight: 700,
+                          color: colors.darkNavy,
+                          fontSize: { xs: '1.3rem', sm: '1.6rem', md: '1.8rem' },
+                          mt: 0.5,
+                        }}
+                      >
+                        {card.value}
+                      </Typography>
+                    </Box>
+                    <Box
+                      sx={{
+                        background: card.bg,
+                        borderRadius: '14px',
+                        p: 1.2,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: 42,
+                        height: 42,
+                        color: card.color,
+                        transition: 'all 0.3s ease',
+                      }}
+                    >
+                      {React.cloneElement(card.icon, { 
+                        sx: { 
+                          fontSize: 22,
+                          color: card.color,
+                        } 
+                      })}
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grow>
+          </Grid>
+        ))}
+      </Grid>
+
+      {/* ============================================================
+          SEARCH - Only search bar
+          ============================================================ */}
       <Paper sx={{ 
         p: 2, 
         mb: 3, 
-        borderRadius: 2,
+        borderRadius: 3,
         border: `1px solid ${colors.borderColor}`,
         boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
         bgcolor: colors.cardBg,
+        animation: 'fadeInUp 0.7s ease-out',
       }}>
-        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
           <TextField
             size="small"
             placeholder="Search requests..."
@@ -751,78 +953,153 @@ const Procurement = () => {
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <Search sx={{ color: colors.lightText }} />
+                  <Search sx={{ color: colors.lightText, fontSize: 20 }} />
                 </InputAdornment>
               ),
               sx: {
+                borderRadius: 2,
                 '& .MuiOutlinedInput-root': {
                   '&:hover fieldset': { borderColor: colors.lightCyan },
                   '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                },
+                '& .MuiInputBase-input': {
+                  fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                  fontSize: '0.9rem',
                 }
               }
             }}
           />
-          <FormControl size="small" sx={{ minWidth: 150 }}>
-            <InputLabel sx={{ color: colors.lightText }}>Status</InputLabel>
-            <Select
-              value={filters.status}
-              onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-              label="Status"
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  '&:hover fieldset': { borderColor: colors.lightCyan },
-                  '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                }
-              }}
-            >
-              <MenuItem value="">All</MenuItem>
-              <MenuItem value="Requested">Requested</MenuItem>
-              <MenuItem value="Under Review">Under Review</MenuItem>
-              <MenuItem value="Approved">Approved</MenuItem>
-              <MenuItem value="Rejected">Rejected</MenuItem>
-              <MenuItem value="Procured">Procured</MenuItem>
-            </Select>
-          </FormControl>
-          <FormControl size="small" sx={{ minWidth: 150 }}>
-            <InputLabel sx={{ color: colors.lightText }}>Priority</InputLabel>
-            <Select
-              value={filters.priority}
-              onChange={(e) => setFilters({ ...filters, priority: e.target.value })}
-              label="Priority"
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  '&:hover fieldset': { borderColor: colors.lightCyan },
-                  '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                }
-              }}
-            >
-              <MenuItem value="">All</MenuItem>
-              <MenuItem value="Low">Low</MenuItem>
-              <MenuItem value="Medium">Medium</MenuItem>
-              <MenuItem value="High">High</MenuItem>
-              <MenuItem value="Urgent">Urgent</MenuItem>
-            </Select>
-          </FormControl>
+        </Box>
+      </Paper>
+
+      {/* ============================================================
+          FILTER MENU - Same as Equipment page
+          ============================================================ */}
+      <Menu
+        anchorEl={filterAnchorEl}
+        open={Boolean(filterAnchorEl)}
+        onClose={handleFilterClose}
+        PaperProps={{ 
+          sx: { 
+            p: 2.5, 
+            width: 280,
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+            borderRadius: 3,
+          } 
+        }}
+      >
+        <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy, mb: 2 }}>
+          Filter Requests
+        </Typography>
+        
+        <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+          <InputLabel sx={{ color: colors.lightText }}>Status</InputLabel>
+          <Select 
+            name="status" 
+            value={filters.status} 
+            onChange={handleFilterChange} 
+            label="Status"
+            sx={{
+              borderRadius: 2,
+              '& .MuiOutlinedInput-root': {
+                '&:hover fieldset': { borderColor: colors.lightCyan },
+                '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+              }
+            }}
+          >
+            <MenuItem value="">All</MenuItem>
+            <MenuItem value="Requested">Requested</MenuItem>
+            <MenuItem value="Under Review">Under Review</MenuItem>
+            <MenuItem value="Approved">Approved</MenuItem>
+            <MenuItem value="Rejected">Rejected</MenuItem>
+            <MenuItem value="Procured">Procured</MenuItem>
+          </Select>
+        </FormControl>
+
+        <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+          <InputLabel sx={{ color: colors.lightText }}>Priority</InputLabel>
+          <Select 
+            name="priority" 
+            value={filters.priority} 
+            onChange={handleFilterChange} 
+            label="Priority"
+            sx={{
+              borderRadius: 2,
+              '& .MuiOutlinedInput-root': {
+                '&:hover fieldset': { borderColor: colors.lightCyan },
+                '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+              }
+            }}
+          >
+            <MenuItem value="">All</MenuItem>
+            <MenuItem value="Low">Low</MenuItem>
+            <MenuItem value="Medium">Medium</MenuItem>
+            <MenuItem value="High">High</MenuItem>
+            <MenuItem value="Urgent">Urgent</MenuItem>
+          </Select>
+        </FormControl>
+
+        <TextField
+          fullWidth 
+          size="small" 
+          label="Search" 
+          name="search"
+          value={searchTerm} 
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="Search by equipment, manufacturer..." 
+          sx={{ 
+            mb: 2,
+            '& .MuiOutlinedInput-root': {
+              borderRadius: 2,
+              '&:hover fieldset': { borderColor: colors.lightCyan },
+              '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+            }
+          }}
+        />
+
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button 
+            variant="contained" 
+            onClick={handleFilterClose} 
+            fullWidth 
+            size="small"
+            sx={{ 
+              bgcolor: colors.darkNavy,
+              borderRadius: 2,
+              textTransform: 'none',
+              '&:hover': { 
+                bgcolor: colors.darkNavyHover,
+                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`
+              },
+            }}
+          >
+            Apply
+          </Button>
           <Button 
             variant="outlined" 
-            startIcon={<Download />}
-            onClick={handleExportClick}
+            onClick={clearFilters} 
+            fullWidth 
+            size="small"
             sx={{ 
-              borderColor: colors.borderColor, 
+              borderColor: colors.borderColor,
               color: colors.darkNavy,
+              borderRadius: 2,
+              textTransform: 'none',
               '&:hover': { 
-                borderColor: colors.lightCyan, 
-                color: colors.lightCyanDark,
+                borderColor: colors.lightCyan,
                 backgroundColor: 'rgba(103, 232, 249, 0.04)'
               }
             }}
           >
-            Export
+            Clear
           </Button>
         </Box>
-      </Paper>
+      </Menu>
 
-      {/* Export Menu - CYAN THEMED */}
+      {/* ============================================================
+          EXPORT MENU - Same as Equipment page
+          ============================================================ */}
       <Menu
         anchorEl={exportAnchorEl}
         open={Boolean(exportAnchorEl)}
@@ -832,73 +1109,107 @@ const Procurement = () => {
             p: 1, 
             width: 200,
             border: `1px solid ${colors.borderColor}`,
-            boxShadow: '0 8px 30px rgba(0,0,0,0.08)',
-            borderRadius: 2,
+            boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+            borderRadius: 3,
           } 
         }}
       >
         <MenuItem 
           onClick={exportToCSV} 
           sx={{ 
+            borderRadius: 1,
             '&:hover': { 
               bgcolor: 'rgba(103, 232, 249, 0.08)',
-              borderRadius: 1,
             } 
           }}
         >
-          <FileDownload sx={{ mr: 1, fontSize: 20, color: colors.darkNavy }} /> Export CSV
+          <FileDownload sx={{ mr: 1.5, fontSize: 20, color: colors.lightCyanDark }} /> 
+          <Box>
+            <Typography variant="body2" fontWeight={500}>CSV</Typography>
+            <Typography variant="caption" sx={{ color: colors.lightText }}>Comma separated values</Typography>
+          </Box>
         </MenuItem>
         <MenuItem 
           onClick={exportToExcel} 
           sx={{ 
+            borderRadius: 1,
             '&:hover': { 
               bgcolor: 'rgba(103, 232, 249, 0.08)',
-              borderRadius: 1,
             } 
           }}
         >
-          <FileDownload sx={{ mr: 1, fontSize: 20, color: colors.darkNavy }} /> Export Excel
+          <FileDownload sx={{ mr: 1.5, fontSize: 20, color: colors.lightCyanDark }} />
+          <Box>
+            <Typography variant="body2" fontWeight={500}>Excel</Typography>
+            <Typography variant="caption" sx={{ color: colors.lightText }}>.xlsx format</Typography>
+          </Box>
+        </MenuItem>
+        <MenuItem 
+          onClick={exportToPDF} 
+          sx={{ 
+            borderRadius: 1,
+            '&:hover': { 
+              bgcolor: 'rgba(103, 232, 249, 0.08)',
+            } 
+          }}
+        >
+          <FileDownload sx={{ mr: 1.5, fontSize: 20, color: colors.lightCyanDark }} />
+          <Box>
+            <Typography variant="body2" fontWeight={500}>PDF</Typography>
+            <Typography variant="caption" sx={{ color: colors.lightText }}>Print ready document</Typography>
+          </Box>
         </MenuItem>
       </Menu>
 
-      {/* Table - DARK NAVY + CYAN THEMED */}
+      {/* ============================================================
+          TABLE
+          ============================================================ */}
       <TableContainer 
         component={Paper} 
         sx={{ 
-          borderRadius: 2, 
+          borderRadius: 3, 
           border: `1px solid ${colors.borderColor}`,
           boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+          animation: 'fadeInUp 0.8s ease-out',
         }}
       >
         <Table>
           <TableHead sx={{ bgcolor: colors.darkNavy }}>
             <TableRow>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Equipment</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Hospital</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Manufacturer</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Model</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Qty</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Est. Cost</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Priority</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Status</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }} align="center">Actions</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Equipment</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Hospital</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Manufacturer</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Model</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Qty</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Est. Cost</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Priority</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Status</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }} align="center">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {filteredRequests.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} align="center">
-                  <Typography variant="body1" sx={{ py: 3, color: colors.lightText }}>
-                    No procurement requests found
-                  </Typography>
+                <TableCell colSpan={9} align="center" sx={{ py: 6 }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                    <LocalShipping sx={{ fontSize: 48, color: colors.borderColor }} />
+                    <Typography variant="body1" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                      No procurement requests found
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                      Try adjusting your search or filters
+                    </Typography>
+                  </Box>
                 </TableCell>
               </TableRow>
             ) : (
-              filteredRequests.map((request) => (
+              filteredRequests.map((request, index) => (
                 <TableRow 
                   key={request.id} 
                   hover
                   sx={{
+                    transition: 'all 0.2s ease',
+                    animation: `fadeInUp 0.4s ease-out ${index * 0.05}s both`,
                     '&:hover': {
                       backgroundColor: 'rgba(103, 232, 249, 0.04)',
                     },
@@ -906,18 +1217,23 @@ const Procurement = () => {
                   }}
                 >
                   <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <LocalShipping sx={{ fontSize: 18, color: colors.darkNavy }} />
-                      <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>
-                        {request.equipment_name}
-                      </Typography>
-                    </Box>
+                    <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                      {request.equipment_name}
+                    </Typography>
                   </TableCell>
-                  <TableCell sx={{ color: colors.lightText }}>{request.hospital_name}</TableCell>
-                  <TableCell sx={{ color: colors.lightText }}>{request.manufacturer || '-'}</TableCell>
-                  <TableCell sx={{ color: colors.lightText }}>{request.model || '-'}</TableCell>
-                  <TableCell sx={{ color: colors.darkNavy }}>{request.quantity}</TableCell>
-                  <TableCell sx={{ color: colors.darkNavy }}>
+                  <TableCell sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                    {request.hospital_name || 'N/A'}
+                  </TableCell>
+                  <TableCell sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                    {request.manufacturer || '-'}
+                  </TableCell>
+                  <TableCell sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                    {request.model || '-'}
+                  </TableCell>
+                  <TableCell sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                    {request.quantity}
+                  </TableCell>
+                  <TableCell sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                     {request.estimated_cost ? `$${parseFloat(request.estimated_cost).toFixed(2)}` : '-'}
                   </TableCell>
                   <TableCell>
@@ -925,13 +1241,12 @@ const Procurement = () => {
                       label={request.priority}
                       size="small"
                       sx={{
-                        bgcolor: request.priority === 'Urgent' ? colors.error :
-                                 request.priority === 'High' ? colors.warning :
-                                 request.priority === 'Medium' ? colors.info : colors.lightText,
+                        bgcolor: getPriorityColor(request.priority),
                         color: 'white',
-                        fontWeight: 500,
-                        height: 22,
-                        fontSize: '11px'
+                        fontWeight: 600,
+                        height: 26,
+                        fontSize: '11px',
+                        borderRadius: 2,
                       }}
                     />
                   </TableCell>
@@ -940,14 +1255,12 @@ const Procurement = () => {
                       label={request.status}
                       size="small"
                       sx={{
-                        bgcolor: request.status === 'Approved' || request.status === 'Procured' ? colors.success :
-                                 request.status === 'Rejected' ? colors.error :
-                                 request.status === 'Under Review' ? colors.info :
-                                 colors.lightText,
+                        bgcolor: getStatusColor(request.status),
                         color: 'white',
-                        fontWeight: 500,
-                        height: 22,
-                        fontSize: '11px'
+                        fontWeight: 600,
+                        height: 26,
+                        fontSize: '11px',
+                        borderRadius: 2,
                       }}
                     />
                   </TableCell>
@@ -965,7 +1278,7 @@ const Procurement = () => {
                             } 
                           }}
                         >
-                          <Visibility />
+                          <Visibility fontSize="small" />
                         </IconButton>
                       </Tooltip>
                       
@@ -982,7 +1295,7 @@ const Procurement = () => {
                               } 
                             }}
                           >
-                            <Edit />
+                            <Edit fontSize="small" />
                           </IconButton>
                         </Tooltip>
                       )}
@@ -993,8 +1306,13 @@ const Procurement = () => {
                             size="small" 
                             color="error" 
                             onClick={() => handleDeleteClick(request)}
+                            sx={{
+                              '&:hover': {
+                                backgroundColor: 'rgba(239, 68, 68, 0.08)'
+                              }
+                            }}
                           >
-                            <Delete />
+                            <Delete fontSize="small" />
                           </IconButton>
                         </Tooltip>
                       )}
@@ -1004,9 +1322,15 @@ const Procurement = () => {
                           <IconButton 
                             size="small" 
                             onClick={() => handleReview(request.id)}
-                            sx={{ color: colors.info, '&:hover': { color: colors.lightCyanDark } }}
+                            sx={{ 
+                              color: colors.info, 
+                              '&:hover': { 
+                                color: colors.lightCyanDark,
+                                backgroundColor: 'rgba(103, 232, 249, 0.08)'
+                              } 
+                            }}
                           >
-                            <Info />
+                            <Info fontSize="small" />
                           </IconButton>
                         </Tooltip>
                       )}
@@ -1017,9 +1341,15 @@ const Procurement = () => {
                             <IconButton 
                               size="small" 
                               onClick={() => handleApprove(request.id)}
-                              sx={{ color: colors.success, '&:hover': { color: colors.lightCyanDark } }}
+                              sx={{ 
+                                color: colors.success, 
+                                '&:hover': { 
+                                  color: colors.lightCyanDark,
+                                  backgroundColor: 'rgba(103, 232, 249, 0.08)'
+                                } 
+                              }}
                             >
-                              <CheckCircle />
+                              <CheckCircle fontSize="small" />
                             </IconButton>
                           </Tooltip>
                           <Tooltip title="Reject Request">
@@ -1027,8 +1357,13 @@ const Procurement = () => {
                               size="small" 
                               color="error" 
                               onClick={() => handleReject(request.id)}
+                              sx={{
+                                '&:hover': {
+                                  backgroundColor: 'rgba(239, 68, 68, 0.08)'
+                                }
+                              }}
                             >
-                              <Cancel />
+                              <Cancel fontSize="small" />
                             </IconButton>
                           </Tooltip>
                         </>
@@ -1039,9 +1374,15 @@ const Procurement = () => {
                           <IconButton 
                             size="small" 
                             onClick={() => handleMarkProcured(request.id)}
-                            sx={{ color: colors.success, '&:hover': { color: colors.lightCyanDark } }}
+                            sx={{ 
+                              color: colors.success, 
+                              '&:hover': { 
+                                color: colors.lightCyanDark,
+                                backgroundColor: 'rgba(103, 232, 249, 0.08)'
+                              } 
+                            }}
                           >
-                            <CheckCircle />
+                            <CheckCircle fontSize="small" />
                           </IconButton>
                         </Tooltip>
                       )}
@@ -1054,7 +1395,9 @@ const Procurement = () => {
         </Table>
       </TableContainer>
 
-      {/* Add/Edit Dialog - DARK NAVY + CYAN */}
+      {/* ============================================================
+          ADD/EDIT DIALOG
+          ============================================================ */}
       {canCreate && (
         <Dialog 
           open={openDialog} 
@@ -1063,7 +1406,7 @@ const Procurement = () => {
           fullWidth
           PaperProps={{
             sx: {
-              borderRadius: 3,
+              borderRadius: 4,
               border: `1px solid ${colors.borderColor}`,
               boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
             }
@@ -1073,24 +1416,23 @@ const Procurement = () => {
             bgcolor: colors.darkNavy, 
             color: 'white',
             borderRadius: '8px 8px 0 0',
+            py: 2.5,
           }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <LocalShipping sx={{ color: 'white' }} />
-                <Typography variant="h6" fontWeight={600}>
-                  {editingRequest ? 'Edit Procurement Request' : 'New Procurement Request'}
-                </Typography>
-              </Box>
-              <IconButton onClick={handleCloseDialog} sx={{ color: 'white' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="h6" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                {editingRequest ? <Edit sx={{ fontSize: 28 }} /> : <Add sx={{ fontSize: 28 }} />}
+                {editingRequest ? 'Edit Procurement Request' : 'New Procurement Request'}
+              </Typography>
+              <IconButton onClick={handleCloseDialog} sx={{ color: 'white', '&:hover': { color: colors.lightCyan } }}>
                 <Close />
               </IconButton>
             </Box>
           </DialogTitle>
-          <DialogContent dividers>
-            <Grid container spacing={2} sx={{ mt: 0 }}>
+          <DialogContent dividers sx={{ px: 4, py: 3 }}>
+            <Grid container spacing={2.5}>
               <Grid item xs={12} md={6}>
                 <FormControl fullWidth>
-                  <InputLabel sx={{ color: colors.lightText }}>Hospital</InputLabel>
+                  <InputLabel sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Hospital</InputLabel>
                   <Select
                     name="hospital_id"
                     value={formData.hospital_id}
@@ -1098,37 +1440,45 @@ const Procurement = () => {
                     label="Hospital"
                     required
                     sx={{
+                      borderRadius: 2,
                       '& .MuiOutlinedInput-root': {
                         '&:hover fieldset': { borderColor: colors.lightCyan },
                         '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                      },
+                      '& .MuiSelect-select': {
+                        fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                       }
                     }}
                   >
-                    <MenuItem value="">Select Hospital</MenuItem>
+                    <MenuItem value="" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Select Hospital</MenuItem>
                     {hospitals.map(h => (
-                      <MenuItem key={h.id} value={h.id}>{h.name}</MenuItem>
+                      <MenuItem key={h.id} value={h.id} sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>{h.name}</MenuItem>
                     ))}
                   </Select>
                 </FormControl>
               </Grid>
               <Grid item xs={12} md={6}>
                 <FormControl fullWidth>
-                  <InputLabel sx={{ color: colors.lightText }}>Category</InputLabel>
+                  <InputLabel sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Category</InputLabel>
                   <Select
                     name="category_id"
                     value={formData.category_id}
                     onChange={handleFormChange}
                     label="Category"
                     sx={{
+                      borderRadius: 2,
                       '& .MuiOutlinedInput-root': {
                         '&:hover fieldset': { borderColor: colors.lightCyan },
                         '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                      },
+                      '& .MuiSelect-select': {
+                        fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                       }
                     }}
                   >
-                    <MenuItem value="">Select Category</MenuItem>
+                    <MenuItem value="" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Select Category</MenuItem>
                     {equipment.map(cat => (
-                      <MenuItem key={cat.id} value={cat.id}>{cat.name}</MenuItem>
+                      <MenuItem key={cat.id} value={cat.id} sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>{cat.name}</MenuItem>
                     ))}
                   </Select>
                 </FormControl>
@@ -1143,8 +1493,15 @@ const Procurement = () => {
                   required
                   sx={{
                     '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
                       '&:hover fieldset': { borderColor: colors.lightCyan },
                       '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                    },
+                    '& .MuiInputBase-input': {
+                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                    },
+                    '& .MuiInputLabel-root': {
+                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                     }
                   }}
                 />
@@ -1158,8 +1515,15 @@ const Procurement = () => {
                   onChange={handleFormChange}
                   sx={{
                     '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
                       '&:hover fieldset': { borderColor: colors.lightCyan },
                       '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                    },
+                    '& .MuiInputBase-input': {
+                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                    },
+                    '& .MuiInputLabel-root': {
+                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                     }
                   }}
                 />
@@ -1173,8 +1537,15 @@ const Procurement = () => {
                   onChange={handleFormChange}
                   sx={{
                     '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
                       '&:hover fieldset': { borderColor: colors.lightCyan },
                       '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                    },
+                    '& .MuiInputBase-input': {
+                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                    },
+                    '& .MuiInputLabel-root': {
+                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                     }
                   }}
                 />
@@ -1190,8 +1561,15 @@ const Procurement = () => {
                   InputProps={{ inputProps: { min: 1 } }}
                   sx={{
                     '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
                       '&:hover fieldset': { borderColor: colors.lightCyan },
                       '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                    },
+                    '& .MuiInputBase-input': {
+                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                    },
+                    '& .MuiInputLabel-root': {
+                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                     }
                   }}
                 />
@@ -1207,36 +1585,45 @@ const Procurement = () => {
                   InputProps={{ inputProps: { min: 0, step: 0.01 } }}
                   sx={{
                     '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
                       '&:hover fieldset': { borderColor: colors.lightCyan },
                       '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                    },
+                    '& .MuiInputBase-input': {
+                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                    },
+                    '& .MuiInputLabel-root': {
+                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                     }
                   }}
                 />
               </Grid>
-              
               <Grid item xs={12} md={4}>
                 <FormControl fullWidth>
-                  <InputLabel sx={{ color: colors.lightText }}>Priority</InputLabel>
+                  <InputLabel sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Priority</InputLabel>
                   <Select
                     name="priority"
                     value={formData.priority}
                     onChange={handleFormChange}
                     label="Priority"
                     sx={{
+                      borderRadius: 2,
                       '& .MuiOutlinedInput-root': {
                         '&:hover fieldset': { borderColor: colors.lightCyan },
                         '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                      },
+                      '& .MuiSelect-select': {
+                        fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                       }
                     }}
                   >
-                    <MenuItem value="Low">Low</MenuItem>
-                    <MenuItem value="Medium">Medium</MenuItem>
-                    <MenuItem value="High">High</MenuItem>
-                    <MenuItem value="Urgent">Urgent</MenuItem>
+                    <MenuItem value="Low" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Low</MenuItem>
+                    <MenuItem value="Medium" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Medium</MenuItem>
+                    <MenuItem value="High" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>High</MenuItem>
+                    <MenuItem value="Urgent" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Urgent</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>
-              
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
@@ -1246,8 +1633,15 @@ const Procurement = () => {
                   onChange={handleFormChange}
                   sx={{
                     '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
                       '&:hover fieldset': { borderColor: colors.lightCyan },
                       '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                    },
+                    '& .MuiInputBase-input': {
+                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                    },
+                    '& .MuiInputLabel-root': {
+                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                     }
                   }}
                 />
@@ -1261,8 +1655,15 @@ const Procurement = () => {
                   onChange={handleFormChange}
                   sx={{
                     '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
                       '&:hover fieldset': { borderColor: colors.lightCyan },
                       '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                    },
+                    '& .MuiInputBase-input': {
+                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                    },
+                    '& .MuiInputLabel-root': {
+                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                     }
                   }}
                 />
@@ -1279,15 +1680,22 @@ const Procurement = () => {
                   placeholder="Explain why this equipment is needed..."
                   sx={{
                     '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
                       '&:hover fieldset': { borderColor: colors.lightCyan },
                       '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                    },
+                    '& .MuiInputBase-input': {
+                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                    },
+                    '& .MuiInputLabel-root': {
+                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                     }
                   }}
                 />
               </Grid>
 
               <Grid item xs={12}>
-                <Typography variant="subtitle2" sx={{ color: colors.lightText }} gutterBottom>
+                <Typography variant="subtitle2" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }} gutterBottom>
                   <AttachFile sx={{ fontSize: 18, verticalAlign: 'middle', mr: 1 }} />
                   Attach Documents (Quotes, Specifications, etc.)
                 </Typography>
@@ -1301,7 +1709,6 @@ const Procurement = () => {
                   maxSize={20}
                   showPreview={true}
                   onUploadComplete={(files) => {
-                    console.log('📄 Documents uploaded:', files)
                     const urls = files.map(f => f.url || f.fileUrl).filter(Boolean)
                     const currentFiles = formData.attachments ? formData.attachments.split(',') : []
                     const updatedFiles = [...currentFiles, ...urls]
@@ -1330,7 +1737,7 @@ const Procurement = () => {
                 
                 {formData.attachments && formData.attachments.split(',').filter(Boolean).length > 0 && (
                   <Box sx={{ mt: 1 }}>
-                    <Typography variant="caption" sx={{ color: colors.lightText }}>
+                    <Typography variant="caption" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                       {formData.attachments.split(',').filter(Boolean).length} document(s) attached
                     </Typography>
                   </Box>
@@ -1338,15 +1745,18 @@ const Procurement = () => {
               </Grid>
             </Grid>
           </DialogContent>
-          <DialogActions sx={{ p: 3 }}>
+          <DialogActions sx={{ p: 3, gap: 1 }}>
             <Button 
               onClick={handleCloseDialog} 
               sx={{ 
                 color: colors.darkNavy,
+                borderRadius: 2,
+                px: 3,
+                textTransform: 'none',
                 '&:hover': { 
                   backgroundColor: 'rgba(103, 232, 249, 0.04)'
                 },
-                textTransform: 'none',
+                fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
               }}
             >
               Cancel
@@ -1355,14 +1765,17 @@ const Procurement = () => {
               variant="contained"
               onClick={handleSubmit}
               sx={{ 
-                bgcolor: colors.darkNavy, 
+                bgcolor: colors.darkNavy,
+                color: colors.text,
+                borderRadius: 2,
+                px: 4,
+                textTransform: 'none',
+                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
                 '&:hover': { 
                   bgcolor: colors.darkNavyHover,
-                  boxShadow: `0 4px 20px ${colors.lightCyanGlowStrong}`
+                  boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
                 },
-                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
-                textTransform: 'none',
-                borderRadius: 2,
+                transition: 'all 0.3s ease',
               }}
             >
               {editingRequest ? 'Update' : 'Submit Request'}
@@ -1371,7 +1784,9 @@ const Procurement = () => {
         </Dialog>
       )}
 
-      {/* Delete Confirmation Dialog - DARK NAVY + CYAN */}
+      {/* ============================================================
+          DELETE CONFIRMATION DIALOG
+          ============================================================ */}
       <Dialog 
         open={openDeleteDialog} 
         onClose={() => {
@@ -1385,7 +1800,7 @@ const Procurement = () => {
         fullWidth
         PaperProps={{
           sx: {
-            borderRadius: 3,
+            borderRadius: 4,
             border: `1px solid ${colors.borderColor}`,
             boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
           }
@@ -1394,26 +1809,28 @@ const Procurement = () => {
         <DialogTitle>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Warning sx={{ color: colors.error, fontSize: 28 }} />
-            <Typography variant="h6" sx={{ color: colors.darkNavy }}>Delete Procurement Request</Typography>
+            <Typography variant="h6" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+              Delete Procurement Request
+            </Typography>
           </Box>
         </DialogTitle>
         <DialogContent>
           <Box sx={{ py: 2 }}>
             {deleteError?.type === 'status_error' ? (
               <Alert severity="error" sx={{ mb: 2, borderRadius: 2, border: `1px solid ${colors.error}33` }}>
-                <Typography variant="body2" fontWeight={600}>
+                <Typography variant="body2" fontWeight={600} sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                   Cannot Delete Request
                 </Typography>
-                <Typography variant="body2">
+                <Typography variant="body2" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                   {deleteError.message}
                 </Typography>
-                <Typography variant="caption" sx={{ color: colors.lightText, mt: 1, display: 'block' }}>
+                <Typography variant="caption" sx={{ color: colors.lightText, mt: 1, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                   💡 Please contact Super Admin if you need to delete this request.
                 </Typography>
               </Alert>
             ) : (
               <>
-                <Typography variant="body1" gutterBottom sx={{ color: colors.darkNavy }}>
+                <Typography variant="body1" gutterBottom sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                   Are you sure you want to delete this procurement request?
                 </Typography>
                 
@@ -1425,35 +1842,35 @@ const Procurement = () => {
                     border: `1px solid ${colors.warning}33`
                   }}
                 >
-                  <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkNavy }}>
+                  <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                     Equipment: {deletingRequest?.equipment_name}
                   </Typography>
                   {deletingRequest?.manufacturer && (
-                    <Typography variant="body2" sx={{ color: colors.lightText }}>
+                    <Typography variant="body2" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                       Manufacturer: {deletingRequest.manufacturer}
                     </Typography>
                   )}
                   {deletingRequest?.model && (
-                    <Typography variant="body2" sx={{ color: colors.lightText }}>
+                    <Typography variant="body2" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                       Model: {deletingRequest.model}
                     </Typography>
                   )}
-                  <Typography variant="body2" sx={{ color: colors.lightText }}>
+                  <Typography variant="body2" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                     Status: {deletingRequest?.status}
                   </Typography>
-                  <Typography variant="body2" sx={{ color: colors.lightText }}>
+                  <Typography variant="body2" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                     Priority: {deletingRequest?.priority}
                   </Typography>
                 </Paper>
 
-                <Typography variant="caption" sx={{ color: colors.error, mt: 2, display: 'block' }}>
+                <Typography variant="caption" sx={{ color: colors.error, mt: 2, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                   ⚠️ This action cannot be undone.
                 </Typography>
               </>
             )}
           </Box>
         </DialogContent>
-        <DialogActions sx={{ p: 3 }}>
+        <DialogActions sx={{ p: 3, gap: 1 }}>
           <Button 
             onClick={() => {
               setOpenDeleteDialog(false)
@@ -1463,10 +1880,13 @@ const Procurement = () => {
             disabled={deleting}
             sx={{ 
               color: colors.darkNavy,
+              borderRadius: 2,
+              px: 3,
+              textTransform: 'none',
               '&:hover': { 
                 backgroundColor: 'rgba(103, 232, 249, 0.04)'
               },
-              textTransform: 'none',
+              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
             }}
           >
             {deleteError?.type === 'status_error' ? 'Close' : 'Cancel'}
@@ -1479,9 +1899,9 @@ const Procurement = () => {
               disabled={deleting}
               startIcon={deleting ? <LinearProgress size={20} color="inherit" /> : <Delete />}
               sx={{ 
-                boxShadow: `0 4px 16px ${colors.error}44`,
-                textTransform: 'none',
                 borderRadius: 2,
+                textTransform: 'none',
+                fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
               }}
             >
               {deleting ? 'Deleting...' : 'Delete Request'}
@@ -1490,7 +1910,9 @@ const Procurement = () => {
         </DialogActions>
       </Dialog>
 
-      {/* View Details Dialog - DARK NAVY + CYAN */}
+      {/* ============================================================
+          VIEW DETAILS DIALOG
+          ============================================================ */}
       <Dialog 
         open={openViewDialog} 
         onClose={handleCloseView} 
@@ -1498,7 +1920,7 @@ const Procurement = () => {
         fullWidth
         PaperProps={{
           sx: { 
-            borderRadius: 3,
+            borderRadius: 4,
             border: `1px solid ${colors.borderColor}`,
             boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
           }
@@ -1508,47 +1930,49 @@ const Procurement = () => {
           bgcolor: colors.darkNavy, 
           color: 'white',
           borderRadius: '8px 8px 0 0',
+          py: 2.5,
         }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Typography variant="h6" fontWeight={600}>
+            <Typography variant="h6" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+              <LocalShipping sx={{ fontSize: 28 }} />
               Procurement Request Details
             </Typography>
-            <IconButton onClick={handleCloseView} sx={{ color: 'white' }}>
+            <IconButton onClick={handleCloseView} sx={{ color: 'white', '&:hover': { color: colors.lightCyan } }}>
               <Close />
             </IconButton>
           </Box>
         </DialogTitle>
-        <DialogContent dividers>
+        <DialogContent dividers sx={{ px: 4, py: 3 }}>
           {viewingRequest && (
-            <Grid container spacing={2} sx={{ mt: 0 }}>
+            <Grid container spacing={2.5}>
               <Grid item xs={12}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
-                  <Typography variant="h6" fontWeight={600} sx={{ color: colors.darkNavy }}>
+                  <Typography variant="h6" fontWeight={600} sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                     {viewingRequest.equipment_name}
                   </Typography>
-                  <Box>
+                  <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                     <Chip
                       label={viewingRequest.status}
                       size="small"
                       sx={{
-                        bgcolor: viewingRequest.status === 'Approved' || viewingRequest.status === 'Procured' ? colors.success :
-                                 viewingRequest.status === 'Rejected' ? colors.error :
-                                 viewingRequest.status === 'Under Review' ? colors.info :
-                                 colors.lightText,
+                        bgcolor: getStatusColor(viewingRequest.status),
                         color: 'white',
-                        fontWeight: 500,
-                        mr: 0.5
+                        fontWeight: 600,
+                        height: 26,
+                        fontSize: '11px',
+                        borderRadius: 2,
                       }}
                     />
                     <Chip
                       label={viewingRequest.priority}
                       size="small"
                       sx={{
-                        bgcolor: viewingRequest.priority === 'Urgent' ? colors.error :
-                                 viewingRequest.priority === 'High' ? colors.warning :
-                                 viewingRequest.priority === 'Medium' ? colors.info : colors.lightText,
+                        bgcolor: getPriorityColor(viewingRequest.priority),
                         color: 'white',
-                        fontWeight: 500
+                        fontWeight: 600,
+                        height: 26,
+                        fontSize: '11px',
+                        borderRadius: 2,
                       }}
                     />
                   </Box>
@@ -1560,7 +1984,7 @@ const Procurement = () => {
 
               {/* Status Timeline */}
               <Grid item xs={12}>
-                <Typography variant="subtitle2" sx={{ color: colors.darkNavy, mb: 2 }}>
+                <Typography variant="subtitle2" sx={{ color: colors.darkNavy, mb: 2, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
                   Request Status Timeline
                 </Typography>
                 <Stepper activeStep={getCurrentStep(viewingRequest.status)} orientation="vertical">
@@ -1587,10 +2011,12 @@ const Procurement = () => {
                           )
                         }}
                       >
-                        {step}
+                        <Typography sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                          {step}
+                        </Typography>
                       </StepLabel>
                       <StepContent>
-                        <Typography variant="caption" sx={{ color: colors.lightText }}>
+                        <Typography variant="caption" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                           {step === viewingRequest.status ? 'Current status' :
                             getCurrentStep(viewingRequest.status) > index ? 'Completed' : 'Pending'}
                         </Typography>
@@ -1606,55 +2032,73 @@ const Procurement = () => {
 
               {/* Details */}
               <Grid item xs={12} md={6}>
-                <Typography variant="body2" sx={{ color: colors.lightText }}>Hospital</Typography>
-                <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy }}>
-                  {viewingRequest.hospital_name}
+                <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                  Hospital
+                </Typography>
+                <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                  {viewingRequest.hospital_name || 'N/A'}
                 </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
-                <Typography variant="body2" sx={{ color: colors.lightText }}>Category</Typography>
-                <Typography variant="body1" sx={{ color: colors.darkNavy }}>
+                <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                  Category
+                </Typography>
+                <Typography variant="body1" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                   {viewingRequest.category_name || 'N/A'}
                 </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
-                <Typography variant="body2" sx={{ color: colors.lightText }}>Manufacturer</Typography>
-                <Typography variant="body1" sx={{ color: colors.darkNavy }}>
+                <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                  Manufacturer
+                </Typography>
+                <Typography variant="body1" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                   {viewingRequest.manufacturer || 'N/A'}
                 </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
-                <Typography variant="body2" sx={{ color: colors.lightText }}>Model</Typography>
-                <Typography variant="body1" sx={{ color: colors.darkNavy }}>
+                <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                  Model
+                </Typography>
+                <Typography variant="body1" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                   {viewingRequest.model || 'N/A'}
                 </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
-                <Typography variant="body2" sx={{ color: colors.lightText }}>Quantity</Typography>
-                <Typography variant="body1" sx={{ color: colors.darkNavy }}>
+                <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                  Quantity
+                </Typography>
+                <Typography variant="body1" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                   {viewingRequest.quantity}
                 </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
-                <Typography variant="body2" sx={{ color: colors.lightText }}>Estimated Cost</Typography>
-                <Typography variant="body1" fontWeight={600} sx={{ color: colors.lightCyanDark }}>
+                <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                  Estimated Cost
+                </Typography>
+                <Typography variant="body1" fontWeight={600} sx={{ color: colors.lightCyanDark, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                   {viewingRequest.estimated_cost ? `$${parseFloat(viewingRequest.estimated_cost).toFixed(2)}` : '-'}
                 </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
-                <Typography variant="body2" sx={{ color: colors.lightText }}>Requested By</Typography>
-                <Typography variant="body1" sx={{ color: colors.darkNavy }}>
+                <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                  Requested By
+                </Typography>
+                <Typography variant="body1" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                   {viewingRequest.requested_by || 'N/A'}
                 </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
-                <Typography variant="body2" sx={{ color: colors.lightText }}>Department</Typography>
-                <Typography variant="body1" sx={{ color: colors.darkNavy }}>
+                <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                  Department
+                </Typography>
+                <Typography variant="body1" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                   {viewingRequest.department || 'N/A'}
                 </Typography>
               </Grid>
               <Grid item xs={12}>
-                <Typography variant="body2" sx={{ color: colors.lightText }}>Justification</Typography>
+                <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                  Justification
+                </Typography>
                 <Paper variant="outlined" sx={{ 
                   p: 2, 
                   mt: 0.5, 
@@ -1662,7 +2106,7 @@ const Procurement = () => {
                   borderColor: colors.borderColor,
                   borderRadius: 2
                 }}>
-                  <Typography variant="body1" sx={{ color: colors.darkNavy }}>
+                  <Typography variant="body1" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                     {viewingRequest.justification || 'No justification provided'}
                   </Typography>
                 </Paper>
@@ -1672,7 +2116,7 @@ const Procurement = () => {
               {viewingRequest.attachments && viewingRequest.attachments.split(',').filter(Boolean).length > 0 && (
                 <Grid item xs={12}>
                   <Divider sx={{ my: 1, borderColor: colors.borderColor }} />
-                  <Typography variant="body2" sx={{ color: colors.lightText }} gutterBottom>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600, mb: 1 }}>
                     <AttachFile sx={{ fontSize: 16, verticalAlign: 'middle' }} />
                     Attached Documents ({viewingRequest.attachments.split(',').filter(Boolean).length})
                   </Typography>
@@ -1693,6 +2137,7 @@ const Procurement = () => {
                             textTransform: 'none',
                             borderColor: colors.borderColor,
                             color: colors.darkNavy,
+                            borderRadius: 2,
                             '&:hover': { borderColor: colors.lightCyan, color: colors.lightCyanDark }
                           }}
                         >
@@ -1718,9 +2163,9 @@ const Procurement = () => {
                         handleDeleteClick(viewingRequest)
                       }}
                       sx={{ 
-                        boxShadow: `0 4px 16px ${colors.error}44`,
-                        textTransform: 'none',
                         borderRadius: 2,
+                        textTransform: 'none',
+                        fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                       }}
                     >
                       Delete Request
@@ -1733,7 +2178,7 @@ const Procurement = () => {
               {viewingRequest.status !== 'Rejected' && viewingRequest.status !== 'Procured' && (
                 <Grid item xs={12}>
                   <Divider sx={{ my: 2, borderColor: colors.borderColor }} />
-                  <Typography variant="subtitle2" sx={{ color: colors.darkNavy, mb: 1 }}>
+                  <Typography variant="subtitle2" sx={{ color: colors.darkNavy, mb: 1, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
                     Update Status
                   </Typography>
                   <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
@@ -1745,10 +2190,11 @@ const Procurement = () => {
                         startIcon={<Info />}
                         sx={{ 
                           bgcolor: colors.info,
-                          '&:hover': { bgcolor: '#0D47A1' },
-                          boxShadow: `0 4px 16px ${colors.info}44`,
-                          textTransform: 'none',
+                          color: 'white',
                           borderRadius: 2,
+                          textTransform: 'none',
+                          fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                          '&:hover': { bgcolor: '#0D47A1' },
                         }}
                       >
                         Start Review
@@ -1763,10 +2209,11 @@ const Procurement = () => {
                           startIcon={<CheckCircle />}
                           sx={{ 
                             bgcolor: colors.success,
-                            '&:hover': { bgcolor: '#1B5E20' },
-                            boxShadow: `0 4px 16px ${colors.success}44`,
-                            textTransform: 'none',
+                            color: 'white',
                             borderRadius: 2,
+                            textTransform: 'none',
+                            fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                            '&:hover': { bgcolor: '#1B5E20' },
                           }}
                         >
                           Approve
@@ -1778,8 +2225,9 @@ const Procurement = () => {
                           onClick={() => handleReject(viewingRequest.id)}
                           startIcon={<Cancel />}
                           sx={{
-                            textTransform: 'none',
                             borderRadius: 2,
+                            textTransform: 'none',
+                            fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                           }}
                         >
                           Reject
@@ -1794,10 +2242,11 @@ const Procurement = () => {
                         startIcon={<CheckCircle />}
                         sx={{ 
                           bgcolor: colors.success,
-                          '&:hover': { bgcolor: '#1B5E20' },
-                          boxShadow: `0 4px 16px ${colors.success}44`,
-                          textTransform: 'none',
+                          color: 'white',
                           borderRadius: 2,
+                          textTransform: 'none',
+                          fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                          '&:hover': { bgcolor: '#1B5E20' },
                         }}
                       >
                         Mark as Procured
@@ -1826,15 +2275,22 @@ const Procurement = () => {
             </Grid>
           )}
         </DialogContent>
-        <DialogActions sx={{ p: 3 }}>
+        <DialogActions sx={{ p: 3, gap: 1 }}>
           <Button 
             onClick={handleCloseView} 
+            variant="contained"
             sx={{ 
-              color: colors.darkNavy,
-              '&:hover': { 
-                backgroundColor: 'rgba(103, 232, 249, 0.04)'
-              },
+              bgcolor: colors.darkNavy,
+              color: colors.text,
+              borderRadius: 2,
+              px: 4,
               textTransform: 'none',
+              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+              '&:hover': { 
+                bgcolor: colors.darkNavyHover,
+                boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
+              },
+              transition: 'all 0.3s ease',
             }}
           >
             Close
@@ -1845,13 +2301,16 @@ const Procurement = () => {
               startIcon={<Print />} 
               sx={{ 
                 bgcolor: colors.darkNavy,
+                color: colors.text,
+                borderRadius: 2,
+                px: 4,
+                textTransform: 'none',
+                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
                 '&:hover': { 
                   bgcolor: colors.darkNavyHover,
-                  boxShadow: `0 4px 16px ${colors.lightCyanGlow}`
+                  boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
                 },
-                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
-                textTransform: 'none',
-                borderRadius: 2,
+                transition: 'all 0.3s ease',
               }}
               onClick={() => window.print()}
             >

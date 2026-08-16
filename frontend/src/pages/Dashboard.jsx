@@ -1,5 +1,5 @@
 // src/pages/Dashboard.jsx
-// ✅ UPDATED: My Maintenance Tasks Card Removed
+// ✅ UPDATED: Cards become prominent on click with glow & scale effect
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -69,6 +69,116 @@ const colors = {
   info: '#3B82F6',
 }
 
+// ✅ PROMINENT CLICK ANIMATIONS
+const prominentStyles = `
+@keyframes prominentPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(103, 232, 249, 0.4);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 0 20px rgba(103, 232, 249, 0);
+    transform: scale(1.05);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(103, 232, 249, 0);
+    transform: scale(1);
+  }
+}
+
+@keyframes prominentGlow {
+  0% {
+    box-shadow: 
+      0 0 20px rgba(103, 232, 249, 0.2),
+      0 0 40px rgba(103, 232, 249, 0.1);
+    border-color: rgba(103, 232, 249, 0.3);
+  }
+  50% {
+    box-shadow: 
+      0 0 40px rgba(103, 232, 249, 0.4),
+      0 0 80px rgba(103, 232, 249, 0.2),
+      inset 0 0 40px rgba(103, 232, 249, 0.05);
+    border-color: rgba(103, 232, 249, 0.6);
+  }
+  100% {
+    box-shadow: 
+      0 0 20px rgba(103, 232, 249, 0.2),
+      0 0 40px rgba(103, 232, 249, 0.1);
+    border-color: rgba(103, 232, 249, 0.3);
+  }
+}
+
+@keyframes prominentGoldGlow {
+  0% {
+    box-shadow: 
+      0 0 20px rgba(201, 162, 39, 0.15),
+      0 0 40px rgba(201, 162, 39, 0.05);
+    border-color: rgba(201, 162, 39, 0.2);
+  }
+  50% {
+    box-shadow: 
+      0 0 40px rgba(201, 162, 39, 0.3),
+      0 0 80px rgba(201, 162, 39, 0.15);
+    border-color: rgba(201, 162, 39, 0.5);
+  }
+  100% {
+    box-shadow: 
+      0 0 20px rgba(201, 162, 39, 0.15),
+      0 0 40px rgba(201, 162, 39, 0.05);
+    border-color: rgba(201, 162, 39, 0.2);
+  }
+}
+
+@keyframes prominentRing {
+  0% {
+    box-shadow: 
+      0 0 0 0 rgba(103, 232, 249, 0.6),
+      0 0 0 10px rgba(103, 232, 249, 0);
+  }
+  100% {
+    box-shadow: 
+      0 0 0 30px rgba(103, 232, 249, 0),
+      0 0 0 0 rgba(103, 232, 249, 0.6);
+  }
+}
+
+@keyframes prominentShine {
+  0% {
+    background-position: -300% center;
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    background-position: 300% center;
+    opacity: 0;
+  }
+}
+
+.prominent-active {
+  animation: prominentGlow 1.5s ease-in-out 3;
+}
+
+.prominent-active-gold {
+  animation: prominentGoldGlow 1.5s ease-in-out 3;
+}
+
+.prominent-ring {
+  animation: prominentRing 0.8s ease-out 1;
+}
+
+.prominent-shine {
+  animation: prominentShine 2s ease-in-out 1;
+}
+`
+
 const Dashboard = () => {
   const { user } = useSelector((state) => state.auth)
   const navigate = useNavigate()
@@ -101,6 +211,10 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' })
+  
+  // ✅ Track which card is clicked for prominent effect
+  const [clickedCardIndex, setClickedCardIndex] = useState(null)
+  const [prominentActive, setProminentActive] = useState(false)
 
   const fetchDashboardData = async () => {
     try {
@@ -162,7 +276,19 @@ const Dashboard = () => {
     return () => clearInterval(interval)
   }, [])
 
-  const handleCardClick = (path, filter = '') => {
+  // ✅ Handle card click with prominent effect
+  const handleCardClick = (path, filter = '', index) => {
+    // ✅ Set clicked card index for prominent effect
+    setClickedCardIndex(index)
+    setProminentActive(true)
+    
+    // ✅ Remove prominent effect after 3 seconds
+    setTimeout(() => {
+      setProminentActive(false)
+      setClickedCardIndex(null)
+    }, 3000)
+    
+    // ✅ Navigate to the path
     navigate(path + filter)
   }
 
@@ -183,7 +309,7 @@ const Dashboard = () => {
       },
     ]
 
-    // ✅ Engineer-specific cards (My Maintenance Tasks REMOVED)
+    // ✅ Engineer-specific cards
     if (isEngineer) {
       cards.push(
         { 
@@ -194,7 +320,6 @@ const Dashboard = () => {
           color: colors.lightCyan,
           show: true
         },
-        // ❌ My Maintenance Tasks REMOVED
         { 
           title: 'My Reported Errors', 
           value: stats.myReportedErrors || 0, 
@@ -238,7 +363,7 @@ const Dashboard = () => {
       )
     }
 
-    // ✅ Admin-only cards (Super Admin)
+    // ✅ Admin-only cards
     if (isAdmin) {
       cards.push(
         { 
@@ -322,19 +447,31 @@ const Dashboard = () => {
   const StatCard = ({ title, value, icon, path, index, color }) => {
     const iconBgGradient = `linear-gradient(135deg, ${colors.darkNavy} 0%, ${colors.lightCyan} 100%)`
     
+    // ✅ Check if this card is clicked
+    const isClicked = clickedCardIndex === index && prominentActive
+    
     return (
       <Grow in timeout={300 + (index || 0) * 50}>
         <Card 
           sx={{ 
             height: '100%', 
             borderRadius: 3, 
-            boxShadow: '0 4px 20px rgba(15, 23, 42, 0.06)',
+            boxShadow: isClicked 
+              ? `0 0 40px rgba(103, 232, 249, 0.4), 0 0 80px rgba(103, 232, 249, 0.2), 0 8px 40px rgba(15, 23, 42, 0.15)`
+              : '0 4px 20px rgba(15, 23, 42, 0.06)',
             transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
             cursor: 'pointer',
-            bgcolor: colors.cardBg,
-            border: `1px solid ${colors.borderColor}`,
+            bgcolor: isClicked ? 'rgba(103, 232, 249, 0.05)' : colors.cardBg,
+            border: isClicked 
+              ? `2px solid ${colors.lightCyan}`
+              : `1px solid ${colors.borderColor}`,
             position: 'relative',
             overflow: 'hidden',
+            transform: isClicked ? 'scale(1.04)' : 'scale(1)',
+            // ✅ Prominent animation classes
+            ...(isClicked && {
+              animation: 'prominentGlow 1.5s ease-in-out 3',
+            }),
             '&:hover': {
               transform: isMobile ? 'none' : 'translateY(-8px) scale(1.02)',
               boxShadow: `0 12px 40px rgba(103, 232, 249, 0.15)`,
@@ -361,17 +498,100 @@ const Dashboard = () => {
                 opacity: 1,
               }
             },
+            // ✅ Clicked state - more prominent
+            ...(isClicked && {
+              '& .card-icon-wrapper': {
+                transform: 'scale(1.2) rotate(-8deg)',
+                boxShadow: `0 0 60px ${colors.lightCyanGlowStrong}`,
+              },
+              '& .card-title': {
+                color: colors.darkNavy,
+                fontWeight: 700,
+              },
+              '& .card-value': {
+                color: colors.darkNavy,
+              },
+              '& .card-decoration': {
+                transform: 'scale(2)',
+                opacity: 0.15,
+              },
+              '& .cyan-dot': {
+                opacity: 1,
+                transform: 'scale(1.5)',
+              },
+              '& .glow-effect': {
+                opacity: 1,
+              },
+              '& .prominent-overlay': {
+                opacity: 1,
+              },
+              '& .prominent-ring': {
+                animation: 'prominentRing 0.8s ease-out 1',
+              },
+              '& .prominent-shine': {
+                animation: 'prominentShine 2s ease-in-out 1',
+              },
+            }),
             touchAction: 'manipulation',
           }}
-          onClick={() => path && handleCardClick(path)}
+          onClick={() => handleCardClick(path, '', index)}
+          className={isClicked ? 'prominent-active' : ''}
         >
+          {/* ✅ Prominent Shine Overlay */}
+          <Box
+            className="prominent-shine"
+            sx={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: `
+                linear-gradient(105deg,
+                  transparent 30%,
+                  rgba(103, 232, 249, 0.15) 35%,
+                  rgba(103, 232, 249, 0.25) 40%,
+                  rgba(201, 162, 39, 0.1) 42%,
+                  rgba(103, 232, 249, 0.3) 45%,
+                  rgba(103, 232, 249, 0.15) 48%,
+                  rgba(201, 162, 39, 0.1) 50%,
+                  rgba(103, 232, 249, 0.25) 52%,
+                  rgba(103, 232, 249, 0.15) 55%,
+                  transparent 60%
+                )
+              `,
+              backgroundSize: '300% 100%',
+              opacity: isClicked ? 1 : 0,
+              transition: 'opacity 0.3s ease',
+              pointerEvents: 'none',
+              zIndex: 5,
+            }}
+          />
+          
+          {/* ✅ Prominent Ring Effect */}
+          <Box
+            className="prominent-ring"
+            sx={{
+              position: 'absolute',
+              inset: -4,
+              borderRadius: '16px',
+              border: `3px solid rgba(103, 232, 249, 0)`,
+              opacity: isClicked ? 1 : 0,
+              pointerEvents: 'none',
+              zIndex: 4,
+            }}
+          />
+          
           <Box sx={{ 
             position: 'absolute', 
             top: 0, 
             left: 0, 
             right: 0, 
-            height: 4, 
-            background: `linear-gradient(90deg, ${colors.darkNavy}, ${colors.lightCyan}, ${colors.accentGold})`,
+            height: isClicked ? 5 : 4, 
+            background: isClicked 
+              ? `linear-gradient(90deg, ${colors.lightCyan}, ${colors.accentGold}, ${colors.lightCyan})`
+              : `linear-gradient(90deg, ${colors.darkNavy}, ${colors.lightCyan}, ${colors.accentGold})`,
+            animation: isClicked ? 'gradientShine 1.5s ease-in-out infinite' : 'none',
           }} />
           
           <Box
@@ -379,9 +599,9 @@ const Dashboard = () => {
             sx={{
               position: 'absolute',
               inset: 0,
-              opacity: 0,
+              opacity: isClicked ? 1 : 0,
               transition: 'opacity 0.4s ease',
-              background: `radial-gradient(circle at 30% 50%, ${colors.lightCyan}06 0%, transparent 70%)`,
+              background: `radial-gradient(circle at 30% 50%, ${colors.lightCyan}12 0%, transparent 70%)`,
               pointerEvents: 'none',
             }}
           />
@@ -395,7 +615,7 @@ const Dashboard = () => {
               width: 100,
               height: 100,
               borderRadius: '50%',
-              background: `radial-gradient(circle, ${colors.lightCyan}12 0%, transparent 70%)`,
+              background: `radial-gradient(circle, ${colors.lightCyan}${isClicked ? '25' : '12'} 0%, transparent 70%)`,
               transition: 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
               pointerEvents: 'none',
             }}
@@ -410,10 +630,27 @@ const Dashboard = () => {
               width: 120,
               height: 120,
               borderRadius: '50%',
-              background: `radial-gradient(circle, ${colors.darkNavy}06 0%, transparent 70%)`,
+              background: `radial-gradient(circle, ${colors.darkNavy}${isClicked ? '12' : '06'} 0%, transparent 70%)`,
               transition: 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
               pointerEvents: 'none',
               transitionDelay: '0.1s',
+            }}
+          />
+          
+          {/* ✅ Prominent Overlay */}
+          <Box
+            className="prominent-overlay"
+            sx={{
+              position: 'absolute',
+              inset: 0,
+              opacity: isClicked ? 1 : 0,
+              transition: 'opacity 0.3s ease',
+              background: `
+                radial-gradient(circle at 50% 50%, ${colors.lightCyan}08 0%, transparent 50%),
+                radial-gradient(circle at 20% 80%, ${colors.accentGold}04 0%, transparent 40%)
+              `,
+              pointerEvents: 'none',
+              zIndex: 0,
             }}
           />
           
@@ -428,13 +665,13 @@ const Dashboard = () => {
                 className="card-title"
                 variant="body2" 
                 sx={{ 
-                  fontWeight: 600,
-                  color: colors.lightText,
+                  fontWeight: isClicked ? 700 : 600,
+                  color: isClicked ? colors.darkNavy : colors.lightText,
                   fontSize: { xs: '0.6rem', sm: '0.65rem', md: '0.75rem' },
                   lineHeight: 1.3,
                   letterSpacing: '0.8px',
                   textTransform: 'uppercase',
-                  transition: 'color 0.3s ease',
+                  transition: 'all 0.3s ease',
                 }}
               >
                 {title}
@@ -443,7 +680,9 @@ const Dashboard = () => {
               <Box
                 className="card-icon-wrapper"
                 sx={{
-                  background: iconBgGradient,
+                  background: isClicked 
+                    ? `linear-gradient(135deg, ${colors.lightCyan} 0%, ${colors.accentGold} 100%)`
+                    : iconBgGradient,
                   borderRadius: '14px',
                   p: { xs: 0.8, sm: 1, md: 1.2 },
                   display: 'flex',
@@ -453,15 +692,20 @@ const Dashboard = () => {
                   height: { xs: 36, sm: 42, md: 48 },
                   flexShrink: 0,
                   transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-                  boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+                  boxShadow: isClicked 
+                    ? `0 0 40px ${colors.lightCyanGlowStrong}, 0 0 80px ${colors.lightCyanGlow}`
+                    : `0 4px 16px ${colors.lightCyanGlow}`,
                   position: 'relative',
+                  transform: isClicked ? 'scale(1.15) rotate(-8deg)' : 'scale(1)',
                   '&::after': {
                     content: '""',
                     position: 'absolute',
                     inset: -2,
                     borderRadius: '16px',
-                    background: `linear-gradient(135deg, ${colors.lightCyan}33, transparent)`,
-                    opacity: 0.3,
+                    background: isClicked 
+                      ? `linear-gradient(135deg, ${colors.lightCyan}66, ${colors.accentGold}33)`
+                      : `linear-gradient(135deg, ${colors.lightCyan}33, transparent)`,
+                    opacity: isClicked ? 0.6 : 0.3,
                     zIndex: -1,
                   }
                 }}
@@ -479,13 +723,16 @@ const Dashboard = () => {
               className="card-value"
               variant="h3" 
               sx={{ 
-                fontWeight: 800, 
-                color: colors.darkText,
+                fontWeight: isClicked ? 900 : 800, 
+                color: isClicked ? colors.darkNavy : colors.darkText,
                 fontSize: { xs: '1.6rem', sm: '1.8rem', md: '2.2rem', lg: '2.5rem' },
                 lineHeight: 1.1,
-                transition: 'color 0.3s ease',
+                transition: 'all 0.3s ease',
                 letterSpacing: '-0.5px',
                 mb: 0.5,
+                ...(isClicked && {
+                  textShadow: `0 0 30px ${colors.lightCyanGlow}`,
+                }),
               }}
             >
               {value !== undefined && value !== null ? value : 0}
@@ -497,33 +744,39 @@ const Dashboard = () => {
               mt: 0.5,
             }}>
               <Box className="cyan-dot" sx={{
-                width: 6,
-                height: 6,
+                width: isClicked ? 8 : 6,
+                height: isClicked ? 8 : 6,
                 borderRadius: '50%',
-                bgcolor: colors.lightCyan,
-                opacity: 0.4,
+                bgcolor: isClicked ? colors.accentGold : colors.lightCyan,
+                opacity: isClicked ? 1 : 0.4,
                 transition: 'all 0.3s ease',
-                boxShadow: `0 0 10px ${colors.lightCyanGlow}`,
+                boxShadow: isClicked 
+                  ? `0 0 20px ${colors.accentGold}, 0 0 40px ${colors.accentGold}`
+                  : `0 0 10px ${colors.lightCyanGlow}`,
               }} />
               <Box className="cyan-dot" sx={{
-                width: 6,
-                height: 6,
+                width: isClicked ? 7 : 6,
+                height: isClicked ? 7 : 6,
                 borderRadius: '50%',
                 bgcolor: colors.lightCyan,
-                opacity: 0.2,
+                opacity: isClicked ? 0.8 : 0.2,
                 transition: 'all 0.3s ease',
                 transitionDelay: '0.1s',
-                boxShadow: `0 0 8px ${colors.lightCyanGlow}`,
+                boxShadow: isClicked 
+                  ? `0 0 15px ${colors.lightCyan}`
+                  : `0 0 8px ${colors.lightCyanGlow}`,
               }} />
               <Box className="cyan-dot" sx={{
-                width: 6,
-                height: 6,
+                width: isClicked ? 6 : 6,
+                height: isClicked ? 6 : 6,
                 borderRadius: '50%',
                 bgcolor: colors.lightCyan,
-                opacity: 0.1,
+                opacity: isClicked ? 0.6 : 0.1,
                 transition: 'all 0.3s ease',
                 transitionDelay: '0.2s',
-                boxShadow: `0 0 6px ${colors.lightCyanGlow}`,
+                boxShadow: isClicked 
+                  ? `0 0 10px ${colors.lightCyan}`
+                  : `0 0 6px ${colors.lightCyanGlow}`,
               }} />
             </Box>
           </CardContent>
@@ -580,6 +833,8 @@ const Dashboard = () => {
         zIndex: 0,
       }
     }}>
+      <style>{prominentStyles}</style>
+      
       <Typography 
         variant="h5" 
         sx={{ 

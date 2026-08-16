@@ -1,10 +1,13 @@
 // src/pages/Equipment.jsx
 // ✅ DARK NAVY + LIGHT CYAN THEME - Matching Sidebar
+// ✅ PROMINENT CARDS ON CLICK - Same as Hospitals page
 // ✅ FIXED: Upload endpoint changed from /service-documentation/upload to /upload
 // ✅ FIXED: HOSPITAL_ADMIN can now create and edit equipment
 // ✅ ADDED: Purchase Date column
 // ✅ CHANGED: installation_year to date_of_installation
 // ✅ CHANGED: Equipment Status options - Active, Inactive, Warranty, Annual Maintenance, Self Maintained
+// ✅ REMOVED: All emojis from status options (clean text only)
+// ✅ REMOVED: CSV export option (keeping Excel and PDF only)
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -48,6 +51,10 @@ import {
   ImageListItemBar,
   IconButton as MuiIconButton,
   Stack,
+  Card as MuiCard,
+  CardContent as MuiCardContent,
+  Fade,
+  Grow,
 } from '@mui/material'
 import {
   Add,
@@ -68,6 +75,12 @@ import {
   Link as LinkIcon,
   OpenInNew,
   ZoomIn,
+  MedicalServices,
+  LocalHospital,
+  Engineering,
+  ErrorOutline,
+  Build,
+  Warning,
 } from '@mui/icons-material'
 import { equipmentService, hospitalService } from '../api/services'
 import { toast } from 'react-toastify'
@@ -78,6 +91,7 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import api from '../api/axios'
 import AccessDenied from '../components/Auth/AccessDenied'
+import { useNavigate } from 'react-router-dom'
 
 // ============================================================
 // ✅ DARK NAVY + LIGHT CYAN THEME COLORS
@@ -108,7 +122,44 @@ const colors = {
   success: '#22C55E',
   warning: '#F59E0B',
   info: '#3B82F6',
+  bgGradientStart: '#F0F4F8',
+  bgGradientEnd: '#E8EEF5',
 }
+
+// ✅ Animation Styles
+const animationStyles = `
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes prominentGlow {
+  0% {
+    box-shadow: 0 0 20px rgba(103, 232, 249, 0.2), 0 0 40px rgba(103, 232, 249, 0.1);
+    border-color: rgba(103, 232, 249, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(103, 232, 249, 0.4), 0 0 80px rgba(103, 232, 249, 0.2);
+    border-color: rgba(103, 232, 249, 0.6);
+  }
+  100% {
+    box-shadow: 0 0 20px rgba(103, 232, 249, 0.2), 0 0 40px rgba(103, 232, 249, 0.1);
+    border-color: rgba(103, 232, 249, 0.3);
+  }
+}
+
+@keyframes gradientShine {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+`
 
 // ✅ Status color mapping
 const getStatusColor = (status) => {
@@ -311,6 +362,7 @@ const MediaGrid = ({ files, onImageClick }) => {
 }
 
 const Equipment = () => {
+  const navigate = useNavigate()
   const { user } = useSelector((state) => state.auth)
   
   // ✅ FIXED: HOSPITAL_ADMIN can now create and edit equipment
@@ -343,6 +395,10 @@ const Equipment = () => {
   const [uploadedImages, setUploadedImages] = useState([])
   const [selectedImageForPreview, setSelectedImageForPreview] = useState(null)
 
+  // ✅ State for prominent card click
+  const [clickedCardIndex, setClickedCardIndex] = useState(null)
+  const [prominentActive, setProminentActive] = useState(false)
+
   const [filters, setFilters] = useState({
     category: '',
     manufacturer: '',
@@ -356,7 +412,6 @@ const Equipment = () => {
     isChecking: false
   })
 
-  // ✅ CHANGED: installation_year to date_of_installation
   const [formData, setFormData] = useState({
     name: '',
     category_id: '',
@@ -487,7 +542,7 @@ const Equipment = () => {
 
       setSerialStatus({
         isValid: !duplicate,
-        message: duplicate ? '❌ Serial number already exists' : '✅ Serial number available',
+        message: duplicate ? 'Serial number already exists' : 'Serial number available',
         isChecking: false
       })
 
@@ -496,6 +551,57 @@ const Equipment = () => {
       console.error('Serial check error:', error)
       setSerialStatus({ isValid: true, message: '', isChecking: false })
       return true
+    }
+  }
+
+  // ✅ Stats Cards Data - ALL ICONS SAME THEME COLOR (Light Cyan)
+  const statsCards = [
+    {
+      title: 'Total Equipment',
+      value: equipment.length,
+      icon: <MedicalServices />,
+      color: colors.lightCyan,
+      bg: 'rgba(103, 232, 249, 0.08)',
+      path: '/equipment'
+    },
+    {
+      title: 'Total Hospitals',
+      value: hospitals.length,
+      icon: <LocalHospital />,
+      color: colors.lightCyan,
+      bg: 'rgba(103, 232, 249, 0.08)',
+      path: '/hospitals'
+    },
+    {
+      title: 'Total Engineers',
+      value: 0,
+      icon: <Engineering />,
+      color: colors.lightCyan,
+      bg: 'rgba(103, 232, 249, 0.08)',
+      path: '/users?role=ENGINEER'
+    },
+    {
+      title: 'Total Errors',
+      value: 0,
+      icon: <ErrorOutline />,
+      color: colors.lightCyan,
+      bg: 'rgba(103, 232, 249, 0.08)',
+      path: '/errors'
+    },
+  ]
+
+  // ✅ Handle card click with prominent effect
+  const handleCardClick = (path, index) => {
+    setClickedCardIndex(index)
+    setProminentActive(true)
+    
+    setTimeout(() => {
+      setProminentActive(false)
+      setClickedCardIndex(null)
+    }, 2000)
+    
+    if (path) {
+      navigate(path)
     }
   }
 
@@ -634,32 +740,8 @@ const Equipment = () => {
   const handleExportClick = (event) => setExportAnchorEl(event.currentTarget)
   const handleExportClose = () => setExportAnchorEl(null)
 
-  // ✅ CHANGED: CSV Export - headers and rows use date_of_installation
-  const exportToCSV = () => {
-    try {
-      const headers = ['Equipment Name', 'Category', 'Manufacturer', 'Model', 'Serial Number', 'Installation Date', 'Purchase Date', 'Status']
-      const rows = filteredEquipment.map(e => [
-        e.name, e.category_name || '', e.manufacturer || '', 
-        e.model || '', e.serial_number || '', e.date_of_installation || '',
-        e.purchase_date || '', e.status || ''
-      ])
-      let csv = headers.join(',') + '\n'
-      rows.forEach(row => { csv += row.join(',') + '\n' })
-      const blob = new Blob([csv], { type: 'text/csv' })
-      const url = window.URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `equipment_${new Date().toISOString().split('T')[0]}.csv`
-      a.click()
-      window.URL.revokeObjectURL(url)
-      toast.success('CSV exported!')
-      handleExportClose()
-    } catch (error) {
-      toast.error('Export failed: ' + error.message)
-    }
-  }
+  // ❌ CSV export removed - keeping only Excel and PDF
 
-  // ✅ CHANGED: Excel Export - uses date_of_installation
   const exportToExcel = () => {
     try {
       const data = filteredEquipment.map(e => ({
@@ -683,7 +765,6 @@ const Equipment = () => {
     }
   }
 
-  // ✅ CHANGED: PDF Export - uses date_of_installation
   const exportToPDF = () => {
     try {
       const doc = new jsPDF()
@@ -716,7 +797,6 @@ const Equipment = () => {
     }
   }
 
-  // ✅ CHANGED: handleOpenDialog - editing uses date_of_installation
   const handleOpenDialog = (equip = null) => {
     if (equip && !canEdit) {
       toast.error('You do not have permission to edit equipment')
@@ -807,7 +887,6 @@ const Equipment = () => {
     }
   }
 
-  // ✅ CHANGED: handleSubmit - uses date_of_installation
   const handleSubmit = async () => {
     try {
       if (!formData.name || formData.name.trim() === '') {
@@ -822,7 +901,7 @@ const Equipment = () => {
           editingEquipment ? editingEquipment.id : null
         )
         if (!isValid) {
-          toast.error('❌ This serial number is already in use. Please use a unique serial number.')
+          toast.error('This serial number is already in use. Please use a unique serial number.')
           return
         }
       }
@@ -873,7 +952,7 @@ const Equipment = () => {
       if (error.response?.data?.message) {
         if (error.response.data.message.includes('serial number') || 
             error.response.data.message.includes('duplicate')) {
-          errorMsg = '❌ This serial number is already in use. Please use a unique serial number.'
+          errorMsg = 'This serial number is already in use. Please use a unique serial number.'
         } else {
           errorMsg = error.response.data.message
         }
@@ -917,59 +996,105 @@ const Equipment = () => {
   if (loading) return <LinearProgress sx={{ bgcolor: colors.borderColor, '& .MuiLinearProgress-bar': { bgcolor: colors.lightCyan } }} />
 
   return (
-    <Box>
-      {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-        <Typography 
-          variant="h5" 
-          sx={{ 
-            fontWeight: 700, 
-            color: colors.darkNavy,
-            '&::after': {
-              content: '""',
-              display: 'block',
-              width: '40px',
-              height: '3px',
-              background: `linear-gradient(90deg, ${colors.lightCyan}, ${colors.darkNavy})`,
-              borderRadius: '2px',
-              marginTop: '4px',
-            }
-          }}
-        >
-          Equipment
-        </Typography>
+    <Box sx={{ 
+      p: { xs: 1, sm: 2, md: 3 },
+      background: `linear-gradient(135deg, ${colors.bgGradientStart} 0%, ${colors.bgGradientEnd} 50%, ${colors.bgGradientStart} 100%)`,
+      minHeight: '100vh',
+      borderRadius: 0,
+      position: 'relative',
+    }}>
+      <style>{animationStyles}</style>
+
+      {/* ===== HEADER ===== */}
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        mb: 3, 
+        flexWrap: 'wrap', 
+        gap: 2,
+        animation: 'fadeInUp 0.6s ease-out',
+      }}>
+        <Box>
+          <Typography 
+            variant="h5" 
+            sx={{ 
+              fontWeight: 700, 
+              color: colors.darkNavy,
+              fontSize: { xs: '1.2rem', sm: '1.4rem', md: '1.6rem' },
+              '&::after': {
+                content: '""',
+                display: 'block',
+                width: '40px',
+                height: '3px',
+                background: `linear-gradient(90deg, ${colors.lightCyan}, ${colors.darkNavy})`,
+                borderRadius: '2px',
+                marginTop: '4px',
+              }
+            }}
+          >
+            Equipment
+          </Typography>
+          <Typography 
+            variant="body2" 
+            sx={{ 
+              color: colors.lightText,
+              mt: 0.5,
+            }}
+          >
+            Manage all medical equipment and their details
+          </Typography>
+        </Box>
+        
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          {/* ✅ REFRESH BUTTON - BORDER STYLE (Fills on hover/click) */}
           <Button 
             variant="outlined" 
             startIcon={<Refresh />} 
             onClick={fetchEquipment} 
             size="small"
             sx={{ 
-              borderColor: colors.borderColor, 
-              color: colors.darkNavy,
+              borderColor: colors.lightCyan,
+              color: colors.lightCyan,
+              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+              textTransform: 'none',
+              borderRadius: 2,
+              transition: 'all 0.3s ease',
               '&:hover': { 
-                borderColor: colors.lightCyan, 
-                color: colors.lightCyanDark,
-                backgroundColor: 'rgba(103, 232, 249, 0.04)'
+                bgcolor: colors.lightCyan,
+                color: colors.darkNavy,
+                borderColor: colors.lightCyan,
+                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+                transform: 'translateY(-2px)',
+              },
+              '&:active': {
+                bgcolor: colors.lightCyan,
+                color: colors.darkNavy,
+                borderColor: colors.lightCyan,
+                transform: 'scale(0.96)',
               }
             }}
           >
             Refresh
           </Button>
+          
           {canCreate && (
             <Button
               variant="contained"
               startIcon={<Add />}
               onClick={() => handleOpenDialog()}
               sx={{ 
-                bgcolor: colors.darkNavy, 
-                '&:hover': { 
-                  bgcolor: colors.darkNavyHover,
-                  boxShadow: `0 4px 20px ${colors.lightCyanGlowStrong}`
-                },
-                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+                bgcolor: colors.darkNavy,
+                color: colors.text,
                 borderRadius: 2,
                 textTransform: 'none',
+                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+                '&:hover': { 
+                  bgcolor: colors.darkNavyHover,
+                  boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
+                  transform: 'translateY(-2px)',
+                },
+                transition: 'all 0.3s ease',
               }}
             >
               Add Equipment
@@ -978,14 +1103,179 @@ const Equipment = () => {
         </Box>
       </Box>
 
-      {/* Search & Filter */}
+      {/* ===== STATS CARDS - WITH PROMINENT CLICK EFFECT ===== */}
+      <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }} sx={{ mb: 3 }}>
+        {statsCards.map((card, index) => {
+          const isClicked = clickedCardIndex === index && prominentActive
+          
+          return (
+            <Grid item xs={6} sm={3} key={index}>
+              <Grow in timeout={300 + index * 100}>
+                <MuiCard 
+                  sx={{ 
+                    borderRadius: 3,
+                    border: `1px solid ${isClicked ? colors.lightCyan : colors.borderColor}`,
+                    boxShadow: isClicked 
+                      ? `0 0 40px ${colors.lightCyanGlowStrong}, 0 0 80px ${colors.lightCyanGlow}, 0 8px 30px rgba(0,0,0,0.1)`
+                      : '0 2px 12px rgba(0,0,0,0.04)',
+                    transition: 'all 0.3s ease',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    cursor: 'pointer',
+                    transform: isClicked ? 'scale(1.04)' : 'scale(1)',
+                    ...(isClicked && {
+                      animation: 'prominentGlow 1.5s ease-in-out 3',
+                    }),
+                    '&:hover': {
+                      transform: isClicked ? 'scale(1.04)' : 'translateY(-4px) scale(1.02)',
+                      boxShadow: isClicked 
+                        ? `0 0 50px ${colors.lightCyanGlowStrong}, 0 0 100px ${colors.lightCyanGlow}`
+                        : `0 8px 30px ${colors.lightCyanGlow}`,
+                      borderColor: colors.lightCyan,
+                    },
+                    '&::before': {
+                      content: '""',
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      height: isClicked ? 4 : 3,
+                      background: isClicked 
+                        ? `linear-gradient(90deg, ${colors.lightCyan}, ${colors.accentGold}, ${colors.lightCyan})`
+                        : `linear-gradient(90deg, ${card.color}, ${colors.accentGold})`,
+                      animation: isClicked ? 'gradientShine 1.5s ease-in-out infinite' : 'none',
+                    }
+                  }}
+                  onClick={() => handleCardClick(card.path, index)}
+                  className={isClicked ? 'prominent-active' : ''}
+                >
+                  {/* ✅ Prominent Glow Overlay */}
+                  {isClicked && (
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        inset: 0,
+                        background: `
+                          radial-gradient(circle at 30% 50%, ${colors.lightCyan}15 0%, transparent 70%),
+                          radial-gradient(circle at 70% 30%, ${colors.accentGold}08 0%, transparent 50%)
+                        `,
+                        pointerEvents: 'none',
+                        zIndex: 0,
+                      }}
+                    />
+                  )}
+                  
+                  <MuiCardContent sx={{ p: { xs: 1.5, sm: 2 }, position: 'relative', zIndex: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <Box>
+                        <Typography 
+                          variant="caption" 
+                          sx={{ 
+                            color: isClicked ? colors.darkNavy : colors.lightText,
+                            fontWeight: isClicked ? 700 : 500,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px',
+                            fontSize: '0.6rem',
+                            transition: 'all 0.3s ease',
+                          }}
+                        >
+                          {card.title}
+                        </Typography>
+                        <Typography 
+                          variant="h5" 
+                          sx={{ 
+                            fontWeight: isClicked ? 900 : 700,
+                            color: colors.darkNavy,
+                            fontSize: { xs: '1.3rem', sm: '1.6rem', md: '1.8rem' },
+                            mt: 0.5,
+                            transition: 'all 0.3s ease',
+                            ...(isClicked && {
+                              textShadow: `0 0 30px ${colors.lightCyanGlow}`,
+                            }),
+                          }}
+                        >
+                          {card.value}
+                        </Typography>
+                      </Box>
+                      <Box
+                        sx={{
+                          background: isClicked 
+                            ? `linear-gradient(135deg, ${card.color}, ${colors.accentGold})`
+                            : card.bg,
+                          borderRadius: '14px',
+                          p: 1.2,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: isClicked ? 48 : 42,
+                          height: isClicked ? 48 : 42,
+                          color: isClicked ? '#FFFFFF' : card.color,
+                          transition: 'all 0.3s ease',
+                          boxShadow: isClicked 
+                            ? `0 0 30px ${colors.lightCyanGlowStrong}`
+                            : 'none',
+                          transform: isClicked ? 'scale(1.1) rotate(-5deg)' : 'scale(1)',
+                        }}
+                      >
+                        {React.cloneElement(card.icon, { 
+                          sx: { 
+                            fontSize: isClicked ? 24 : 22,
+                            color: isClicked ? '#FFFFFF' : card.color,
+                            transition: 'all 0.3s ease',
+                          } 
+                        })}
+                      </Box>
+                    </Box>
+                    
+                    {/* ✅ Prominent indicator dots */}
+                    <Box sx={{ display: 'flex', gap: 0.5, mt: 1 }}>
+                      <Box sx={{
+                        width: isClicked ? 8 : 6,
+                        height: isClicked ? 8 : 6,
+                        borderRadius: '50%',
+                        bgcolor: isClicked ? colors.accentGold : colors.lightCyan,
+                        opacity: isClicked ? 1 : 0.4,
+                        transition: 'all 0.3s ease',
+                        boxShadow: isClicked 
+                          ? `0 0 20px ${colors.accentGold}`
+                          : 'none',
+                      }} />
+                      <Box sx={{
+                        width: isClicked ? 7 : 6,
+                        height: isClicked ? 7 : 6,
+                        borderRadius: '50%',
+                        bgcolor: colors.lightCyan,
+                        opacity: isClicked ? 0.8 : 0.2,
+                        transition: 'all 0.3s ease',
+                        transitionDelay: '0.1s',
+                      }} />
+                      <Box sx={{
+                        width: isClicked ? 6 : 6,
+                        height: isClicked ? 6 : 6,
+                        borderRadius: '50%',
+                        bgcolor: colors.lightCyan,
+                        opacity: isClicked ? 0.6 : 0.1,
+                        transition: 'all 0.3s ease',
+                        transitionDelay: '0.2s',
+                      }} />
+                    </Box>
+                  </MuiCardContent>
+                </MuiCard>
+              </Grow>
+            </Grid>
+          )
+        })}
+      </Grid>
+
+      {/* ===== SEARCH & FILTER ===== */}
       <Paper sx={{ 
-        p: 2, 
+        p: { xs: 1.5, sm: 2 }, 
         mb: 3, 
-        borderRadius: 2,
+        borderRadius: 3,
         border: `1px solid ${colors.borderColor}`,
         boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
         bgcolor: colors.cardBg,
+        animation: 'fadeInUp 0.7s ease-out',
       }}>
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
           <TextField            
@@ -997,45 +1287,61 @@ const Equipment = () => {
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <Search sx={{ color: colors.lightText }} />
+                  <Search sx={{ color: colors.lightText, fontSize: 20 }} />
                 </InputAdornment>
               ),
               sx: {
+                borderRadius: 2,
                 '& .MuiOutlinedInput-root': {
                   '&:hover fieldset': { borderColor: colors.lightCyan },
                   '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                },
+                '& .MuiInputBase-input': {
+                  fontSize: '0.9rem',
                 }
               }
             }}
           />
+          
+          {/* ✅ FILTER BUTTON - PROMINENT SOLID */}
           <Button 
-            variant="outlined" 
+            variant="contained"
             startIcon={<FilterList />} 
             onClick={handleFilterClick}
             sx={{ 
-              borderColor: colors.borderColor, 
-              color: colors.darkNavy,
+              bgcolor: colors.darkNavy,
+              color: colors.text,
+              borderRadius: 2,
+              textTransform: 'none',
+              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
               '&:hover': { 
-                borderColor: colors.lightCyan, 
-                color: colors.lightCyanDark,
-                backgroundColor: 'rgba(103, 232, 249, 0.04)'
-              }
+                bgcolor: colors.darkNavyHover,
+                boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
+                transform: 'translateY(-2px)',
+              },
+              transition: 'all 0.3s ease',
             }}
           >
             Filter
           </Button>
+          
+          {/* ✅ EXPORT BUTTON - PROMINENT SOLID */}
           <Button 
-            variant="outlined" 
+            variant="contained"
             startIcon={<Download />} 
             onClick={handleExportClick}
             sx={{ 
-              borderColor: colors.borderColor, 
-              color: colors.darkNavy,
+              bgcolor: colors.darkNavy,
+              color: colors.text,
+              borderRadius: 2,
+              textTransform: 'none',
+              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
               '&:hover': { 
-                borderColor: colors.lightCyan, 
-                color: colors.lightCyanDark,
-                backgroundColor: 'rgba(103, 232, 249, 0.04)'
-              }
+                bgcolor: colors.darkNavyHover,
+                boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
+                transform: 'translateY(-2px)',
+              },
+              transition: 'all 0.3s ease',
             }}
           >
             Export
@@ -1043,22 +1349,22 @@ const Equipment = () => {
         </Box>
       </Paper>
 
-      {/* Filter Menu - CYAN THEMED */}
+      {/* ===== FILTER MENU ===== */}
       <Menu
         anchorEl={filterAnchorEl}
         open={Boolean(filterAnchorEl)}
         onClose={handleFilterClose}
         PaperProps={{ 
           sx: { 
-            p: 2, 
+            p: 2.5, 
             width: 280,
             border: `1px solid ${colors.borderColor}`,
-            boxShadow: '0 8px 30px rgba(0,0,0,0.08)',
-            borderRadius: 2,
+            boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+            borderRadius: 3,
           } 
         }}
       >
-        <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>
+        <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy, mb: 2 }}>
           Filter Equipment
         </Typography>
         
@@ -1070,6 +1376,7 @@ const Equipment = () => {
             onChange={handleFilterChange} 
             label="Category"
             sx={{
+              borderRadius: 2,
               '& .MuiOutlinedInput-root': {
                 '&:hover fieldset': { borderColor: colors.lightCyan },
                 '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
@@ -1091,6 +1398,7 @@ const Equipment = () => {
             onChange={handleFilterChange} 
             label="Hospital"
             sx={{
+              borderRadius: 2,
               '& .MuiOutlinedInput-root': {
                 '&:hover fieldset': { borderColor: colors.lightCyan },
                 '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
@@ -1112,18 +1420,16 @@ const Equipment = () => {
           value={filters.manufacturer} 
           onChange={handleFilterChange}
           placeholder="Filter by manufacturer" 
-          sx={{ mb: 2 }}
-          InputProps={{
-            sx: {
-              '& .MuiOutlinedInput-root': {
-                '&:hover fieldset': { borderColor: colors.lightCyan },
-                '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-              }
+          sx={{ 
+            mb: 2,
+            '& .MuiOutlinedInput-root': {
+              borderRadius: 2,
+              '&:hover fieldset': { borderColor: colors.lightCyan },
+              '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
             }
           }}
         />
 
-        {/* ✅ CHANGED: Status Filter options */}
         <FormControl fullWidth size="small" sx={{ mb: 2 }}>
           <InputLabel sx={{ color: colors.lightText }}>Status</InputLabel>
           <Select 
@@ -1132,6 +1438,7 @@ const Equipment = () => {
             onChange={handleFilterChange} 
             label="Status"
             sx={{
+              borderRadius: 2,
               '& .MuiOutlinedInput-root': {
                 '&:hover fieldset': { borderColor: colors.lightCyan },
                 '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
@@ -1154,12 +1461,13 @@ const Equipment = () => {
             fullWidth 
             size="small"
             sx={{ 
-              bgcolor: colors.darkNavy, 
+              bgcolor: colors.darkNavy,
+              borderRadius: 2,
+              textTransform: 'none',
               '&:hover': { 
                 bgcolor: colors.darkNavyHover,
                 boxShadow: `0 4px 16px ${colors.lightCyanGlow}`
               },
-              textTransform: 'none',
             }}
           >
             Apply
@@ -1172,6 +1480,8 @@ const Equipment = () => {
             sx={{ 
               borderColor: colors.borderColor,
               color: colors.darkNavy,
+              borderRadius: 2,
+              textTransform: 'none',
               '&:hover': { 
                 borderColor: colors.lightCyan,
                 backgroundColor: 'rgba(103, 232, 249, 0.04)'
@@ -1183,7 +1493,7 @@ const Equipment = () => {
         </Box>
       </Menu>
 
-      {/* Export Menu - CYAN THEMED */}
+      {/* ===== EXPORT MENU - CSV REMOVED, KEEPING EXCEL & PDF ===== */}
       <Menu
         anchorEl={exportAnchorEl}
         open={Boolean(exportAnchorEl)}
@@ -1193,85 +1503,94 @@ const Equipment = () => {
             p: 1, 
             width: 200,
             border: `1px solid ${colors.borderColor}`,
-            boxShadow: '0 8px 30px rgba(0,0,0,0.08)',
-            borderRadius: 2,
+            boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+            borderRadius: 3,
           } 
         }}
       >
-        <MenuItem 
-          onClick={exportToCSV} 
-          sx={{ 
-            '&:hover': { 
-              bgcolor: 'rgba(103, 232, 249, 0.08)',
-              borderRadius: 1,
-            } 
-          }}
-        >
-          <FileDownload sx={{ mr: 1, fontSize: 20, color: colors.darkNavy }} /> CSV
-        </MenuItem>
+        {/* ✅ Excel Export Option */}
         <MenuItem 
           onClick={exportToExcel} 
           sx={{ 
+            borderRadius: 1,
             '&:hover': { 
               bgcolor: 'rgba(103, 232, 249, 0.08)',
-              borderRadius: 1,
             } 
           }}
         >
-          <FileDownload sx={{ mr: 1, fontSize: 20, color: colors.darkNavy }} /> Excel
+          <FileDownload sx={{ mr: 1.5, fontSize: 20, color: colors.lightCyanDark }} />
+          <Box>
+            <Typography variant="body2" fontWeight={500}>Excel</Typography>
+            <Typography variant="caption" sx={{ color: colors.lightText }}>.xlsx format</Typography>
+          </Box>
         </MenuItem>
+        
+        {/* ✅ PDF Export Option */}
         <MenuItem 
           onClick={exportToPDF} 
           sx={{ 
+            borderRadius: 1,
             '&:hover': { 
               bgcolor: 'rgba(103, 232, 249, 0.08)',
-              borderRadius: 1,
             } 
           }}
         >
-          <FileDownload sx={{ mr: 1, fontSize: 20, color: colors.darkNavy }} /> PDF
+          <FileDownload sx={{ mr: 1.5, fontSize: 20, color: colors.lightCyanDark }} />
+          <Box>
+            <Typography variant="body2" fontWeight={500}>PDF</Typography>
+            <Typography variant="caption" sx={{ color: colors.lightText }}>Print ready document</Typography>
+          </Box>
         </MenuItem>
       </Menu>
 
-      {/* ✅ CHANGED: Table - Installation Year → Installation Date, Status with Chip */}
+      {/* ===== TABLE ===== */}
       <TableContainer 
         component={Paper} 
         sx={{ 
-          borderRadius: 2, 
+          borderRadius: 3, 
           overflowX: 'auto', 
           border: `1px solid ${colors.borderColor}`,
           boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+          animation: 'fadeInUp 0.8s ease-out',
         }}
       >
         <Table>
           <TableHead sx={{ bgcolor: colors.darkNavy }}>
             <TableRow>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Equipment</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Category</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Manufacturer</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Model</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Serial No.</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Installation Date</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Purchase Date</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Status</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }} align="center">Actions</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Equipment</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Category</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Manufacturer</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Model</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Serial No.</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Installation Date</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Purchase Date</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Status</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }} align="center">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {filteredEquipment.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} align="center">
-                  <Typography variant="body1" sx={{ py: 3, color: colors.lightText }}>
-                    No equipment found
-                  </Typography>
+                <TableCell colSpan={9} align="center" sx={{ py: 6 }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                    <MedicalServices sx={{ fontSize: 48, color: colors.borderColor }} />
+                    <Typography variant="body1" sx={{ color: colors.lightText }}>
+                      No equipment found
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: colors.lightText }}>
+                      Try adjusting your search or filters
+                    </Typography>
+                  </Box>
                 </TableCell>
               </TableRow>
             ) : (
-              filteredEquipment.map((item) => (
+              filteredEquipment.map((item, index) => (
                 <TableRow 
                   key={item.id} 
                   hover
                   sx={{
+                    transition: 'all 0.2s ease',
+                    animation: `fadeInUp 0.4s ease-out ${index * 0.05}s both`,
                     '&:hover': {
                       backgroundColor: 'rgba(103, 232, 249, 0.04)',
                     },
@@ -1279,7 +1598,7 @@ const Equipment = () => {
                   }}
                 >
                   <TableCell>
-                    <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>
+                    <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkNavy }}>
                       {item.name}
                     </Typography>
                   </TableCell>
@@ -1293,7 +1612,6 @@ const Equipment = () => {
                   <TableCell sx={{ color: colors.lightText }}>
                     {item.purchase_date ? new Date(item.purchase_date).toLocaleDateString() : '-'}
                   </TableCell>
-                  {/* ✅ CHANGED: Status Chip with new colors */}
                   <TableCell>
                     <Chip
                       label={item.status || 'Active'}
@@ -1303,7 +1621,8 @@ const Equipment = () => {
                         color: 'white',
                         fontWeight: 600,
                         fontSize: '11px',
-                        height: 26
+                        height: 26,
+                        borderRadius: 2,
                       }}
                     />
                   </TableCell>
@@ -1346,6 +1665,11 @@ const Equipment = () => {
                           size="small" 
                           color="error" 
                           onClick={() => handleDelete(item.id)}
+                          sx={{
+                            '&:hover': {
+                              backgroundColor: 'rgba(239, 68, 68, 0.08)'
+                            }
+                          }}
                         >
                           <Delete />
                         </IconButton>
@@ -1359,7 +1683,7 @@ const Equipment = () => {
         </Table>
       </TableContainer>
 
-      {/* ✅ CHANGED: View Dialog - Status with Chip */}
+      {/* ===== VIEW DETAILS DIALOG ===== */}
       <Dialog 
         open={openViewDialog} 
         onClose={handleCloseView} 
@@ -1367,7 +1691,7 @@ const Equipment = () => {
         fullWidth
         PaperProps={{
           sx: {
-            borderRadius: 3,
+            borderRadius: 4,
             border: `1px solid ${colors.borderColor}`,
             boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
           }
@@ -1377,13 +1701,19 @@ const Equipment = () => {
           bgcolor: colors.darkNavy, 
           color: 'white',
           borderRadius: '8px 8px 0 0',
+          py: 2.5,
         }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" fontWeight={600}>Equipment Details</Typography>
-            <IconButton onClick={handleCloseView} sx={{ color: 'white' }}><Close /></IconButton>
+            <Typography variant="h6" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <MedicalServices sx={{ fontSize: 28 }} />
+              Equipment Details
+            </Typography>
+            <IconButton onClick={handleCloseView} sx={{ color: 'white', '&:hover': { color: colors.lightCyan } }}>
+              <Close />
+            </IconButton>
           </Box>
         </DialogTitle>
-        <DialogContent dividers sx={{ mt: 2 }}>
+        <DialogContent dividers sx={{ mt: 2, px: 4, py: 3 }}>
           {selectedEquipment && (
             <Box>
               <Tabs 
@@ -1394,6 +1724,8 @@ const Equipment = () => {
                   borderBottom: 1, 
                   borderColor: 'divider',
                   '& .MuiTab-root': {
+                    textTransform: 'none',
+                    fontWeight: 600,
                     '&.Mui-selected': { color: colors.darkNavy }
                   },
                   '& .MuiTabs-indicator': { bgcolor: colors.lightCyan }
@@ -1408,64 +1740,74 @@ const Equipment = () => {
               </Tabs>
 
               {viewTab === 0 && (
-                <Grid container spacing={2}>
+                <Grid container spacing={3}>
                   <Grid item xs={12}>
-                    <Typography variant="h6" sx={{ color: colors.darkNavy }}>{selectedEquipment.name}</Typography>
-                    {/* ✅ CHANGED: Status Chip in View Dialog */}
-                    <Typography variant="body2" color="textSecondary" sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
-                      Status: 
+                    <Typography variant="h5" fontWeight={700} sx={{ color: colors.darkNavy }}>
+                      {selectedEquipment.name}
+                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', mt: 1, gap: 2 }}>
                       <Chip
                         label={selectedEquipment.status || 'Active'}
                         size="small"
                         sx={{
-                          ml: 1,
                           bgcolor: getStatusColor(selectedEquipment.status || 'Active'),
                           color: 'white',
-                          fontWeight: 600
+                          fontWeight: 600,
+                          height: 26,
+                          borderRadius: 2,
                         }}
                       />
-                    </Typography>
-                    <Divider sx={{ my: 2 }} />
+                      {selectedEquipment.category_name && (
+                        <Chip
+                          label={selectedEquipment.category_name}
+                          size="small"
+                          variant="outlined"
+                          sx={{
+                            borderColor: colors.borderColor,
+                            color: colors.lightText,
+                            borderRadius: 2,
+                          }}
+                        />
+                      )}
+                    </Box>
+                    <Divider sx={{ my: 2, borderColor: colors.borderColor }} />
+                  </Grid>
+                  
+                  <Grid item xs={12} md={6}>
+                    <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600 }}>Manufacturer</Typography>
+                    <Typography variant="body1" sx={{ color: colors.darkNavy }}>{selectedEquipment.manufacturer || 'N/A'}</Typography>
                   </Grid>
                   <Grid item xs={12} md={6}>
-                    <Typography variant="caption" color="textSecondary">Category</Typography>
-                    <Typography variant="body2" sx={{ color: colors.darkNavy }}>{selectedEquipment.category_name || 'N/A'}</Typography>
+                    <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600 }}>Model</Typography>
+                    <Typography variant="body1" sx={{ color: colors.darkNavy }}>{selectedEquipment.model || 'N/A'}</Typography>
                   </Grid>
                   <Grid item xs={12} md={6}>
-                    <Typography variant="caption" color="textSecondary">Manufacturer</Typography>
-                    <Typography variant="body2" sx={{ color: colors.darkNavy }}>{selectedEquipment.manufacturer || 'N/A'}</Typography>
+                    <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600 }}>Serial Number</Typography>
+                    <Typography variant="body1" sx={{ color: colors.darkNavy }}>{selectedEquipment.serial_number || 'N/A'}</Typography>
                   </Grid>
                   <Grid item xs={12} md={6}>
-                    <Typography variant="caption" color="textSecondary">Model</Typography>
-                    <Typography variant="body2" sx={{ color: colors.darkNavy }}>{selectedEquipment.model || 'N/A'}</Typography>
-                  </Grid>
-                  <Grid item xs={12} md={6}>
-                    <Typography variant="caption" color="textSecondary">Serial Number</Typography>
-                    <Typography variant="body2" sx={{ color: colors.darkNavy }}>{selectedEquipment.serial_number || 'N/A'}</Typography>
-                  </Grid>
-                  <Grid item xs={12} md={6}>
-                    <Typography variant="caption" color="textSecondary">Installation Date</Typography>
-                    <Typography variant="body2" sx={{ color: colors.darkNavy }}>
+                    <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600 }}>Installation Date</Typography>
+                    <Typography variant="body1" sx={{ color: colors.darkNavy }}>
                       {selectedEquipment.date_of_installation ? new Date(selectedEquipment.date_of_installation).toLocaleDateString() : 'N/A'}
                     </Typography>
                   </Grid>
                   <Grid item xs={12} md={6}>
-                    <Typography variant="caption" color="textSecondary">Purchase Date</Typography>
-                    <Typography variant="body2" sx={{ color: colors.darkNavy }}>
+                    <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600 }}>Purchase Date</Typography>
+                    <Typography variant="body1" sx={{ color: colors.darkNavy }}>
                       {selectedEquipment.purchase_date ? new Date(selectedEquipment.purchase_date).toLocaleDateString() : 'N/A'}
                     </Typography>
                   </Grid>
                   <Grid item xs={12} md={6}>
-                    <Typography variant="caption" color="textSecondary">Hospital</Typography>
-                    <Typography variant="body2" sx={{ color: colors.darkNavy }}>{selectedEquipment.hospital_name || 'N/A'}</Typography>
+                    <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600 }}>Hospital</Typography>
+                    <Typography variant="body1" sx={{ color: colors.darkNavy }}>{selectedEquipment.hospital_name || 'N/A'}</Typography>
                   </Grid>
                   <Grid item xs={12} md={6}>
-                    <Typography variant="caption" color="textSecondary">Department</Typography>
-                    <Typography variant="body2" sx={{ color: colors.darkNavy }}>{selectedEquipment.department_name || 'N/A'}</Typography>
+                    <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600 }}>Department</Typography>
+                    <Typography variant="body1" sx={{ color: colors.darkNavy }}>{selectedEquipment.department_name || 'N/A'}</Typography>
                   </Grid>
                   <Grid item xs={12}>
-                    <Typography variant="caption" color="textSecondary">Location</Typography>
-                    <Typography variant="body2" sx={{ color: colors.darkNavy }}>{selectedEquipment.location || 'N/A'}</Typography>
+                    <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600 }}>Location</Typography>
+                    <Typography variant="body1" sx={{ color: colors.darkNavy }}>{selectedEquipment.location || 'N/A'}</Typography>
                   </Grid>
                 </Grid>
               )}
@@ -1475,7 +1817,7 @@ const Equipment = () => {
                   <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy, mb: 2 }}>
                     Attached Media Files
                   </Typography>
-                  <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 2 }}>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', mb: 2 }}>
                     Click on any file to open it in a new tab
                   </Typography>
                   
@@ -1487,7 +1829,7 @@ const Equipment = () => {
                   ) : (
                     <Box sx={{ textAlign: 'center', py: 4, bgcolor: colors.mainBg, borderRadius: 2 }}>
                       <ImageIcon sx={{ fontSize: 48, color: colors.lightText, opacity: 0.3 }} />
-                      <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
+                      <Typography variant="body2" sx={{ color: colors.lightText, mt: 1 }}>
                         No media files attached
                       </Typography>
                     </Box>
@@ -1499,7 +1841,7 @@ const Equipment = () => {
                 <Box>
                   <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>Error History</Typography>
                   {selectedEquipment.errors?.length > 0 ? (
-                    <TableContainer component={Paper} variant="outlined">
+                    <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
                       <Table size="small">
                         <TableHead sx={{ bgcolor: colors.mainBg }}>
                           <TableRow>
@@ -1513,14 +1855,26 @@ const Equipment = () => {
                             <TableRow key={idx}>
                               <TableCell>{err.error_title}</TableCell>
                               <TableCell>{new Date(err.created_at).toLocaleDateString()}</TableCell>
-                              <TableCell>{err.status}</TableCell>
+                              <TableCell>
+                                <Chip
+                                  label={err.status}
+                                  size="small"
+                                  sx={{
+                                    bgcolor: err.status === 'Resolved' ? colors.success : colors.warning,
+                                    color: 'white',
+                                    fontWeight: 500,
+                                    fontSize: '10px',
+                                    height: 22,
+                                  }}
+                                />
+                              </TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
                       </Table>
                     </TableContainer>
                   ) : (
-                    <Typography variant="body2" color="textSecondary" sx={{ py: 2, textAlign: 'center' }}>
+                    <Typography variant="body2" sx={{ color: colors.lightText, py: 2, textAlign: 'center' }}>
                       No errors recorded
                     </Typography>
                   )}
@@ -1531,7 +1885,7 @@ const Equipment = () => {
                 <Box>
                   <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>Repair History</Typography>
                   {selectedEquipment.repairs?.length > 0 ? (
-                    <TableContainer component={Paper} variant="outlined">
+                    <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
                       <Table size="small">
                         <TableHead sx={{ bgcolor: colors.mainBg }}>
                           <TableRow>
@@ -1547,14 +1901,26 @@ const Equipment = () => {
                               <TableCell>{repair.root_cause || 'N/A'}</TableCell>
                               <TableCell>{repair.engineer_name || 'N/A'}</TableCell>
                               <TableCell>{new Date(repair.repair_date).toLocaleDateString()}</TableCell>
-                              <TableCell>{repair.status}</TableCell>
+                              <TableCell>
+                                <Chip
+                                  label={repair.status}
+                                  size="small"
+                                  sx={{
+                                    bgcolor: repair.status === 'Completed' ? colors.success : colors.warning,
+                                    color: 'white',
+                                    fontWeight: 500,
+                                    fontSize: '10px',
+                                    height: 22,
+                                  }}
+                                />
+                              </TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
                       </Table>
                     </TableContainer>
                   ) : (
-                    <Typography variant="body2" color="textSecondary" sx={{ py: 2, textAlign: 'center' }}>
+                    <Typography variant="body2" sx={{ color: colors.lightText, py: 2, textAlign: 'center' }}>
                       No repairs recorded
                     </Typography>
                   )}
@@ -1565,7 +1931,7 @@ const Equipment = () => {
                 <Box>
                   <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>Maintenance History</Typography>
                   {selectedEquipment.maintenance?.length > 0 ? (
-                    <TableContainer component={Paper} variant="outlined">
+                    <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
                       <Table size="small">
                         <TableHead sx={{ bgcolor: colors.mainBg }}>
                           <TableRow>
@@ -1579,14 +1945,26 @@ const Equipment = () => {
                             <TableRow key={idx}>
                               <TableCell>{maint.maintenance_type}</TableCell>
                               <TableCell>{new Date(maint.completed_date).toLocaleDateString()}</TableCell>
-                              <TableCell>{maint.status}</TableCell>
+                              <TableCell>
+                                <Chip
+                                  label={maint.status}
+                                  size="small"
+                                  sx={{
+                                    bgcolor: maint.status === 'Completed' ? colors.success : colors.warning,
+                                    color: 'white',
+                                    fontWeight: 500,
+                                    fontSize: '10px',
+                                    height: 22,
+                                  }}
+                                />
+                              </TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
                       </Table>
                     </TableContainer>
                   ) : (
-                    <Typography variant="body2" color="textSecondary" sx={{ py: 2, textAlign: 'center' }}>
+                    <Typography variant="body2" sx={{ color: colors.lightText, py: 2, textAlign: 'center' }}>
                       No maintenance records
                     </Typography>
                   )}
@@ -1597,7 +1975,7 @@ const Equipment = () => {
                 <Box>
                   <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>Spare Parts</Typography>
                   {selectedEquipment.spareParts?.length > 0 ? (
-                    <TableContainer component={Paper} variant="outlined">
+                    <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
                       <Table size="small">
                         <TableHead sx={{ bgcolor: colors.mainBg }}>
                           <TableRow>
@@ -1624,7 +2002,7 @@ const Equipment = () => {
                       </Table>
                     </TableContainer>
                   ) : (
-                    <Typography variant="body2" color="textSecondary" sx={{ py: 2, textAlign: 'center' }}>
+                    <Typography variant="body2" sx={{ color: colors.lightText, py: 2, textAlign: 'center' }}>
                       No spare parts used
                     </Typography>
                   )}
@@ -1633,19 +2011,22 @@ const Equipment = () => {
             </Box>
           )}
         </DialogContent>
-        <DialogActions sx={{ p: 3 }}>
+        <DialogActions sx={{ p: 3, gap: 1 }}>
           <Button 
             onClick={handleCloseView} 
             variant="contained" 
             sx={{ 
-              bgcolor: colors.darkNavy, 
+              bgcolor: colors.darkNavy,
+              color: colors.text,
+              borderRadius: 2,
+              px: 4,
+              textTransform: 'none',
+              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
               '&:hover': { 
                 bgcolor: colors.darkNavyHover,
-                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`
+                boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
               },
-              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
-              textTransform: 'none',
-              borderRadius: 2,
+              transition: 'all 0.3s ease',
             }}
           >
             Close
@@ -1717,7 +2098,7 @@ const Equipment = () => {
         </DialogContent>
       </Dialog>
 
-      {/* ✅ CHANGED: Add/Edit Dialog - Status Select with new options */}
+      {/* ===== ADD/EDIT DIALOG ===== */}
       {(canCreate || canEdit) && (
         <Dialog 
           open={openDialog} 
@@ -1726,7 +2107,7 @@ const Equipment = () => {
           fullWidth
           PaperProps={{
             sx: {
-              borderRadius: 3,
+              borderRadius: 4,
               border: `1px solid ${colors.borderColor}`,
               boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
             }
@@ -1736,16 +2117,20 @@ const Equipment = () => {
             bgcolor: colors.darkNavy, 
             color: 'white',
             borderRadius: '8px 8px 0 0',
+            py: 2.5,
           }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant="h6" fontWeight={600}>
+              <Typography variant="h6" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                {editingEquipment ? <Edit sx={{ fontSize: 28 }} /> : <Add sx={{ fontSize: 28 }} />}
                 {editingEquipment ? 'Edit Equipment' : 'Add New Equipment'}
               </Typography>
-              <IconButton onClick={handleCloseDialog} sx={{ color: 'white' }}><Close /></IconButton>
+              <IconButton onClick={handleCloseDialog} sx={{ color: 'white', '&:hover': { color: colors.lightCyan } }}>
+                <Close />
+              </IconButton>
             </Box>
           </DialogTitle>
-          <DialogContent dividers>
-            <Grid container spacing={2} sx={{ mt: 1 }}>
+          <DialogContent dividers sx={{ px: 4, py: 3 }}>
+            <Grid container spacing={2.5} sx={{ mt: 1 }}>
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
@@ -1758,8 +2143,12 @@ const Equipment = () => {
                   helperText={touched.name && !formData.name ? 'Equipment name is required' : ''}
                   sx={{
                     '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
                       '&:hover fieldset': { borderColor: colors.lightCyan },
                       '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                    },
+                    '& .MuiInputBase-input': {
+                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                     }
                   }}
                 />
@@ -1774,9 +2163,13 @@ const Equipment = () => {
                     onChange={handleFormChange} 
                     label="Category"
                     sx={{
+                      borderRadius: 2,
                       '& .MuiOutlinedInput-root': {
                         '&:hover fieldset': { borderColor: colors.lightCyan },
                         '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                      },
+                      '& .MuiSelect-select': {
+                        fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                       }
                     }}
                   >
@@ -1793,6 +2186,7 @@ const Equipment = () => {
                   sx={{ 
                     mt: 0.5, 
                     color: colors.darkNavy, 
+                    textTransform: 'none',
                     '&:hover': { 
                       color: colors.lightCyanDark,
                       backgroundColor: 'rgba(103, 232, 249, 0.04)'
@@ -1812,8 +2206,12 @@ const Equipment = () => {
                   onChange={handleFormChange}
                   sx={{
                     '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
                       '&:hover fieldset': { borderColor: colors.lightCyan },
                       '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                    },
+                    '& .MuiInputBase-input': {
+                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                     }
                   }}
                 />
@@ -1828,8 +2226,12 @@ const Equipment = () => {
                   onChange={handleFormChange}
                   sx={{
                     '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
                       '&:hover fieldset': { borderColor: colors.lightCyan },
                       '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                    },
+                    '& .MuiInputBase-input': {
+                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                     }
                   }}
                 />
@@ -1846,6 +2248,7 @@ const Equipment = () => {
                   InputLabelProps={{ shrink: true }}
                   sx={{
                     '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
                       '&:hover fieldset': { borderColor: colors.lightCyan },
                       '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                     }
@@ -1864,6 +2267,7 @@ const Equipment = () => {
                   InputLabelProps={{ shrink: true }}
                   sx={{
                     '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
                       '&:hover fieldset': { borderColor: colors.lightCyan },
                       '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                     }
@@ -1881,12 +2285,16 @@ const Equipment = () => {
                   placeholder="Enter unique serial number"
                   sx={{
                     '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
                       '&:hover fieldset': { borderColor: colors.lightCyan },
                       '&.Mui-focused fieldset': {
                         borderColor: serialStatus.message 
                           ? (serialStatus.isValid ? colors.success : colors.error)
                           : colors.lightCyanDark
                       }
+                    },
+                    '& .MuiInputBase-input': {
+                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                     }
                   }}
                   InputProps={{
@@ -1925,9 +2333,13 @@ const Equipment = () => {
                     label="Hospital"
                     disabled={user?.role === 'ENGINEER'}
                     sx={{
+                      borderRadius: 2,
                       '& .MuiOutlinedInput-root': {
                         '&:hover fieldset': { borderColor: colors.lightCyan },
                         '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                      },
+                      '& .MuiSelect-select': {
+                        fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                       }
                     }}
                   >
@@ -1951,9 +2363,13 @@ const Equipment = () => {
                     onChange={handleFormChange} 
                     label="Department"
                     sx={{
+                      borderRadius: 2,
                       '& .MuiOutlinedInput-root': {
                         '&:hover fieldset': { borderColor: colors.lightCyan },
                         '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                      },
+                      '& .MuiSelect-select': {
+                        fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                       }
                     }}
                   >
@@ -1970,6 +2386,7 @@ const Equipment = () => {
                   sx={{ 
                     mt: 0.5, 
                     color: colors.darkNavy, 
+                    textTransform: 'none',
                     '&:hover': { 
                       color: colors.lightCyanDark,
                       backgroundColor: 'rgba(103, 232, 249, 0.04)'
@@ -1990,14 +2407,17 @@ const Equipment = () => {
                   placeholder="e.g., Room 101"
                   sx={{
                     '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
                       '&:hover fieldset': { borderColor: colors.lightCyan },
                       '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                    },
+                    '& .MuiInputBase-input': {
+                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                     }
                   }}
                 />
               </Grid>
 
-              {/* ✅ CHANGED: Status Select with new options */}
               <Grid item xs={12} md={6}>
                 <FormControl fullWidth>
                   <InputLabel sx={{ color: colors.lightText }}>Status</InputLabel>
@@ -2007,23 +2427,27 @@ const Equipment = () => {
                     onChange={handleFormChange} 
                     label="Status"
                     sx={{
+                      borderRadius: 2,
                       '& .MuiOutlinedInput-root': {
                         '&:hover fieldset': { borderColor: colors.lightCyan },
                         '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                      },
+                      '& .MuiSelect-select': {
+                        fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                       }
                     }}
                   >
-                    <MenuItem value="Active">✅ Active</MenuItem>
-                    <MenuItem value="Inactive">⛔ Inactive</MenuItem>
-                    <MenuItem value="Warranty">🛡️ Warranty</MenuItem>
-                    <MenuItem value="Annual Maintenance">🔧 Annual Maintenance</MenuItem>
-                    <MenuItem value="Self Maintained">🛠️ Self Maintained</MenuItem>
+                    <MenuItem value="Active">Active</MenuItem>
+                    <MenuItem value="Inactive">Inactive</MenuItem>
+                    <MenuItem value="Warranty">Warranty</MenuItem>
+                    <MenuItem value="Annual Maintenance">Annual Maintenance</MenuItem>
+                    <MenuItem value="Self Maintained">Self Maintained</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>
 
               <Grid item xs={12}>
-                <Typography variant="subtitle2" sx={{ color: colors.lightText }} gutterBottom>
+                <Typography variant="subtitle2" sx={{ color: colors.lightText, fontWeight: 600 }} gutterBottom>
                   Equipment Images
                 </Typography>
                 <FileUpload
@@ -2047,15 +2471,17 @@ const Equipment = () => {
               </Grid>
             </Grid>
           </DialogContent>
-          <DialogActions sx={{ p: 3 }}>
+          <DialogActions sx={{ p: 3, gap: 1 }}>
             <Button 
               onClick={handleCloseDialog} 
               sx={{ 
                 color: colors.darkNavy,
+                borderRadius: 2,
+                px: 3,
+                textTransform: 'none',
                 '&:hover': { 
                   backgroundColor: 'rgba(103, 232, 249, 0.04)'
                 },
-                textTransform: 'none',
               }}
             >
               Cancel
@@ -2066,14 +2492,17 @@ const Equipment = () => {
               disabled={!serialStatus.isValid && formData.serial_number !== ''}
               sx={{
                 bgcolor: colors.darkNavy,
+                color: colors.text,
+                borderRadius: 2,
+                px: 4,
+                textTransform: 'none',
+                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
                 '&:hover': { 
                   bgcolor: colors.darkNavyHover,
-                  boxShadow: `0 4px 20px ${colors.lightCyanGlowStrong}`
+                  boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
                 },
                 '&.Mui-disabled': { bgcolor: '#bdbdbd' },
-                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
-                textTransform: 'none',
-                borderRadius: 2,
+                transition: 'all 0.3s ease',
               }}
             >
               {editingEquipment ? 'Update' : 'Create'}
@@ -2082,7 +2511,7 @@ const Equipment = () => {
         </Dialog>
       )}
 
-      {/* Custom Add Dialog - CYAN THEMED */}
+      {/* Custom Add Dialog */}
       <Dialog 
         open={openCustomDialog} 
         onClose={handleCloseCustomDialog} 
@@ -2090,7 +2519,7 @@ const Equipment = () => {
         fullWidth
         PaperProps={{
           sx: {
-            borderRadius: 3,
+            borderRadius: 4,
             border: `1px solid ${colors.borderColor}`,
             boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
           }
@@ -2100,12 +2529,15 @@ const Equipment = () => {
           bgcolor: colors.darkNavy, 
           color: 'white',
           borderRadius: '8px 8px 0 0',
+          py: 2.5,
         }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6">
               Add New {customDialogType.charAt(0).toUpperCase() + customDialogType.slice(1)}
             </Typography>
-            <IconButton onClick={handleCloseCustomDialog} sx={{ color: 'white' }}><Close /></IconButton>
+            <IconButton onClick={handleCloseCustomDialog} sx={{ color: 'white', '&:hover': { color: colors.lightCyan } }}>
+              <Close />
+            </IconButton>
           </Box>
         </DialogTitle>
         <DialogContent>
@@ -2120,23 +2552,29 @@ const Equipment = () => {
             placeholder={`e.g., ${customDialogType === 'category' ? 'X-Ray Machine' : 'Cardiology'}`}
             InputProps={{
               sx: {
+                borderRadius: 2,
                 '& .MuiOutlinedInput-root': {
                   '&:hover fieldset': { borderColor: colors.lightCyan },
                   '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                },
+                '& .MuiInputBase-input': {
+                  fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                 }
               }
             }}
           />
         </DialogContent>
-        <DialogActions sx={{ p: 3 }}>
+        <DialogActions sx={{ p: 3, gap: 1 }}>
           <Button 
             onClick={handleCloseCustomDialog} 
             sx={{ 
               color: colors.darkNavy,
+              borderRadius: 2,
+              px: 3,
+              textTransform: 'none',
               '&:hover': { 
                 backgroundColor: 'rgba(103, 232, 249, 0.04)'
               },
-              textTransform: 'none',
             }}
           >
             Cancel
@@ -2146,14 +2584,17 @@ const Equipment = () => {
             onClick={handleSaveCustomItem}
             disabled={customDialogLoading || !customDialogValue.trim()}
             sx={{ 
-              bgcolor: colors.darkNavy, 
+              bgcolor: colors.darkNavy,
+              color: colors.text,
+              borderRadius: 2,
+              px: 4,
+              textTransform: 'none',
+              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
               '&:hover': { 
                 bgcolor: colors.darkNavyHover,
-                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`
+                boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
               },
-              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
-              textTransform: 'none',
-              borderRadius: 2,
+              transition: 'all 0.3s ease',
             }}
           >
             {customDialogLoading ? <CircularProgress size={24} sx={{ color: 'white' }} /> : 'Add'}

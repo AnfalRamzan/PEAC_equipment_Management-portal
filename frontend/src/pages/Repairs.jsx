@@ -5,6 +5,7 @@
 // ✅ REMOVED: Time Recorded stats card
 // ✅ REMOVED: Time column from table
 // ✅ KEPT: Problem Analysis, Repair Procedure, Spare Parts, Remarks
+// ✅ ADDED: Export functionality (Excel & PDF only, no CSV)
 
 import React, { useState, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
@@ -44,6 +45,9 @@ import {
   ImageListItem,
   ImageListItemBar,
   Dialog as PreviewDialog,
+  Fade,
+  Grow,
+  Menu,
 } from '@mui/material'
 import {
   Add,
@@ -60,6 +64,15 @@ import {
   ZoomIn,
   OpenInNew,
   AttachFile,
+  MedicalServices,
+  LocalHospital,
+  ErrorOutline,
+  Build,
+  CheckCircle,
+  Warning,
+  Download,
+  FileDownload,
+  FilterList,
 } from '@mui/icons-material'
 import { repairService, errorService, equipmentService } from '../api/services'
 import { toast } from 'react-toastify'
@@ -67,48 +80,71 @@ import { useSelector } from 'react-redux'
 import FileUpload from '../components/FileUpload'
 import api from '../api/axios'
 import AccessDenied from '../components/Auth/AccessDenied'
+import * as XLSX from 'xlsx'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 
 // ============================================================
 // ✅ DARK NAVY + LIGHT CYAN THEME COLORS
 // ============================================================
 const colors = {
-  // Dark Navy Base
   darkNavy: '#0F172A',
   darkNavyLight: '#1E293B',
   darkNavyDark: '#0A0F1E',
   darkNavyHover: '#1E3A5F',
-  
-  // Light Cyan Accents
   lightCyan: '#67E8F9',
   lightCyanBright: '#A5F3FC',
   lightCyanDark: '#22D3EE',
   lightCyanGlow: 'rgba(103, 232, 249, 0.15)',
   lightCyanGlowStrong: 'rgba(103, 232, 249, 0.3)',
-  
-  // Gold accent (keeping PAEC branding)
   accentGold: '#C9A227',
   goldLight: '#E8C84A',
-  
-  // Text
   text: '#FFFFFF',
   secondaryText: '#94A3B8',
   textLight: '#CBD5E1',
   cyanText: '#67E8F9',
   darkText: '#0F172A',
   lightText: '#64748B',
-  
-  // Cards/Background
   cardBg: '#FFFFFF',
   borderColor: 'rgba(103, 232, 249, 0.1)',
   shadowColor: 'rgba(15, 23, 42, 0.08)',
   mainBg: '#F1F5F9',
-  
-  // Status colors
+  bgGradientStart: '#F0F4F8',
+  bgGradientEnd: '#E8EEF5',
   error: '#EF4444',
   success: '#22C55E',
   warning: '#F59E0B',
   info: '#3B82F6',
 }
+
+// ✅ Animation Styles
+const animationStyles = `
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes prominentGlow {
+  0% {
+    box-shadow: 0 0 20px rgba(103, 232, 249, 0.2), 0 0 40px rgba(103, 232, 249, 0.1);
+    border-color: rgba(103, 232, 249, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(103, 232, 249, 0.4), 0 0 80px rgba(103, 232, 249, 0.2);
+    border-color: rgba(103, 232, 249, 0.6);
+  }
+  100% {
+    box-shadow: 0 0 20px rgba(103, 232, 249, 0.2), 0 0 40px rgba(103, 232, 249, 0.1);
+    border-color: rgba(103, 232, 249, 0.3);
+  }
+}
+`
 
 // ✅ Helper function for image URLs
 const getFullUrl = (url) => {
@@ -272,7 +308,6 @@ const AttachmentGrid = ({ attachments, onFileClick }) => {
                 </Box>
               )}
               
-              {/* Overlay with file name and open button */}
               <Box 
                 className="attachment-overlay"
                 sx={{ 
@@ -329,7 +364,6 @@ const AttachmentGrid = ({ attachments, onFileClick }) => {
         })}
       </ImageList>
 
-      {/* ✅ Preview Dialog */}
       <PreviewDialog
         open={previewOpen}
         onClose={() => setPreviewOpen(false)}
@@ -453,6 +487,9 @@ const Repairs = () => {
   const [viewingRepair, setViewingRepair] = useState(null)
   const [viewTabValue, setViewTabValue] = useState(0)
   
+  // ✅ Export Menu State
+  const [exportAnchorEl, setExportAnchorEl] = useState(null)
+  
   const [showSparePartsFields, setShowSparePartsFields] = useState(false)
   const [sparePartsList, setSparePartsList] = useState([])
   const [sparePartForm, setSparePartForm] = useState({
@@ -467,7 +504,6 @@ const Repairs = () => {
 
   const [uploadedFiles, setUploadedFiles] = useState([])
 
-  // ✅ UPDATED: Removed root_cause, corrective_action, solution_description, time_taken
   const [formData, setFormData] = useState({
     error_log_id: '',
     equipment_id: '',
@@ -513,6 +549,71 @@ const Repairs = () => {
       toast.error('Failed to fetch data')
     } finally {
       setLoading(false)
+    }
+  }
+
+  // ============================================================
+  // ✅ EXPORT HANDLERS - Excel & PDF only (no CSV)
+  // ============================================================
+  const handleExportClick = (event) => setExportAnchorEl(event.currentTarget)
+  const handleExportClose = () => setExportAnchorEl(null)
+
+  const exportToExcel = () => {
+    try {
+      const data = filteredRepairs.map(r => ({
+        'Equipment': r.equipment_name || '',
+        'Engineer': r.engineer_name || '',
+        'Problem Analysis': r.problem_analysis || r.root_cause || '',
+        'Repair Procedure': r.repair_procedure || r.corrective_action || '',
+        'Spare Parts Used': r.spare_part_used ? 'Yes' : 'No',
+        'Remarks': r.remarks || '',
+        'Repair Date': r.repair_date ? new Date(r.repair_date).toLocaleDateString() : 
+                       r.created_at ? new Date(r.created_at).toLocaleDateString() : ''
+      }))
+      const ws = XLSX.utils.json_to_sheet(data)
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Repairs')
+      XLSX.writeFile(wb, `repairs_${new Date().toISOString().split('T')[0]}.xlsx`)
+      toast.success('Excel exported!')
+      handleExportClose()
+    } catch (error) {
+      toast.error('Export failed: ' + error.message)
+    }
+  }
+
+  const exportToPDF = () => {
+    try {
+      const doc = new jsPDF()
+      doc.setFontSize(18)
+      doc.setTextColor(colors.darkNavy)
+      doc.text('Repairs Report', 14, 20)
+      doc.setFontSize(10)
+      doc.setTextColor('#666666')
+      doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 28)
+      doc.text(`Total Repairs: ${filteredRepairs.length}`, 14, 34)
+      
+      const tableData = filteredRepairs.map(r => [
+        r.equipment_name || '',
+        r.engineer_name || '',
+        (r.problem_analysis || r.root_cause || '').substring(0, 30),
+        r.spare_part_used ? 'Yes' : 'No',
+        r.repair_date ? new Date(r.repair_date).toLocaleDateString() : 
+        r.created_at ? new Date(r.created_at).toLocaleDateString() : ''
+      ])
+      autoTable(doc, {
+        head: [['Equipment', 'Engineer', 'Problem', 'Spare Used', 'Date']],
+        body: tableData,
+        startY: 40,
+        styles: { fontSize: 7, cellPadding: 2 },
+        headStyles: { fillColor: colors.darkNavy, textColor: '#FFFFFF', fontSize: 8 },
+        alternateRowStyles: { fillColor: '#F5F7FA' },
+        margin: { left: 10, right: 10 }
+      })
+      doc.save(`repairs_${new Date().toISOString().split('T')[0]}.pdf`)
+      toast.success('PDF exported!')
+      handleExportClose()
+    } catch (error) {
+      toast.error('Export failed: ' + error.message)
     }
   }
 
@@ -564,7 +665,6 @@ const Repairs = () => {
       return
     }
     
-    // ✅ UPDATED: Removed root_cause, corrective_action, solution_description, time_taken
     setFormData({
       error_log_id: '',
       equipment_id: '',
@@ -680,7 +780,6 @@ const Repairs = () => {
         return
       }
 
-      // ✅ UPDATED: Removed root_cause, corrective_action, solution_description, time_taken
       const payload = {
         error_log_id: parseInt(formData.error_log_id),
         equipment_id: formData.equipment_id ? parseInt(formData.equipment_id) : null,
@@ -739,26 +838,65 @@ const Repairs = () => {
     return matchesSearch
   })
 
-  // ✅ Get attachment count
   const getAttachmentCount = (attachments) => {
     if (!attachments) return 0
     return attachments.split(',').filter(Boolean).length
   }
+
+  // ✅ Stats Cards Data - ALL ICONS SAME THEME COLOR (Light Cyan)
+  const statsCards = [
+    {
+      title: 'Total Repairs',
+      value: repairs.length,
+      icon: <Build />,
+      color: colors.lightCyan,
+      bg: 'rgba(103, 232, 249, 0.08)',
+    },
+    {
+      title: 'Equipment',
+      value: new Set(repairs.map(r => r.equipment_name)).size,
+      icon: <MedicalServices />,
+      color: colors.lightCyan,
+      bg: 'rgba(103, 232, 249, 0.08)',
+    },
+    {
+      title: 'With Spare Parts',
+      value: repairs.filter(r => r.spare_part_used === 1).length,
+      icon: <CheckCircle />,
+      color: colors.lightCyan,
+      bg: 'rgba(103, 232, 249, 0.08)',
+    },
+  ]
 
   if (loading) {
     return <LinearProgress sx={{ bgcolor: colors.borderColor, '& .MuiLinearProgress-bar': { bgcolor: colors.lightCyan } }} />
   }
 
   return (
-    <Box>
+    <Box sx={{ 
+      p: { xs: 1, sm: 2, md: 3 },
+      background: `linear-gradient(135deg, ${colors.bgGradientStart} 0%, ${colors.bgGradientEnd} 50%, ${colors.bgGradientStart} 100%)`,
+      minHeight: '100vh',
+    }}>
+      <style>{animationStyles}</style>
+
       {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        mb: 3, 
+        flexWrap: 'wrap', 
+        gap: 2,
+        animation: 'fadeInUp 0.6s ease-out',
+      }}>
+        <Box>
           <Typography 
             variant="h5" 
             sx={{ 
               fontWeight: 700, 
               color: colors.darkNavy,
+              fontSize: { xs: '1.2rem', sm: '1.4rem', md: '1.6rem' },
               '&::after': {
                 content: '""',
                 display: 'block',
@@ -772,50 +910,87 @@ const Repairs = () => {
           >
             Repairs
           </Typography>
-          {isEngineer && (
-            <Chip 
-              icon={<EngineeringIcon sx={{ fontSize: 16 }} />}
-              label="Engineer" 
-              size="small" 
-              sx={{ 
-                bgcolor: colors.darkNavy, 
-                color: 'white',
-                fontWeight: 500
-              }} 
-            />
-          )}
+          <Typography 
+            variant="body2" 
+            sx={{ 
+              color: colors.lightText,
+              mt: 0.5,
+            }}
+          >
+            Track and manage equipment repairs
+          </Typography>
         </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          {/* ✅ REFRESH BUTTON - BORDER STYLE (Fills on hover/click) */}
           <Button 
             variant="outlined" 
             onClick={fetchData} 
             size="small"
             sx={{ 
-              borderColor: colors.borderColor, 
-              color: colors.darkNavy,
+              borderColor: colors.lightCyan,
+              color: colors.lightCyan,
+              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+              textTransform: 'none',
+              borderRadius: 2,
+              transition: 'all 0.3s ease',
               '&:hover': { 
-                borderColor: colors.lightCyan, 
-                color: colors.lightCyanDark,
-                backgroundColor: 'rgba(103, 232, 249, 0.04)'
+                bgcolor: colors.lightCyan,
+                color: colors.darkNavy,
+                borderColor: colors.lightCyan,
+                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+                transform: 'translateY(-2px)',
+              },
+              '&:active': {
+                bgcolor: colors.lightCyan,
+                color: colors.darkNavy,
+                borderColor: colors.lightCyan,
+                transform: 'scale(0.96)',
               }
             }}
           >
             <Refresh sx={{ fontSize: 18, mr: 0.5 }} />
             Refresh
           </Button>
+          
+          {/* ✅ EXPORT BUTTON - Like other pages */}
+          <Button 
+            variant="contained"
+            startIcon={<Download />} 
+            onClick={handleExportClick}
+            sx={{ 
+              bgcolor: colors.darkNavy,
+              color: colors.text,
+              borderRadius: 2,
+              textTransform: 'none',
+              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+              '&:hover': { 
+                bgcolor: colors.darkNavyHover,
+                boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
+                transform: 'translateY(-2px)',
+              },
+              transition: 'all 0.3s ease',
+            }}
+          >
+            Export
+          </Button>
+          
           {(isEngineer || isSuperAdmin) && (
             <Button
               variant="contained"
               onClick={handleOpenDialog}
               sx={{ 
-                bgcolor: colors.darkNavy, 
-                '&:hover': { 
-                  bgcolor: colors.darkNavyHover,
-                  boxShadow: `0 4px 20px ${colors.lightCyanGlowStrong}`
-                },
-                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+                bgcolor: colors.darkNavy,
+                color: colors.text,
+                fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                 borderRadius: 2,
                 textTransform: 'none',
+                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+                '&:hover': { 
+                  bgcolor: colors.darkNavyHover,
+                  boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
+                  transform: 'translateY(-2px)',
+                },
+                transition: 'all 0.3s ease',
               }}
             >
               <Add sx={{ fontSize: 18, mr: 0.5 }} />
@@ -825,74 +1000,179 @@ const Repairs = () => {
         </Box>
       </Box>
 
-      {/* ✅ UPDATED: Stats Cards - Removed "Time Recorded" */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={6} sm={4}>
-          <Card sx={{ 
-            borderRadius: 2, 
+      {/* ✅ EXPORT MENU - Excel & PDF only (no CSV) */}
+      <Menu
+        anchorEl={exportAnchorEl}
+        open={Boolean(exportAnchorEl)}
+        onClose={handleExportClose}
+        PaperProps={{ 
+          sx: { 
+            p: 1, 
+            width: 200,
             border: `1px solid ${colors.borderColor}`,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-            '&:hover': {
-              borderColor: colors.lightCyan,
-              boxShadow: `0 4px 20px ${colors.lightCyanGlow}`
-            }
-          }}>
-            <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" sx={{ color: colors.darkNavy, fontWeight: 700 }}>
-                {repairs.length}
-              </Typography>
-              <Typography variant="body2" sx={{ color: colors.lightText }}>Total Repairs</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={6} sm={4}>
-          <Card sx={{ 
-            borderRadius: 2, 
-            border: `1px solid ${colors.borderColor}`,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-            bgcolor: `${colors.info}08`,
-            '&:hover': {
-              borderColor: colors.info,
-              boxShadow: `0 4px 20px rgba(59, 130, 246, 0.15)`
-            }
-          }}>
-            <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" sx={{ color: colors.info, fontWeight: 700 }}>
-                {new Set(repairs.map(r => r.equipment_name)).size}
-              </Typography>
-              <Typography variant="body2" sx={{ color: colors.lightText }}>Equipment</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={6} sm={4}>
-          <Card sx={{ 
-            borderRadius: 2, 
-            border: `1px solid ${colors.borderColor}`,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-            bgcolor: `${colors.success}08`,
-            '&:hover': {
-              borderColor: colors.success,
-              boxShadow: `0 4px 20px rgba(34, 197, 94, 0.15)`
-            }
-          }}>
-            <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" sx={{ color: colors.success, fontWeight: 700 }}>
-                {repairs.filter(r => r.spare_part_used === 1).length}
-              </Typography>
-              <Typography variant="body2" sx={{ color: colors.lightText }}>With Spare Parts</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
+            boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+            borderRadius: 3,
+          } 
+        }}
+      >
+        {/* ✅ Excel Export Option */}
+        <MenuItem 
+          onClick={exportToExcel} 
+          sx={{ 
+            borderRadius: 1,
+            '&:hover': { 
+              bgcolor: 'rgba(103, 232, 249, 0.08)',
+            } 
+          }}
+        >
+          <FileDownload sx={{ mr: 1.5, fontSize: 20, color: colors.lightCyanDark }} />
+          <Box>
+            <Typography variant="body2" fontWeight={500}>Excel</Typography>
+            <Typography variant="caption" sx={{ color: colors.lightText }}>.xlsx format</Typography>
+          </Box>
+        </MenuItem>
+        
+        {/* ✅ PDF Export Option */}
+        <MenuItem 
+          onClick={exportToPDF} 
+          sx={{ 
+            borderRadius: 1,
+            '&:hover': { 
+              bgcolor: 'rgba(103, 232, 249, 0.08)',
+            } 
+          }}
+        >
+          <FileDownload sx={{ mr: 1.5, fontSize: 20, color: colors.lightCyanDark }} />
+          <Box>
+            <Typography variant="body2" fontWeight={500}>PDF</Typography>
+            <Typography variant="caption" sx={{ color: colors.lightText }}>Print ready document</Typography>
+          </Box>
+        </MenuItem>
+      </Menu>
+
+      {/* ✅ Stats Cards - Border Style with hover glow effect */}
+      <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }} sx={{ mb: 3 }}>
+        {statsCards.map((card, index) => (
+          <Grid item xs={6} sm={4} key={index}>
+            <Grow in timeout={300 + index * 100}>
+              <Card 
+                sx={{ 
+                  borderRadius: 3,
+                  border: `1px solid ${colors.borderColor}`,
+                  boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+                  transition: 'all 0.3s ease',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  cursor: 'pointer',
+                  '&:hover': {
+                    transform: 'translateY(-4px) scale(1.02)',
+                    boxShadow: `0 8px 30px ${colors.lightCyanGlow}`,
+                    borderColor: colors.lightCyan,
+                  },
+                  '&::before': {
+                    content: '""',
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: 3,
+                    background: `linear-gradient(90deg, ${colors.lightCyan}, ${colors.accentGold})`,
+                    borderRadius: '3px 3px 0 0',
+                  }
+                }}
+              >
+                <CardContent sx={{ p: { xs: 1.5, sm: 2 }, position: 'relative' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Box>
+                      <Typography 
+                        variant="caption" 
+                        sx={{ 
+                          color: colors.lightText,
+                          fontWeight: 500,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px',
+                          fontSize: '0.6rem',
+                          fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                        }}
+                      >
+                        {card.title}
+                      </Typography>
+                      <Typography 
+                        variant="h5" 
+                        sx={{ 
+                          fontWeight: 700,
+                          color: colors.darkNavy,
+                          fontSize: { xs: '1.3rem', sm: '1.6rem', md: '1.8rem' },
+                          mt: 0.5,
+                          fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                        }}
+                      >
+                        {card.value}
+                      </Typography>
+                    </Box>
+                    <Box
+                      sx={{
+                        background: card.bg,
+                        borderRadius: '14px',
+                        p: 1.2,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: 42,
+                        height: 42,
+                        color: colors.lightCyan,
+                        transition: 'all 0.3s ease',
+                      }}
+                    >
+                      {React.cloneElement(card.icon, { 
+                        sx: { 
+                          fontSize: 22,
+                          color: colors.lightCyan,
+                        } 
+                      })}
+                    </Box>
+                  </Box>
+                  
+                  {/* Indicator dots */}
+                  <Box sx={{ display: 'flex', gap: 0.5, mt: 1 }}>
+                    <Box sx={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: '50%',
+                      bgcolor: colors.lightCyan,
+                      opacity: 0.4,
+                    }} />
+                    <Box sx={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: '50%',
+                      bgcolor: colors.lightCyan,
+                      opacity: 0.2,
+                    }} />
+                    <Box sx={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: '50%',
+                      bgcolor: colors.lightCyan,
+                      opacity: 0.1,
+                    }} />
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grow>
+          </Grid>
+        ))}
       </Grid>
 
       {/* Search */}
       <Paper sx={{ 
         p: 2, 
         mb: 3, 
-        borderRadius: 2,
+        borderRadius: 3,
         border: `1px solid ${colors.borderColor}`,
         boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
         bgcolor: colors.cardBg,
+        animation: 'fadeInUp 0.7s ease-out',
       }}>
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
           <TextField
@@ -904,13 +1184,18 @@ const Repairs = () => {
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <Search sx={{ color: colors.lightText }} />
+                  <Search sx={{ color: colors.lightText, fontSize: 20 }} />
                 </InputAdornment>
               ),
               sx: {
+                borderRadius: 2,
                 '& .MuiOutlinedInput-root': {
                   '&:hover fieldset': { borderColor: colors.lightCyan },
                   '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                },
+                '& .MuiInputBase-input': {
+                  fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                  fontSize: '0.9rem',
                 }
               }
             }}
@@ -918,42 +1203,51 @@ const Repairs = () => {
         </Box>
       </Paper>
 
-      {/* ✅ UPDATED: Table - Removed Time column */}
+      {/* Table */}
       <TableContainer 
         component={Paper} 
         sx={{ 
-          borderRadius: 2, 
+          borderRadius: 3, 
           border: `1px solid ${colors.borderColor}`,
           boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+          animation: 'fadeInUp 0.8s ease-out',
         }}
       >
         <Table>
           <TableHead sx={{ bgcolor: colors.darkNavy }}>
             <TableRow>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Equipment</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Engineer</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Problem</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Spare Used</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Attachments</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Date</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600, textAlign: 'center' }}>Actions</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Equipment</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Engineer</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Problem</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Spare Used</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Attachments</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Date</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2, textAlign: 'center' }}>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {filteredRepairs.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} align="center">
-                  <Typography variant="body1" sx={{ py: 4, color: colors.lightText }}>
-                    No repairs found
-                  </Typography>
+                <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                    <Build sx={{ fontSize: 48, color: colors.borderColor }} />
+                    <Typography variant="body1" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                      No repairs found
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                      Try adjusting your search
+                    </Typography>
+                  </Box>
                 </TableCell>
               </TableRow>
             ) : (
-              filteredRepairs.map((repair) => (
+              filteredRepairs.map((repair, index) => (
                 <TableRow 
                   key={repair.id} 
                   hover
                   sx={{
+                    transition: 'all 0.2s ease',
+                    animation: `fadeInUp 0.4s ease-out ${index * 0.05}s both`,
                     '&:hover': {
                       backgroundColor: 'rgba(103, 232, 249, 0.04)',
                     },
@@ -961,13 +1255,15 @@ const Repairs = () => {
                   }}
                 >
                   <TableCell>
-                    <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>
+                    <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                       {repair.equipment_name || 'N/A'}
                     </Typography>
                   </TableCell>
-                  <TableCell sx={{ color: colors.lightText }}>{repair.engineer_name || 'N/A'}</TableCell>
+                  <TableCell sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                    {repair.engineer_name || 'N/A'}
+                  </TableCell>
                   <TableCell>
-                    <Typography variant="body2" noWrap sx={{ maxWidth: 150, color: colors.lightText }}>
+                    <Typography variant="body2" noWrap sx={{ maxWidth: 150, color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                       {repair.problem_analysis || repair.root_cause || '-'}
                     </Typography>
                   </TableCell>
@@ -980,7 +1276,8 @@ const Repairs = () => {
                         color: 'white',
                         fontWeight: 500,
                         height: 22,
-                        fontSize: '11px'
+                        fontSize: '11px',
+                        borderRadius: 2,
                       }}
                     />
                   </TableCell>
@@ -995,14 +1292,15 @@ const Repairs = () => {
                           color: colors.darkNavy,
                           fontWeight: 500,
                           height: 22,
-                          fontSize: '11px'
+                          fontSize: '11px',
+                          borderRadius: 2,
                         }}
                       />
                     ) : (
-                      <Typography variant="caption" sx={{ color: colors.lightText }}>None</Typography>
+                      <Typography variant="caption" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>None</Typography>
                     )}
                   </TableCell>
-                  <TableCell sx={{ color: colors.lightText }}>
+                  <TableCell sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                     {repair.repair_date ? new Date(repair.repair_date).toLocaleDateString() : 
                      repair.created_at ? new Date(repair.created_at).toLocaleDateString() : '-'}
                   </TableCell>
@@ -1029,6 +1327,11 @@ const Repairs = () => {
                             size="small" 
                             color="error" 
                             onClick={() => handleDelete(repair.id)}
+                            sx={{
+                              '&:hover': {
+                                backgroundColor: 'rgba(239, 68, 68, 0.08)'
+                              }
+                            }}
                           >
                             <Delete fontSize="small" />
                           </IconButton>
@@ -1043,7 +1346,7 @@ const Repairs = () => {
         </Table>
       </TableContainer>
 
-      {/* ✅ UPDATED: Add Repair Dialog - Removed Root Cause, Corrective Action, Solution Description, Time Taken */}
+      {/* Add Repair Dialog - same as before */}
       <Dialog 
         open={openDialog} 
         onClose={handleCloseDialog} 
@@ -1051,7 +1354,7 @@ const Repairs = () => {
         fullWidth
         PaperProps={{
           sx: {
-            borderRadius: 3,
+            borderRadius: 4,
             border: `1px solid ${colors.borderColor}`,
             boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
           }
@@ -1061,190 +1364,116 @@ const Repairs = () => {
           bgcolor: colors.darkNavy, 
           color: 'white',
           borderRadius: '8px 8px 0 0',
+          py: 2.5,
         }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" fontWeight={600}>Record Repair</Typography>
-            <IconButton onClick={handleCloseDialog} sx={{ color: 'white' }}>
+            <Typography variant="h6" fontWeight={600} sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Build sx={{ fontSize: 28 }} />
+              Record Repair
+            </Typography>
+            <IconButton onClick={handleCloseDialog} sx={{ color: 'white', '&:hover': { color: colors.lightCyan } }}>
               <Close />
             </IconButton>
           </Box>
         </DialogTitle>
-        <DialogContent dividers>
-          <Grid container spacing={2} sx={{ mt: 0 }}>
+        
+        <DialogContent dividers sx={{ px: 4, py: 3 }}>
+          <Grid container spacing={2.5}>
             <Grid item xs={12}>
-              <Alert 
-                severity="info" 
-                sx={{ 
-                  borderRadius: 2, 
-                  border: `1px solid rgba(103, 232, 249, 0.2)`,
-                  backgroundColor: 'rgba(103, 232, 249, 0.04)',
-                  '& .MuiAlert-icon': { color: colors.lightCyanDark }
-                }}
-              >
-                Select an error to repair. Equipment and problem analysis will be auto-filled.
-              </Alert>
-            </Grid>
-
-            <Grid item xs={12}>
-              <FormControl fullWidth required>
-                <InputLabel sx={{ color: colors.lightText }}>Select Error to Repair *</InputLabel>
+              <FormControl fullWidth>
+                <InputLabel sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Select Error to Repair</InputLabel>
                 <Select
                   name="error_log_id"
                   value={formData.error_log_id}
                   onChange={handleFormChange}
-                  label="Select Error to Repair *"
+                  label="Select Error to Repair"
                   sx={{
+                    borderRadius: 2,
                     '& .MuiOutlinedInput-root': {
                       '&:hover fieldset': { borderColor: colors.lightCyan },
                       '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                    },
+                    '& .MuiSelect-select': {
+                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                     }
                   }}
                 >
-                  <MenuItem value="">Select Error</MenuItem>
-                  {errors.filter(e => e.status === 'Pending' || e.status === 'In Progress').map(err => (
-                    <MenuItem key={err.id} value={err.id}>
-                      {err.error_title} - {err.equipment_name} ({err.status})
+                  <MenuItem value="">Select an error</MenuItem>
+                  {errors.filter(e => e.status !== 'Resolved').map((error) => (
+                    <MenuItem key={error.id} value={error.id} sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                      {error.error_title} - {error.equipment_name} ({error.status})
                     </MenuItem>
                   ))}
                 </Select>
               </FormControl>
             </Grid>
 
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel sx={{ color: colors.lightText }}>Equipment</InputLabel>
-                <Select
-                  name="equipment_id"
-                  value={formData.equipment_id}
-                  onChange={handleFormChange}
-                  label="Equipment"
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.lightCyan },
-                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                    }
-                  }}
-                >
-                  <MenuItem value="">Select Equipment</MenuItem>
-                  {equipment.map(item => (
-                    <MenuItem key={item.id} value={item.id}>
-                      {item.name} - {item.model || 'N/A'}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Engineer Name"
-                name="engineer_name"
-                value={formData.engineer_name}
-                onChange={handleFormChange}
-                placeholder="Enter engineer name"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.lightCyan },
-                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                  }
-                }}
-              />
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                required
-                label="Repair Date *"
-                name="repair_date"
-                type="datetime-local"
-                value={formData.repair_date}
-                onChange={handleFormChange}
-                InputLabelProps={{ shrink: true }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.lightCyan },
-                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                  }
-                }}
-              />
-            </Grid>
-
-            <Grid item xs={12}>
-              <Divider sx={{ my: 1, borderColor: colors.borderColor }} />
-              <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>
-                Problem Analysis
-              </Typography>
-            </Grid>
-
-            {/* ✅ KEPT: Problem Analysis */}
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Problem Analysis"
                 name="problem_analysis"
+                label="Problem Analysis"
                 value={formData.problem_analysis}
                 onChange={handleFormChange}
                 multiline
-                rows={2}
-                placeholder="Detailed analysis of the problem"
+                rows={3}
                 sx={{
                   '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                  },
+                  '& .MuiInputBase-input': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                  },
+                  '& .MuiInputLabel-root': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                   }
                 }}
               />
             </Grid>
 
             <Grid item xs={12}>
-              <Divider sx={{ my: 1, borderColor: colors.borderColor }} />
-              <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>
-                Solution
-              </Typography>
-            </Grid>
-
-            {/* ✅ KEPT: Repair Procedure */}
-            <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Repair Procedure"
                 name="repair_procedure"
+                label="Repair Procedure"
                 value={formData.repair_procedure}
                 onChange={handleFormChange}
                 multiline
                 rows={3}
-                placeholder="Step by step repair procedure"
                 sx={{
                   '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                  },
+                  '& .MuiInputBase-input': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                  },
+                  '& .MuiInputLabel-root': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                   }
                 }}
               />
             </Grid>
 
             <Grid item xs={12}>
-              <Divider sx={{ my: 1, borderColor: colors.borderColor }} />
-              <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>
-                Additional Details
-              </Typography>
-            </Grid>
-
-            {/* ✅ KEPT: Spare Part Used */}
-            <Grid item xs={12} md={6}>
               <FormControl fullWidth>
-                <InputLabel sx={{ color: colors.lightText }}>Spare Part Used</InputLabel>
+                <InputLabel sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Spare Parts Used</InputLabel>
                 <Select
                   name="spare_part_used"
                   value={formData.spare_part_used}
                   onChange={handleFormChange}
-                  label="Spare Part Used"
+                  label="Spare Parts Used"
                   sx={{
+                    borderRadius: 2,
                     '& .MuiOutlinedInput-root': {
                       '&:hover fieldset': { borderColor: colors.lightCyan },
                       '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                    },
+                    '& .MuiSelect-select': {
+                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                     }
                   }}
                 >
@@ -1254,373 +1483,250 @@ const Repairs = () => {
               </FormControl>
             </Grid>
 
-            {/* ✅ KEPT: Remarks */}
-            <Grid item xs={12} md={6}>
+            {showSparePartsFields && (
+              <>
+                <Grid item xs={12}>
+                  <Divider sx={{ borderColor: colors.borderColor, my: 1 }} />
+                  <Typography variant="subtitle2" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600, mb: 2 }}>
+                    Add Spare Parts
+                  </Typography>
+                </Grid>
+
+                <Grid item xs={12} md={5}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    name="part_name"
+                    label="Part Name *"
+                    value={sparePartForm.part_name}
+                    onChange={handleSparePartChange}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: 2,
+                        '&:hover fieldset': { borderColor: colors.lightCyan },
+                        '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                      },
+                      '& .MuiInputBase-input': {
+                        fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                      },
+                      '& .MuiInputLabel-root': {
+                        fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                      }
+                    }}
+                  />
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    name="quantity"
+                    label="Quantity"
+                    type="number"
+                    value={sparePartForm.quantity}
+                    onChange={handleSparePartChange}
+                    InputProps={{ inputProps: { min: 1 } }}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: 2,
+                        '&:hover fieldset': { borderColor: colors.lightCyan },
+                        '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                      },
+                      '& .MuiInputBase-input': {
+                        fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                      },
+                      '& .MuiInputLabel-root': {
+                        fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                      }
+                    }}
+                  />
+                </Grid>
+                <Grid item xs={12} md={2}>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    name="unit_cost"
+                    label="Unit Cost"
+                    type="number"
+                    value={sparePartForm.unit_cost}
+                    onChange={handleSparePartChange}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: 2,
+                        '&:hover fieldset': { borderColor: colors.lightCyan },
+                        '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                      },
+                      '& .MuiInputBase-input': {
+                        fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                      },
+                      '& .MuiInputLabel-root': {
+                        fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                      }
+                    }}
+                  />
+                </Grid>
+                <Grid item xs={12} md={2}>
+                  <Button
+                    fullWidth
+                    variant="contained"
+                    onClick={handleAddSparePart}
+                    sx={{ 
+                      height: 40,
+                      bgcolor: colors.darkNavy,
+                      color: colors.text,
+                      borderRadius: 2,
+                      textTransform: 'none',
+                      boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+                      '&:hover': { 
+                        bgcolor: colors.darkNavyHover,
+                        boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
+                      },
+                      transition: 'all 0.3s ease',
+                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                    }}
+                  >
+                    Add
+                  </Button>
+                </Grid>
+
+                {sparePartsList.length > 0 && (
+                  <Grid item xs={12}>
+                    <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, borderColor: colors.borderColor }}>
+                      <Typography variant="caption" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600, display: 'block', mb: 1 }}>
+                        Added Spare Parts ({sparePartsList.length})
+                      </Typography>
+                      <Box sx={{ maxHeight: 120, overflow: 'auto' }}>
+                        {sparePartsList.map((part) => (
+                          <Box key={part.id} sx={{ 
+                            display: 'flex', 
+                            justifyContent: 'space-between', 
+                            alignItems: 'center',
+                            p: 0.5,
+                            borderBottom: `1px solid ${colors.borderColor}`,
+                          }}>
+                            <Typography variant="body2" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", color: colors.darkText }}>
+                              {part.part_name} × {part.quantity} (Rs. {part.total_cost.toLocaleString()})
+                            </Typography>
+                            <IconButton size="small" color="error" onClick={() => handleRemoveSparePart(part.id)}>
+                              <Delete fontSize="small" />
+                            </IconButton>
+                          </Box>
+                        ))}
+                      </Box>
+                    </Paper>
+                  </Grid>
+                )}
+              </>
+            )}
+
+            <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Remarks"
                 name="remarks"
+                label="Remarks (Optional)"
                 value={formData.remarks}
                 onChange={handleFormChange}
                 multiline
                 rows={2}
-                placeholder="Additional remarks"
                 sx={{
                   '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                  },
+                  '& .MuiInputBase-input': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                  },
+                  '& .MuiInputLabel-root': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                   }
                 }}
               />
             </Grid>
 
-            {showSparePartsFields && (
-              <Grid item xs={12}>
-                <Divider sx={{ my: 2, borderColor: colors.borderColor }} />
-                <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>
-                  Spare Parts Details
-                </Typography>
-                <Box sx={{ p: 2, bgcolor: colors.mainBg, borderRadius: 2, border: `1px solid ${colors.borderColor}` }}>
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} md={4}>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        label="Part Name *"
-                        name="part_name"
-                        value={sparePartForm.part_name}
-                        onChange={handleSparePartChange}
-                        placeholder="e.g., Power Supply"
-                        sx={{
-                          '& .MuiOutlinedInput-root': {
-                            '&:hover fieldset': { borderColor: colors.lightCyan },
-                            '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                          }
-                        }}
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={3}>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        label="Part Number"
-                        name="part_number"
-                        value={sparePartForm.part_number}
-                        onChange={handleSparePartChange}
-                        placeholder="e.g., PSU-001"
-                        sx={{
-                          '& .MuiOutlinedInput-root': {
-                            '&:hover fieldset': { borderColor: colors.lightCyan },
-                            '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                          }
-                        }}
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={2}>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        label="Brand"
-                        name="brand"
-                        value={sparePartForm.brand}
-                        onChange={handleSparePartChange}
-                        placeholder="e.g., Siemens"
-                        sx={{
-                          '& .MuiOutlinedInput-root': {
-                            '&:hover fieldset': { borderColor: colors.lightCyan },
-                            '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                          }
-                        }}
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={1}>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        label="Qty"
-                        name="quantity"
-                        type="number"
-                        value={sparePartForm.quantity}
-                        onChange={handleSparePartChange}
-                        InputProps={{ inputProps: { min: 1, step: 1 } }}
-                        sx={{
-                          '& .MuiOutlinedInput-root': {
-                            '&:hover fieldset': { borderColor: colors.lightCyan },
-                            '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                          }
-                        }}
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={2}>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        label="Unit Cost ($)"
-                        name="unit_cost"
-                        type="number"
-                        value={sparePartForm.unit_cost}
-                        onChange={handleSparePartChange}
-                        InputProps={{ inputProps: { min: 0, step: 0.01 } }}
-                        sx={{
-                          '& .MuiOutlinedInput-root': {
-                            '&:hover fieldset': { borderColor: colors.lightCyan },
-                            '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                          }
-                        }}
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={6}>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        label="Installation Notes"
-                        name="installation_notes"
-                        value={sparePartForm.installation_notes}
-                        onChange={handleSparePartChange}
-                        placeholder="Any special instructions..."
-                        sx={{
-                          '& .MuiOutlinedInput-root': {
-                            '&:hover fieldset': { borderColor: colors.lightCyan },
-                            '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                          }
-                        }}
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={2}>
-                      <Button
-                        fullWidth
-                        variant="contained"
-                        onClick={handleAddSparePart}
-                        sx={{ 
-                          height: '100%', 
-                          bgcolor: colors.darkNavy,
-                          '&:hover': { 
-                            bgcolor: colors.darkNavyHover,
-                            boxShadow: `0 4px 16px ${colors.lightCyanGlow}`
-                          },
-                          textTransform: 'none',
-                          borderRadius: 2,
-                        }}
-                      >
-                        Add
-                      </Button>
-                    </Grid>
-                  </Grid>
-
-                  {sparePartsList.length > 0 && (
-                    <Box sx={{ mt: 2 }}>
-                      <Typography variant="caption" sx={{ color: colors.lightText }}>
-                        Added Parts ({sparePartsList.length})
-                      </Typography>
-                      <TableContainer component={Paper} variant="outlined" sx={{ mt: 1, borderColor: colors.borderColor }}>
-                        <Table size="small">
-                          <TableHead sx={{ bgcolor: colors.mainBg }}>
-                            <TableRow>
-                              <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }}>Part Name</TableCell>
-                              <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }}>Part #</TableCell>
-                              <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }}>Brand</TableCell>
-                              <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }} align="center">Qty</TableCell>
-                              <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }} align="right">Cost</TableCell>
-                              <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }} align="right">Total</TableCell>
-                              <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }} align="center">Action</TableCell>
-                            </TableRow>
-                          </TableHead>
-                          <TableBody>
-                            {sparePartsList.map((part) => (
-                              <TableRow key={part.id}>
-                                <TableCell>{part.part_name}</TableCell>
-                                <TableCell>{part.part_number || '-'}</TableCell>
-                                <TableCell>{part.brand || '-'}</TableCell>
-                                <TableCell align="center">{part.quantity}</TableCell>
-                                <TableCell align="right">${part.unit_cost.toFixed(2)}</TableCell>
-                                <TableCell align="right" sx={{ fontWeight: 600, color: colors.darkNavy }}>
-                                  ${part.total_cost.toFixed(2)}
-                                </TableCell>
-                                <TableCell align="center">
-                                  <IconButton 
-                                    size="small" 
-                                    color="error" 
-                                    onClick={() => handleRemoveSparePart(part.id)}
-                                  >
-                                    <Delete fontSize="small" />
-                                  </IconButton>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                            <TableRow sx={{ bgcolor: colors.mainBg }}>
-                              <TableCell colSpan={5} align="right" sx={{ fontWeight: 600, color: colors.darkNavy }}>Total:</TableCell>
-                              <TableCell align="right" sx={{ fontWeight: 700, color: colors.lightCyanDark }}>
-                                ${sparePartsList.reduce((sum, p) => sum + p.total_cost, 0).toFixed(2)}
-                              </TableCell>
-                              <TableCell />
-                            </TableRow>
-                          </TableBody>
-                        </Table>
-                      </TableContainer>
-                    </Box>
-                  )}
-                </Box>
-              </Grid>
-            )}
-
-            {/* File Upload Section */}
             <Grid item xs={12}>
-              <Divider sx={{ my: 1, borderColor: colors.borderColor }} />
-              <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>
+              <Typography variant="body2" sx={{ mb: 1, color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                 Attachments (Images, Videos, Documents)
               </Typography>
               <FileUpload
-                endpoint="/service-documentation/upload"
-                accept="image/*,video/*,application/pdf,.doc,.docx,.xls,.xlsx"
+                endpoint="/upload"
+                accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx"
                 multiple={true}
-                label="Click to upload images, videos, or documents"
+                label="Click to upload files"
                 maxFiles={10}
-                maxSize={50}
+                maxSize={20}
                 showPreview={true}
                 onUploadComplete={handleFileUploadComplete}
                 onUploadError={(error) => toast.error('Upload failed: ' + error)}
                 onDelete={handleFileDelete}
-                existingFiles={formData.attachments ? formData.attachments.split(',').filter(Boolean).map(url => {
-                  const isImage = url.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i)
-                  const isVideo = url.match(/\.(mp4|webm|ogg|mov|avi)$/i)
-                  return {
-                    url: url,
-                    name: url.split('/').pop(),
-                    type: isImage ? 'image' : isVideo ? 'video' : 'document',
-                    size: 0
-                  }
-                }) : []}
+                existingFiles={formData.attachments ? formData.attachments.split(',').filter(Boolean).map(url => ({
+                  url: url,
+                  name: getFileName(url),
+                  type: 'file',
+                  size: 0
+                })) : []}
               />
             </Grid>
 
-            {/* Uploaded files preview */}
-            {formData.attachments && formData.attachments.split(',').filter(Boolean).length > 0 && (
-              <Grid item xs={12}>
-                <Typography variant="caption" sx={{ color: colors.lightText }} gutterBottom display="block" sx={{ mb: 1 }}>
-                  Uploaded Files ({formData.attachments.split(',').filter(Boolean).length})
-                </Typography>
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                  {formData.attachments.split(',').filter(Boolean).map((url, idx) => {
-                    const fullUrl = getFullUrl(url)
-                    const isImage = url.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i)
-                    const isVideo = url.match(/\.(mp4|webm|ogg|mov|avi)$/i)
-                    const fileName = url.split('/').pop()
-                    
-                    return (
-                      <Box 
-                        key={idx} 
-                        sx={{ 
-                          position: 'relative',
-                          width: isImage ? 120 : 100,
-                          height: isImage ? 120 : 100,
-                          borderRadius: 2,
-                          overflow: 'hidden',
-                          border: `1px solid ${colors.borderColor}`,
-                          bgcolor: colors.mainBg,
-                          '&:hover': {
-                            boxShadow: 4,
-                            '& .delete-btn': {
-                              display: 'flex'
-                            }
-                          }
-                        }}
-                      >
-                        {isImage ? (
-                          <Box
-                            component="img"
-                            src={fullUrl}
-                            alt={`Attachment ${idx + 1}`}
-                            sx={{
-                              width: '100%',
-                              height: '100%',
-                              objectFit: 'cover',
-                              cursor: 'pointer',
-                              transition: 'transform 0.2s',
-                              '&:hover': {
-                                transform: 'scale(1.05)'
-                              }
-                            }}
-                            onClick={() => window.open(fullUrl, '_blank')}
-                            onError={(e) => {
-                              e.target.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 24 24" fill="%23ccc"%3E%3Crect width="24" height="24" fill="%23f0f0f0"/%3E%3Ctext x="12" y="12" text-anchor="middle" dy=".3em" font-size="10" fill="%23999"%3ENo Image%3C/text%3E%3C/svg%3E'
-                            }}
-                          />
-                        ) : isVideo ? (
-                          <video 
-                            style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'pointer' }} 
-                            onClick={() => window.open(fullUrl, '_blank')}
-                          >
-                            <source src={fullUrl} />
-                          </video>
-                        ) : (
-                          <Box 
-                            sx={{ 
-                              display: 'flex', 
-                              flexDirection: 'column', 
-                              alignItems: 'center', 
-                              justifyContent: 'center', 
-                              height: '100%', 
-                              p: 1,
-                              cursor: 'pointer'
-                            }}
-                            onClick={() => window.open(fullUrl, '_blank')}
-                          >
-                            <Typography variant="caption" align="center" noWrap sx={{ color: colors.lightText }}>
-                              📄 {fileName.substring(0, 15)}
-                            </Typography>
-                          </Box>
-                        )}
-                        <IconButton
-                          className="delete-btn"
-                          size="small"
-                          sx={{
-                            position: 'absolute',
-                            top: 4,
-                            right: 4,
-                            bgcolor: 'rgba(255,255,255,0.9)',
-                            boxShadow: 1,
-                            display: 'none',
-                            '&:hover': {
-                              bgcolor: '#ffebee'
-                            }
-                          }}
-                          onClick={() => handleExistingFileDelete(url)}
-                        >
-                          <Close fontSize="small" color="error" />
-                        </IconButton>
-                      </Box>
-                    )
-                  })}
-                </Box>
-              </Grid>
-            )}
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                name="repair_date"
+                label="Repair Date"
+                type="datetime-local"
+                value={formData.repair_date}
+                onChange={handleFormChange}
+                InputLabelProps={{ shrink: true }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                  },
+                  '& .MuiInputBase-input': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                  },
+                  '& .MuiInputLabel-root': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                  }
+                }}
+              />
+            </Grid>
           </Grid>
         </DialogContent>
-        <DialogActions sx={{ p: 3 }}>
+        
+        <DialogActions sx={{ p: 3, gap: 1 }}>
           <Button 
             onClick={handleCloseDialog} 
             sx={{ 
               color: colors.darkNavy,
+              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+              borderRadius: 2,
+              px: 3,
+              textTransform: 'none',
               '&:hover': { 
                 backgroundColor: 'rgba(103, 232, 249, 0.04)'
               },
-              textTransform: 'none',
             }}
           >
             Cancel
           </Button>
           <Button 
             variant="contained" 
-            onClick={handleSubmit} 
+            onClick={handleSubmit}
             sx={{ 
-              bgcolor: colors.darkNavy, 
+              bgcolor: colors.darkNavy,
+              color: colors.text,
+              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+              borderRadius: 2,
+              px: 4,
+              textTransform: 'none',
+              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
               '&:hover': { 
                 bgcolor: colors.darkNavyHover,
-                boxShadow: `0 4px 20px ${colors.lightCyanGlowStrong}`
+                boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
+                transform: 'translateY(-2px)',
               },
-              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
-              textTransform: 'none',
-              borderRadius: 2,
+              transition: 'all 0.3s ease',
             }}
           >
             Record Repair
@@ -1628,9 +1734,7 @@ const Repairs = () => {
         </DialogActions>
       </Dialog>
 
-      {/* ============================================================
-          ✅ VIEW REPAIR DIALOG WITH TABS - Updated
-          ============================================================ */}
+      {/* View Repair Dialog */}
       <Dialog 
         open={openViewDialog} 
         onClose={handleCloseView} 
@@ -1638,199 +1742,197 @@ const Repairs = () => {
         fullWidth
         PaperProps={{
           sx: { 
-            borderRadius: 3,
+            borderRadius: 4,
             border: `1px solid ${colors.borderColor}`,
             boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
             maxHeight: '90vh',
           }
         }}
       >
-        <DialogTitle sx={{ 
-          bgcolor: colors.darkNavy, 
-          color: 'white',
-          borderRadius: '8px 8px 0 0',
-        }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Box>
-              <Typography variant="h6" fontWeight={600}>
-                Repair Details
-              </Typography>
-              <Typography variant="caption" sx={{ opacity: 0.8 }}>
-                ID: {viewingRepair?.id} • {viewingRepair?.equipment_name || 'N/A'}
-              </Typography>
-            </Box>
-            <IconButton onClick={handleCloseView} sx={{ color: 'white' }}>
-              <Close />
-            </IconButton>
-          </Box>
-        </DialogTitle>
-        
-        <DialogContent dividers sx={{ p: 0 }}>
-          {viewingRepair && (
-            <Box>
-              {/* Tabs */}
-              <Tabs 
-                value={viewTabValue} 
-                onChange={handleTabChange}
-                sx={{
-                  borderBottom: `1px solid ${colors.borderColor}`,
-                  px: 2,
-                  pt: 1,
-                  '& .MuiTab-root': {
-                    textTransform: 'none',
-                    fontWeight: 500,
-                    color: colors.lightText,
-                    '&.Mui-selected': {
-                      color: colors.darkNavy,
+        {viewingRepair && (
+          <>
+            <DialogTitle sx={{ 
+              bgcolor: colors.darkNavy, 
+              color: 'white',
+              borderRadius: '8px 8px 0 0',
+              py: 2.5,
+            }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant="h6" fontWeight={600} sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                  <Build sx={{ fontSize: 28 }} />
+                  Repair Details
+                </Typography>
+                <Box>
+                  {isSuperAdmin && (
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      color="error"
+                      onClick={() => {
+                        handleCloseView()
+                        handleDelete(viewingRepair.id)
+                      }}
+                      sx={{ mr: 1, color: 'white', borderColor: 'rgba(255,255,255,0.3)', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", textTransform: 'none' }}
+                    >
+                      Delete
+                    </Button>
+                  )}
+                  <IconButton onClick={handleCloseView} sx={{ color: 'white', '&:hover': { color: colors.lightCyan } }}>
+                    <Close />
+                  </IconButton>
+                </Box>
+              </Box>
+            </DialogTitle>
+            
+            <DialogContent dividers sx={{ px: 4, py: 3 }}>
+              <Box sx={{ mb: 3 }}>
+                <Tabs 
+                  value={viewTabValue} 
+                  onChange={handleTabChange}
+                  sx={{
+                    borderBottom: 1,
+                    borderColor: 'divider',
+                    '& .MuiTab-root': {
+                      textTransform: 'none',
+                      fontWeight: 600,
+                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                      '&.Mui-selected': { color: colors.darkNavy }
                     },
-                    '&:hover': {
-                      color: colors.lightCyanDark,
-                    }
-                  },
-                  '& .MuiTabs-indicator': {
-                    bgcolor: colors.lightCyanDark,
-                  }
-                }}
-              >
-                <Tab label="Details" />
-                <Tab 
-                  label={`Attachments (${getAttachmentCount(viewingRepair.attachments)})`} 
-                  disabled={getAttachmentCount(viewingRepair.attachments) === 0}
-                />
-              </Tabs>
+                    '& .MuiTabs-indicator': { bgcolor: colors.lightCyan }
+                  }}
+                >
+                  <Tab label="Details" />
+                  <Tab label="Spare Parts" />
+                  <Tab label="Attachments" />
+                </Tabs>
+              </Box>
 
-              {/* Tab 0: Details - Updated */}
+              {/* Tab 0: Details */}
               {viewTabValue === 0 && (
-                <Box sx={{ p: 3 }}>
-                  <Grid container spacing={2}>
-                    <Grid item xs={12} md={6}>
-                      <Typography variant="body2" sx={{ color: colors.lightText }}>Equipment</Typography>
-                      <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy }}>
-                        {viewingRepair.equipment_name || 'N/A'}
-                      </Typography>
-                    </Grid>
-                    <Grid item xs={12} md={6}>
-                      <Typography variant="body2" sx={{ color: colors.lightText }}>Engineer</Typography>
-                      <Typography variant="body1" sx={{ color: colors.darkNavy }}>
-                        {viewingRepair.engineer_name || 'N/A'}
-                      </Typography>
-                    </Grid>
-                    <Grid item xs={12} md={6}>
-                      <Typography variant="body2" sx={{ color: colors.lightText }}>Spare Part Used</Typography>
-                      <Chip 
-                        label={viewingRepair.spare_part_used ? 'Yes' : 'No'} 
-                        size="small"
-                        sx={{
-                          bgcolor: viewingRepair.spare_part_used ? colors.success : colors.lightText,
-                          color: 'white',
-                          fontWeight: 500,
-                          mt: 0.5,
-                        }}
-                      />
-                    </Grid>
-                    <Grid item xs={12} md={6}>
-                      <Typography variant="body2" sx={{ color: colors.lightText }}>Repair Date</Typography>
-                      <Typography variant="body1" sx={{ color: colors.darkNavy }}>
-                        {viewingRepair.repair_date ? new Date(viewingRepair.repair_date).toLocaleString() : 
-                         viewingRepair.created_at ? new Date(viewingRepair.created_at).toLocaleString() : '-'}
-                      </Typography>
-                    </Grid>
-                    <Grid item xs={12} md={6}>
-                      <Typography variant="body2" sx={{ color: colors.lightText }}>Error</Typography>
-                      <Typography variant="body1" sx={{ color: colors.darkNavy }}>
-                        {viewingRepair.error_title || 'N/A'}
-                      </Typography>
-                    </Grid>
-
-                    <Grid item xs={12}>
-                      <Divider sx={{ my: 1, borderColor: colors.borderColor }} />
-                    </Grid>
-                    
-                    <Grid item xs={12}>
-                      <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>
-                        Problem Analysis
-                      </Typography>
-                      <Typography variant="body2" paragraph sx={{ color: colors.darkNavy }}>
-                        {viewingRepair.problem_analysis || 'Not specified'}
-                      </Typography>
-                    </Grid>
-                    
-                    <Grid item xs={12}>
-                      <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>
-                        Repair Procedure
-                      </Typography>
-                      <Paper sx={{ p: 2, bgcolor: colors.mainBg, borderRadius: 1, border: `1px solid ${colors.borderColor}` }}>
-                        <Typography variant="body2" sx={{ whiteSpace: 'pre-line', color: colors.darkNavy }}>
-                          {viewingRepair.repair_procedure || 'Not specified'}
-                        </Typography>
-                      </Paper>
-                    </Grid>
-                    
-                    {viewingRepair.remarks && (
-                      <Grid item xs={12}>
-                        <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>
-                          Remarks
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: colors.darkNavy }}>
-                          {viewingRepair.remarks}
-                        </Typography>
-                      </Grid>
-                    )}
+                <Grid container spacing={2.5}>
+                  <Grid item xs={12}>
+                    <Typography variant="h6" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                      {viewingRepair.equipment_name || 'N/A'}
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                      Repaired by: {viewingRepair.engineer_name || 'N/A'}
+                    </Typography>
                   </Grid>
+
+                  <Grid item xs={12}>
+                    <Typography variant="caption" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600, display: 'block' }}>
+                      Problem Analysis
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: colors.darkText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", mt: 0.5 }}>
+                      {viewingRepair.problem_analysis || viewingRepair.root_cause || '-'}
+                    </Typography>
+                  </Grid>
+
+                  <Grid item xs={12}>
+                    <Typography variant="caption" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600, display: 'block' }}>
+                      Repair Procedure
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: colors.darkText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", mt: 0.5 }}>
+                      {viewingRepair.repair_procedure || viewingRepair.corrective_action || '-'}
+                    </Typography>
+                  </Grid>
+
+                  <Grid item xs={12}>
+                    <Typography variant="caption" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600, display: 'block' }}>
+                      Remarks
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: colors.darkText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", mt: 0.5 }}>
+                      {viewingRepair.remarks || '-'}
+                    </Typography>
+                  </Grid>
+
+                  <Grid item xs={6}>
+                    <Typography variant="caption" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600, display: 'block' }}>
+                      Spare Parts Used
+                    </Typography>
+                    <Chip 
+                      label={viewingRepair.spare_part_used ? 'Yes' : 'No'} 
+                      size="small"
+                      sx={{
+                        bgcolor: viewingRepair.spare_part_used ? colors.success : colors.lightText,
+                        color: 'white',
+                        fontWeight: 500,
+                        height: 22,
+                        fontSize: '11px',
+                        borderRadius: 2,
+                        mt: 0.5,
+                      }}
+                    />
+                  </Grid>
+
+                  <Grid item xs={6}>
+                    <Typography variant="caption" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600, display: 'block' }}>
+                      Repair Date
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", mt: 0.5 }}>
+                      {viewingRepair.repair_date ? new Date(viewingRepair.repair_date).toLocaleString() : 
+                       viewingRepair.created_at ? new Date(viewingRepair.created_at).toLocaleString() : 'N/A'}
+                    </Typography>
+                  </Grid>
+                </Grid>
+              )}
+
+              {/* Tab 1: Spare Parts */}
+              {viewTabValue === 1 && (
+                <Box>
+                  {viewingRepair.spare_parts && viewingRepair.spare_parts.length > 0 ? (
+                    <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, borderColor: colors.borderColor }}>
+                      <Table size="small">
+                        <TableHead sx={{ bgcolor: colors.mainBg }}>
+                          <TableRow>
+                            <TableCell sx={{ fontWeight: 600, color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Part Name</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Part Number</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Brand</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", align: 'center' }}>Qty</TableCell>
+                            <TableCell sx={{ fontWeight: 600, color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", align: 'right' }}>Total Cost</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {viewingRepair.spare_parts.map((part, idx) => (
+                            <TableRow key={idx}>
+                              <TableCell sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>{part.part_name}</TableCell>
+                              <TableCell sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>{part.part_number || '-'}</TableCell>
+                              <TableCell sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>{part.brand || '-'}</TableCell>
+                              <TableCell align="center" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>{part.quantity}</TableCell>
+                              <TableCell align="right" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Rs. {part.total_cost.toLocaleString()}</TableCell>
+                            </TableRow>
+                          ))}
+                          <TableRow sx={{ bgcolor: colors.mainBg }}>
+                            <TableCell colSpan={4} align="right" sx={{ fontWeight: 600, color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Total:</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 700, color: colors.lightCyanDark, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                              Rs. {viewingRepair.spare_parts.reduce((sum, p) => sum + (p.total_cost || 0), 0).toLocaleString()}
+                            </TableCell>
+                          </TableRow>
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  ) : (
+                    <Typography variant="body2" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", textAlign: 'center', py: 3 }}>
+                      No spare parts used
+                    </Typography>
+                  )}
                 </Box>
               )}
 
-              {/* Tab 1: Attachments */}
-              {viewTabValue === 1 && (
-                <Box sx={{ p: 3 }}>
-                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy, mb: 2 }}>
-                    Attachments ({getAttachmentCount(viewingRepair.attachments)})
+              {/* Tab 2: Attachments */}
+              {viewTabValue === 2 && (
+                <Box>
+                  <Typography variant="subtitle2" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600, mb: 2 }}>
+                    Attached Files
                   </Typography>
-                  <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 2 }}>
-                    Click on any file to preview it. Images and videos will open in a preview dialog.
-                  </Typography>
-                  
                   <AttachmentGrid 
                     attachments={viewingRepair.attachments ? viewingRepair.attachments.split(',').filter(Boolean) : []}
                   />
                 </Box>
               )}
-            </Box>
-          )}
-        </DialogContent>
-        
-        <DialogActions sx={{ p: 3, justifyContent: 'space-between' }}>
-          <Button 
-            onClick={handleCloseView} 
-            sx={{ 
-              color: colors.darkNavy,
-              '&:hover': { 
-                backgroundColor: 'rgba(103, 232, 249, 0.04)'
-              },
-              textTransform: 'none',
-            }}
-          >
-            Close
-          </Button>
-          {isSuperAdmin && viewingRepair && (
-            <Button
-              variant="contained"
-              color="error"
-              onClick={() => {
-                handleDelete(viewingRepair.id)
-                handleCloseView()
-              }}
-              startIcon={<Delete />}
-              sx={{ 
-                boxShadow: `0 4px 16px ${colors.error}44`,
-                textTransform: 'none',
-                borderRadius: 2,
-              }}
-            >
-              Delete
-            </Button>
-          )}
-        </DialogActions>
+            </DialogContent>
+          </>
+        )}
       </Dialog>
     </Box>
   )

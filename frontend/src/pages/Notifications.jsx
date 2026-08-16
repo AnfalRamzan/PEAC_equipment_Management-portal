@@ -1,5 +1,8 @@
 // src/pages/Notifications.jsx
-// ✅ PAEC THEME - Green & Gold Colors
+// ✅ DARK NAVY + LIGHT CYAN THEME - Matching Equipment page
+// ✅ UPDATED: Stats cards design matches Equipment page
+// ✅ UPDATED: Header with Refresh, Mark All Read buttons
+// ✅ ADDED: Animations
 
 import React, { useEffect, useState, useRef } from 'react';
 import {
@@ -29,6 +32,11 @@ import {
   DialogContentText,
   DialogActions,
   Snackbar,
+  Card,
+  CardContent,
+  Grid,
+  Fade,
+  Grow,
 } from '@mui/material';
 import {
   Notifications as NotificationsIcon,
@@ -46,6 +54,10 @@ import {
   NotificationsOff as NotificationsOffIcon,
   VolumeUp as VolumeUpIcon,
   VolumeOff as VolumeOffIcon,
+  MedicalServices,
+  Engineering,
+  Schedule,
+  CheckCircle,
 } from '@mui/icons-material';
 import { useDispatch, useSelector } from 'react-redux';
 import { 
@@ -59,28 +71,72 @@ import { toast } from 'react-toastify';
 import AccessDenied from '../components/Auth/AccessDenied';
 
 // ============================================================
-// ✅ PAEC THEME COLORS
+// ✅ DARK NAVY + LIGHT CYAN THEME COLORS - Matching Equipment page
 // ============================================================
 const colors = {
-  sidebar: '#01411C',
-  sidebarHover: '#0B542B',
-  active: '#0E6335',
+  darkNavy: '#0F172A',
+  darkNavyLight: '#1E293B',
+  darkNavyDark: '#0A0F1E',
+  darkNavyHover: '#1E3A5F',
+  lightCyan: '#67E8F9',
+  lightCyanBright: '#A5F3FC',
+  lightCyanDark: '#22D3EE',
+  lightCyanGlow: 'rgba(103, 232, 249, 0.15)',
+  lightCyanGlowStrong: 'rgba(103, 232, 249, 0.3)',
   accentGold: '#C9A227',
   goldLight: '#E8C84A',
   text: '#FFFFFF',
-  secondaryText: '#B8C8BE',
-  mainBg: '#F0F2F5',
-  white: '#FFFFFF',
-  darkText: '#1A2A3A',
-  lightText: '#5A7A8A',
-  error: '#D32F2F',
-  success: '#2E7D32',
-  warning: '#ED6C02',
-  info: '#0B5FA5',
-  borderColor: 'rgba(1, 65, 28, 0.08)',
-  shadowColor: 'rgba(1, 65, 28, 0.08)',
+  secondaryText: '#94A3B8',
+  textLight: '#CBD5E1',
+  cyanText: '#67E8F9',
+  darkText: '#0F172A',
+  lightText: '#64748B',
   cardBg: '#FFFFFF',
+  borderColor: 'rgba(103, 232, 249, 0.1)',
+  shadowColor: 'rgba(15, 23, 42, 0.08)',
+  mainBg: '#F1F5F9',
+  error: '#EF4444',
+  success: '#22C55E',
+  warning: '#F59E0B',
+  info: '#3B82F6',
+  bgGradientStart: '#F0F4F8',
+  bgGradientEnd: '#E8EEF5',
 }
+
+// ✅ Animation Styles - Same as Equipment page
+const animationStyles = `
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes prominentGlow {
+  0% {
+    box-shadow: 0 0 20px rgba(103, 232, 249, 0.2), 0 0 40px rgba(103, 232, 249, 0.1);
+    border-color: rgba(103, 232, 249, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(103, 232, 249, 0.4), 0 0 80px rgba(103, 232, 249, 0.2);
+    border-color: rgba(103, 232, 249, 0.6);
+  }
+  100% {
+    box-shadow: 0 0 20px rgba(103, 232, 249, 0.2), 0 0 40px rgba(103, 232, 249, 0.1);
+    border-color: rgba(103, 232, 249, 0.3);
+  }
+}
+
+@keyframes gradientShine {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+`
 
 // ============================================================
 // ✅ SOUND EFFECT FUNCTION
@@ -130,9 +186,9 @@ const getNotificationIcon = (type) => {
     case 'warning':
       return <WarningIcon sx={{ color: colors.warning }} />;
     case 'amc':
-      return <LocalShippingIcon sx={{ color: '#00bcd4' }} />;
+      return <LocalShippingIcon sx={{ color: colors.lightCyanDark }} />;
     default:
-      return <InfoIcon sx={{ color: colors.sidebar }} />;
+      return <InfoIcon sx={{ color: colors.darkNavy }} />;
   }
 };
 
@@ -156,9 +212,9 @@ const getNotificationColor = (type) => {
     case 'warning':
       return colors.warning;
     case 'amc':
-      return '#00bcd4';
+      return colors.lightCyanDark;
     default:
-      return colors.sidebar;
+      return colors.darkNavy;
   }
 };
 
@@ -250,7 +306,7 @@ const Notifications = () => {
           pauseOnHover: true,
           draggable: true,
           style: {
-            background: colors.sidebar,
+            background: colors.darkNavy,
             color: colors.text,
           },
         });
@@ -335,10 +391,35 @@ const Notifications = () => {
 
   const filteredNotifications = getFilteredNotifications();
 
+  // ✅ Stats Cards Data - Same design as Equipment page
+  const statsCards = [
+    {
+      title: 'Total Notifications',
+      value: notifications.length,
+      icon: <NotificationsIcon />,
+      color: colors.lightCyan,
+      bg: 'rgba(103, 232, 249, 0.08)',
+    },
+    {
+      title: 'Unread',
+      value: unreadCount,
+      icon: <NotificationsIcon />,
+      color: colors.lightCyan,
+      bg: 'rgba(103, 232, 249, 0.08)',
+    },
+    {
+      title: 'Read',
+      value: notifications.length - unreadCount,
+      icon: <CheckCircle />,
+      color: colors.lightCyan,
+      bg: 'rgba(103, 232, 249, 0.08)',
+    },
+  ];
+
   if (isLoading && notifications.length === 0) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
-        <CircularProgress sx={{ color: colors.sidebar }} />
+        <CircularProgress sx={{ color: colors.darkNavy }} />
       </Box>
     );
   }
@@ -362,52 +443,72 @@ const Notifications = () => {
   }
 
   return (
-    <Box sx={{ p: { xs: 2, sm: 3 } }}>
-      {/* Header */}
+    <Box sx={{ 
+      p: { xs: 1, sm: 2, md: 3 },
+      background: `linear-gradient(135deg, ${colors.bgGradientStart} 0%, ${colors.bgGradientEnd} 50%, ${colors.bgGradientStart} 100%)`,
+      minHeight: '100vh',
+      borderRadius: 0,
+      position: 'relative',
+    }}>
+      <style>{animationStyles}</style>
+
+      {/* ============================================================
+          HEADER - Same as Equipment page
+          ============================================================ */}
       <Box sx={{ 
         display: 'flex', 
-        flexDirection: { xs: 'column', sm: 'row' },
         justifyContent: 'space-between', 
-        alignItems: { xs: 'flex-start', sm: 'center' },
-        mb: 3,
-        gap: 2
+        alignItems: 'center', 
+        mb: 3, 
+        flexWrap: 'wrap', 
+        gap: 2,
+        animation: 'fadeInUp 0.6s ease-out',
       }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Badge 
-            badgeContent={unreadCount} 
-            color="secondary"
-            sx={{
-              '& .MuiBadge-badge': {
-                bgcolor: colors.accentGold,
-                color: 'white',
-                fontWeight: 700,
+        <Box>
+          <Typography 
+            variant="h5" 
+            sx={{ 
+              fontWeight: 700, 
+              color: colors.darkNavy,
+              fontSize: { xs: '1.2rem', sm: '1.4rem', md: '1.6rem' },
+              '&::after': {
+                content: '""',
+                display: 'block',
+                width: '40px',
+                height: '3px',
+                background: `linear-gradient(90deg, ${colors.lightCyan}, ${colors.darkNavy})`,
+                borderRadius: '2px',
+                marginTop: '4px',
               }
             }}
           >
-            <NotificationsIcon sx={{ fontSize: 32, color: colors.sidebar }} />
-          </Badge>
-          <Box>
-            <Typography variant="h5" sx={{ fontWeight: 700, color: colors.sidebar }}>
-              Notifications
-            </Typography>
-            <Typography variant="body2" sx={{ color: colors.lightText }}>
-              {unreadCount} unread {unreadCount === 1 ? 'notification' : 'notifications'}
-            </Typography>
-          </Box>
+            Notifications
+          </Typography>
+          <Typography 
+            variant="body2" 
+            sx={{ 
+              color: colors.lightText,
+              mt: 0.5,
+            }}
+          >
+            {unreadCount} unread {unreadCount === 1 ? 'notification' : 'notifications'}
+          </Typography>
         </Box>
         
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
           {/* Sound Toggle */}
           <Tooltip title={soundEnabled ? 'Sound On' : 'Sound Off'}>
             <IconButton
               onClick={() => setSoundEnabled(!soundEnabled)}
               sx={{ 
-                bgcolor: soundEnabled ? `${colors.sidebar}14` : 'transparent',
-                color: soundEnabled ? colors.sidebar : colors.lightText,
-                border: `1px solid ${soundEnabled ? colors.sidebar : colors.borderColor}`,
-                borderRadius: 1,
+                border: `1px solid ${soundEnabled ? colors.lightCyan : colors.borderColor}`,
+                color: soundEnabled ? colors.lightCyan : colors.lightText,
+                borderRadius: 2,
+                transition: 'all 0.3s ease',
                 '&:hover': {
-                  bgcolor: soundEnabled ? `${colors.sidebar}22` : 'rgba(0,0,0,0.04)',
+                  bgcolor: soundEnabled ? colors.lightCyan : 'rgba(0,0,0,0.04)',
+                  color: soundEnabled ? colors.darkNavy : colors.darkNavy,
+                  borderColor: colors.lightCyan,
                 }
               }}
             >
@@ -415,26 +516,36 @@ const Notifications = () => {
             </IconButton>
           </Tooltip>
           
-          {/* Refresh Button */}
-          <Tooltip title="Refresh">
-            <Button
-              variant="outlined"
-              startIcon={<RefreshIcon />}
-              onClick={loadNotifications}
-              size="small"
-              sx={{ 
-                borderColor: colors.sidebar,
-                color: colors.sidebar,
-                '&:hover': {
-                  borderColor: colors.accentGold,
-                  color: colors.accentGold,
-                  bgcolor: `${colors.accentGold}14`
-                }
-              }}
-            >
-              Refresh
-            </Button>
-          </Tooltip>
+          {/* ✅ REFRESH BUTTON - BORDER STYLE */}
+          <Button 
+            variant="outlined" 
+            startIcon={<RefreshIcon />} 
+            onClick={loadNotifications} 
+            size="small"
+            sx={{ 
+              borderColor: colors.lightCyan,
+              color: colors.lightCyan,
+              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+              textTransform: 'none',
+              borderRadius: 2,
+              transition: 'all 0.3s ease',
+              '&:hover': { 
+                bgcolor: colors.lightCyan,
+                color: colors.darkNavy,
+                borderColor: colors.lightCyan,
+                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+                transform: 'translateY(-2px)',
+              },
+              '&:active': {
+                bgcolor: colors.lightCyan,
+                color: colors.darkNavy,
+                borderColor: colors.lightCyan,
+                transform: 'scale(0.96)',
+              }
+            }}
+          >
+            Refresh
+          </Button>
           
           {/* Mark All Read Button */}
           {unreadCount > 0 && (
@@ -443,12 +554,18 @@ const Notifications = () => {
               startIcon={<DoneAllIcon />}
               onClick={handleMarkAllAsRead}
               size="small"
-              sx={{
-                bgcolor: colors.sidebar,
-                '&:hover': {
-                  bgcolor: colors.sidebarHover,
+              sx={{ 
+                bgcolor: colors.darkNavy,
+                color: colors.text,
+                borderRadius: 2,
+                textTransform: 'none',
+                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+                '&:hover': { 
+                  bgcolor: colors.darkNavyHover,
+                  boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
+                  transform: 'translateY(-2px)',
                 },
-                boxShadow: `0 4px 16px ${colors.sidebar}44`
+                transition: 'all 0.3s ease',
               }}
             >
               Mark All Read
@@ -457,12 +574,102 @@ const Notifications = () => {
         </Box>
       </Box>
 
-      {/* Tabs - THEMED */}
+      {/* ============================================================
+          STATS CARDS - Same design as Equipment page
+          ============================================================ */}
+      <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }} sx={{ mb: 3 }}>
+        {statsCards.map((card, index) => (
+          <Grid item xs={6} sm={4} key={index}>
+            <Grow in timeout={300 + index * 100}>
+              <Card sx={{ 
+                borderRadius: 3,
+                border: `1px solid ${colors.borderColor}`,
+                boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+                transition: 'all 0.3s ease',
+                position: 'relative',
+                overflow: 'hidden',
+                '&:hover': {
+                  transform: 'translateY(-4px)',
+                  boxShadow: `0 8px 30px ${colors.lightCyanGlow}`,
+                  borderColor: colors.lightCyan,
+                },
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: 3,
+                  background: `linear-gradient(90deg, ${colors.lightCyan}, ${colors.accentGold})`,
+                  borderRadius: '3px 3px 0 0',
+                }
+              }}>
+                <CardContent sx={{ p: { xs: 1.5, sm: 2 }, position: 'relative' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Box>
+                      <Typography 
+                        variant="caption" 
+                        sx={{ 
+                          color: colors.lightText,
+                          fontWeight: 500,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px',
+                          fontSize: '0.6rem',
+                        }}
+                      >
+                        {card.title}
+                      </Typography>
+                      <Typography 
+                        variant="h5" 
+                        sx={{ 
+                          fontWeight: 700,
+                          color: colors.darkNavy,
+                          fontSize: { xs: '1.3rem', sm: '1.6rem', md: '1.8rem' },
+                          mt: 0.5,
+                        }}
+                      >
+                        {card.value}
+                      </Typography>
+                    </Box>
+                    <Box
+                      sx={{
+                        background: card.bg,
+                        borderRadius: '14px',
+                        p: 1.2,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: 42,
+                        height: 42,
+                        color: card.color,
+                        transition: 'all 0.3s ease',
+                      }}
+                    >
+                      {React.cloneElement(card.icon, { 
+                        sx: { 
+                          fontSize: 22,
+                          color: card.color,
+                        } 
+                      })}
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grow>
+          </Grid>
+        ))}
+      </Grid>
+
+      {/* ============================================================
+          TABS
+          ============================================================ */}
       <Paper sx={{ 
         mb: 3, 
-        borderRadius: 2,
+        borderRadius: 3,
         border: `1px solid ${colors.borderColor}`,
-        boxShadow: '0 2px 12px rgba(0,0,0,0.04)'
+        boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+        bgcolor: colors.cardBg,
+        animation: 'fadeInUp 0.7s ease-out',
       }}>
         <Tabs
           value={tabValue}
@@ -475,13 +682,14 @@ const Notifications = () => {
               fontSize: '14px',
               minHeight: 48,
               color: colors.lightText,
+              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
             },
             '& .Mui-selected': {
-              color: colors.sidebar,
+              color: colors.darkNavy,
               fontWeight: 600,
             },
             '& .MuiTabs-indicator': {
-              bgcolor: colors.accentGold,
+              bgcolor: colors.lightCyan,
             }
           }}
         >
@@ -493,10 +701,12 @@ const Notifications = () => {
                   label={notifications.length} 
                   size="small" 
                   sx={{ 
-                    bgcolor: colors.sidebar, 
-                    color: 'white',
-                    height: 20,
+                    bgcolor: colors.darkNavy,
+                    color: colors.text,
+                    height: 22,
                     fontWeight: 600,
+                    fontSize: '11px',
+                    borderRadius: 2,
                     '& .MuiChip-label': { px: 1, fontSize: '11px' }
                   }} 
                 />
@@ -511,10 +721,12 @@ const Notifications = () => {
                   label={unreadCount} 
                   size="small" 
                   sx={{ 
-                    bgcolor: colors.accentGold, 
-                    color: 'white',
-                    height: 20,
+                    bgcolor: colors.accentGold,
+                    color: colors.text,
+                    height: 22,
                     fontWeight: 600,
+                    fontSize: '11px',
+                    borderRadius: 2,
                     '& .MuiChip-label': { px: 1, fontSize: '11px' }
                   }} 
                 />
@@ -524,12 +736,16 @@ const Notifications = () => {
         </Tabs>
       </Paper>
 
-      {/* Notifications List - THEMED */}
+      {/* ============================================================
+          NOTIFICATIONS LIST
+          ============================================================ */}
       <Paper sx={{ 
-        borderRadius: 2, 
+        borderRadius: 3, 
         overflow: 'hidden',
         border: `1px solid ${colors.borderColor}`,
-        boxShadow: '0 2px 12px rgba(0,0,0,0.04)'
+        boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+        bgcolor: colors.cardBg,
+        animation: 'fadeInUp 0.8s ease-out',
       }}>
         {filteredNotifications.length === 0 ? (
           <Box sx={{ 
@@ -540,11 +756,11 @@ const Notifications = () => {
             justifyContent: 'center',
             minHeight: 200
           }}>
-            <NotificationsOffIcon sx={{ fontSize: 48, color: colors.lightText, mb: 2 }} />
-            <Typography variant="h6" sx={{ color: colors.lightText }}>
+            <NotificationsOffIcon sx={{ fontSize: 48, color: colors.lightText, opacity: 0.3, mb: 2 }} />
+            <Typography variant="h6" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
               No notifications
             </Typography>
-            <Typography variant="body2" sx={{ color: colors.lightText }}>
+            <Typography variant="body2" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
               {tabValue === 0 ? 'You have no notifications' : 'All notifications are read'}
             </Typography>
           </Box>
@@ -556,12 +772,14 @@ const Notifications = () => {
                   sx={{
                     px: 3,
                     py: 2,
-                    bgcolor: notification.is_read ? 'transparent' : `${colors.sidebar}08`,
-                    transition: 'all 0.2s',
+                    bgcolor: notification.is_read ? 'transparent' : `${colors.darkNavy}06`,
+                    transition: 'all 0.2s ease',
+                    animation: `fadeInUp 0.4s ease-out ${index * 0.05}s both`,
                     '&:hover': {
-                      bgcolor: notification.is_read ? 'rgba(0, 0, 0, 0.02)' : `${colors.sidebar}14`,
+                      bgcolor: notification.is_read ? 'rgba(0, 0, 0, 0.02)' : `${colors.darkNavy}12`,
                     },
                     cursor: 'pointer',
+                    '&:last-child': { borderBottom: 0 }
                   }}
                   onClick={() => {
                     if (!notification.is_read) {
@@ -573,7 +791,8 @@ const Notifications = () => {
                     <Avatar sx={{ 
                       bgcolor: `${getNotificationColor(notification.type)}20`,
                       color: getNotificationColor(notification.type),
-                      boxShadow: `0 2px 8px ${getNotificationColor(notification.type)}33`
+                      boxShadow: `0 2px 8px ${getNotificationColor(notification.type)}33`,
+                      border: `2px solid ${getNotificationColor(notification.type)}30`,
                     }}>
                       {getNotificationIcon(notification.type)}
                     </Avatar>
@@ -583,8 +802,9 @@ const Notifications = () => {
                     primary={
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                         <Typography variant="subtitle1" sx={{ 
-                          fontWeight: notification.is_read ? 400 : 600,
-                          color: colors.darkText
+                          fontWeight: notification.is_read ? 500 : 700,
+                          color: colors.darkNavy,
+                          fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                         }}>
                           {notification.title}
                         </Typography>
@@ -593,10 +813,11 @@ const Notifications = () => {
                             label="New" 
                             size="small" 
                             sx={{ 
-                              bgcolor: colors.accentGold, 
-                              color: 'white',
+                              bgcolor: colors.lightCyan,
+                              color: colors.darkNavy,
                               height: 20,
                               fontWeight: 600,
+                              borderRadius: 2,
                               '& .MuiChip-label': { fontSize: '10px', px: 1 }
                             }} 
                           />
@@ -605,11 +826,11 @@ const Notifications = () => {
                     }
                     secondary={
                       <>
-                        <Typography variant="body2" sx={{ color: colors.lightText, mt: 0.5 }}>
+                        <Typography variant="body2" sx={{ color: colors.lightText, mt: 0.5, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                           {notification.message}
                         </Typography>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-                          <Typography variant="caption" sx={{ color: colors.lightText }}>
+                          <Typography variant="caption" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                             {formatTime(notification.created_at)}
                           </Typography>
                           {notification.type && (
@@ -622,6 +843,8 @@ const Notifications = () => {
                                 bgcolor: `${getNotificationColor(notification.type)}20`,
                                 color: getNotificationColor(notification.type),
                                 fontWeight: 500,
+                                borderRadius: 2,
+                                '& .MuiChip-label': { fontSize: '10px', px: 1 }
                               }}
                             />
                           )}
@@ -640,10 +863,10 @@ const Notifications = () => {
                             handleMarkAsRead(notification.id);
                           }}
                           sx={{ 
-                            color: colors.sidebar,
+                            color: colors.darkNavy,
                             '&:hover': { 
-                              color: colors.accentGold,
-                              bgcolor: `${colors.accentGold}14`
+                              color: colors.lightCyanDark,
+                              bgcolor: 'rgba(103, 232, 249, 0.08)'
                             }
                           }}
                         >
@@ -662,8 +885,8 @@ const Notifications = () => {
                         sx={{ 
                           color: colors.lightText,
                           '&:hover': { 
-                            color: colors.sidebar,
-                            bgcolor: `${colors.sidebar}14`
+                            color: colors.darkNavy,
+                            bgcolor: 'rgba(103, 232, 249, 0.08)'
                           }
                         }}
                       >
@@ -680,7 +903,9 @@ const Notifications = () => {
         )}
       </Paper>
 
-      {/* Menu - THEMED */}
+      {/* ============================================================
+          MENU
+          ============================================================ */}
       <Menu
         anchorEl={menuAnchor}
         open={Boolean(menuAnchor)}
@@ -697,6 +922,7 @@ const Notifications = () => {
           sx: {
             border: `1px solid ${colors.borderColor}`,
             boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+            borderRadius: 3,
           }
         }}
       >
@@ -706,22 +932,30 @@ const Notifications = () => {
               handleMarkAsRead(selectedNotification.id);
               handleMenuClose();
             }}
-            sx={{ '&:hover': { bgcolor: `${colors.sidebar}14` } }}
+            sx={{ 
+              '&:hover': { bgcolor: 'rgba(103, 232, 249, 0.08)' },
+              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+            }}
           >
-            <CheckCircleIcon sx={{ mr: 1, fontSize: 20, color: colors.sidebar }} />
+            <CheckCircleIcon sx={{ mr: 1, fontSize: 20, color: colors.darkNavy }} />
             Mark as read
           </MenuItem>
         )}
         <MenuItem 
           onClick={() => handleDeleteClick(selectedNotification)}
-          sx={{ '&:hover': { bgcolor: `${colors.error}14` } }}
+          sx={{ 
+            '&:hover': { bgcolor: `${colors.error}14` },
+            fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+          }}
         >
           <DeleteIcon sx={{ mr: 1, fontSize: 20, color: colors.error }} />
           Delete
         </MenuItem>
       </Menu>
 
-      {/* Delete Confirmation Dialog - THEMED */}
+      {/* ============================================================
+          DELETE CONFIRMATION DIALOG
+          ============================================================ */}
       <Dialog 
         open={deleteDialogOpen} 
         onClose={() => setDeleteDialogOpen(false)}
@@ -729,17 +963,22 @@ const Notifications = () => {
         fullWidth
         PaperProps={{
           sx: {
-            borderRadius: 3,
+            borderRadius: 4,
             border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
           }
         }}
       >
-        <DialogTitle sx={{ color: colors.error }}>
+        <DialogTitle sx={{ 
+          color: colors.error,
+          fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+          fontWeight: 600,
+        }}>
           <DeleteIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
           Delete Notification
         </DialogTitle>
         <DialogContent>
-          <DialogContentText sx={{ color: colors.darkText }}>
+          <DialogContentText sx={{ color: colors.darkText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
             Are you sure you want to delete this notification? This action cannot be undone.
           </DialogContentText>
           {notificationToDelete && (
@@ -750,22 +989,31 @@ const Notifications = () => {
               borderRadius: 2,
               border: `1px solid ${colors.borderColor}`
             }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: colors.darkText }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                 {notificationToDelete.title}
               </Typography>
-              <Typography variant="body2" sx={{ color: colors.lightText }}>
+              <Typography variant="body2" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                 {notificationToDelete.message}
               </Typography>
-              <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', mt: 1 }}>
+              <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', mt: 1, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                 {formatTime(notificationToDelete.created_at)}
               </Typography>
             </Box>
           )}
         </DialogContent>
-        <DialogActions sx={{ p: 3 }}>
+        <DialogActions sx={{ p: 3, gap: 1 }}>
           <Button 
             onClick={() => setDeleteDialogOpen(false)}
-            sx={{ color: colors.lightText }}
+            sx={{ 
+              color: colors.darkNavy,
+              borderRadius: 2,
+              px: 3,
+              textTransform: 'none',
+              '&:hover': { 
+                backgroundColor: 'rgba(103, 232, 249, 0.04)'
+              },
+              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+            }}
           >
             Cancel
           </Button>
@@ -774,14 +1022,20 @@ const Notifications = () => {
             variant="contained" 
             color="error"
             startIcon={<DeleteIcon />}
-            sx={{ boxShadow: `0 4px 16px ${colors.error}44` }}
+            sx={{ 
+              borderRadius: 2,
+              textTransform: 'none',
+              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+            }}
           >
             Delete
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Snackbar - THEMED */}
+      {/* ============================================================
+          SNACKBAR
+          ============================================================ */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={3000}
@@ -794,7 +1048,10 @@ const Notifications = () => {
           variant="filled"
           sx={{ 
             borderRadius: 2,
-            '& .MuiAlert-icon': { color: 'white' }
+            '& .MuiAlert-icon': { color: 'white' },
+            '& .MuiAlert-message': {
+              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+            }
           }}
         >
           {snackbar.message}
