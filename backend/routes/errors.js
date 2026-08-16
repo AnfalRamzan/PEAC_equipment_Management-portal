@@ -1,5 +1,10 @@
 // backend/routes/errors.js
 // ✅ COMPLETE FIXED VERSION - With Engineer ID filtering
+// ✅ REMOVED: Priority from all queries
+// ✅ REMOVED: Completed status - Only Pending, In Progress, Resolved
+// ✅ ADDED: resolved_at column support
+// ✅ FIXED: Engineer report filtering
+// ✅ FIXED: Status update with resolved_at
 
 const express = require('express');
 const router = express.Router();
@@ -31,8 +36,8 @@ router.get('/', authenticate, async (req, res) => {
         let sql = `
             SELECT el.id, el.equipment_id, el.error_code, el.error_title, 
                    el.error_description, el.error_date, el.reported_by, 
-                   el.attachments, el.priority, el.images, el.videos, 
-                   el.documents, el.created_at, el.updated_at, el.status,
+                   el.attachments, el.created_at, el.updated_at, el.status,
+                   el.resolved_at,
                    e.name as equipment_name,
                    e.model as equipment_model,
                    e.serial_number,
@@ -90,8 +95,8 @@ router.get('/:id', authenticate, async (req, res) => {
         let sql = `
             SELECT el.id, el.equipment_id, el.error_code, el.error_title, 
                    el.error_description, el.error_date, el.reported_by, 
-                   el.attachments, el.priority, el.images, el.videos, 
-                   el.documents, el.created_at, el.updated_at, el.status,
+                   el.attachments, el.created_at, el.updated_at, el.status,
+                   el.resolved_at,
                    e.name as equipment_name,
                    e.model as equipment_model,
                    e.serial_number,
@@ -127,7 +132,7 @@ router.get('/:id', authenticate, async (req, res) => {
 });
 
 // ============================================
-// ✅ CREATE ERROR
+// ✅ CREATE ERROR - Priority removed
 // ============================================
 router.post('/', authenticate, async (req, res) => {
     try {
@@ -137,11 +142,10 @@ router.post('/', authenticate, async (req, res) => {
             error_title,
             error_description,
             error_date,
-            priority,
             attachments
         } = req.body;
 
-        console.log('📤 Creating error:', { error_title, equipment_id, priority });
+        console.log('📤 Creating error:', { error_title, equipment_id });
 
         if (!equipment_id) {
             return res.status(400).json({ 
@@ -171,20 +175,18 @@ router.post('/', authenticate, async (req, res) => {
             });
         }
 
-        const finalPriority = priority || 'Medium';
         const finalErrorDate = error_date || new Date().toISOString().slice(0, 19).replace('T', ' ');
 
         const result = await query(
             `INSERT INTO error_logs 
              (equipment_id, error_code, error_title, error_description, 
-              priority, reported_by, error_date, attachments)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+              reported_by, error_date, attachments)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
             [
                 parseInt(equipment_id),
                 error_code || null,
                 error_title.trim(),
                 error_description || '',
-                finalPriority,
                 req.user.id,
                 finalErrorDate,
                 attachments || ''
@@ -223,7 +225,7 @@ router.post('/', authenticate, async (req, res) => {
 });
 
 // ============================================
-// ✅ UPDATE ERROR
+// ✅ UPDATE ERROR - Priority removed, resolved_at added, Completed removed
 // ============================================
 router.put('/:id', authenticate, async (req, res) => {
     try {
@@ -232,7 +234,6 @@ router.put('/:id', authenticate, async (req, res) => {
             error_code,
             error_title,
             error_description,
-            priority,
             status,
             attachments
         } = req.body;
@@ -323,45 +324,37 @@ router.put('/:id', authenticate, async (req, res) => {
             updateFields.push('error_description = ?');
             updateValues.push(error_description || '');
         }
-        if (priority !== undefined) {
-            updateFields.push('priority = ?');
-            updateValues.push(priority || 'Medium');
-        }
         if (attachments !== undefined) {
             updateFields.push('attachments = ?');
             updateValues.push(attachments || '');
         }
 
-        // ✅ STATUS - Permission based
+        // ✅ STATUS - Only 3 statuses: Pending, In Progress, Resolved
         if (status !== undefined) {
-            const validStatuses = ['Pending', 'In Progress', 'Completed', 'Resolved'];
+            const validStatuses = ['Pending', 'In Progress', 'Resolved'];
             if (!validStatuses.includes(status)) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Invalid status. Allowed: Pending, In Progress, Completed, Resolved'
+                    message: 'Invalid status. Allowed: Pending, In Progress, Resolved'
                 });
             }
 
-            // Super Admin can change any status
-            if (isSuperAdmin) {
+            // All allowed roles can change status
+            if (isSuperAdmin || isHospitalAdmin || isEngineer) {
                 updateFields.push('status = ?');
                 updateValues.push(status);
-                console.log('✅ Super Admin changing status to:', status);
-            }
-            // Hospital Admin can set to In Progress, Completed, Resolved
-            else if (isHospitalAdmin && ['In Progress', 'Completed', 'Resolved'].includes(status)) {
-                updateFields.push('status = ?');
-                updateValues.push(status);
-                console.log('✅ Hospital Admin changing status to:', status);
-            }
-            // Engineer can change any status (same hospital)
-            else if (isEngineer) {
-                updateFields.push('status = ?');
-                updateValues.push(status);
-                console.log('✅ Engineer changing status to:', status);
-            }
-            // Status change not allowed
-            else {
+                console.log('✅ Updating status to:', status);
+
+                // ✅ Set resolved_at when status is Resolved
+                if (status === 'Resolved') {
+                    updateFields.push('resolved_at = NOW()');
+                    console.log('✅ Setting resolved_at to NOW()');
+                } else {
+                    // If status changes away from Resolved, clear resolved_at
+                    updateFields.push('resolved_at = NULL');
+                    console.log('✅ Clearing resolved_at');
+                }
+            } else {
                 console.log('⚠️ Status change not allowed. Keeping original:', errorData.status);
                 updateFields.push('status = ?');
                 updateValues.push(errorData.status);
@@ -386,8 +379,8 @@ router.put('/:id', authenticate, async (req, res) => {
         const updatedError = await query(
             `SELECT el.id, el.equipment_id, el.error_code, el.error_title, 
                     el.error_description, el.error_date, el.reported_by, 
-                    el.attachments, el.priority, el.images, el.videos, 
-                    el.documents, el.created_at, el.updated_at, el.status,
+                    el.attachments, el.created_at, el.updated_at, el.status,
+                    el.resolved_at,
                     e.name as equipment_name,
                     h.name as hospital_name,
                     u.full_name as reported_by_name
@@ -414,18 +407,18 @@ router.put('/:id', authenticate, async (req, res) => {
 });
 
 // ============================================
-// ✅ PATCH STATUS
+// ✅ PATCH STATUS - Only 3 statuses
 // ============================================
 router.patch('/:id/status', authenticate, async (req, res) => {
     try {
         const { id } = req.params;
         const { status } = req.body;
 
-        const validStatuses = ['Pending', 'In Progress', 'Completed', 'Resolved'];
+        const validStatuses = ['Pending', 'In Progress', 'Resolved'];
         if (!validStatuses.includes(status)) {
             return res.status(400).json({ 
                 success: false, 
-                message: 'Invalid status' 
+                message: 'Invalid status. Allowed: Pending, In Progress, Resolved'
             });
         }
 
@@ -449,12 +442,13 @@ router.patch('/:id/status', authenticate, async (req, res) => {
 
         // ✅ Permission check
         const isSuperAdmin = req.user.role_name === 'SUPER_ADMIN';
+        const isHospitalAdmin = req.user.role_name === 'HOSPITAL_ADMIN';
         const isEngineer = req.user.role_name === 'ENGINEER';
 
-        if (!isSuperAdmin && !isEngineer) {
+        if (!isSuperAdmin && !isHospitalAdmin && !isEngineer) {
             return res.status(403).json({ 
                 success: false, 
-                message: 'Only Super Admin or Engineer can change status' 
+                message: 'Only Super Admin, Hospital Admin, or Engineer can change status' 
             });
         }
 
@@ -465,10 +459,29 @@ router.patch('/:id/status', authenticate, async (req, res) => {
             });
         }
 
-        await query(
-            'UPDATE error_logs SET status = ?, updated_at = NOW() WHERE id = ?', 
-            [status, id]
-        );
+        if (isHospitalAdmin && errorHospitalId !== req.user.hospital_id) {
+            return res.status(403).json({ 
+                success: false, 
+                message: 'Access denied: You can only update errors in your hospital' 
+            });
+        }
+
+        // ✅ Build update query with resolved_at
+        let updateQuery = 'UPDATE error_logs SET status = ?, updated_at = NOW()';
+        let updateParams = [status];
+
+        // ✅ Set resolved_at when status is Resolved
+        if (status === 'Resolved') {
+            updateQuery += ', resolved_at = NOW()';
+        } else {
+            // If status changes away from Resolved, clear resolved_at
+            updateQuery += ', resolved_at = NULL';
+        }
+
+        updateQuery += ' WHERE id = ?';
+        updateParams.push(id);
+
+        await query(updateQuery, updateParams);
 
         res.json({ 
             success: true, 
@@ -507,8 +520,8 @@ router.get('/equipment/:equipmentId', authenticate, async (req, res) => {
         let sql = `
             SELECT el.id, el.equipment_id, el.error_code, el.error_title, 
                    el.error_description, el.error_date, el.reported_by, 
-                   el.attachments, el.priority, el.images, el.videos, 
-                   el.documents, el.created_at, el.updated_at, el.status,
+                   el.attachments, el.created_at, el.updated_at, el.status,
+                   el.resolved_at,
                    u.full_name as reported_by_name
             FROM error_logs el
             LEFT JOIN users u ON el.reported_by = u.id
@@ -541,8 +554,8 @@ router.get('/my-errors', authenticate, async (req, res) => {
         let sql = `
             SELECT el.id, el.equipment_id, el.error_code, el.error_title, 
                    el.error_description, el.error_date, el.reported_by, 
-                   el.attachments, el.priority, el.images, el.videos, 
-                   el.documents, el.created_at, el.updated_at, el.status,
+                   el.attachments, el.created_at, el.updated_at, el.status,
+                   el.resolved_at,
                    e.name as equipment_name,
                    h.name as hospital_name,
                    u.full_name as reported_by_name
@@ -570,7 +583,7 @@ router.get('/my-errors', authenticate, async (req, res) => {
 });
 
 // ============================================
-// ✅ GET ERRORS STATISTICS
+// ✅ GET ERRORS STATISTICS - Only 3 statuses
 // ============================================
 router.get('/stats/summary', authenticate, async (req, res) => {
     try {
@@ -579,12 +592,7 @@ router.get('/stats/summary', authenticate, async (req, res) => {
                 COUNT(*) as total,
                 SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) as pending,
                 SUM(CASE WHEN status = 'In Progress' THEN 1 ELSE 0 END) as in_progress,
-                SUM(CASE WHEN status = 'Completed' THEN 1 ELSE 0 END) as completed,
-                SUM(CASE WHEN status = 'Resolved' THEN 1 ELSE 0 END) as resolved,
-                SUM(CASE WHEN priority = 'Critical' THEN 1 ELSE 0 END) as critical,
-                SUM(CASE WHEN priority = 'High' THEN 1 ELSE 0 END) as high,
-                SUM(CASE WHEN priority = 'Medium' THEN 1 ELSE 0 END) as medium,
-                SUM(CASE WHEN priority = 'Low' THEN 1 ELSE 0 END) as low
+                SUM(CASE WHEN status = 'Resolved' THEN 1 ELSE 0 END) as resolved
             FROM error_logs el
             LEFT JOIN equipment e ON el.equipment_id = e.id
             WHERE 1=1

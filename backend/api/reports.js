@@ -1,1133 +1,1193 @@
-// backend/services/reportService.js
+// backend/routes/reports.js
+const express = require('express');
+const router = express.Router();
 const { query } = require('../config/database');
+const { authenticate } = require('../middleware/auth');
+const reportService = require('../services/reportService');
 
-class ReportService {
-  // ============================================================
-  // ✅ ENGINEER REPORTS
-  // ============================================================
+// ============================================
+// ✅ EQUIPMENT COMPLETE REPORT
+// ============================================
 
-  /**
-   * Get errors reported by a specific engineer
-   */
-  async getEngineerErrors({ userId, startDate, endDate, status }) {
-    let sql = `
-      SELECT 
-        el.id,
-        el.error_title,
-        el.error_code,
-        el.severity,
-        el.status,
-        el.description,
-        el.created_at,
-        el.updated_at,
-        e.name as equipment_name,
-        e.model as equipment_model,
-        e.serial_number,
-        h.name as hospital_name,
-        d.name as department_name,
-        u.name as reported_by_name,
-        (SELECT COUNT(*) FROM repairs WHERE error_log_id = el.id) as repair_count,
-        (SELECT COUNT(*) FROM comments WHERE error_log_id = el.id) as comment_count
-      FROM error_logs el
-      LEFT JOIN equipment e ON el.equipment_id = e.id
-      LEFT JOIN hospitals h ON e.hospital_id = h.id
-      LEFT JOIN departments d ON e.department_id = d.id
-      LEFT JOIN users u ON el.reported_by = u.id
-      WHERE el.reported_by = ?
-    `;
+/**
+ * GET /api/reports/equipment-complete
+ * Get complete equipment report with all metrics
+ */
+router.get('/equipment-complete', authenticate, async (req, res) => {
+    try {
+        let sql = `
+            SELECT 
+                e.id,
+                e.name as equipment_name,
+                e.model,
+                e.manufacturer,
+                e.serial_number,
+                e.status as current_status,
+                h.name as hospital_name,
+                d.name as department_name,
+                e.location,
+                e.installation_year,
+                e.created_at as equipment_added_on,
+                -- Current status duration
+                (SELECT TIMESTAMPDIFF(HOUR, MAX(changed_at), NOW())
+                 FROM equipment_status_history esh
+                 WHERE esh.equipment_id = e.id
+                 AND esh.new_status = e.status
+                ) as current_status_hours,
+                -- Total inactive time
+                COALESCE((
+                    SELECT SUM(TIMESTAMPDIFF(HOUR, 
+                        esh.changed_at,
+                        IFNULL(
+                            (SELECT MIN(esh2.changed_at) 
+                             FROM equipment_status_history esh2 
+                             WHERE esh2.equipment_id = e.id 
+                             AND esh2.changed_at > esh.changed_at),
+                            NOW()
+                        )
+                    ))
+                    FROM equipment_status_history esh
+                    WHERE esh.equipment_id = e.id
+                    AND esh.new_status = 'Inactive'
+                ), 0) as total_inactive_hours,
+                -- Total maintenance time
+                COALESCE((
+                    SELECT SUM(TIMESTAMPDIFF(HOUR, 
+                        esh.changed_at,
+                        IFNULL(
+                            (SELECT MIN(esh2.changed_at) 
+                             FROM equipment_status_history esh2 
+                             WHERE esh2.equipment_id = e.id 
+                             AND esh2.changed_at > esh.changed_at),
+                            NOW()
+                        )
+                    ))
+                    FROM equipment_status_history esh
+                    WHERE esh.equipment_id = e.id
+                    AND esh.new_status = 'Maintenance'
+                ), 0) as total_maintenance_hours,
+                -- Total downtime
+                (COALESCE((
+                    SELECT SUM(TIMESTAMPDIFF(HOUR, 
+                        esh.changed_at,
+                        IFNULL(
+                            (SELECT MIN(esh2.changed_at) 
+                             FROM equipment_status_history esh2 
+                             WHERE esh2.equipment_id = e.id 
+                             AND esh2.changed_at > esh.changed_at),
+                            NOW()
+                        )
+                    ))
+                    FROM equipment_status_history esh
+                    WHERE esh.equipment_id = e.id
+                    AND esh.new_status IN ('Inactive', 'Maintenance')
+                ), 0)) as total_downtime_hours,
+                ROUND(COALESCE((
+                    SELECT SUM(TIMESTAMPDIFF(HOUR, 
+                        esh.changed_at,
+                        IFNULL(
+                            (SELECT MIN(esh2.changed_at) 
+                             FROM equipment_status_history esh2 
+                             WHERE esh2.equipment_id = e.id 
+                             AND esh2.changed_at > esh.changed_at),
+                            NOW()
+                        )
+                    ))
+                    FROM equipment_status_history esh
+                    WHERE esh.equipment_id = e.id
+                    AND esh.new_status IN ('Inactive', 'Maintenance')
+                ), 0) / 24, 2) as total_downtime_days,
+                -- Error stats
+                COUNT(DISTINCT el.id) as total_errors,
+                COUNT(DISTINCT CASE WHEN el.status IN ('Pending', 'In Progress') THEN el.id END) as open_errors,
+                COUNT(DISTINCT CASE WHEN el.status IN ('Resolved', 'Closed', 'Completed') THEN el.id END) as resolved_errors,
+                COUNT(DISTINCT CASE WHEN el.priority = 'Critical' THEN el.id END) as critical_errors,
+                -- Repair stats
+                COUNT(DISTINCT r.id) as total_repairs,
+                COUNT(DISTINCT CASE WHEN r.status = 'Completed' THEN r.id END) as completed_repairs,
+                -- Spare parts stats
+                COUNT(DISTINCT sp.id) as total_spare_parts,
+                COUNT(DISTINCT CASE WHEN sp.status = 'In Stock' THEN sp.id END) as spare_parts_in_stock,
+                COUNT(DISTINCT CASE WHEN sp.status = 'Low Stock' THEN sp.id END) as spare_parts_low_stock,
+                COUNT(DISTINCT CASE WHEN sp.status = 'Out of Stock' THEN sp.id END) as spare_parts_out_of_stock,
+                SUM(sp.total_cost) as spare_parts_total_cost
+            FROM equipment e
+            LEFT JOIN hospitals h ON e.hospital_id = h.id
+            LEFT JOIN departments d ON e.department_id = d.id
+            LEFT JOIN error_logs el ON e.id = el.equipment_id
+            LEFT JOIN repairs r ON el.id = r.error_log_id
+            LEFT JOIN spare_parts sp ON e.id = sp.equipment_id
+            WHERE e.status != 'Inactive'
+            GROUP BY e.id
+            ORDER BY total_downtime_days DESC, e.status DESC
+        `;
 
-    const params = [userId];
+        const data = await query(sql);
 
-    if (startDate && endDate) {
-      sql += ' AND el.created_at BETWEEN ? AND ?';
-      params.push(startDate, endDate);
+        // Calculate summary stats
+        const stats = {
+            total: data.length,
+            active: data.filter(d => d.current_status === 'Active').length,
+            inactive: data.filter(d => d.current_status === 'Inactive').length,
+            maintenance: data.filter(d => d.current_status === 'Maintenance').length,
+            total_downtime_days: data.reduce((sum, d) => sum + (parseFloat(d.total_downtime_days) || 0), 0),
+            avg_downtime_days: data.length > 0 
+                ? (data.reduce((sum, d) => sum + (parseFloat(d.total_downtime_days) || 0), 0) / data.length)
+                : 0,
+            total_errors: data.reduce((sum, d) => sum + (d.total_errors || 0), 0),
+            total_repairs: data.reduce((sum, d) => sum + (d.total_repairs || 0), 0),
+            total_spare_parts: data.reduce((sum, d) => sum + (d.total_spare_parts || 0), 0)
+        };
+
+        res.json({
+            success: true,
+            data,
+            stats,
+            total: data.length,
+            generatedAt: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('❌ Equipment report error:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Failed to generate equipment report' 
+        });
     }
+});
 
-    if (status) {
-      sql += ' AND el.status = ?';
-      params.push(status);
+// ============================================
+// ✅ ENGINEER REPORTS
+// ============================================
+
+/**
+ * GET /api/reports/engineer
+ * Get reports for the logged-in engineer
+ */
+router.get('/engineer', authenticate, async (req, res) => {
+    try {
+        const { type, startDate, endDate } = req.query;
+        const userId = req.user.id;
+
+        const result = await reportService.getEngineerReport({
+            type: type || 'my-errors',
+            userId,
+            startDate,
+            endDate
+        });
+
+        res.json({
+            success: true,
+            ...result,
+            generatedAt: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('❌ Engineer report error:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Failed to generate engineer report'
+        });
     }
+});
 
-    sql += ' ORDER BY el.created_at DESC';
+/**
+ * GET /api/reports/engineer/my-errors
+ * Get errors reported by the logged-in engineer
+ */
+router.get('/engineer/my-errors', authenticate, async (req, res) => {
+    try {
+        const { startDate, endDate, status } = req.query;
+        const result = await reportService.getEngineerErrors({
+            userId: req.user.id,
+            startDate,
+            endDate,
+            status
+        });
 
-    const data = await query(sql, params);
-
-    // Get summary statistics
-    const summary = await this.getErrorSummary(userId, startDate, endDate);
-
-    return {
-      data,
-      total: data.length,
-      summary
-    };
-  }
-
-  /**
-   * Get error summary for an engineer
-   */
-  async getErrorSummary(userId, startDate, endDate) {
-    let sql = `
-      SELECT 
-        COUNT(*) as total_errors,
-        SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) as pending,
-        SUM(CASE WHEN status = 'In Progress' THEN 1 ELSE 0 END) as in_progress,
-        SUM(CASE WHEN status = 'Resolved' THEN 1 ELSE 0 END) as resolved,
-        SUM(CASE WHEN status = 'Closed' THEN 1 ELSE 0 END) as closed,
-        SUM(CASE WHEN severity = 'Critical' THEN 1 ELSE 0 END) as critical,
-        SUM(CASE WHEN severity = 'High' THEN 1 ELSE 0 END) as high,
-        SUM(CASE WHEN severity = 'Medium' THEN 1 ELSE 0 END) as medium,
-        SUM(CASE WHEN severity = 'Low' THEN 1 ELSE 0 END) as low,
-        ROUND(AVG(TIMESTAMPDIFF(HOUR, created_at, updated_at)), 1) as avg_resolution_hours,
-        ROUND(MIN(TIMESTAMPDIFF(HOUR, created_at, updated_at)), 1) as min_resolution_hours,
-        ROUND(MAX(TIMESTAMPDIFF(HOUR, created_at, updated_at)), 1) as max_resolution_hours
-      FROM error_logs
-      WHERE reported_by = ?
-    `;
-
-    const params = [userId];
-
-    if (startDate && endDate) {
-      sql += ' AND created_at BETWEEN ? AND ?';
-      params.push(startDate, endDate);
+        res.json({
+            success: true,
+            ...result,
+            generatedAt: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('❌ Engineer errors report error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to get engineer errors report'
+        });
     }
+});
 
-    const result = await query(sql, params);
-    return result[0] || {};
-  }
+/**
+ * GET /api/reports/engineer/my-repairs
+ * Get repairs performed by the logged-in engineer
+ */
+router.get('/engineer/my-repairs', authenticate, async (req, res) => {
+    try {
+        const { startDate, endDate, status } = req.query;
+        const result = await reportService.getEngineerRepairs({
+            userId: req.user.id,
+            startDate,
+            endDate,
+            status
+        });
 
-  /**
-   * Get repairs performed by an engineer
-   */
-  async getEngineerRepairs({ userId, startDate, endDate, status }) {
-    let sql = `
-      SELECT 
-        r.id,
-        r.root_cause,
-        r.solution_description,
-        r.time_taken,
-        r.status,
-        r.created_at,
-        r.repair_date,
-        r.completion_date,
-        e.name as equipment_name,
-        e.model as equipment_model,
-        e.serial_number,
-        h.name as hospital_name,
-        d.name as department_name,
-        el.error_title,
-        el.error_code,
-        el.severity as error_severity,
-        u.name as reported_by_name,
-        (SELECT COUNT(*) FROM spare_parts WHERE repair_id = r.id) as parts_count,
-        (SELECT SUM(total_cost) FROM spare_parts WHERE repair_id = r.id) as total_parts_cost
-      FROM repairs r
-      LEFT JOIN error_logs el ON r.error_log_id = el.id
-      LEFT JOIN equipment e ON el.equipment_id = e.id
-      LEFT JOIN hospitals h ON e.hospital_id = h.id
-      LEFT JOIN departments d ON e.department_id = d.id
-      LEFT JOIN users u ON el.reported_by = u.id
-      WHERE r.engineer_id = ?
-    `;
-
-    const params = [userId];
-
-    if (startDate && endDate) {
-      sql += ' AND r.created_at BETWEEN ? AND ?';
-      params.push(startDate, endDate);
+        res.json({
+            success: true,
+            ...result,
+            generatedAt: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('❌ Engineer repairs report error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to get engineer repairs report'
+        });
     }
+});
 
-    if (status) {
-      sql += ' AND r.status = ?';
-      params.push(status);
+/**
+ * GET /api/reports/engineer/my-equipment
+ * Get equipment worked on by the logged-in engineer
+ */
+router.get('/engineer/my-equipment', authenticate, async (req, res) => {
+    try {
+        const result = await reportService.getEngineerEquipment(req.user.id);
+
+        res.json({
+            success: true,
+            ...result,
+            generatedAt: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('❌ Engineer equipment report error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to get engineer equipment report'
+        });
     }
+});
 
-    sql += ' ORDER BY r.created_at DESC';
+/**
+ * GET /api/reports/engineer/my-performance
+ * Get performance metrics for the logged-in engineer
+ */
+router.get('/engineer/my-performance', authenticate, async (req, res) => {
+    try {
+        const { startDate, endDate } = req.query;
+        const result = await reportService.getEngineerPerformance({
+            userId: req.user.id,
+            startDate,
+            endDate
+        });
 
-    const data = await query(sql, params);
-
-    // Get repair summary
-    const summary = await this.getRepairSummary(userId, startDate, endDate);
-
-    return {
-      data,
-      total: data.length,
-      summary
-    };
-  }
-
-  /**
-   * Get repair summary for an engineer
-   */
-  async getRepairSummary(userId, startDate, endDate) {
-    let sql = `
-      SELECT 
-        COUNT(*) as total_repairs,
-        SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) as pending,
-        SUM(CASE WHEN status = 'In Progress' THEN 1 ELSE 0 END) as in_progress,
-        SUM(CASE WHEN status = 'Completed' THEN 1 ELSE 0 END) as completed,
-        SUM(CASE WHEN status = 'Failed' THEN 1 ELSE 0 END) as failed,
-        ROUND(AVG(time_taken), 1) as avg_time_taken,
-        ROUND(MIN(time_taken), 1) as min_time_taken,
-        ROUND(MAX(time_taken), 1) as max_time_taken,
-        ROUND(SUM(time_taken), 1) as total_time_taken,
-        (SELECT COUNT(*) FROM spare_parts sp 
-         JOIN repairs r ON sp.repair_id = r.id 
-         WHERE r.engineer_id = ?) as total_parts_used,
-        (SELECT SUM(sp.total_cost) FROM spare_parts sp 
-         JOIN repairs r ON sp.repair_id = r.id 
-         WHERE r.engineer_id = ?) as total_parts_cost
-      FROM repairs
-      WHERE engineer_id = ?
-    `;
-
-    const params = [userId, userId, userId];
-
-    if (startDate && endDate) {
-      sql = sql.replace('WHERE engineer_id = ?', 'WHERE engineer_id = ? AND created_at BETWEEN ? AND ?');
-      params.push(startDate, endDate);
+        res.json({
+            success: true,
+            data: result,
+            generatedAt: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('❌ Engineer performance report error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to get engineer performance report'
+        });
     }
+});
 
-    const result = await query(sql, params);
-    return result[0] || {};
-  }
+/**
+ * GET /api/reports/engineer/my-pending-tasks
+ * Get pending tasks for the logged-in engineer
+ */
+router.get('/engineer/my-pending-tasks', authenticate, async (req, res) => {
+    try {
+        const result = await reportService.getEngineerPendingTasks(req.user.id);
 
-  /**
-   * Get equipment worked on by an engineer
-   */
-  async getEngineerEquipment(userId) {
-    const sql = `
-      SELECT DISTINCT
-        e.id,
-        e.name,
-        e.model,
-        e.manufacturer,
-        e.serial_number,
-        e.status as equipment_status,
-        e.installation_year,
-        e.last_maintenance_date,
-        e.warranty_expiry,
-        h.name as hospital_name,
-        h.city as hospital_city,
-        d.name as department_name,
-        c.name as category_name,
-        (SELECT COUNT(*) FROM error_logs WHERE equipment_id = e.id) as total_errors,
-        (SELECT COUNT(*) FROM repairs r 
-         LEFT JOIN error_logs el ON r.error_log_id = el.id 
-         WHERE el.equipment_id = e.id AND r.engineer_id = ?) as my_repairs,
-        (SELECT COUNT(*) FROM error_logs 
-         WHERE equipment_id = e.id AND reported_by = ?) as my_reported_errors,
-        (SELECT COUNT(*) FROM error_logs 
-         WHERE equipment_id = e.id AND status IN ('Pending', 'In Progress')) as open_errors,
-        (SELECT MAX(created_at) FROM error_logs WHERE equipment_id = e.id) as last_error_date,
-        (SELECT MAX(repair_date) FROM repairs r 
-         LEFT JOIN error_logs el ON r.error_log_id = el.id 
-         WHERE el.equipment_id = e.id AND r.engineer_id = ?) as last_repair_date
-      FROM equipment e
-      LEFT JOIN hospitals h ON e.hospital_id = h.id
-      LEFT JOIN departments d ON e.department_id = d.id
-      LEFT JOIN equipment_categories c ON e.category_id = c.id
-      WHERE e.id IN (
-        SELECT DISTINCT el.equipment_id 
-        FROM error_logs el
-        LEFT JOIN repairs r ON el.id = r.error_log_id
-        WHERE r.engineer_id = ? OR el.reported_by = ?
-      )
-      AND e.status != 'Retired'
-      ORDER BY e.name
-    `;
-
-    const data = await query(sql, [userId, userId, userId, userId, userId]);
-
-    return {
-      data,
-      total: data.length
-    };
-  }
-
-  /**
-   * Get performance metrics for an engineer
-   */
-  async getEngineerPerformance({ userId, startDate, endDate }) {
-    let dateFilter = '';
-    const params = [userId];
-
-    if (startDate && endDate) {
-      dateFilter = ' AND created_at BETWEEN ? AND ?';
-      params.push(startDate, endDate);
+        res.json({
+            success: true,
+            ...result,
+            generatedAt: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('❌ Engineer pending tasks error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to get pending tasks'
+        });
     }
+});
 
-    // Get repair performance
-    const repairPerformance = await query(`
-      SELECT 
-        COUNT(*) as total_repairs,
-        ROUND(AVG(time_taken), 1) as avg_time_taken,
-        ROUND(SUM(time_taken), 1) as total_time_taken,
-        ROUND(AVG(CASE WHEN status = 'Completed' THEN time_taken ELSE NULL END), 1) as avg_completed_time,
-        COUNT(CASE WHEN status = 'Completed' THEN 1 END) as completed_repairs,
-        COUNT(CASE WHEN status = 'Failed' THEN 1 END) as failed_repairs,
-        ROUND(COUNT(CASE WHEN status = 'Completed' THEN 1 END) * 100.0 / COUNT(*), 1) as success_rate
-      FROM repairs
-      WHERE engineer_id = ?${dateFilter}
-    `, params);
+// ============================================
+// ✅ ADMIN REPORTS
+// ============================================
 
-    // Get error resolution performance
-    const errorPerformance = await query(`
-      SELECT 
-        COUNT(*) as total_errors,
-        COUNT(CASE WHEN status IN ('Resolved', 'Closed') THEN 1 END) as resolved_errors,
-        COUNT(CASE WHEN status = 'Pending' THEN 1 END) as pending_errors,
-        COUNT(CASE WHEN status = 'In Progress' THEN 1 END) as in_progress_errors,
-        ROUND(AVG(CASE WHEN status IN ('Resolved', 'Closed') 
-          THEN TIMESTAMPDIFF(HOUR, created_at, updated_at) 
-          ELSE NULL END), 1) as avg_resolution_hours,
-        ROUND(COUNT(CASE WHEN status IN ('Resolved', 'Closed') THEN 1 END) * 100.0 / COUNT(*), 1) as resolution_rate
-      FROM error_logs
-      WHERE reported_by = ?${dateFilter}
-    `, params);
+/**
+ * GET /api/reports/admin
+ * Generate admin reports
+ */
+router.get('/admin', authenticate, async (req, res) => {
+    try {
+        // Check if user has admin role
+        if (!['SUPER_ADMIN', 'HOSPITAL_ADMIN', 'SUPPORT'].includes(req.user.role_name)) {
+            return res.status(403).json({
+                success: false,
+                message: 'Access denied. Admin role required.'
+            });
+        }
 
-    // Get daily activity
-    const dailyActivity = await query(`
-      SELECT 
-        DATE(created_at) as date,
-        COUNT(*) as activities,
-        COUNT(CASE WHEN type = 'repair' THEN 1 END) as repairs,
-        COUNT(CASE WHEN type = 'error' THEN 1 END) as errors
-      FROM (
-        SELECT created_at, 'repair' as type FROM repairs WHERE engineer_id = ?${dateFilter}
-        UNION ALL
-        SELECT created_at, 'error' as type FROM error_logs WHERE reported_by = ?${dateFilter}
-      ) activities
-      GROUP BY DATE(created_at)
-      ORDER BY date DESC
-      LIMIT 30
-    `, [userId, userId]);
+        const {
+            type,
+            startDate,
+            endDate,
+            hospitalId,
+            equipmentId,
+            departmentId
+        } = req.query;
 
-    // Get monthly trends
-    const monthlyTrends = await query(`
-      SELECT 
-        DATE_FORMAT(created_at, '%Y-%m') as month,
-        COUNT(*) as total,
-        COUNT(CASE WHEN type = 'repair' THEN 1 END) as repairs,
-        COUNT(CASE WHEN type = 'error' THEN 1 END) as errors
-      FROM (
-        SELECT created_at, 'repair' as type FROM repairs WHERE engineer_id = ?${dateFilter}
-        UNION ALL
-        SELECT created_at, 'error' as type FROM error_logs WHERE reported_by = ?${dateFilter}
-      ) activities
-      GROUP BY DATE_FORMAT(created_at, '%Y-%m')
-      ORDER BY month DESC
-      LIMIT 12
-    `, [userId, userId]);
+        const result = await reportService.generateReport({
+            type,
+            startDate,
+            endDate,
+            hospitalId,
+            equipmentId,
+            departmentId,
+            user: req.user
+        });
 
-    return {
-      repair_performance: repairPerformance[0] || {},
-      error_performance: errorPerformance[0] || {},
-      daily_activity: dailyActivity,
-      monthly_trends: monthlyTrends
-    };
-  }
-
-  /**
-   * Get pending tasks for an engineer
-   */
-  async getEngineerPendingTasks(userId) {
-    const sql = `
-      SELECT 
-        'error' as task_type,
-        el.id as task_id,
-        el.error_title as title,
-        el.severity,
-        el.status,
-        el.created_at,
-        e.name as equipment_name,
-        e.model as equipment_model,
-        h.name as hospital_name,
-        'Reported by me' as assignment_type
-      FROM error_logs el
-      LEFT JOIN equipment e ON el.equipment_id = e.id
-      LEFT JOIN hospitals h ON e.hospital_id = h.id
-      WHERE el.reported_by = ?
-        AND el.status IN ('Pending', 'In Progress')
-      
-      UNION ALL
-      
-      SELECT 
-        'repair' as task_type,
-        r.id as task_id,
-        CONCAT('Repair: ', el.error_title) as title,
-        el.severity,
-        r.status,
-        r.created_at,
-        e.name as equipment_name,
-        e.model as equipment_model,
-        h.name as hospital_name,
-        'Assigned to me' as assignment_type
-      FROM repairs r
-      LEFT JOIN error_logs el ON r.error_log_id = el.id
-      LEFT JOIN equipment e ON el.equipment_id = e.id
-      LEFT JOIN hospitals h ON e.hospital_id = h.id
-      WHERE r.engineer_id = ?
-        AND r.status IN ('Pending', 'In Progress')
-      
-      ORDER BY created_at DESC
-    `;
-
-    const data = await query(sql, [userId, userId]);
-
-    return {
-      data,
-      total: data.length
-    };
-  }
-
-  /**
-   * Generic engineer report getter
-   */
-  async getEngineerReport({ type, userId, startDate, endDate }) {
-    switch (type) {
-      case 'my-errors':
-        return this.getEngineerErrors({ userId, startDate, endDate });
-      case 'my-repairs':
-        return this.getEngineerRepairs({ userId, startDate, endDate });
-      case 'my-equipment':
-        return this.getEngineerEquipment(userId);
-      case 'my-performance':
-        return this.getEngineerPerformance({ userId, startDate, endDate });
-      case 'my-pending-tasks':
-        return this.getEngineerPendingTasks(userId);
-      default:
-        throw new Error('Invalid engineer report type');
+        res.json({
+            success: true,
+            ...result,
+            generatedAt: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('❌ Admin report error:', error);
+        res.status(500).json({
+            success: false,
+            message: error.message || 'Failed to generate admin report'
+        });
     }
-  }
+});
 
-  // ============================================================
-  // ✅ ADMIN REPORT GENERATION
-  // ============================================================
+/**
+ * GET /api/reports/admin/monthly
+ * Get monthly report
+ */
+router.get('/admin/monthly', authenticate, async (req, res) => {
+    try {
+        if (!['SUPER_ADMIN', 'HOSPITAL_ADMIN', 'SUPPORT'].includes(req.user.role_name)) {
+            return res.status(403).json({
+                success: false,
+                message: 'Access denied. Admin role required.'
+            });
+        }
 
-  /**
-   * Generate comprehensive report based on type
-   */
-  async generateReport({ type, startDate, endDate, hospitalId, equipmentId, departmentId, user }) {
-    let data = [];
-    let params = [];
-    let whereClause = '';
-    let summary = {};
+        const { year, month } = req.query;
+        const result = await reportService.getMonthlyReport({
+            year,
+            month,
+            user: req.user
+        });
 
-    // Build base filters
-    const filterBuilder = this.buildFilters({
-      startDate,
-      endDate,
-      hospitalId,
-      equipmentId,
-      departmentId,
-      user
-    });
-
-    whereClause = filterBuilder.whereClause;
-    params = filterBuilder.params;
-
-    switch (type) {
-      case 'monthly':
-        data = await this.generateMonthlyReport({ whereClause, params });
-        summary = this.calculateMonthlySummary(data);
-        break;
-
-      case 'hospital':
-        data = await this.generateHospitalReport({ whereClause, params, hospitalId, user });
-        summary = this.calculateHospitalSummary(data);
-        break;
-
-      case 'equipment':
-        data = await this.generateEquipmentReport({ whereClause, params, equipmentId });
-        summary = this.calculateEquipmentSummary(data);
-        break;
-
-      case 'department':
-        data = await this.generateDepartmentReport({ whereClause, params, departmentId });
-        summary = this.calculateDepartmentSummary(data);
-        break;
-
-      case 'failure-frequency':
-        data = await this.generateFailureFrequencyReport({ whereClause, params });
-        summary = this.calculateFailureFrequencySummary(data);
-        break;
-
-      case 'spare-parts':
-        data = await this.generateSparePartsReport({ whereClause, params });
-        summary = this.calculateSparePartsSummary(data);
-        break;
-
-      case 'maintenance':
-        data = await this.generateMaintenanceReport({ whereClause, params });
-        summary = this.calculateMaintenanceSummary(data);
-        break;
-
-      case 'downtime':
-        data = await this.generateDowntimeReport({ whereClause, params });
-        summary = this.calculateDowntimeSummary(data);
-        break;
-
-      default:
-        throw new Error('Invalid report type');
+        res.json({
+            success: true,
+            ...result,
+            generatedAt: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('❌ Monthly report error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to generate monthly report'
+        });
     }
+});
 
-    return {
-      data,
-      summary,
-      total: data.length
-    };
-  }
+// ============================================
+// ✅ MAINTENANCE + DOWNTIME COMBINED REPORT
+// ============================================
 
-  // ============================================================
-  // ✅ HELPER METHODS
-  // ============================================================
-
-  buildFilters({ startDate, endDate, hospitalId, equipmentId, departmentId, user }) {
-    let whereClause = '';
-    const params = [];
-
-    if (startDate && endDate) {
-      whereClause += ' AND el.created_at BETWEEN ? AND ?';
-      params.push(startDate, endDate);
+/**
+ * GET /api/reports/maintenance-downtime
+ * Get combined maintenance and downtime report
+ */
+router.get('/maintenance-downtime', authenticate, async (req, res) => {
+    try {
+        const { period, status, engineer_id, startDate, endDate } = req.query;
+        
+        let sql = `
+            SELECT 
+                m.id as maintenance_id,
+                m.equipment_id,
+                e.name as equipment_name,
+                e.model as equipment_model,
+                e.serial_number,
+                h.name as hospital_name,
+                m.maintenance_type,
+                m.frequency,
+                m.last_maintenance_date,
+                m.next_due_date,
+                m.status as maintenance_status,
+                m.engineer_name,
+                m.priority,
+                m.description,
+                m.created_at as maintenance_created_at,
+                (
+                    SELECT COUNT(*) FROM error_logs el 
+                    WHERE el.equipment_id = m.equipment_id
+                ) as total_errors,
+                (
+                    SELECT COUNT(*) FROM error_logs el 
+                    WHERE el.equipment_id = m.equipment_id 
+                    AND el.severity = 'Critical'
+                ) as critical_errors,
+                (
+                    SELECT COUNT(*) FROM repairs r 
+                    WHERE r.error_log_id IN (
+                        SELECT id FROM error_logs el 
+                        WHERE el.equipment_id = m.equipment_id
+                    )
+                ) as total_repairs,
+                (
+                    SELECT 
+                        SUM(TIMESTAMPDIFF(HOUR, el.created_at, el.updated_at)) 
+                    FROM error_logs el 
+                    WHERE el.equipment_id = m.equipment_id 
+                    AND el.status IN ('Resolved', 'Closed')
+                ) as total_downtime_hours
+            FROM maintenance_schedule m
+            LEFT JOIN equipment e ON m.equipment_id = e.id
+            LEFT JOIN hospitals h ON e.hospital_id = h.id
+            WHERE 1=1
+        `;
+        
+        const params = [];
+        
+        if (status) {
+            sql += ' AND m.status = ?';
+            params.push(status);
+        }
+        
+        if (engineer_id) {
+            sql += ' AND LOWER(m.engineer_name) = (SELECT LOWER(full_name) FROM users WHERE id = ?)';
+            params.push(engineer_id);
+        }
+        
+        if (startDate) {
+            sql += ' AND m.next_due_date >= ?';
+            params.push(startDate);
+        }
+        
+        if (endDate) {
+            sql += ' AND m.next_due_date <= ?';
+            params.push(endDate);
+        }
+        
+        if (req.user.role_name !== 'SUPER_ADMIN') {
+            sql += ' AND e.hospital_id = ?';
+            params.push(req.user.hospital_id);
+        }
+        
+        sql += ' ORDER BY m.next_due_date ASC, m.created_at DESC';
+        
+        const data = await query(sql, params);
+        
+        // Process data - calculate availability
+        const processedData = data.map(item => {
+            const downtimeHours = item.total_downtime_hours || 0;
+            const downtimeDays = downtimeHours / 24;
+            
+            // Calculate availability (assuming 1 year = 365 days)
+            const ageDays = 365; // Default 1 year
+            const totalHours = ageDays * 24;
+            const availability = totalHours > 0 
+                ? ((totalHours - downtimeHours) / totalHours * 100).toFixed(1)
+                : 100;
+            
+            return {
+                ...item,
+                total_downtime_hours: Number(downtimeHours),
+                total_downtime_days: Number(downtimeDays.toFixed(1)),
+                availability_percentage: Number(availability),
+                is_overdue: item.next_due_date && new Date(item.next_due_date) < new Date()
+            };
+        });
+        
+        // Stats
+        const stats = {
+            total: processedData.length,
+            scheduled: processedData.filter(m => m.maintenance_status === 'Scheduled').length,
+            in_progress: processedData.filter(m => m.maintenance_status === 'In Progress').length,
+            completed: processedData.filter(m => m.maintenance_status === 'Completed').length,
+            overdue: processedData.filter(m => m.maintenance_status === 'Overdue' || m.is_overdue).length,
+            total_downtime_hours: Number(processedData.reduce((sum, m) => sum + (m.total_downtime_hours || 0), 0)),
+            total_downtime_days: Number((processedData.reduce((sum, m) => sum + (m.total_downtime_hours || 0), 0) / 24).toFixed(1)),
+            avg_availability: processedData.length > 0 
+                ? Number((processedData.reduce((sum, m) => sum + parseFloat(m.availability_percentage), 0) / processedData.length).toFixed(1))
+                : 100
+        };
+        
+        res.json({
+            success: true,
+            data: processedData,
+            stats,
+            total: processedData.length,
+            generatedAt: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('❌ Maintenance downtime report error:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Failed to generate report: ' + error.message 
+        });
     }
+});
 
-    if (user?.role_name !== 'SUPER_ADMIN') {
-      whereClause += ' AND e.hospital_id = ?';
-      params.push(user?.hospital_id);
-    } else if (hospitalId) {
-      whereClause += ' AND e.hospital_id = ?';
-      params.push(hospitalId);
+// ============================================
+// ✅ MAINTENANCE SUMMARY STATS
+// ============================================
+
+/**
+ * GET /api/reports/maintenance-summary
+ * Get maintenance summary statistics
+ */
+router.get('/maintenance-summary', authenticate, async (req, res) => {
+    try {
+        let sql = `
+            SELECT 
+                COUNT(*) as total,
+                SUM(CASE WHEN m.status = 'Scheduled' THEN 1 ELSE 0 END) as scheduled,
+                SUM(CASE WHEN m.status = 'In Progress' THEN 1 ELSE 0 END) as in_progress,
+                SUM(CASE WHEN m.status = 'Completed' THEN 1 ELSE 0 END) as completed,
+                SUM(CASE WHEN m.status = 'Overdue' THEN 1 ELSE 0 END) as overdue,
+                SUM(CASE WHEN m.priority = 'Critical' THEN 1 ELSE 0 END) as critical,
+                SUM(CASE WHEN m.priority = 'High' THEN 1 ELSE 0 END) as high,
+                SUM(CASE WHEN m.priority = 'Medium' THEN 1 ELSE 0 END) as medium,
+                SUM(CASE WHEN m.priority = 'Low' THEN 1 ELSE 0 END) as low,
+                AVG(TIMESTAMPDIFF(DAY, m.last_maintenance_date, m.next_due_date)) as avg_interval_days,
+                (
+                    SELECT COUNT(*) FROM error_logs el 
+                    WHERE el.equipment_id IN (SELECT id FROM equipment)
+                ) as total_errors,
+                (
+                    SELECT SUM(TIMESTAMPDIFF(HOUR, el.created_at, el.updated_at))
+                    FROM error_logs el 
+                    WHERE el.status IN ('Resolved', 'Closed')
+                ) as total_downtime_hours
+            FROM maintenance_schedule m
+            LEFT JOIN equipment e ON m.equipment_id = e.id
+            WHERE 1=1
+        `;
+        const params = [];
+
+        if (req.user.role_name !== 'SUPER_ADMIN') {
+            sql += ' AND e.hospital_id = ?';
+            params.push(req.user.hospital_id);
+        }
+
+        const stats = await query(sql, params);
+        res.json({ 
+            success: true, 
+            stats: stats[0] || {} 
+        });
+    } catch (error) {
+        console.error('❌ Maintenance summary error:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Failed to get maintenance summary' 
+        });
     }
+});
 
-    if (equipmentId) {
-      whereClause += ' AND el.equipment_id = ?';
-      params.push(equipmentId);
+// ============================================
+// ✅ ADVANCED ANALYTICS (Admin only)
+// ============================================
+
+/**
+ * GET /api/reports/analytics/failure-rate
+ * Get equipment failure rate analysis
+ */
+router.get('/analytics/failure-rate', authenticate, async (req, res) => {
+    try {
+        if (!['SUPER_ADMIN', 'HOSPITAL_ADMIN'].includes(req.user.role_name)) {
+            return res.status(403).json({
+                success: false,
+                message: 'Access denied. Admin role required.'
+            });
+        }
+
+        const { startDate, endDate, hospitalId } = req.query;
+        const result = await reportService.getEquipmentFailureRate({
+            startDate,
+            endDate,
+            hospitalId,
+            user: req.user
+        });
+
+        res.json({
+            success: true,
+            ...result,
+            generatedAt: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('❌ Failure rate analysis error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to get failure rate analysis'
+        });
     }
+});
 
-    if (departmentId) {
-      whereClause += ' AND e.department_id = ?';
-      params.push(departmentId);
+/**
+ * GET /api/reports/analytics/engineer-performance
+ * Get engineer performance analytics
+ */
+router.get('/analytics/engineer-performance', authenticate, async (req, res) => {
+    try {
+        if (!['SUPER_ADMIN', 'HOSPITAL_ADMIN'].includes(req.user.role_name)) {
+            return res.status(403).json({
+                success: false,
+                message: 'Access denied. Admin role required.'
+            });
+        }
+
+        const { startDate, endDate, hospitalId } = req.query;
+        const result = await reportService.getEngineerPerformanceAnalytics({
+            startDate,
+            endDate,
+            hospitalId,
+            user: req.user
+        });
+
+        res.json({
+            success: true,
+            ...result,
+            generatedAt: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('❌ Engineer performance analytics error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to get engineer performance analytics'
+        });
     }
+});
 
-    return { whereClause, params };
-  }
+/**
+ * GET /api/reports/analytics/downtime
+ * Get downtime analysis
+ */
+router.get('/analytics/downtime', authenticate, async (req, res) => {
+    try {
+        if (!['SUPER_ADMIN', 'HOSPITAL_ADMIN'].includes(req.user.role_name)) {
+            return res.status(403).json({
+                success: false,
+                message: 'Access denied. Admin role required.'
+            });
+        }
 
-  // ============================================================
-  // ✅ SUMMARY CALCULATORS
-  // ============================================================
+        const { startDate, endDate, hospitalId } = req.query;
+        const result = await reportService.getDowntimeAnalysis({
+            startDate,
+            endDate,
+            hospitalId,
+            user: req.user
+        });
 
-  calculateMonthlySummary(data) {
-    if (!data || data.length === 0) return {};
-    return {
-      total_errors: data.reduce((sum, d) => sum + (d.total_errors || 0), 0),
-      total_resolved: data.reduce((sum, d) => sum + (d.resolved_errors || 0), 0),
-      total_open: data.reduce((sum, d) => sum + (d.open_errors || 0), 0),
-      avg_resolution_hours: data.reduce((sum, d) => sum + (d.avg_resolution_hours || 0), 0) / data.length,
-      months: data.length
-    };
-  }
-
-  calculateHospitalSummary(data) {
-    if (!data || data.length === 0) return {};
-    return {
-      total_errors: data.reduce((sum, d) => sum + (d.total_errors || 0), 0),
-      total_resolved: data.reduce((sum, d) => sum + (d.resolved_errors || 0), 0),
-      total_open: data.reduce((sum, d) => sum + (d.open_errors || 0), 0),
-      total_equipment: data.reduce((sum, d) => sum + (d.affected_equipment || 0), 0),
-      hospitals: data.length
-    };
-  }
-
-  calculateEquipmentSummary(data) {
-    if (!data || data.length === 0) return {};
-    return {
-      total_errors: data.reduce((sum, d) => sum + (d.total_errors || 0), 0),
-      total_resolved: data.reduce((sum, d) => sum + (d.resolved_errors || 0), 0),
-      total_open: data.reduce((sum, d) => sum + (d.open_errors || 0), 0),
-      equipment_count: data.length
-    };
-  }
-
-  calculateDepartmentSummary(data) {
-    if (!data || data.length === 0) return {};
-    return {
-      total_errors: data.reduce((sum, d) => sum + (d.total_errors || 0), 0),
-      total_resolved: data.reduce((sum, d) => sum + (d.resolved_errors || 0), 0),
-      total_open: data.reduce((sum, d) => sum + (d.open_errors || 0), 0),
-      departments: data.length
-    };
-  }
-
-  calculateFailureFrequencySummary(data) {
-    if (!data || data.length === 0) return {};
-    return {
-      total_equipment: data.length,
-      total_errors: data.reduce((sum, d) => sum + (d.error_count || 0), 0),
-      avg_errors_per_day: data.reduce((sum, d) => sum + (d.errors_per_day || 0), 0) / data.length
-    };
-  }
-
-  calculateSparePartsSummary(data) {
-    if (!data || data.length === 0) return {};
-    return {
-      total_parts: data.length,
-      total_quantity: data.reduce((sum, d) => sum + (d.total_quantity_used || 0), 0),
-      total_cost: data.reduce((sum, d) => sum + (d.total_cost || 0), 0)
-    };
-  }
-
-  calculateMaintenanceSummary(data) {
-    if (!data || data.length === 0) return {};
-    return {
-      total_schedules: data.length,
-      overdue: data.filter(d => d.days_until_due < 0).length,
-      due_soon: data.filter(d => d.days_until_due >= 0 && d.days_until_due <= 7).length
-    };
-  }
-
-  calculateDowntimeSummary(data) {
-    if (!data || data.length === 0) return {};
-    return {
-      total_equipment: data.length,
-      total_downtime_hours: data.reduce((sum, d) => sum + (d.total_downtime_hours || 0), 0),
-      avg_downtime_hours: data.reduce((sum, d) => sum + (d.total_downtime_hours || 0), 0) / data.length
-    };
-  }
-
-  // ============================================================
-  // ✅ REPORT GENERATORS (Admin)
-  // ============================================================
-
-  async generateMonthlyReport({ whereClause, params }) {
-    return await query(`
-      SELECT 
-        DATE_FORMAT(el.created_at, '%Y-%m') as month,
-        DATE_FORMAT(el.created_at, '%b %Y') as month_label,
-        COUNT(*) as total_errors,
-        SUM(CASE WHEN el.status IN ('Resolved', 'Closed') THEN 1 ELSE 0 END) as resolved_errors,
-        SUM(CASE WHEN el.status IN ('Pending', 'In Progress') THEN 1 ELSE 0 END) as open_errors,
-        ROUND(AVG(CASE WHEN el.status IN ('Resolved', 'Closed') 
-          THEN TIMESTAMPDIFF(HOUR, el.created_at, el.updated_at) 
-          ELSE NULL END), 1) as avg_resolution_hours,
-        COUNT(DISTINCT el.equipment_id) as affected_equipment
-      FROM error_logs el
-      LEFT JOIN equipment e ON el.equipment_id = e.id
-      WHERE 1=1 ${whereClause}
-      GROUP BY DATE_FORMAT(el.created_at, '%Y-%m')
-      ORDER BY month ASC
-    `, params);
-  }
-
-  async generateHospitalReport({ whereClause, params, hospitalId, user }) {
-    let sql = `
-      SELECT 
-        h.id,
-        h.name as hospital_name,
-        h.city,
-        COUNT(DISTINCT el.id) as total_errors,
-        COUNT(DISTINCT e.id) as affected_equipment,
-        COUNT(DISTINCT CASE WHEN el.status IN ('Pending', 'In Progress') THEN el.id END) as open_errors,
-        COUNT(DISTINCT CASE WHEN el.status IN ('Resolved', 'Closed') THEN el.id END) as resolved_errors,
-        COUNT(DISTINCT u.id) as engineer_count,
-        ROUND(AVG(CASE WHEN el.status IN ('Resolved', 'Closed') 
-          THEN TIMESTAMPDIFF(HOUR, el.created_at, el.updated_at) 
-          ELSE NULL END), 1) as avg_resolution_hours
-      FROM hospitals h
-      LEFT JOIN equipment e ON h.id = e.hospital_id AND e.status != 'Retired'
-      LEFT JOIN error_logs el ON e.id = el.equipment_id
-      LEFT JOIN users u ON h.id = u.hospital_id AND u.is_active = TRUE
-      WHERE h.is_active = TRUE
-    `;
-
-    if (hospitalId) {
-      sql += ' AND h.id = ?';
-    } else if (user?.role_name !== 'SUPER_ADMIN') {
-      sql += ' AND h.id = ?';
-      params.push(user?.hospital_id);
+        res.json({
+            success: true,
+            ...result,
+            generatedAt: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('❌ Downtime analysis error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to get downtime analysis'
+        });
     }
+});
 
-    sql += ' GROUP BY h.id ORDER BY total_errors DESC';
+/**
+ * GET /api/reports/analytics/spare-parts
+ * Get spare parts usage analytics
+ */
+router.get('/analytics/spare-parts', authenticate, async (req, res) => {
+    try {
+        if (!['SUPER_ADMIN', 'HOSPITAL_ADMIN'].includes(req.user.role_name)) {
+            return res.status(403).json({
+                success: false,
+                message: 'Access denied. Admin role required.'
+            });
+        }
 
-    return await query(sql, params);
-  }
+        const { startDate, endDate, hospitalId } = req.query;
+        const result = await reportService.getSparePartsUsageAnalytics({
+            startDate,
+            endDate,
+            hospitalId,
+            user: req.user
+        });
 
-  async generateEquipmentReport({ whereClause, params, equipmentId }) {
-    let sql = `
-      SELECT 
-        e.id,
-        e.name as equipment_name,
-        e.model,
-        e.manufacturer,
-        e.serial_number,
-        c.name as category_name,
-        h.name as hospital_name,
-        d.name as department_name,
-        COUNT(DISTINCT el.id) as total_errors,
-        COUNT(DISTINCT CASE WHEN el.status IN ('Pending', 'In Progress') THEN el.id END) as open_errors,
-        COUNT(DISTINCT CASE WHEN el.status IN ('Resolved', 'Closed') THEN el.id END) as resolved_errors,
-        MAX(el.created_at) as last_error_date,
-        ROUND(AVG(CASE WHEN el.status IN ('Resolved', 'Closed') 
-          THEN TIMESTAMPDIFF(HOUR, el.created_at, el.updated_at) 
-          ELSE NULL END), 1) as avg_resolution_hours
-      FROM equipment e
-      LEFT JOIN equipment_categories c ON e.category_id = c.id
-      LEFT JOIN hospitals h ON e.hospital_id = h.id
-      LEFT JOIN departments d ON e.department_id = d.id
-      LEFT JOIN error_logs el ON e.id = el.equipment_id
-      WHERE e.status != 'Retired'
-    `;
-
-    if (equipmentId) {
-      sql += ' AND e.id = ?';
+        res.json({
+            success: true,
+            ...result,
+            generatedAt: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('❌ Spare parts analytics error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to get spare parts usage analytics'
+        });
     }
+});
 
-    sql += ' GROUP BY e.id ORDER BY total_errors DESC LIMIT 100';
+/**
+ * GET /api/reports/analytics/hospital-overview
+ * Get hospital overview dashboard data
+ */
+router.get('/analytics/hospital-overview', authenticate, async (req, res) => {
+    try {
+        if (!['SUPER_ADMIN', 'HOSPITAL_ADMIN'].includes(req.user.role_name)) {
+            return res.status(403).json({
+                success: false,
+                message: 'Access denied. Admin role required.'
+            });
+        }
 
-    return await query(sql, params);
-  }
+        const result = await reportService.getHospitalOverview(req.user);
 
-  async generateDepartmentReport({ whereClause, params, departmentId }) {
-    let sql = `
-      SELECT 
-        d.id,
-        d.name as department_name,
-        h.name as hospital_name,
-        COUNT(DISTINCT e.id) as equipment_count,
-        COUNT(DISTINCT el.id) as total_errors,
-        COUNT(DISTINCT CASE WHEN el.status IN ('Pending', 'In Progress') THEN el.id END) as open_errors,
-        COUNT(DISTINCT CASE WHEN el.status IN ('Resolved', 'Closed') THEN el.id END) as resolved_errors,
-        ROUND(AVG(CASE WHEN el.status IN ('Resolved', 'Closed') 
-          THEN TIMESTAMPDIFF(HOUR, el.created_at, el.updated_at) 
-          ELSE NULL END), 1) as avg_resolution_hours
-      FROM departments d
-      LEFT JOIN equipment e ON d.id = e.department_id AND e.status != 'Retired'
-      LEFT JOIN error_logs el ON e.id = el.equipment_id
-      LEFT JOIN hospitals h ON d.hospital_id = h.id
-      WHERE 1=1
-    `;
-
-    if (departmentId) {
-      sql += ' AND d.id = ?';
+        res.json({
+            success: true,
+            ...result,
+            generatedAt: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('❌ Hospital overview error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to get hospital overview'
+        });
     }
+});
 
-    sql += ' GROUP BY d.id ORDER BY total_errors DESC';
+// ============================================
+// ✅ DOWNTIME REPORT (Standalone)
+// ============================================
 
-    return await query(sql, params);
-  }
-
-  async generateFailureFrequencyReport({ whereClause, params }) {
-    return await query(`
-      SELECT 
-        e.id,
-        e.name as equipment_name,
-        e.model,
-        e.manufacturer,
-        h.name as hospital_name,
-        COUNT(el.id) as error_count,
-        COUNT(DISTINCT DATE(el.created_at)) as days_with_errors,
-        ROUND(COUNT(el.id) / NULLIF(COUNT(DISTINCT DATE(el.created_at)), 0), 1) as errors_per_day,
-        MIN(el.created_at) as first_error_date,
-        MAX(el.created_at) as last_error_date,
-        (SELECT error_title FROM error_logs WHERE equipment_id = e.id GROUP BY error_title ORDER BY COUNT(*) DESC LIMIT 1) as most_common_error,
-        COUNT(DISTINCT el.error_title) as unique_error_types
-      FROM equipment e
-      LEFT JOIN hospitals h ON e.hospital_id = h.id
-      LEFT JOIN error_logs el ON e.id = el.equipment_id
-      WHERE e.status != 'Retired' ${whereClause}
-      GROUP BY e.id
-      HAVING error_count > 0
-      ORDER BY error_count DESC
-      LIMIT 50
-    `, params);
-  }
-
-  async generateSparePartsReport({ whereClause, params }) {
-    return await query(`
-      SELECT 
-        sp.id,
-        sp.part_name,
-        sp.part_number,
-        sp.brand,
-        sp.manufacturer,
-        COUNT(DISTINCT sp.repair_id) as usage_count,
-        SUM(sp.quantity) as total_quantity_used,
-        AVG(sp.unit_cost) as avg_unit_cost,
-        SUM(sp.total_cost) as total_cost,
-        e.name as equipment_name,
-        h.name as hospital_name,
-        MAX(sp.created_at) as last_used_date
-      FROM spare_parts sp
-      LEFT JOIN repairs r ON sp.repair_id = r.id
-      LEFT JOIN error_logs el ON r.error_log_id = el.id
-      LEFT JOIN equipment e ON el.equipment_id = e.id
-      LEFT JOIN hospitals h ON e.hospital_id = h.id
-      WHERE 1=1 ${whereClause}
-      GROUP BY sp.id
-      ORDER BY usage_count DESC, total_cost DESC
-      LIMIT 100
-    `, params);
-  }
-
-  async generateMaintenanceReport({ whereClause, params }) {
-    return await query(`
-      SELECT 
-        ms.id,
-        e.name as equipment_name,
-        e.model,
-        e.serial_number,
-        h.name as hospital_name,
-        ms.maintenance_type,
-        ms.frequency,
-        ms.last_maintenance_date,
-        ms.next_due_date,
-        ms.status,
-        DATEDIFF(ms.next_due_date, CURDATE()) as days_until_due,
-        ms.maintenance_checklist,
-        ms.calibration_date,
-        ms.warranty_expiry,
-        ms.amc_details
-      FROM maintenance_schedule ms
-      LEFT JOIN equipment e ON ms.equipment_id = e.id
-      LEFT JOIN hospitals h ON e.hospital_id = h.id
-      WHERE 1=1 ${whereClause}
-      ORDER BY ms.next_due_date ASC
-    `, params);
-  }
-
-  async generateDowntimeReport({ whereClause, params }) {
-    return await query(`
-      SELECT 
-        e.id,
-        e.name as equipment_name,
-        e.model,
-        e.manufacturer,
-        h.name as hospital_name,
-        COUNT(DISTINCT el.id) as downtime_events,
-        SUM(CASE WHEN el.status IN ('Resolved', 'Closed') 
-          THEN TIMESTAMPDIFF(HOUR, el.created_at, el.updated_at) 
-          ELSE TIMESTAMPDIFF(HOUR, el.created_at, NOW()) 
-        END) as total_downtime_hours,
-        AVG(CASE WHEN el.status IN ('Resolved', 'Closed') 
-          THEN TIMESTAMPDIFF(HOUR, el.created_at, el.updated_at) 
-          ELSE TIMESTAMPDIFF(HOUR, el.created_at, NOW()) 
-        END) as avg_downtime_hours,
-        MIN(el.created_at) as first_downtime,
-        MAX(el.created_at) as last_downtime
-      FROM equipment e
-      LEFT JOIN hospitals h ON e.hospital_id = h.id
-      LEFT JOIN error_logs el ON e.id = el.equipment_id
-      WHERE e.status != 'Retired' AND el.id IS NOT NULL ${whereClause}
-      GROUP BY e.id
-      ORDER BY total_downtime_hours DESC
-      LIMIT 50
-    `, params);
-  }
-
-  /**
-   * Get monthly report with summary
-   */
-  async getMonthlyReport({ year, month, user }) {
-    const targetYear = year || new Date().getFullYear();
-    let whereClause = ' AND YEAR(el.created_at) = ?';
-    let params = [targetYear];
-
-    if (month) {
-      whereClause += ' AND MONTH(el.created_at) = ?';
-      params.push(month);
+/**
+ * GET /api/reports/downtime
+ * Get downtime report
+ */
+router.get('/downtime', authenticate, async (req, res) => {
+    try {
+        const { startDate, endDate, hospitalId, equipmentId } = req.query;
+        
+        let sql = `
+            SELECT 
+                e.id,
+                e.name as equipment_name,
+                e.model,
+                e.serial_number,
+                h.name as hospital_name,
+                d.name as department_name,
+                COUNT(DISTINCT el.id) as downtime_events,
+                SUM(CASE WHEN el.status IN ('Resolved', 'Closed') 
+                    THEN TIMESTAMPDIFF(HOUR, el.created_at, el.updated_at) 
+                    ELSE TIMESTAMPDIFF(HOUR, el.created_at, NOW()) 
+                END) as total_downtime_hours,
+                AVG(CASE WHEN el.status IN ('Resolved', 'Closed') 
+                    THEN TIMESTAMPDIFF(HOUR, el.created_at, el.updated_at) 
+                    ELSE TIMESTAMPDIFF(HOUR, el.created_at, NOW()) 
+                END) as avg_downtime_hours,
+                MIN(el.created_at) as first_downtime,
+                MAX(el.created_at) as last_downtime,
+                MAX(CASE WHEN el.status IN ('Pending', 'In Progress') THEN el.created_at ELSE NULL END) as current_downtime_start
+            FROM equipment e
+            LEFT JOIN hospitals h ON e.hospital_id = h.id
+            LEFT JOIN departments d ON e.department_id = d.id
+            LEFT JOIN error_logs el ON e.id = el.equipment_id
+            WHERE e.status != 'Retired' 
+            AND el.id IS NOT NULL
+        `;
+        
+        const params = [];
+        
+        if (startDate && endDate) {
+            sql += ' AND el.created_at BETWEEN ? AND ?';
+            params.push(startDate, endDate);
+        }
+        
+        if (equipmentId) {
+            sql += ' AND e.id = ?';
+            params.push(equipmentId);
+        }
+        
+        if (req.user.role_name !== 'SUPER_ADMIN') {
+            sql += ' AND e.hospital_id = ?';
+            params.push(req.user.hospital_id);
+        } else if (hospitalId) {
+            sql += ' AND e.hospital_id = ?';
+            params.push(hospitalId);
+        }
+        
+        sql += ` 
+            GROUP BY e.id
+            HAVING total_downtime_hours > 0
+            ORDER BY total_downtime_hours DESC
+        `;
+        
+        const data = await query(sql, params);
+        
+        // Calculate additional metrics
+        const processedData = data.map(item => {
+            const totalHours = Number(item.total_downtime_hours || 0);
+            return {
+                ...item,
+                total_downtime_hours: totalHours,
+                total_downtime_days: Number((totalHours / 24).toFixed(1)),
+                availability_percentage: 100 - Number(((totalHours / (365 * 24)) * 100).toFixed(1)),
+                is_currently_down: item.current_downtime_start !== null
+            };
+        });
+        
+        const summary = {
+            total_equipment: processedData.length,
+            total_downtime_hours: Number(processedData.reduce((sum, d) => sum + d.total_downtime_hours, 0)),
+            avg_downtime_hours: processedData.length > 0 
+                ? Number((processedData.reduce((sum, d) => sum + d.total_downtime_hours, 0) / processedData.length).toFixed(1))
+                : 0,
+            currently_down: processedData.filter(d => d.is_currently_down).length
+        };
+        
+        res.json({
+            success: true,
+            data: processedData,
+            summary,
+            total: processedData.length,
+            generatedAt: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('❌ Downtime report error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to generate downtime report'
+        });
     }
+});
 
-    if (user?.role_name !== 'SUPER_ADMIN') {
-      whereClause += ' AND e.hospital_id = ?';
-      params.push(user?.hospital_id);
+// ============================================
+// ✅ MAINTENANCE REPORT (Standalone)
+// ============================================
+
+/**
+ * GET /api/reports/maintenance
+ * Get maintenance report
+ */
+router.get('/maintenance', authenticate, async (req, res) => {
+    try {
+        const { status, priority, startDate, endDate, hospitalId, equipmentId } = req.query;
+        
+        let sql = `
+            SELECT 
+                ms.id,
+                ms.equipment_id,
+                e.name as equipment_name,
+                e.model,
+                e.serial_number,
+                h.name as hospital_name,
+                d.name as department_name,
+                ms.maintenance_type,
+                ms.frequency,
+                ms.last_maintenance_date,
+                ms.next_due_date,
+                ms.status as maintenance_status,
+                ms.priority,
+                ms.description,
+                ms.engineer_name,
+                ms.maintenance_checklist,
+                ms.calibration_date,
+                ms.warranty_expiry,
+                ms.amc_details,
+                ms.created_at,
+                ms.updated_at,
+                DATEDIFF(ms.next_due_date, CURDATE()) as days_until_due
+            FROM maintenance_schedule ms
+            LEFT JOIN equipment e ON ms.equipment_id = e.id
+            LEFT JOIN hospitals h ON e.hospital_id = h.id
+            LEFT JOIN departments d ON e.department_id = d.id
+            WHERE 1=1
+        `;
+        
+        const params = [];
+        
+        if (status) {
+            sql += ' AND ms.status = ?';
+            params.push(status);
+        }
+        
+        if (priority) {
+            sql += ' AND ms.priority = ?';
+            params.push(priority);
+        }
+        
+        if (startDate && endDate) {
+            sql += ' AND ms.next_due_date BETWEEN ? AND ?';
+            params.push(startDate, endDate);
+        }
+        
+        if (equipmentId) {
+            sql += ' AND ms.equipment_id = ?';
+            params.push(equipmentId);
+        }
+        
+        if (req.user.role_name !== 'SUPER_ADMIN') {
+            sql += ' AND e.hospital_id = ?';
+            params.push(req.user.hospital_id);
+        } else if (hospitalId) {
+            sql += ' AND e.hospital_id = ?';
+            params.push(hospitalId);
+        }
+        
+        sql += ' ORDER BY ms.next_due_date ASC, ms.priority DESC';
+        
+        const data = await query(sql, params);
+        
+        // Process data
+        const processedData = data.map(item => ({
+            ...item,
+            days_until_due: Number(item.days_until_due || 0),
+            is_overdue: (item.days_until_due || 0) < 0,
+            is_due_soon: (item.days_until_due || 0) >= 0 && (item.days_until_due || 0) <= 7
+        }));
+        
+        const summary = {
+            total: processedData.length,
+            overdue: processedData.filter(m => m.is_overdue).length,
+            due_soon: processedData.filter(m => m.is_due_soon).length,
+            scheduled: processedData.filter(m => m.maintenance_status === 'Scheduled').length,
+            in_progress: processedData.filter(m => m.maintenance_status === 'In Progress').length,
+            completed: processedData.filter(m => m.maintenance_status === 'Completed').length,
+            critical: processedData.filter(m => m.priority === 'Critical').length,
+            high: processedData.filter(m => m.priority === 'High').length,
+            medium: processedData.filter(m => m.priority === 'Medium').length,
+            low: processedData.filter(m => m.priority === 'Low').length
+        };
+        
+        res.json({
+            success: true,
+            data: processedData,
+            summary,
+            total: processedData.length,
+            generatedAt: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('❌ Maintenance report error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to generate maintenance report'
+        });
     }
+});
 
-    const data = await query(`
-      SELECT 
-        MONTH(el.created_at) as month,
-        YEAR(el.created_at) as year,
-        COUNT(*) as total_errors,
-        SUM(CASE WHEN el.status IN ('Resolved', 'Closed') THEN 1 ELSE 0 END) as resolved_errors,
-        SUM(CASE WHEN el.status IN ('Pending', 'In Progress') THEN 1 ELSE 0 END) as open_errors,
-        ROUND(AVG(CASE WHEN el.status IN ('Resolved', 'Closed') 
-          THEN TIMESTAMPDIFF(HOUR, el.created_at, el.updated_at) 
-          ELSE NULL END), 1) as avg_resolution_hours
-      FROM error_logs el
-      LEFT JOIN equipment e ON el.equipment_id = e.id
-      WHERE 1=1 ${whereClause}
-      GROUP BY YEAR(el.created_at), MONTH(el.created_at)
-      ORDER BY year DESC, month DESC
-    `, params);
+// ============================================
+// ✅ SPARE PARTS REPORT
+// ============================================
 
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const formattedData = data.map(item => ({
-      ...item,
-      month_name: monthNames[item.month - 1],
-      total_errors: parseInt(item.total_errors),
-      resolved_errors: parseInt(item.resolved_errors),
-      open_errors: parseInt(item.open_errors),
-      avg_resolution_hours: parseFloat(item.avg_resolution_hours) || 0
-    }));
-
-    const summary = {
-      total_errors: formattedData.reduce((sum, d) => sum + d.total_errors, 0),
-      total_resolved: formattedData.reduce((sum, d) => sum + d.resolved_errors, 0),
-      total_open: formattedData.reduce((sum, d) => sum + d.open_errors, 0),
-      avg_resolution_hours: formattedData.reduce((sum, d) => sum + d.avg_resolution_hours, 0) / (formattedData.length || 1)
-    };
-
-    return {
-      data: formattedData,
-      summary,
-      total: formattedData.length,
-      year: targetYear,
-      month: month || 'All'
-    };
-  }
-
-  // ============================================================
-  // ✅ ADVANCED ANALYTICS (Admin only)
-  // ============================================================
-
-  async getEquipmentFailureRate({ startDate, endDate, hospitalId, user }) {
-    let whereClause = '';
-    const params = [];
-
-    if (startDate && endDate) {
-      whereClause += ' AND el.created_at BETWEEN ? AND ?';
-      params.push(startDate, endDate);
+/**
+ * GET /api/reports/spare-parts
+ * Get spare parts usage report
+ */
+router.get('/spare-parts', authenticate, async (req, res) => {
+    try {
+        const { startDate, endDate, hospitalId, equipmentId, partName } = req.query;
+        
+        let sql = `
+            SELECT 
+                sp.id,
+                sp.part_name,
+                sp.part_number,
+                sp.brand,
+                sp.manufacturer,
+                sp.specifications,
+                sp.quantity as quantity_used,
+                sp.unit_cost,
+                sp.total_cost,
+                sp.created_at as usage_date,
+                e.name as equipment_name,
+                e.model as equipment_model,
+                h.name as hospital_name,
+                r.id as repair_id,
+                el.error_title,
+                el.severity
+            FROM spare_parts sp
+            LEFT JOIN repairs r ON sp.repair_id = r.id
+            LEFT JOIN error_logs el ON r.error_log_id = el.id
+            LEFT JOIN equipment e ON el.equipment_id = e.id
+            LEFT JOIN hospitals h ON e.hospital_id = h.id
+            WHERE 1=1
+        `;
+        
+        const params = [];
+        
+        if (startDate && endDate) {
+            sql += ' AND sp.created_at BETWEEN ? AND ?';
+            params.push(startDate, endDate);
+        }
+        
+        if (partName) {
+            sql += ' AND sp.part_name LIKE ?';
+            params.push(`%${partName}%`);
+        }
+        
+        if (equipmentId) {
+            sql += ' AND e.id = ?';
+            params.push(equipmentId);
+        }
+        
+        if (req.user.role_name !== 'SUPER_ADMIN') {
+            sql += ' AND e.hospital_id = ?';
+            params.push(req.user.hospital_id);
+        } else if (hospitalId) {
+            sql += ' AND e.hospital_id = ?';
+            params.push(hospitalId);
+        }
+        
+        sql += ' ORDER BY sp.created_at DESC LIMIT 200';
+        
+        const data = await query(sql, params);
+        
+        const summary = {
+            total_parts_used: data.length,
+            total_quantity: data.reduce((sum, d) => sum + (d.quantity_used || 0), 0),
+            total_cost: Number(data.reduce((sum, d) => sum + (d.total_cost || 0), 0).toFixed(2)),
+            unique_parts: new Set(data.map(d => d.part_name)).size
+        };
+        
+        res.json({
+            success: true,
+            data,
+            summary,
+            total: data.length,
+            generatedAt: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('❌ Spare parts report error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to generate spare parts report'
+        });
     }
+});
 
-    if (user?.role_name !== 'SUPER_ADMIN') {
-      whereClause += ' AND e.hospital_id = ?';
-      params.push(user?.hospital_id);
-    } else if (hospitalId) {
-      whereClause += ' AND e.hospital_id = ?';
-      params.push(hospitalId);
+// ============================================
+// ✅ EXPORT REPORTS (CSV/Excel ready)
+// ============================================
+
+/**
+ * GET /api/reports/export/maintenance-downtime
+ * Export maintenance-downtime report data
+ */
+router.get('/export/maintenance-downtime', authenticate, async (req, res) => {
+    try {
+        // Reuse the same query as the main endpoint
+        const { status, startDate, endDate } = req.query;
+        
+        let sql = `
+            SELECT 
+                m.id as maintenance_id,
+                e.name as equipment_name,
+                e.model as equipment_model,
+                e.serial_number,
+                h.name as hospital_name,
+                m.maintenance_type,
+                m.status as maintenance_status,
+                m.priority,
+                m.last_maintenance_date,
+                m.next_due_date,
+                m.engineer_name,
+                m.description,
+                (
+                    SELECT COUNT(*) FROM error_logs el 
+                    WHERE el.equipment_id = m.equipment_id
+                ) as total_errors,
+                (
+                    SELECT SUM(TIMESTAMPDIFF(HOUR, el.created_at, el.updated_at)) 
+                    FROM error_logs el 
+                    WHERE el.equipment_id = m.equipment_id 
+                    AND el.status IN ('Resolved', 'Closed')
+                ) as total_downtime_hours
+            FROM maintenance_schedule m
+            LEFT JOIN equipment e ON m.equipment_id = e.id
+            LEFT JOIN hospitals h ON e.hospital_id = h.id
+            WHERE 1=1
+        `;
+        
+        const params = [];
+        
+        if (status) {
+            sql += ' AND m.status = ?';
+            params.push(status);
+        }
+        
+        if (startDate) {
+            sql += ' AND m.next_due_date >= ?';
+            params.push(startDate);
+        }
+        
+        if (endDate) {
+            sql += ' AND m.next_due_date <= ?';
+            params.push(endDate);
+        }
+        
+        if (req.user.role_name !== 'SUPER_ADMIN') {
+            sql += ' AND e.hospital_id = ?';
+            params.push(req.user.hospital_id);
+        }
+        
+        sql += ' ORDER BY m.next_due_date ASC';
+        
+        const data = await query(sql, params);
+        
+        // Set headers for CSV download
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', `attachment; filename=maintenance-downtime-report-${new Date().toISOString().split('T')[0]}.csv`);
+        
+        // Write CSV header
+        const headers = [
+            'Maintenance ID', 'Equipment', 'Model', 'Serial Number', 'Hospital',
+            'Maintenance Type', 'Status', 'Priority', 'Last Maintenance', 'Next Due',
+            'Engineer', 'Total Errors', 'Downtime Hours'
+        ];
+        res.write(headers.join(',') + '\n');
+        
+        // Write data rows
+        data.forEach(row => {
+            const values = [
+                row.maintenance_id,
+                `"${row.equipment_name || ''}"`,
+                `"${row.equipment_model || ''}"`,
+                `"${row.serial_number || ''}"`,
+                `"${row.hospital_name || ''}"`,
+                `"${row.maintenance_type || ''}"`,
+                `"${row.maintenance_status || ''}"`,
+                `"${row.priority || ''}"`,
+                row.last_maintenance_date || '',
+                row.next_due_date || '',
+                `"${row.engineer_name || ''}"`,
+                row.total_errors || 0,
+                row.total_downtime_hours || 0
+            ];
+            res.write(values.join(',') + '\n');
+        });
+        
+        res.end();
+    } catch (error) {
+        console.error('❌ Export report error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to export report'
+        });
     }
+});
 
-    const data = await query(`
-      SELECT 
-        e.id,
-        e.name as equipment_name,
-        e.model,
-        e.manufacturer,
-        h.name as hospital_name,
-        COUNT(el.id) as total_errors,
-        AVG(TIMESTAMPDIFF(HOUR, el.created_at, el.updated_at)) as avg_repair_time,
-        COUNT(DISTINCT el.severity) as severity_types,
-        SUM(CASE WHEN el.severity = 'Critical' THEN 1 ELSE 0 END) as critical_errors,
-        SUM(CASE WHEN el.severity = 'High' THEN 1 ELSE 0 END) as high_errors,
-        SUM(CASE WHEN el.severity = 'Medium' THEN 1 ELSE 0 END) as medium_errors,
-        SUM(CASE WHEN el.severity = 'Low' THEN 1 ELSE 0 END) as low_errors
-      FROM equipment e
-      LEFT JOIN hospitals h ON e.hospital_id = h.id
-      LEFT JOIN error_logs el ON e.id = el.equipment_id
-      WHERE e.status != 'Retired' AND el.id IS NOT NULL ${whereClause}
-      GROUP BY e.id
-      ORDER BY total_errors DESC
-      LIMIT 50
-    `, params);
-
-    const summary = {
-      total_equipment: data.length,
-      total_errors: data.reduce((sum, d) => sum + d.total_errors, 0),
-      critical_errors: data.reduce((sum, d) => sum + d.critical_errors, 0),
-      high_errors: data.reduce((sum, d) => sum + d.high_errors, 0)
-    };
-
-    return { data, summary, total: data.length };
-  }
-
-  async getEngineerPerformanceAnalytics({ startDate, endDate, hospitalId, user }) {
-    let whereClause = '';
-    const params = [];
-
-    if (startDate && endDate) {
-      whereClause += ' AND r.created_at BETWEEN ? AND ?';
-      params.push(startDate, endDate);
-    }
-
-    if (user?.role_name !== 'SUPER_ADMIN') {
-      whereClause += ' AND e.hospital_id = ?';
-      params.push(user?.hospital_id);
-    } else if (hospitalId) {
-      whereClause += ' AND e.hospital_id = ?';
-      params.push(hospitalId);
-    }
-
-    const data = await query(`
-      SELECT 
-        u.id as engineer_id,
-        u.name as engineer_name,
-        u.email,
-        COUNT(DISTINCT r.id) as total_repairs,
-        AVG(r.time_taken) as avg_time_taken,
-        SUM(r.time_taken) as total_time_taken,
-        COUNT(CASE WHEN r.status = 'Completed' THEN 1 END) as completed_repairs,
-        ROUND(COUNT(CASE WHEN r.status = 'Completed' THEN 1 END) * 100.0 / COUNT(r.id), 1) as success_rate,
-        COUNT(DISTINCT el.id) as errors_handled,
-        COUNT(DISTINCT e.id) as equipment_serviced
-      FROM users u
-      LEFT JOIN repairs r ON u.id = r.engineer_id
-      LEFT JOIN error_logs el ON r.error_log_id = el.id
-      LEFT JOIN equipment e ON el.equipment_id = e.id
-      LEFT JOIN hospitals h ON e.hospital_id = h.id
-      WHERE u.role_name = 'ENGINEER' AND r.id IS NOT NULL ${whereClause}
-      GROUP BY u.id
-      ORDER BY total_repairs DESC
-    `, params);
-
-    const summary = {
-      total_engineers: data.length,
-      total_repairs: data.reduce((sum, d) => sum + d.total_repairs, 0),
-      avg_success_rate: data.reduce((sum, d) => sum + d.success_rate, 0) / (data.length || 1)
-    };
-
-    return { data, summary, total: data.length };
-  }
-
-  async getDowntimeAnalysis({ startDate, endDate, hospitalId, user }) {
-    let whereClause = '';
-    const params = [];
-
-    if (startDate && endDate) {
-      whereClause += ' AND el.created_at BETWEEN ? AND ?';
-      params.push(startDate, endDate);
-    }
-
-    if (user?.role_name !== 'SUPER_ADMIN') {
-      whereClause += ' AND e.hospital_id = ?';
-      params.push(user?.hospital_id);
-    } else if (hospitalId) {
-      whereClause += ' AND e.hospital_id = ?';
-      params.push(hospitalId);
-    }
-
-    const data = await query(`
-      SELECT 
-        e.id,
-        e.name as equipment_name,
-        e.model,
-        h.name as hospital_name,
-        COUNT(el.id) as downtime_events,
-        SUM(TIMESTAMPDIFF(HOUR, el.created_at, COALESCE(el.updated_at, NOW()))) as total_downtime_hours,
-        AVG(TIMESTAMPDIFF(HOUR, el.created_at, COALESCE(el.updated_at, NOW()))) as avg_downtime_hours,
-        MIN(el.created_at) as first_downtime,
-        MAX(el.created_at) as last_downtime,
-        AVG(TIMESTAMPDIFF(HOUR, el.created_at, el.updated_at)) as avg_repair_time
-      FROM equipment e
-      LEFT JOIN hospitals h ON e.hospital_id = h.id
-      LEFT JOIN error_logs el ON e.id = el.equipment_id
-      WHERE e.status != 'Retired' AND el.id IS NOT NULL ${whereClause}
-      GROUP BY e.id
-      HAVING total_downtime_hours > 0
-      ORDER BY total_downtime_hours DESC
-      LIMIT 50
-    `, params);
-
-    const summary = {
-      total_equipment: data.length,
-      total_downtime_hours: data.reduce((sum, d) => sum + d.total_downtime_hours, 0),
-      avg_downtime_hours: data.reduce((sum, d) => sum + d.avg_downtime_hours, 0) / (data.length || 1)
-    };
-
-    return { data, summary, total: data.length };
-  }
-
-  async getSparePartsUsageAnalytics({ startDate, endDate, hospitalId, user }) {
-    let whereClause = '';
-    const params = [];
-
-    if (startDate && endDate) {
-      whereClause += ' AND sp.created_at BETWEEN ? AND ?';
-      params.push(startDate, endDate);
-    }
-
-    if (user?.role_name !== 'SUPER_ADMIN') {
-      whereClause += ' AND e.hospital_id = ?';
-      params.push(user?.hospital_id);
-    } else if (hospitalId) {
-      whereClause += ' AND e.hospital_id = ?';
-      params.push(hospitalId);
-    }
-
-    const data = await query(`
-      SELECT 
-        sp.part_name,
-        sp.part_number,
-        sp.brand,
-        sp.manufacturer,
-        COUNT(sp.id) as usage_count,
-        SUM(sp.quantity) as total_quantity,
-        AVG(sp.unit_cost) as avg_unit_cost,
-        SUM(sp.total_cost) as total_cost,
-        COUNT(DISTINCT sp.repair_id) as repair_count,
-        COUNT(DISTINCT e.id) as equipment_count,
-        h.name as hospital_name
-      FROM spare_parts sp
-      LEFT JOIN repairs r ON sp.repair_id = r.id
-      LEFT JOIN error_logs el ON r.error_log_id = el.id
-      LEFT JOIN equipment e ON el.equipment_id = e.id
-      LEFT JOIN hospitals h ON e.hospital_id = h.id
-      WHERE 1=1 ${whereClause}
-      GROUP BY sp.part_name, sp.part_number
-      ORDER BY total_quantity DESC, total_cost DESC
-      LIMIT 50
-    `, params);
-
-    const summary = {
-      total_parts: data.length,
-      total_quantity: data.reduce((sum, d) => sum + d.total_quantity, 0),
-      total_cost: data.reduce((sum, d) => sum + d.total_cost, 0)
-    };
-
-    return { data, summary, total: data.length };
-  }
-
-  async getHospitalOverview(user) {
-    let whereClause = '';
-    const params = [];
-
-    if (user?.role_name !== 'SUPER_ADMIN') {
-      whereClause += ' AND h.id = ?';
-      params.push(user?.hospital_id);
-    }
-
-    const data = await query(`
-      SELECT 
-        h.id,
-        h.name as hospital_name,
-        h.city,
-        h.state,
-        COUNT(DISTINCT e.id) as total_equipment,
-        COUNT(DISTINCT CASE WHEN e.status = 'Operational' THEN e.id END) as operational_equipment,
-        COUNT(DISTINCT CASE WHEN e.status IN ('Under Repair', 'Maintenance') THEN e.id END) as non_operational_equipment,
-        COUNT(DISTINCT el.id) as total_errors,
-        COUNT(DISTINCT CASE WHEN el.status IN ('Pending', 'In Progress') THEN el.id END) as open_errors,
-        COUNT(DISTINCT CASE WHEN el.status IN ('Resolved', 'Closed') THEN el.id END) as resolved_errors,
-        COUNT(DISTINCT r.id) as total_repairs,
-        COUNT(DISTINCT u.id) as total_engineers,
-        AVG(CASE WHEN el.status IN ('Resolved', 'Closed') 
-          THEN TIMESTAMPDIFF(HOUR, el.created_at, el.updated_at) 
-          ELSE NULL END) as avg_resolution_hours
-      FROM hospitals h
-      LEFT JOIN equipment e ON h.id = e.hospital_id
-      LEFT JOIN error_logs el ON e.id = el.equipment_id
-      LEFT JOIN repairs r ON el.id = r.error_log_id
-      LEFT JOIN users u ON h.id = u.hospital_id AND u.role_name = 'ENGINEER' AND u.is_active = TRUE
-      WHERE h.is_active = TRUE ${whereClause}
-      GROUP BY h.id
-    `, params);
-
-    const summary = {
-      total_hospitals: data.length,
-      total_equipment: data.reduce((sum, d) => sum + d.total_equipment, 0),
-      total_errors: data.reduce((sum, d) => sum + d.total_errors, 0),
-      total_repairs: data.reduce((sum, d) => sum + d.total_repairs, 0)
-    };
-
-    return { data, summary, total: data.length };
-  }
-}
-
-module.exports = new ReportService();
+module.exports = router;

@@ -1,6 +1,10 @@
 // src/pages/Equipment.jsx
 // ✅ DARK NAVY + LIGHT CYAN THEME - Matching Sidebar
 // ✅ FIXED: Upload endpoint changed from /service-documentation/upload to /upload
+// ✅ FIXED: HOSPITAL_ADMIN can now create and edit equipment
+// ✅ ADDED: Purchase Date column
+// ✅ CHANGED: installation_year to date_of_installation
+// ✅ CHANGED: Equipment Status options - Active, Inactive, Warranty, Annual Maintenance, Self Maintained
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -104,6 +108,17 @@ const colors = {
   success: '#22C55E',
   warning: '#F59E0B',
   info: '#3B82F6',
+}
+
+// ✅ Status color mapping
+const getStatusColor = (status) => {
+  switch (status) {
+    case 'Active': return '#22C55E'
+    case 'Warranty': return '#3B82F6'
+    case 'Annual Maintenance': return '#F59E0B'
+    case 'Self Maintained': return '#8B5CF6'
+    default: return '#EF4444' // Inactive or unknown
+  }
 }
 
 const apiEndpoints = {
@@ -298,13 +313,15 @@ const MediaGrid = ({ files, onImageClick }) => {
 const Equipment = () => {
   const { user } = useSelector((state) => state.auth)
   
+  // ✅ FIXED: HOSPITAL_ADMIN can now create and edit equipment
+  const canCreate = user?.role === 'SUPER_ADMIN' || user?.role === 'ENGINEER' || user?.role === 'HOSPITAL_ADMIN'
+  const canEdit = user?.role === 'SUPER_ADMIN' || user?.role === 'ENGINEER' || user?.role === 'HOSPITAL_ADMIN'
+  const canDelete = user?.role === 'SUPER_ADMIN'
+
+  // Still block HOSPITAL_ADMIN from accessing the page
   if (user?.role === 'HOSPITAL_ADMIN') {
     return <AccessDenied message="Hospital Administrators cannot access Equipment Management." />
   }
-  
-  const canCreate = user?.role === 'SUPER_ADMIN' || user?.role === 'ENGINEER'
-  const canEdit = user?.role === 'SUPER_ADMIN' || user?.role === 'ENGINEER'
-  const canDelete = user?.role === 'SUPER_ADMIN'
 
   const [equipment, setEquipment] = useState([])
   const [categories, setCategories] = useState([])
@@ -339,13 +356,15 @@ const Equipment = () => {
     isChecking: false
   })
 
+  // ✅ CHANGED: installation_year to date_of_installation
   const [formData, setFormData] = useState({
     name: '',
     category_id: '',
     manufacturer: '',
     model: '',
     serial_number: '',
-    installation_year: '',
+    date_of_installation: '',
+    purchase_date: '',
     hospital_id: '',
     department_id: '',
     location: '',
@@ -615,12 +634,14 @@ const Equipment = () => {
   const handleExportClick = (event) => setExportAnchorEl(event.currentTarget)
   const handleExportClose = () => setExportAnchorEl(null)
 
+  // ✅ CHANGED: CSV Export - headers and rows use date_of_installation
   const exportToCSV = () => {
     try {
-      const headers = ['Equipment Name', 'Category', 'Manufacturer', 'Model', 'Serial Number', 'Status']
+      const headers = ['Equipment Name', 'Category', 'Manufacturer', 'Model', 'Serial Number', 'Installation Date', 'Purchase Date', 'Status']
       const rows = filteredEquipment.map(e => [
         e.name, e.category_name || '', e.manufacturer || '', 
-        e.model || '', e.serial_number || '', e.status || ''
+        e.model || '', e.serial_number || '', e.date_of_installation || '',
+        e.purchase_date || '', e.status || ''
       ])
       let csv = headers.join(',') + '\n'
       rows.forEach(row => { csv += row.join(',') + '\n' })
@@ -638,6 +659,7 @@ const Equipment = () => {
     }
   }
 
+  // ✅ CHANGED: Excel Export - uses date_of_installation
   const exportToExcel = () => {
     try {
       const data = filteredEquipment.map(e => ({
@@ -646,6 +668,8 @@ const Equipment = () => {
         'Manufacturer': e.manufacturer || '',
         'Model': e.model || '',
         'Serial Number': e.serial_number || '',
+        'Installation Date': e.date_of_installation || '',
+        'Purchase Date': e.purchase_date || '',
         'Status': e.status || ''
       }))
       const ws = XLSX.utils.json_to_sheet(data)
@@ -659,6 +683,7 @@ const Equipment = () => {
     }
   }
 
+  // ✅ CHANGED: PDF Export - uses date_of_installation
   const exportToPDF = () => {
     try {
       const doc = new jsPDF()
@@ -671,16 +696,17 @@ const Equipment = () => {
       doc.text(`Total Equipment: ${filteredEquipment.length}`, 14, 34)
       
       const tableData = filteredEquipment.map(e => [
-        e.name, e.category_name || '', e.manufacturer || '', e.model || '', e.status || ''
+        e.name, e.category_name || '', e.manufacturer || '', e.model || '', 
+        e.date_of_installation || '', e.purchase_date || '', e.status || ''
       ])
       autoTable(doc, {
-        head: [['Equipment', 'Category', 'Manufacturer', 'Model', 'Status']],
+        head: [['Equipment', 'Category', 'Manufacturer', 'Model', 'Installation Date', 'Purchase Date', 'Status']],
         body: tableData,
         startY: 40,
-        styles: { fontSize: 8, cellPadding: 2 },
-        headStyles: { fillColor: colors.darkNavy, textColor: '#FFFFFF', fontSize: 9 },
+        styles: { fontSize: 7, cellPadding: 2 },
+        headStyles: { fillColor: colors.darkNavy, textColor: '#FFFFFF', fontSize: 8 },
         alternateRowStyles: { fillColor: '#F5F7FA' },
-        margin: { left: 14, right: 14 }
+        margin: { left: 10, right: 10 }
       })
       doc.save(`equipment_${new Date().toISOString().split('T')[0]}.pdf`)
       toast.success('PDF exported!')
@@ -690,6 +716,7 @@ const Equipment = () => {
     }
   }
 
+  // ✅ CHANGED: handleOpenDialog - editing uses date_of_installation
   const handleOpenDialog = (equip = null) => {
     if (equip && !canEdit) {
       toast.error('You do not have permission to edit equipment')
@@ -709,7 +736,8 @@ const Equipment = () => {
         manufacturer: equip.manufacturer || '',
         model: equip.model || '',
         serial_number: equip.serial_number || '',
-        installation_year: equip.installation_year || '',
+        date_of_installation: equip.date_of_installation || '',
+        purchase_date: equip.purchase_date || '',
         hospital_id: equip.hospital_id || defaultHospitalId,
         department_id: equip.department_id || '',
         location: equip.location || '',
@@ -742,7 +770,8 @@ const Equipment = () => {
         manufacturer: '',
         model: '',
         serial_number: '',
-        installation_year: '',
+        date_of_installation: '',
+        purchase_date: '',
         hospital_id: defaultHospitalId,
         department_id: '',
         location: '',
@@ -778,6 +807,7 @@ const Equipment = () => {
     }
   }
 
+  // ✅ CHANGED: handleSubmit - uses date_of_installation
   const handleSubmit = async () => {
     try {
       if (!formData.name || formData.name.trim() === '') {
@@ -818,7 +848,8 @@ const Equipment = () => {
         manufacturer: formData.manufacturer || '',
         model: formData.model || '',
         serial_number: formData.serial_number || '',
-        installation_year: formData.installation_year ? parseInt(formData.installation_year) : null,
+        date_of_installation: formData.date_of_installation || null,
+        purchase_date: formData.purchase_date || null,
         hospital_id: hospitalId,
         department_id: formData.department_id ? parseInt(formData.department_id) : null,
         location: formData.location || '',
@@ -957,7 +988,7 @@ const Equipment = () => {
         bgcolor: colors.cardBg,
       }}>
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-          <TextField
+          <TextField            
             size="small"
             placeholder="Search equipment..."
             value={searchTerm}
@@ -1092,6 +1123,7 @@ const Equipment = () => {
           }}
         />
 
+        {/* ✅ CHANGED: Status Filter options */}
         <FormControl fullWidth size="small" sx={{ mb: 2 }}>
           <InputLabel sx={{ color: colors.lightText }}>Status</InputLabel>
           <Select 
@@ -1108,9 +1140,10 @@ const Equipment = () => {
           >
             <MenuItem value="">All</MenuItem>
             <MenuItem value="Active">Active</MenuItem>
-            <MenuItem value="Maintenance">Maintenance</MenuItem>
             <MenuItem value="Inactive">Inactive</MenuItem>
-            <MenuItem value="Retired">Retired</MenuItem>
+            <MenuItem value="Warranty">Warranty</MenuItem>
+            <MenuItem value="Annual Maintenance">Annual Maintenance</MenuItem>
+            <MenuItem value="Self Maintained">Self Maintained</MenuItem>
           </Select>
         </FormControl>
 
@@ -1200,7 +1233,7 @@ const Equipment = () => {
         </MenuItem>
       </Menu>
 
-      {/* Table - DARK NAVY + LIGHT CYAN THEMED */}
+      {/* ✅ CHANGED: Table - Installation Year → Installation Date, Status with Chip */}
       <TableContainer 
         component={Paper} 
         sx={{ 
@@ -1218,6 +1251,8 @@ const Equipment = () => {
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Manufacturer</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Model</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Serial No.</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Installation Date</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Purchase Date</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Status</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }} align="center">Actions</TableCell>
             </TableRow>
@@ -1225,7 +1260,7 @@ const Equipment = () => {
           <TableBody>
             {filteredEquipment.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} align="center">
+                <TableCell colSpan={9} align="center">
                   <Typography variant="body1" sx={{ py: 3, color: colors.lightText }}>
                     No equipment found
                   </Typography>
@@ -1252,18 +1287,25 @@ const Equipment = () => {
                   <TableCell sx={{ color: colors.lightText }}>{item.manufacturer || '-'}</TableCell>
                   <TableCell sx={{ color: colors.lightText }}>{item.model || '-'}</TableCell>
                   <TableCell sx={{ color: colors.lightText }}>{item.serial_number || '-'}</TableCell>
+                  <TableCell sx={{ color: colors.lightText }}>
+                    {item.date_of_installation ? new Date(item.date_of_installation).toLocaleDateString() : '-'}
+                  </TableCell>
+                  <TableCell sx={{ color: colors.lightText }}>
+                    {item.purchase_date ? new Date(item.purchase_date).toLocaleDateString() : '-'}
+                  </TableCell>
+                  {/* ✅ CHANGED: Status Chip with new colors */}
                   <TableCell>
-                    <Typography 
-                      variant="body2" 
-                      sx={{ 
-                        color: item.status === 'Active' ? colors.success : 
-                               item.status === 'Maintenance' ? colors.warning : 
-                               colors.error,
-                        fontWeight: 500
+                    <Chip
+                      label={item.status || 'Active'}
+                      size="small"
+                      sx={{
+                        bgcolor: getStatusColor(item.status || 'Active'),
+                        color: 'white',
+                        fontWeight: 600,
+                        fontSize: '11px',
+                        height: 26
                       }}
-                    >
-                      {item.status || 'Active'}
-                    </Typography>
+                    />
                   </TableCell>
                   <TableCell align="center">
                     <Tooltip title="View Details">
@@ -1317,7 +1359,7 @@ const Equipment = () => {
         </Table>
       </TableContainer>
 
-      {/* View Dialog - DARK NAVY + CYAN THEMED with Media Tab */}
+      {/* ✅ CHANGED: View Dialog - Status with Chip */}
       <Dialog 
         open={openViewDialog} 
         onClose={handleCloseView} 
@@ -1369,7 +1411,20 @@ const Equipment = () => {
                 <Grid container spacing={2}>
                   <Grid item xs={12}>
                     <Typography variant="h6" sx={{ color: colors.darkNavy }}>{selectedEquipment.name}</Typography>
-                    <Typography variant="body2" color="textSecondary">Status: {selectedEquipment.status}</Typography>
+                    {/* ✅ CHANGED: Status Chip in View Dialog */}
+                    <Typography variant="body2" color="textSecondary" sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
+                      Status: 
+                      <Chip
+                        label={selectedEquipment.status || 'Active'}
+                        size="small"
+                        sx={{
+                          ml: 1,
+                          bgcolor: getStatusColor(selectedEquipment.status || 'Active'),
+                          color: 'white',
+                          fontWeight: 600
+                        }}
+                      />
+                    </Typography>
                     <Divider sx={{ my: 2 }} />
                   </Grid>
                   <Grid item xs={12} md={6}>
@@ -1389,8 +1444,16 @@ const Equipment = () => {
                     <Typography variant="body2" sx={{ color: colors.darkNavy }}>{selectedEquipment.serial_number || 'N/A'}</Typography>
                   </Grid>
                   <Grid item xs={12} md={6}>
-                    <Typography variant="caption" color="textSecondary">Installation Year</Typography>
-                    <Typography variant="body2" sx={{ color: colors.darkNavy }}>{selectedEquipment.installation_year || 'N/A'}</Typography>
+                    <Typography variant="caption" color="textSecondary">Installation Date</Typography>
+                    <Typography variant="body2" sx={{ color: colors.darkNavy }}>
+                      {selectedEquipment.date_of_installation ? new Date(selectedEquipment.date_of_installation).toLocaleDateString() : 'N/A'}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <Typography variant="caption" color="textSecondary">Purchase Date</Typography>
+                    <Typography variant="body2" sx={{ color: colors.darkNavy }}>
+                      {selectedEquipment.purchase_date ? new Date(selectedEquipment.purchase_date).toLocaleDateString() : 'N/A'}
+                    </Typography>
                   </Grid>
                   <Grid item xs={12} md={6}>
                     <Typography variant="caption" color="textSecondary">Hospital</Typography>
@@ -1654,7 +1717,7 @@ const Equipment = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Add/Edit Dialog - DARK NAVY + CYAN THEMED */}
+      {/* ✅ CHANGED: Add/Edit Dialog - Status Select with new options */}
       {(canCreate || canEdit) && (
         <Dialog 
           open={openDialog} 
@@ -1775,12 +1838,30 @@ const Equipment = () => {
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
-                  label="Year of Installation"
-                  name="installation_year"
-                  type="number"
-                  value={formData.installation_year}
+                  label="Date of Installation"
+                  name="date_of_installation"
+                  type="date"
+                  value={formData.date_of_installation}
                   onChange={handleFormChange}
-                  inputProps={{ min: 1900, max: 2155 }}
+                  InputLabelProps={{ shrink: true }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                    }
+                  }}
+                />
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <TextField
+                  fullWidth
+                  label="Date of Purchase"
+                  name="purchase_date"
+                  type="date"
+                  value={formData.purchase_date}
+                  onChange={handleFormChange}
+                  InputLabelProps={{ shrink: true }}
                   sx={{
                     '& .MuiOutlinedInput-root': {
                       '&:hover fieldset': { borderColor: colors.lightCyan },
@@ -1916,6 +1997,7 @@ const Equipment = () => {
                 />
               </Grid>
 
+              {/* ✅ CHANGED: Status Select with new options */}
               <Grid item xs={12} md={6}>
                 <FormControl fullWidth>
                   <InputLabel sx={{ color: colors.lightText }}>Status</InputLabel>
@@ -1931,10 +2013,11 @@ const Equipment = () => {
                       }
                     }}
                   >
-                    <MenuItem value="Active">Active</MenuItem>
-                    <MenuItem value="Maintenance">Maintenance</MenuItem>
-                    <MenuItem value="Inactive">Inactive</MenuItem>
-                    <MenuItem value="Retired">Retired</MenuItem>
+                    <MenuItem value="Active">✅ Active</MenuItem>
+                    <MenuItem value="Inactive">⛔ Inactive</MenuItem>
+                    <MenuItem value="Warranty">🛡️ Warranty</MenuItem>
+                    <MenuItem value="Annual Maintenance">🔧 Annual Maintenance</MenuItem>
+                    <MenuItem value="Self Maintained">🛠️ Self Maintained</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>
@@ -1943,7 +2026,6 @@ const Equipment = () => {
                 <Typography variant="subtitle2" sx={{ color: colors.lightText }} gutterBottom>
                   Equipment Images
                 </Typography>
-                {/* ✅ FIXED: Changed endpoint from /service-documentation/upload to /upload */}
                 <FileUpload
                   endpoint="/upload"
                   accept="image/*"

@@ -1,6 +1,10 @@
 // src/pages/Repairs.jsx
 // ✅ DARK NAVY + LIGHT CYAN THEME - Matching Sidebar
 // ✅ WITH ATTACHMENT TAB VIEW + PREVIEW
+// ✅ REMOVED: Root Cause, Corrective Action, Solution Description, Time Taken
+// ✅ REMOVED: Time Recorded stats card
+// ✅ REMOVED: Time column from table
+// ✅ KEPT: Problem Analysis, Repair Procedure, Spare Parts, Remarks
 
 import React, { useState, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
@@ -463,16 +467,13 @@ const Repairs = () => {
 
   const [uploadedFiles, setUploadedFiles] = useState([])
 
+  // ✅ UPDATED: Removed root_cause, corrective_action, solution_description, time_taken
   const [formData, setFormData] = useState({
     error_log_id: '',
     equipment_id: '',
     engineer_name: '',
-    root_cause: '',
     problem_analysis: '',
-    corrective_action: '',
     repair_procedure: '',
-    solution_description: '',
-    time_taken: '',
     spare_part_used: 'No',
     remarks: '',
     repair_date: new Date().toISOString().slice(0, 16),
@@ -490,8 +491,7 @@ const Repairs = () => {
         setFormData(prev => ({
           ...prev,
           equipment_id: selectedError.equipment_id || '',
-          root_cause: selectedError.error_description || selectedError.error_title || '',
-          problem_analysis: selectedError.error_description || '',
+          problem_analysis: selectedError.error_description || selectedError.error_title || '',
         }))
       }
     }
@@ -564,16 +564,13 @@ const Repairs = () => {
       return
     }
     
+    // ✅ UPDATED: Removed root_cause, corrective_action, solution_description, time_taken
     setFormData({
       error_log_id: '',
       equipment_id: '',
       engineer_name: '',
-      root_cause: '',
       problem_analysis: '',
-      corrective_action: '',
       repair_procedure: '',
-      solution_description: '',
-      time_taken: '',
       spare_part_used: 'No',
       remarks: '',
       repair_date: new Date().toISOString().slice(0, 16),
@@ -683,16 +680,13 @@ const Repairs = () => {
         return
       }
 
+      // ✅ UPDATED: Removed root_cause, corrective_action, solution_description, time_taken
       const payload = {
         error_log_id: parseInt(formData.error_log_id),
         equipment_id: formData.equipment_id ? parseInt(formData.equipment_id) : null,
         engineer_name: formData.engineer_name || user?.full_name || '',
-        root_cause: formData.root_cause || '',
         problem_analysis: formData.problem_analysis || '',
-        corrective_action: formData.corrective_action || '',
         repair_procedure: formData.repair_procedure || '',
-        solution_description: formData.solution_description || '',
-        time_taken: formData.time_taken ? parseInt(formData.time_taken) : 0,
         spare_part_used: formData.spare_part_used || 'No',
         spare_parts: formData.spare_part_used === 'Yes' ? sparePartsList : [],
         remarks: formData.remarks || '',
@@ -740,7 +734,8 @@ const Repairs = () => {
   const filteredRepairs = repairs.filter(repair => {
     const matchesSearch = repair.equipment_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           repair.engineer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          repair.root_cause?.toLowerCase().includes(searchTerm.toLowerCase())
+                          repair.problem_analysis?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          repair.repair_procedure?.toLowerCase().includes(searchTerm.toLowerCase())
     return matchesSearch
   })
 
@@ -830,9 +825,9 @@ const Repairs = () => {
         </Box>
       </Box>
 
-      {/* Stats Cards */}
+      {/* ✅ UPDATED: Stats Cards - Removed "Time Recorded" */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={6} sm={3}>
+        <Grid item xs={6} sm={4}>
           <Card sx={{ 
             borderRadius: 2, 
             border: `1px solid ${colors.borderColor}`,
@@ -850,7 +845,7 @@ const Repairs = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={6} sm={3}>
+        <Grid item xs={6} sm={4}>
           <Card sx={{ 
             borderRadius: 2, 
             border: `1px solid ${colors.borderColor}`,
@@ -869,7 +864,7 @@ const Repairs = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={6} sm={3}>
+        <Grid item xs={6} sm={4}>
           <Card sx={{ 
             borderRadius: 2, 
             border: `1px solid ${colors.borderColor}`,
@@ -888,25 +883,6 @@ const Repairs = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={6} sm={3}>
-          <Card sx={{ 
-            borderRadius: 2, 
-            border: `1px solid ${colors.borderColor}`,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-            bgcolor: `${colors.warning}08`,
-            '&:hover': {
-              borderColor: colors.warning,
-              boxShadow: `0 4px 20px rgba(245, 158, 11, 0.15)`
-            }
-          }}>
-            <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" sx={{ color: colors.warning, fontWeight: 700 }}>
-                {repairs.filter(r => r.time_taken > 0).length}
-              </Typography>
-              <Typography variant="body2" sx={{ color: colors.lightText }}>Time Recorded</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
       </Grid>
 
       {/* Search */}
@@ -921,7 +897,7 @@ const Repairs = () => {
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
           <TextField
             size="small"
-            placeholder="Search by equipment, engineer or root cause..."
+            placeholder="Search by equipment, engineer or problem..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             sx={{ flexGrow: 1, minWidth: 200 }}
@@ -942,7 +918,7 @@ const Repairs = () => {
         </Box>
       </Paper>
 
-      {/* Table */}
+      {/* ✅ UPDATED: Table - Removed Time column */}
       <TableContainer 
         component={Paper} 
         sx={{ 
@@ -956,8 +932,7 @@ const Repairs = () => {
             <TableRow>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Equipment</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Engineer</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Issue</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Time</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Problem</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Spare Used</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Attachments</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Date</TableCell>
@@ -967,7 +942,7 @@ const Repairs = () => {
           <TableBody>
             {filteredRepairs.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} align="center">
+                <TableCell colSpan={7} align="center">
                   <Typography variant="body1" sx={{ py: 4, color: colors.lightText }}>
                     No repairs found
                   </Typography>
@@ -993,10 +968,9 @@ const Repairs = () => {
                   <TableCell sx={{ color: colors.lightText }}>{repair.engineer_name || 'N/A'}</TableCell>
                   <TableCell>
                     <Typography variant="body2" noWrap sx={{ maxWidth: 150, color: colors.lightText }}>
-                      {repair.root_cause || '-'}
+                      {repair.problem_analysis || repair.root_cause || '-'}
                     </Typography>
                   </TableCell>
-                  <TableCell sx={{ color: colors.lightText }}>{repair.time_taken ? `${repair.time_taken}m` : '-'}</TableCell>
                   <TableCell>
                     <Chip 
                       label={repair.spare_part_used ? 'Yes' : 'No'} 
@@ -1069,7 +1043,7 @@ const Repairs = () => {
         </Table>
       </TableContainer>
 
-      {/* Add Repair Dialog */}
+      {/* ✅ UPDATED: Add Repair Dialog - Removed Root Cause, Corrective Action, Solution Description, Time Taken */}
       <Dialog 
         open={openDialog} 
         onClose={handleCloseDialog} 
@@ -1107,7 +1081,7 @@ const Repairs = () => {
                   '& .MuiAlert-icon': { color: colors.lightCyanDark }
                 }}
               >
-                Select an error to repair. Equipment and root cause will be auto-filled.
+                Select an error to repair. Equipment and problem analysis will be auto-filled.
               </Alert>
             </Grid>
 
@@ -1203,24 +1177,8 @@ const Repairs = () => {
                 Problem Analysis
               </Typography>
             </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Root Cause"
-                name="root_cause"
-                value={formData.root_cause}
-                onChange={handleFormChange}
-                multiline
-                rows={2}
-                placeholder="What caused the failure?"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.lightCyan },
-                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                  }
-                }}
-              />
-            </Grid>
+
+            {/* ✅ KEPT: Problem Analysis */}
             <Grid item xs={12}>
               <TextField
                 fullWidth
@@ -1246,24 +1204,8 @@ const Repairs = () => {
                 Solution
               </Typography>
             </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Corrective Action"
-                name="corrective_action"
-                value={formData.corrective_action}
-                onChange={handleFormChange}
-                multiline
-                rows={2}
-                placeholder="Actions taken to fix the issue"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.lightCyan },
-                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                  }
-                }}
-              />
-            </Grid>
+
+            {/* ✅ KEPT: Repair Procedure */}
             <Grid item xs={12}>
               <TextField
                 fullWidth
@@ -1282,24 +1224,6 @@ const Repairs = () => {
                 }}
               />
             </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Solution Description"
-                name="solution_description"
-                value={formData.solution_description}
-                onChange={handleFormChange}
-                multiline
-                rows={2}
-                placeholder="Detailed solution description"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.lightCyan },
-                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                  }
-                }}
-              />
-            </Grid>
 
             <Grid item xs={12}>
               <Divider sx={{ my: 1, borderColor: colors.borderColor }} />
@@ -1307,24 +1231,9 @@ const Repairs = () => {
                 Additional Details
               </Typography>
             </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField
-                fullWidth
-                label="Time Taken (minutes)"
-                name="time_taken"
-                type="number"
-                value={formData.time_taken}
-                onChange={handleFormChange}
-                InputProps={{ inputProps: { min: 0 } }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.lightCyan },
-                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                  }
-                }}
-              />
-            </Grid>
-            <Grid item xs={12} md={4}>
+
+            {/* ✅ KEPT: Spare Part Used */}
+            <Grid item xs={12} md={6}>
               <FormControl fullWidth>
                 <InputLabel sx={{ color: colors.lightText }}>Spare Part Used</InputLabel>
                 <Select
@@ -1343,6 +1252,26 @@ const Repairs = () => {
                   <MenuItem value="Yes">Yes</MenuItem>
                 </Select>
               </FormControl>
+            </Grid>
+
+            {/* ✅ KEPT: Remarks */}
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Remarks"
+                name="remarks"
+                value={formData.remarks}
+                onChange={handleFormChange}
+                multiline
+                rows={2}
+                placeholder="Additional remarks"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                  }
+                }}
+              />
             </Grid>
 
             {showSparePartsFields && (
@@ -1534,25 +1463,6 @@ const Repairs = () => {
               </Grid>
             )}
 
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Remarks"
-                name="remarks"
-                value={formData.remarks}
-                onChange={handleFormChange}
-                multiline
-                rows={2}
-                placeholder="Additional remarks"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.lightCyan },
-                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                  }
-                }}
-              />
-            </Grid>
-
             {/* File Upload Section */}
             <Grid item xs={12}>
               <Divider sx={{ my: 1, borderColor: colors.borderColor }} />
@@ -1719,7 +1629,7 @@ const Repairs = () => {
       </Dialog>
 
       {/* ============================================================
-          ✅ VIEW REPAIR DIALOG WITH TABS
+          ✅ VIEW REPAIR DIALOG WITH TABS - Updated
           ============================================================ */}
       <Dialog 
         open={openViewDialog} 
@@ -1789,7 +1699,7 @@ const Repairs = () => {
                 />
               </Tabs>
 
-              {/* Tab 0: Details */}
+              {/* Tab 0: Details - Updated */}
               {viewTabValue === 0 && (
                 <Box sx={{ p: 3 }}>
                   <Grid container spacing={2}>
@@ -1803,12 +1713,6 @@ const Repairs = () => {
                       <Typography variant="body2" sx={{ color: colors.lightText }}>Engineer</Typography>
                       <Typography variant="body1" sx={{ color: colors.darkNavy }}>
                         {viewingRepair.engineer_name || 'N/A'}
-                      </Typography>
-                    </Grid>
-                    <Grid item xs={12} md={6}>
-                      <Typography variant="body2" sx={{ color: colors.lightText }}>Time Taken</Typography>
-                      <Typography variant="body1" sx={{ color: colors.darkNavy }}>
-                        {viewingRepair.time_taken || 'N/A'} minutes
                       </Typography>
                     </Grid>
                     <Grid item xs={12} md={6}>
@@ -1844,28 +1748,10 @@ const Repairs = () => {
                     
                     <Grid item xs={12}>
                       <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>
-                        Root Cause
-                      </Typography>
-                      <Typography variant="body2" paragraph sx={{ color: colors.darkNavy }}>
-                        {viewingRepair.root_cause || 'Not specified'}
-                      </Typography>
-                    </Grid>
-                    
-                    <Grid item xs={12}>
-                      <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>
                         Problem Analysis
                       </Typography>
                       <Typography variant="body2" paragraph sx={{ color: colors.darkNavy }}>
                         {viewingRepair.problem_analysis || 'Not specified'}
-                      </Typography>
-                    </Grid>
-                    
-                    <Grid item xs={12}>
-                      <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>
-                        Corrective Action
-                      </Typography>
-                      <Typography variant="body2" paragraph sx={{ color: colors.darkNavy }}>
-                        {viewingRepair.corrective_action || 'Not specified'}
                       </Typography>
                     </Grid>
                     
@@ -1879,17 +1765,6 @@ const Repairs = () => {
                         </Typography>
                       </Paper>
                     </Grid>
-                    
-                    {viewingRepair.solution_description && (
-                      <Grid item xs={12}>
-                        <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>
-                          Solution Description
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: colors.darkNavy }}>
-                          {viewingRepair.solution_description}
-                        </Typography>
-                      </Grid>
-                    )}
                     
                     {viewingRepair.remarks && (
                       <Grid item xs={12}>

@@ -1,6 +1,10 @@
 // src/pages/ErrorLogs.jsx
-// ✅ UPDATED: Severity Removed, Priority Only, Closed Removed
+// ✅ UPDATED: Priority Removed from filters, form, validation, table
+// ✅ ADDED: Reporting Date & Resolution Date columns
+// ✅ ADDED: Date range filters (From Date & To Date)
 // ✅ FIXED: Status Update - No frontend permission check (Backend handles it)
+// ✅ ADDED: Resolution Date in View Dialog
+// ✅ UPDATED: Status options - Pending, In Progress, Resolved (Completed removed)
 
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -409,20 +413,17 @@ const AttachmentGrid = ({ attachments, onFileClick }) => {
   )
 }
 
-// ✅ STATUS CHIP COMPONENT
+// ✅ STATUS CHIP COMPONENT - Only 3 statuses
 const StatusChip = ({ status }) => {
   const getStatusColor = (status) => {
     const s = status?.toLowerCase() || 'pending'
     switch(s) {
       case 'resolved':
-      case 'completed':
         return { bg: colors.success, icon: <CheckCircle sx={{ fontSize: 14 }} /> }
       case 'in progress':
         return { bg: '#FF6F00', icon: <Warning sx={{ fontSize: 14 }} /> }
       case 'pending':
         return { bg: colors.warning, icon: <Warning sx={{ fontSize: 14 }} /> }
-      case 'rejected':
-        return { bg: colors.error, icon: <ErrorIcon sx={{ fontSize: 14 }} /> }
       default:
         return { bg: '#9E9E9E', icon: <Info sx={{ fontSize: 14 }} /> }
     }
@@ -488,21 +489,21 @@ const ErrorLogs = () => {
   const [errors_validation, setErrors_validation] = useState({
     equipment_id: '',
     error_title: '',
-    priority: '',
     error_date: ''
   })
 
-  // ✅ Filters - Priority only
+  // ✅ CHANGED: Filters - Priority removed, added fromDate & toDate
   const [filters, setFilters] = useState({
-    priority: ''
+    fromDate: '',
+    toDate: ''
   })
 
+  // ✅ CHANGED: Form Data - Priority removed
   const [errorFormData, setErrorFormData] = useState({
     equipment_id: '',
     error_code: '',
     error_title: '',
     error_description: '',
-    priority: 'Medium',
     error_date: new Date().toISOString().slice(0, 16),
     reported_by: user?.id || 1,
     hospital_id: user?.hospital_id || '',
@@ -594,7 +595,7 @@ const ErrorLogs = () => {
   }
 
   // ============================================================
-  // ✅ VALIDATION FUNCTIONS
+  // ✅ VALIDATION FUNCTIONS - Priority removed
   // ============================================================
   const validateField = (name, value) => {
     let error = ''
@@ -604,9 +605,6 @@ const ErrorLogs = () => {
         break
       case 'error_title':
         if (!value || value.trim() === '') error = 'Error title is required'
-        break
-      case 'priority':
-        if (!value) error = 'Priority is required'
         break
       case 'error_date':
         if (!value) error = 'Error date is required'
@@ -623,21 +621,20 @@ const ErrorLogs = () => {
     setErrors_validation(prev => ({ ...prev, [name]: error }))
   }
 
+  // ✅ CHANGED: Priority validation removed
   const isFormValid = () => {
     const equipmentError = validateField('equipment_id', errorFormData.equipment_id)
     const titleError = validateField('error_title', errorFormData.error_title)
-    const priorityError = validateField('priority', errorFormData.priority)
     const dateError = validateField('error_date', errorFormData.error_date)
     
     setErrors_validation(prev => ({
       ...prev,
       equipment_id: equipmentError,
       error_title: titleError,
-      priority: priorityError,
       error_date: dateError
     }))
     
-    return !equipmentError && !titleError && !priorityError && !dateError
+    return !equipmentError && !titleError && !dateError
   }
 
   // ============================================================
@@ -652,7 +649,6 @@ const ErrorLogs = () => {
     setErrors_validation({
       equipment_id: '',
       error_title: '',
-      priority: '',
       error_date: ''
     })
     
@@ -662,12 +658,12 @@ const ErrorLogs = () => {
     }
     
     setEditingError(null)
+    // ✅ CHANGED: Priority removed from form data
     setErrorFormData({
       equipment_id: '',
       error_code: '',
       error_title: '',
       error_description: '',
-      priority: 'Medium',
       error_date: new Date().toISOString().slice(0, 16),
       reported_by: user?.id || 1,
       hospital_id: user?.hospital_id || '',
@@ -684,7 +680,6 @@ const ErrorLogs = () => {
     setErrors_validation({
       equipment_id: '',
       error_title: '',
-      priority: '',
       error_date: ''
     })
   }
@@ -743,12 +738,8 @@ const ErrorLogs = () => {
       console.log('📌 User Role:', userRole)
       console.log('📌 User ID:', userId)
 
-      // ✅ Frontend permission check REMOVED - Backend will handle it
-      // Backend now allows engineers to update any error in their hospital
-
       let response = null;
 
-      // ✅ Super Admin can use PATCH
       if (userRole === 'SUPER_ADMIN') {
         try {
           console.log('📌 Trying PATCH for Super Admin...')
@@ -762,7 +753,6 @@ const ErrorLogs = () => {
           })
         }
       } else {
-        // ✅ For Engineers and Hospital Admins, use PUT
         console.log('📌 Using PUT for User...')
         response = await api.put(`/errors/${selectedErrorForStatus.id}`, {
           status: newStatus
@@ -784,7 +774,6 @@ const ErrorLogs = () => {
       console.error('❌ Status update error:', error)
       console.error('❌ Error response:', error.response?.data)
       
-      // ✅ Show detailed error message
       const errorMessage = error.response?.data?.message || 'Failed to update status'
       toast.error(errorMessage)
     } finally {
@@ -811,6 +800,7 @@ const ErrorLogs = () => {
     }
   }
 
+  // ✅ CHANGED: Submit Data - Priority removed
   const handleSubmit = async () => {
     if (!isEngineer) {
       toast.error('Only Engineers can report errors')
@@ -828,7 +818,6 @@ const ErrorLogs = () => {
         error_code: errorFormData.error_code || null,
         error_title: errorFormData.error_title.trim(),
         error_description: errorFormData.error_description || '',
-        priority: errorFormData.priority || 'Medium',
         error_date: errorFormData.error_date || new Date().toISOString().slice(0, 19).replace('T', ' '),
         attachments: errorFormData.attachments || ''
       }
@@ -865,19 +854,22 @@ const ErrorLogs = () => {
   }
 
   // ============================================================
-  // ✅ FILTERED DATA - Priority only
+  // ✅ FILTERED DATA - Priority removed, date filters added
   // ============================================================
   const filteredErrors = errors.filter(error => {
     const matchesSearch = error.error_title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           error.error_code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           error.equipment_name?.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesPriority = !filters.priority || error.priority === filters.priority
-    return matchesSearch && matchesPriority
+    
+    const errorDate = error.error_date || error.created_at
+    const matchesFromDate = !filters.fromDate || new Date(errorDate) >= new Date(filters.fromDate)
+    const matchesToDate = !filters.toDate || new Date(errorDate) <= new Date(filters.toDate)
+    
+    return matchesSearch && matchesFromDate && matchesToDate
   })
 
   const totalErrors = errors.length
   const openErrors = errors.filter(e => e.status === 'Pending' || e.status === 'In Progress').length
-  const completedErrors = errors.filter(e => e.status === 'Completed').length
   const resolvedErrors = errors.filter(e => e.status === 'Resolved').length
 
   if (loading) {
@@ -948,7 +940,7 @@ const ErrorLogs = () => {
         </Box>
       </Box>
 
-      {/* Stats Cards */}
+      {/* Stats Cards - Removed Completed */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={6} sm={3}>
           <Card sx={{ 
@@ -990,25 +982,6 @@ const ErrorLogs = () => {
         <Grid item xs={6} sm={3}>
           <Card sx={{ 
             borderRadius: 2, 
-            border: `1px solid ${colors.info}33`,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-            bgcolor: `${colors.info}08`,
-            '&:hover': {
-              borderColor: colors.info,
-              boxShadow: `0 4px 20px rgba(59, 130, 246, 0.15)`
-            }
-          }}>
-            <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" sx={{ color: colors.info, fontWeight: 700 }}>
-                {completedErrors}
-              </Typography>
-              <Typography variant="body2" sx={{ color: colors.lightText }}>Completed</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={6} sm={3}>
-          <Card sx={{ 
-            borderRadius: 2, 
             border: `1px solid ${colors.success}33`,
             boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
             bgcolor: `${colors.success}08`,
@@ -1025,9 +998,28 @@ const ErrorLogs = () => {
             </CardContent>
           </Card>
         </Grid>
+        <Grid item xs={6} sm={3}>
+          <Card sx={{ 
+            borderRadius: 2, 
+            border: `1px solid ${colors.info}33`,
+            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+            bgcolor: `${colors.info}08`,
+            '&:hover': {
+              borderColor: colors.info,
+              boxShadow: `0 4px 20px rgba(59, 130, 246, 0.15)`
+            }
+          }}>
+            <CardContent sx={{ textAlign: 'center', py: 2 }}>
+              <Typography variant="h4" sx={{ color: colors.info, fontWeight: 700 }}>
+                {users.length}
+              </Typography>
+              <Typography variant="body2" sx={{ color: colors.lightText }}>Engineers</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
       </Grid>
 
-      {/* Search & Filter - Priority Only */}
+      {/* Search & Filter */}
       <Paper sx={{ 
         p: 2, 
         mb: 3, 
@@ -1057,30 +1049,28 @@ const ErrorLogs = () => {
               }
             }}
           />
-          <FormControl size="small" sx={{ minWidth: 150 }}>
-            <InputLabel sx={{ color: colors.lightText }}>Priority</InputLabel>
-            <Select
-              value={filters.priority}
-              onChange={(e) => setFilters({ ...filters, priority: e.target.value })}
-              label="Priority"
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  '&:hover fieldset': { borderColor: colors.lightCyan },
-                  '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                }
-              }}
-            >
-              <MenuItem value="">All</MenuItem>
-              <MenuItem value="Low">Low</MenuItem>
-              <MenuItem value="Medium">Medium</MenuItem>
-              <MenuItem value="High">High</MenuItem>
-              <MenuItem value="Critical">Critical</MenuItem>
-            </Select>
-          </FormControl>
+          <TextField
+            size="small"
+            label="From Date"
+            type="date"
+            value={filters.fromDate || ''}
+            onChange={(e) => setFilters({ ...filters, fromDate: e.target.value })}
+            InputLabelProps={{ shrink: true }}
+            sx={{ minWidth: 150 }}
+          />
+          <TextField
+            size="small"
+            label="To Date"
+            type="date"
+            value={filters.toDate || ''}
+            onChange={(e) => setFilters({ ...filters, toDate: e.target.value })}
+            InputLabelProps={{ shrink: true }}
+            sx={{ minWidth: 150 }}
+          />
         </Box>
       </Paper>
 
-      {/* Table - Severity Column Removed */}
+      {/* Table - Only 3 statuses */}
       <TableContainer 
         component={Paper} 
         sx={{ 
@@ -1094,9 +1084,9 @@ const ErrorLogs = () => {
             <TableRow>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Error</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Equipment</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Priority</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Status</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Date</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Reporting Date</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Resolution Date</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600, textAlign: 'center' }}>Actions</TableCell>
             </TableRow>
           </TableHead>
@@ -1133,27 +1123,22 @@ const ErrorLogs = () => {
                     {error.equipment_name}
                   </TableCell>
                   <TableCell>
-                    <Chip 
-                      label={error.priority || 'Medium'} 
-                      size="small"
-                      sx={{
-                        bgcolor: error.priority === 'Critical' ? colors.error :
-                                 error.priority === 'High' ? '#e65100' :
-                                 error.priority === 'Medium' ? colors.warning :
-                                 '#2E7D32',
-                        color: 'white',
-                        fontWeight: 500,
-                        height: 22,
-                        fontSize: '11px'
-                      }}
-                    />
-                  </TableCell>
-                  <TableCell>
                     <StatusChip status={error.status || 'Pending'} />
                   </TableCell>
                   <TableCell>
                     <Typography variant="body2" sx={{ color: colors.lightText }}>
-                      {new Date(error.created_at).toLocaleDateString()}
+                      {error.error_date ? new Date(error.error_date).toLocaleDateString() : 
+                       error.created_at ? new Date(error.created_at).toLocaleDateString() : 'N/A'}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2" sx={{ 
+                      color: error.status === 'Resolved' ? colors.success : colors.lightText 
+                    }}>
+                      {error.status === 'Resolved' ? 
+                        (error.resolved_at ? new Date(error.resolved_at).toLocaleDateString() : 
+                         error.updated_at ? new Date(error.updated_at).toLocaleDateString() : 'N/A') : 
+                        '-'}
                     </Typography>
                   </TableCell>
                   <TableCell align="center">
@@ -1174,7 +1159,6 @@ const ErrorLogs = () => {
                         </IconButton>
                       </Tooltip>
                       
-                      {/* ✅ Status Update Button - Visible to Super Admin & Engineer */}
                       {(isSuperAdmin || isEngineer) && (
                         <Tooltip title="Update Status">
                           <IconButton 
@@ -1213,7 +1197,7 @@ const ErrorLogs = () => {
         </Table>
       </TableContainer>
 
-      {/* REPORT ERROR DIALOG - Updated */}
+      {/* REPORT ERROR DIALOG */}
       <Dialog 
         open={openDialog} 
         onClose={handleCloseDialog} 
@@ -1303,33 +1287,11 @@ const ErrorLogs = () => {
               />
             </Grid>
             
-            <Grid item xs={6}>
-              <FormControl fullWidth>
-                <InputLabel>Priority</InputLabel>
-                <Select
-                  name="priority"
-                  value={errorFormData.priority}
-                  onChange={handleFormChange}
-                  onBlur={handleBlur}
-                  error={!!errors_validation.priority}
-                  label="Priority"
-                >
-                  <MenuItem value="Low">Low</MenuItem>
-                  <MenuItem value="Medium">Medium</MenuItem>
-                  <MenuItem value="High">High</MenuItem>
-                  <MenuItem value="Critical">Critical</MenuItem>
-                </Select>
-                {errors_validation.priority && (
-                  <FormHelperText error>{errors_validation.priority}</FormHelperText>
-                )}
-              </FormControl>
-            </Grid>
-            
-            <Grid item xs={6}>
+            <Grid item xs={12}>
               <TextField
                 fullWidth
                 name="error_date"
-                label="Error Date"
+                label="Error Reporting Date"
                 type="datetime-local"
                 value={errorFormData.error_date}
                 onChange={handleFormChange}
@@ -1397,7 +1359,7 @@ const ErrorLogs = () => {
         </DialogActions>
       </Dialog>
 
-      {/* ✅ VIEW ERROR DIALOG */}
+      {/* VIEW ERROR DIALOG */}
       <Dialog 
         open={openViewDialog} 
         onClose={handleCloseView} 
@@ -1463,20 +1425,9 @@ const ErrorLogs = () => {
                 
                 <Grid item xs={6}>
                   <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
-                    Priority
+                    Status
                   </Typography>
-                  <Chip 
-                    label={viewingError.priority || 'Medium'} 
-                    size="small"
-                    sx={{
-                      bgcolor: viewingError.priority === 'Critical' ? colors.error :
-                               viewingError.priority === 'High' ? '#e65100' :
-                               viewingError.priority === 'Medium' ? colors.warning :
-                               '#2E7D32',
-                      color: 'white',
-                      fontWeight: 500,
-                    }}
-                  />
+                  <StatusChip status={viewingError.status || 'Pending'} />
                 </Grid>
                 
                 <Grid item xs={12}>
@@ -1490,17 +1441,34 @@ const ErrorLogs = () => {
                 
                 <Grid item xs={6}>
                   <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
-                    Status
-                  </Typography>
-                  <StatusChip status={viewingError.status || 'Pending'} />
-                </Grid>
-                
-                <Grid item xs={6}>
-                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
                     Reported By
                   </Typography>
                   <Typography variant="body2" sx={{ color: colors.darkNavy }}>
                     {viewingError.reported_by_name || 'Unknown'}
+                  </Typography>
+                </Grid>
+                
+                <Grid item xs={6}>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
+                    Reporting Date
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: colors.darkNavy }}>
+                    {viewingError.error_date ? new Date(viewingError.error_date).toLocaleString() : 
+                     viewingError.created_at ? new Date(viewingError.created_at).toLocaleString() : 'N/A'}
+                  </Typography>
+                </Grid>
+                
+                <Grid item xs={6}>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
+                    Resolution Date
+                  </Typography>
+                  <Typography variant="body2" sx={{ 
+                    color: viewingError.status === 'Resolved' ? colors.success : colors.lightText 
+                  }}>
+                    {viewingError.status === 'Resolved' ? 
+                      (viewingError.resolved_at ? new Date(viewingError.resolved_at).toLocaleString() : 
+                       viewingError.updated_at ? new Date(viewingError.updated_at).toLocaleString() : 'N/A') : 
+                      'Not resolved yet'}
                   </Typography>
                 </Grid>
                 
@@ -1518,7 +1486,7 @@ const ErrorLogs = () => {
         )}
       </Dialog>
 
-      {/* ✅ STATUS UPDATE DIALOG - Closed Removed */}
+      {/* STATUS UPDATE DIALOG - Only 3 statuses */}
       <Dialog 
         open={openStatusDialog} 
         onClose={handleCloseStatusDialog} 
@@ -1582,7 +1550,6 @@ const ErrorLogs = () => {
                 >
                   <MenuItem value="Pending">Pending</MenuItem>
                   <MenuItem value="In Progress">In Progress</MenuItem>
-                  <MenuItem value="Completed">Completed</MenuItem>
                   <MenuItem value="Resolved">Resolved</MenuItem>
                 </Select>
               </FormControl>

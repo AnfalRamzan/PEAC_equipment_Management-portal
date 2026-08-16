@@ -1,5 +1,5 @@
 // backend/routes/dashboard.js
-// ✅ COMPLETE FIXED VERSION - ENGINEER DASHBOARD WORKING
+// ✅ COMPLETE FIXED VERSION - Removed severity and Critical status references
 
 const express = require('express');
 const router = express.Router();
@@ -52,7 +52,7 @@ const getDashboardStats = async (userId, roleName, hospitalId, fullName) => {
         // ✅ If Engineer - Get engineer-specific and hospital-wide stats
         if (roleName === 'ENGINEER') {
             const [assigned, pending, inProgress, completed, maintenance, reported, 
-                   errors, critical, repairs, maintDue] = await Promise.all([
+                   errors, repairs, maintDue] = await Promise.all([
                 // Engineer specific
                 query(`SELECT COUNT(*) as count FROM repairs WHERE LOWER(engineer_name) = LOWER(?) AND status = 'Assigned'`, [fullName]),
                 query(`SELECT COUNT(*) as count FROM repairs WHERE LOWER(engineer_name) = LOWER(?) AND status = 'Pending'`, [fullName]),
@@ -63,7 +63,6 @@ const getDashboardStats = async (userId, roleName, hospitalId, fullName) => {
                 
                 // ✅ Hospital-wide stats for engineer (to show on dashboard)
                 query(`SELECT COUNT(*) as count FROM error_logs WHERE equipment_id IN (SELECT id FROM equipment WHERE hospital_id = ?)`, [hospitalId]),
-                query(`SELECT COUNT(*) as count FROM error_logs WHERE severity = 'Critical' AND equipment_id IN (SELECT id FROM equipment WHERE hospital_id = ?)`, [hospitalId]),
                 query(`SELECT COUNT(*) as count FROM repairs WHERE error_log_id IN (SELECT id FROM error_logs WHERE equipment_id IN (SELECT id FROM equipment WHERE hospital_id = ?))`, [hospitalId]),
                 query(`SELECT COUNT(*) as count FROM maintenance_schedule WHERE (status = 'Overdue' OR (next_due_date < CURDATE() AND status != 'Completed')) AND equipment_id IN (SELECT id FROM equipment WHERE hospital_id = ?)`, [hospitalId])
             ]);
@@ -77,35 +76,32 @@ const getDashboardStats = async (userId, roleName, hospitalId, fullName) => {
             
             // ✅ SET HOSPITAL-WIDE STATS FOR ENGINEER
             totalErrors = errors[0]?.count || 0;
-            criticalErrors = critical[0]?.count || 0;
+            criticalErrors = 0; // ✅ No severity column
             totalRepairs = repairs[0]?.count || 0;
             maintenanceDue = maintDue[0]?.count || 0;
         }
 
         // ✅ SUPER ADMIN - Get all stats
         if (roleName === 'SUPER_ADMIN') {
-            const [critical, pendingRep, inProgressRep, maintDue, critEquip, pendingPO, spareLow, users, reports, totalErr, totalRep, pendingPurch] = await Promise.all([
-                query(`SELECT COUNT(*) as count FROM error_logs WHERE severity = 'Critical'`),
+            const [pendingRep, inProgressRep, maintDue, pendingPO, spareLow, users, reports, totalErr, totalRep] = await Promise.all([
                 query(`SELECT COUNT(*) as count FROM repairs WHERE status = 'Pending'`),
                 query(`SELECT COUNT(*) as count FROM repairs WHERE status = 'In Progress'`),
                 query(`SELECT COUNT(*) as count FROM maintenance_schedule WHERE next_due_date < NOW() AND status != 'Completed'`),
-                query(`SELECT COUNT(*) as count FROM equipment WHERE status = 'Critical'`),
                 query(`SELECT COUNT(*) as count FROM purchase_orders WHERE status = 'Pending Approval'`),
                 query(`SELECT COUNT(*) as count FROM spare_parts WHERE quantity <= minimum_stock_level`),
                 query(`SELECT COUNT(*) as count FROM users WHERE is_active = TRUE`),
                 query(`SELECT COUNT(*) as count FROM reports`),
                 query(`SELECT COUNT(*) as count FROM error_logs`),
-                query(`SELECT COUNT(*) as count FROM repairs`),
-                query(`SELECT COUNT(*) as count FROM purchase_orders WHERE status != 'Received' AND status != 'Cancelled'`)
+                query(`SELECT COUNT(*) as count FROM repairs`)
             ]);
             
             totalErrors = totalErr[0]?.count || 0;
             totalRepairs = totalRep[0]?.count || 0;
-            criticalErrors = critical[0]?.count || 0;
+            criticalErrors = 0; // ✅ No severity column
             pendingRepairs = pendingRep[0]?.count || 0;
             inProgressRepairs = inProgressRep[0]?.count || 0;
             maintenanceDue = maintDue[0]?.count || 0;
-            criticalEquipment = critEquip[0]?.count || 0;
+            criticalEquipment = 0; // ✅ Equipment doesn't have Critical status
             pendingPurchaseOrders = pendingPO[0]?.count || 0;
             sparePartsLow = spareLow[0]?.count || 0;
             totalUsers = users[0]?.count || 0;
@@ -114,14 +110,12 @@ const getDashboardStats = async (userId, roleName, hospitalId, fullName) => {
 
         // ✅ HOSPITAL ADMIN - Get hospital-wide stats
         if (roleName === 'HOSPITAL_ADMIN') {
-            const [totalErr, critical, totalRep, pendingRep, inProgressRep, maintDue, critEquip, pendingPO, spareLow, users, reports] = await Promise.all([
+            const [totalErr, totalRep, pendingRep, inProgressRep, maintDue, pendingPO, spareLow, users, reports] = await Promise.all([
                 query(`SELECT COUNT(*) as count FROM error_logs WHERE equipment_id IN (SELECT id FROM equipment WHERE hospital_id = ?)`, [hospitalId]),
-                query(`SELECT COUNT(*) as count FROM error_logs WHERE severity = 'Critical' AND equipment_id IN (SELECT id FROM equipment WHERE hospital_id = ?)`, [hospitalId]),
                 query(`SELECT COUNT(*) as count FROM repairs WHERE error_log_id IN (SELECT id FROM error_logs WHERE equipment_id IN (SELECT id FROM equipment WHERE hospital_id = ?))`, [hospitalId]),
                 query(`SELECT COUNT(*) as count FROM repairs WHERE status = 'Pending' AND error_log_id IN (SELECT id FROM error_logs WHERE equipment_id IN (SELECT id FROM equipment WHERE hospital_id = ?))`, [hospitalId]),
                 query(`SELECT COUNT(*) as count FROM repairs WHERE status = 'In Progress' AND error_log_id IN (SELECT id FROM error_logs WHERE equipment_id IN (SELECT id FROM equipment WHERE hospital_id = ?))`, [hospitalId]),
                 query(`SELECT COUNT(*) as count FROM maintenance_schedule WHERE (status = 'Overdue' OR next_due_date < NOW()) AND equipment_id IN (SELECT id FROM equipment WHERE hospital_id = ?)`, [hospitalId]),
-                query(`SELECT COUNT(*) as count FROM equipment WHERE status = 'Critical' AND hospital_id = ?`, [hospitalId]),
                 query(`SELECT COUNT(*) as count FROM purchase_orders WHERE status = 'Pending Approval' AND hospital_id = ?`, [hospitalId]),
                 query(`SELECT COUNT(*) as count FROM spare_parts WHERE quantity <= minimum_stock_level`),
                 query(`SELECT COUNT(*) as count FROM users WHERE is_active = TRUE AND hospital_id = ?`, [hospitalId]),
@@ -129,12 +123,12 @@ const getDashboardStats = async (userId, roleName, hospitalId, fullName) => {
             ]);
             
             totalErrors = totalErr[0]?.count || 0;
-            criticalErrors = critical[0]?.count || 0;
+            criticalErrors = 0; // ✅ No severity column
             totalRepairs = totalRep[0]?.count || 0;
             pendingRepairs = pendingRep[0]?.count || 0;
             inProgressRepairs = inProgressRep[0]?.count || 0;
             maintenanceDue = maintDue[0]?.count || 0;
-            criticalEquipment = critEquip[0]?.count || 0;
+            criticalEquipment = 0; // ✅ Equipment doesn't have Critical status
             pendingPurchaseOrders = pendingPO[0]?.count || 0;
             sparePartsLow = spareLow[0]?.count || 0;
             totalUsers = users[0]?.count || 0;

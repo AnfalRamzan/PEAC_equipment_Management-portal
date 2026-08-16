@@ -3,6 +3,9 @@
 // ✅ ADDED: Status, Date range, Equipment filters
 // ✅ ADDED: My Maintenance route for engineers
 // ✅ ADDED: Maintenance statistics route
+// ✅ FIXED: engineer_name from users table when engineer_id provided
+// ✅ ADDED: Auto-update Overdue status
+// ✅ ADDED: date_of_installation support
 
 const express = require('express');
 const router = express.Router();
@@ -27,16 +30,43 @@ const createNotification = async (userId, title, message, type, relatedId = null
 };
 
 // ============================================
+// ✅ HELPER: UPDATE OVERDUE STATUS
+// ============================================
+const updateOverdueStatus = async () => {
+    try {
+        const result = await query(
+            `UPDATE maintenance_schedule 
+             SET status = 'Overdue' 
+             WHERE next_due_date < CURDATE() 
+               AND status NOT IN ('Completed', 'Cancelled', 'Overdue')`
+        );
+        if (result.affectedRows > 0) {
+            console.log(`✅ Updated ${result.affectedRows} maintenance tasks to Overdue`);
+        }
+        return result;
+    } catch (error) {
+        console.error('❌ Update overdue status error:', error);
+        return null;
+    }
+};
+
+// ============================================
 // ✅ GET ALL MAINTENANCE SCHEDULES - WITH ENGINEER ID FILTER
 // ============================================
 router.get('/', authenticate, async (req, res) => {
     try {
+        // ✅ Auto-update overdue status
+        await updateOverdueStatus();
+
         let sql = `
             SELECT m.*, 
                    e.name as equipment_name,
                    e.model as equipment_model,
+                   e.serial_number,
+                   e.date_of_installation,
                    h.name as hospital_name,
-                   u.full_name as engineer_name
+                   COALESCE(u.full_name, m.engineer_name) as engineer_name,
+                   u.email as engineer_email
             FROM maintenance_schedule m
             LEFT JOIN equipment e ON m.equipment_id = e.id
             LEFT JOIN hospitals h ON e.hospital_id = h.id
@@ -48,7 +78,7 @@ router.get('/', authenticate, async (req, res) => {
         // ✅ ADD: Engineer ID filter - for engineer reports
         if (req.query.engineer_id) {
             sql += ' AND m.engineer_id = ?';
-            params.push(req.query.engineer_id);
+            params.push(parseInt(req.query.engineer_id));
             console.log('🔍 Filtering maintenance for engineer_id:', req.query.engineer_id);
         }
 
@@ -62,7 +92,7 @@ router.get('/', authenticate, async (req, res) => {
         // ✅ ADD: Equipment filter
         if (req.query.equipment_id) {
             sql += ' AND m.equipment_id = ?';
-            params.push(req.query.equipment_id);
+            params.push(parseInt(req.query.equipment_id));
             console.log('🔍 Filtering maintenance for equipment_id:', req.query.equipment_id);
         }
 
@@ -78,13 +108,20 @@ router.get('/', authenticate, async (req, res) => {
             console.log('🔍 Filtering maintenance until end_date:', req.query.end_date);
         }
 
+        // ✅ ADD: Hospital filter
+        if (req.query.hospital_id) {
+            sql += ' AND e.hospital_id = ?';
+            params.push(parseInt(req.query.hospital_id));
+            console.log('🔍 Filtering maintenance for hospital_id:', req.query.hospital_id);
+        }
+
         // ✅ Hospital filter for non-super-admin
         if (req.user.role_name !== 'SUPER_ADMIN') {
             sql += ' AND e.hospital_id = ?';
             params.push(req.user.hospital_id);
         }
 
-        sql += ' ORDER BY m.next_due_date ASC';
+        sql += ' ORDER BY m.next_due_date ASC, m.priority DESC';
         const schedules = await query(sql, params);
         console.log('✅ Found', schedules.length, 'maintenance schedules');
         res.json({ success: true, schedules });
@@ -105,8 +142,11 @@ router.get('/:id', authenticate, async (req, res) => {
             SELECT m.*, 
                    e.name as equipment_name,
                    e.model as equipment_model,
+                   e.serial_number,
+                   e.date_of_installation,
                    h.name as hospital_name,
-                   u.full_name as engineer_name
+                   COALESCE(u.full_name, m.engineer_name) as engineer_name,
+                   u.email as engineer_email
             FROM maintenance_schedule m
             LEFT JOIN equipment e ON m.equipment_id = e.id
             LEFT JOIN hospitals h ON e.hospital_id = h.id
@@ -181,7 +221,10 @@ router.post('/', authenticate, async (req, res) => {
         }
 
         // Check equipment access
-        let checkSql = 'SELECT e.*, h.name as hospital_name FROM equipment e LEFT JOIN hospitals h ON e.hospital_id = h.id WHERE e.id = ?';
+        let checkSql = `SELECT e.*, h.name as hospital_name 
+                        FROM equipment e 
+                        LEFT JOIN hospitals h ON e.hospital_id = h.id 
+                        WHERE e.id = ?`;
         let checkParams = [equipment_id];
         
         if (!isSuperAdmin) {
@@ -197,11 +240,14 @@ router.post('/', authenticate, async (req, res) => {
             });
         }
 
-        // Check if engineer exists (if provided)
+        // ✅ FIXED: Get engineer name from users table if engineer_id provided
         let finalEngineerId = engineer_id || null;
+        let finalEngineerName = engineer_name || null;
+
         if (engineer_id) {
             const engineerCheck = await query(
-                'SELECT id, full_name FROM users WHERE id = ? AND is_active = 1 AND role_id = 3',
+                `SELECT id, full_name FROM users 
+                 WHERE id = ? AND is_active = 1 AND (role_id = 3 OR role_name = 'ENGINEER')`,
                 [engineer_id]
             );
             if (engineerCheck.length === 0) {
@@ -210,16 +256,28 @@ router.post('/', authenticate, async (req, res) => {
                     message: 'Engineer not found or inactive'
                 });
             }
-            // If engineer_name not provided, use from database
-            if (!engineer_name && engineerCheck.length > 0) {
-                // We'll use the provided engineer_name or get from DB
+            // Use engineer name from database if not provided
+            if (!finalEngineerName) {
+                finalEngineerName = engineerCheck[0].full_name;
             }
         }
 
-        // If engineer is creating, assign to themselves
+        // If engineer is creating and no engineer_id provided, assign to themselves
         if (isEngineer && !engineer_id) {
             finalEngineerId = req.user.id;
+            finalEngineerName = req.user.full_name;
         }
+
+        // If no engineer_name and no engineer_id, set to null
+        if (!finalEngineerId && !finalEngineerName) {
+            finalEngineerName = null;
+        }
+
+        const validStatuses = ['Scheduled', 'In Progress', 'Completed', 'Overdue', 'Cancelled'];
+        const finalStatus = validStatuses.includes(status) ? status : 'Scheduled';
+
+        const validPriorities = ['Critical', 'High', 'Medium', 'Low'];
+        const finalPriority = validPriorities.includes(priority) ? priority : 'Medium';
 
         const result = await query(
             `INSERT INTO maintenance_schedule 
@@ -239,11 +297,11 @@ router.post('/', authenticate, async (req, res) => {
                 calibration_date || null,
                 warranty_expiry || null,
                 amc_details || null,
-                status || 'Scheduled',
+                finalStatus,
                 finalEngineerId,
-                engineer_name || null,
+                finalEngineerName,
                 description || null,
-                priority || 'Medium'
+                finalPriority
             ]
         );
 
@@ -275,22 +333,36 @@ router.post('/', authenticate, async (req, res) => {
         }
 
         // Notify hospital admins
-        await query(
-            `INSERT INTO notifications (user_id, title, message, type, related_id, related_module)
-             SELECT u.id, '📋 New Maintenance Schedule', 
-                    CONCAT('Maintenance schedule created for ', ?), 'maintenance', ?, 'maintenance'
-             FROM users u
-             WHERE u.role_id = 2 
-               AND u.hospital_id = ?
-               AND u.is_active = TRUE`,
-            [equipmentName, result.insertId, hospitalId]
+        const adminUsers = await query(
+            `SELECT id FROM users 
+             WHERE role_id = 2 
+               AND hospital_id = ?
+               AND is_active = 1`,
+            [hospitalId]
         );
+        for (const admin of adminUsers) {
+            await createNotification(
+                admin.id,
+                '📋 New Maintenance Schedule',
+                `Maintenance schedule created for "${equipmentName}" in your hospital`,
+                'maintenance',
+                result.insertId,
+                'maintenance'
+            );
+        }
 
         const newSchedule = await query(
-            `SELECT m.*, e.name as equipment_name, h.name as hospital_name
+            `SELECT m.*, 
+                    e.name as equipment_name,
+                    e.model as equipment_model,
+                    e.serial_number,
+                    e.date_of_installation,
+                    h.name as hospital_name,
+                    COALESCE(u.full_name, m.engineer_name) as engineer_name
              FROM maintenance_schedule m
              LEFT JOIN equipment e ON m.equipment_id = e.id
              LEFT JOIN hospitals h ON e.hospital_id = h.id
+             LEFT JOIN users u ON m.engineer_id = u.id
              WHERE m.id = ?`,
             [result.insertId]
         );
@@ -340,13 +412,13 @@ router.put('/:id', authenticate, async (req, res) => {
         const isEngineer = req.user.role_name === 'ENGINEER';
 
         // Check access
-        let sql = `
-            SELECT m.*, e.hospital_id, e.name as equipment_name
+        let checkSql = `
+            SELECT m.*, e.hospital_id, e.name as equipment_name, e.model as equipment_model
             FROM maintenance_schedule m
             LEFT JOIN equipment e ON m.equipment_id = e.id
             WHERE m.id = ?
         `;
-        const existing = await query(sql, [id]);
+        const existing = await query(checkSql, [id]);
         
         if (existing.length === 0) {
             return res.status(404).json({ 
@@ -380,11 +452,14 @@ router.put('/:id', authenticate, async (req, res) => {
             }
         }
 
-        // Check if engineer exists (if provided)
-        let finalEngineerId = engineer_id || existing[0].engineer_id;
-        if (engineer_id) {
+        // ✅ FIXED: Get engineer name from users table if engineer_id provided
+        let finalEngineerId = engineer_id !== undefined ? engineer_id : existing[0].engineer_id;
+        let finalEngineerName = engineer_name !== undefined ? engineer_name : existing[0].engineer_name;
+
+        if (engineer_id !== undefined && engineer_id !== null) {
             const engineerCheck = await query(
-                'SELECT id, full_name FROM users WHERE id = ? AND is_active = 1 AND role_id = 3',
+                `SELECT id, full_name FROM users 
+                 WHERE id = ? AND is_active = 1 AND (role_id = 3 OR role_name = 'ENGINEER')`,
                 [engineer_id]
             );
             if (engineerCheck.length === 0) {
@@ -393,12 +468,20 @@ router.put('/:id', authenticate, async (req, res) => {
                     message: 'Engineer not found or inactive'
                 });
             }
+            // Use engineer name from database if not provided
+            if (!finalEngineerName) {
+                finalEngineerName = engineerCheck[0].full_name;
+            }
         }
 
         const validStatuses = ['Scheduled', 'In Progress', 'Completed', 'Overdue', 'Cancelled'];
         const finalStatus = validStatuses.includes(status) ? status : existing[0].status;
 
+        const validPriorities = ['Critical', 'High', 'Medium', 'Low'];
+        const finalPriority = validPriorities.includes(priority) ? priority : existing[0].priority;
+
         const oldStatus = existing[0].status;
+        const oldEngineerId = existing[0].engineer_id;
 
         await query(
             `UPDATE maintenance_schedule SET 
@@ -427,9 +510,9 @@ router.put('/:id', authenticate, async (req, res) => {
                 amc_details !== undefined ? amc_details : existing[0].amc_details,
                 finalStatus,
                 finalEngineerId,
-                engineer_name !== undefined ? engineer_name : existing[0].engineer_name,
+                finalEngineerName,
                 description !== undefined ? description : existing[0].description,
-                priority || existing[0].priority,
+                finalPriority,
                 id
             ]
         );
@@ -449,13 +532,11 @@ router.put('/:id', authenticate, async (req, res) => {
                     id,
                     'maintenance'
                 );
-            }
-
-            if (finalEngineerId && finalEngineerId !== existing[0].engineer_id) {
+            } else if (status === 'In Progress') {
                 await createNotification(
-                    finalEngineerId,
-                    '🔧 Maintenance Task Assigned',
-                    `You have been assigned a maintenance task for "${equipmentName}"`,
+                    existing[0].engineer_id || 1,
+                    '🔧 Maintenance In Progress',
+                    `Maintenance is in progress for "${equipmentName}"`,
                     'maintenance',
                     id,
                     'maintenance'
@@ -463,11 +544,31 @@ router.put('/:id', authenticate, async (req, res) => {
             }
         }
 
+        // Notify new engineer if assigned
+        if (finalEngineerId && finalEngineerId !== oldEngineerId) {
+            await createNotification(
+                finalEngineerId,
+                '🔧 Maintenance Task Assigned',
+                `You have been assigned a maintenance task for "${existing[0].equipment_name || 'Equipment'}"`,
+                'maintenance',
+                id,
+                'maintenance'
+            );
+        }
+
         const updatedSchedule = await query(
-            `SELECT m.*, e.name as equipment_name, h.name as hospital_name
+            `SELECT m.*, 
+                    e.name as equipment_name,
+                    e.model as equipment_model,
+                    e.serial_number,
+                    e.date_of_installation,
+                    h.name as hospital_name,
+                    COALESCE(u.full_name, m.engineer_name) as engineer_name,
+                    u.email as engineer_email
              FROM maintenance_schedule m
              LEFT JOIN equipment e ON m.equipment_id = e.id
              LEFT JOIN hospitals h ON e.hospital_id = h.id
+             LEFT JOIN users u ON m.engineer_id = u.id
              WHERE m.id = ?`,
             [id]
         );
@@ -496,9 +597,14 @@ router.get('/equipment/:equipmentId', authenticate, async (req, res) => {
         
         let sql = `
             SELECT m.*, 
-                   u.full_name as engineer_name
+                   u.full_name as engineer_name,
+                   u.email as engineer_email,
+                   e.name as equipment_name,
+                   e.model as equipment_model,
+                   e.date_of_installation
             FROM maintenance_schedule m
             LEFT JOIN users u ON m.engineer_id = u.id
+            LEFT JOIN equipment e ON m.equipment_id = e.id
             WHERE m.equipment_id = ?
         `;
         const params = [equipmentId];
@@ -529,6 +635,8 @@ router.get('/my-maintenance', authenticate, async (req, res) => {
             SELECT m.*, 
                    e.name as equipment_name,
                    e.model as equipment_model,
+                   e.serial_number,
+                   e.date_of_installation,
                    h.name as hospital_name
             FROM maintenance_schedule m
             LEFT JOIN equipment e ON m.equipment_id = e.id
@@ -537,12 +645,18 @@ router.get('/my-maintenance', authenticate, async (req, res) => {
         `;
         const params = [userId];
 
+        // Optional: filter by status
+        if (req.query.status) {
+            sql += ' AND m.status = ?';
+            params.push(req.query.status);
+        }
+
         if (req.user.role_name !== 'SUPER_ADMIN') {
             sql += ' AND e.hospital_id = ?';
             params.push(req.user.hospital_id);
         }
 
-        sql += ' ORDER BY m.next_due_date ASC';
+        sql += ' ORDER BY m.next_due_date ASC, m.priority DESC';
         
         const schedules = await query(sql, params);
         res.json({ success: true, schedules });
@@ -565,9 +679,13 @@ router.get('/stats/summary', authenticate, async (req, res) => {
                 SUM(CASE WHEN status = 'Completed' THEN 1 ELSE 0 END) as completed,
                 SUM(CASE WHEN status = 'Overdue' THEN 1 ELSE 0 END) as overdue,
                 SUM(CASE WHEN status = 'Cancelled' THEN 1 ELSE 0 END) as cancelled,
+                SUM(CASE WHEN priority = 'Critical' THEN 1 ELSE 0 END) as critical,
                 SUM(CASE WHEN priority = 'High' THEN 1 ELSE 0 END) as high_priority,
                 SUM(CASE WHEN priority = 'Medium' THEN 1 ELSE 0 END) as medium_priority,
-                SUM(CASE WHEN priority = 'Low' THEN 1 ELSE 0 END) as low_priority
+                SUM(CASE WHEN priority = 'Low' THEN 1 ELSE 0 END) as low_priority,
+                SUM(CASE WHEN next_due_date < CURDATE() AND status NOT IN ('Completed', 'Cancelled') THEN 1 ELSE 0 END) as past_due,
+                SUM(CASE WHEN next_due_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY) AND status NOT IN ('Completed', 'Cancelled') THEN 1 ELSE 0 END) as due_this_week,
+                SUM(CASE WHEN next_due_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY) AND status NOT IN ('Completed', 'Cancelled') THEN 1 ELSE 0 END) as due_this_month
             FROM maintenance_schedule m
             LEFT JOIN equipment e ON m.equipment_id = e.id
             WHERE 1=1
@@ -577,7 +695,13 @@ router.get('/stats/summary', authenticate, async (req, res) => {
         // ✅ ADD: Engineer ID filter
         if (req.query.engineer_id) {
             sql += ' AND m.engineer_id = ?';
-            params.push(req.query.engineer_id);
+            params.push(parseInt(req.query.engineer_id));
+        }
+
+        // ✅ ADD: Hospital filter
+        if (req.query.hospital_id) {
+            sql += ' AND e.hospital_id = ?';
+            params.push(parseInt(req.query.hospital_id));
         }
 
         if (req.user.role_name !== 'SUPER_ADMIN') {
@@ -590,6 +714,145 @@ router.get('/stats/summary', authenticate, async (req, res) => {
     } catch (error) {
         console.error('❌ Get maintenance stats error:', error);
         res.status(500).json({ success: false, message: 'Failed to fetch stats' });
+    }
+});
+
+// ============================================
+// ✅ UPDATE MAINTENANCE STATUS ONLY (PATCH)
+// ============================================
+router.patch('/:id/status', authenticate, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+
+        if (!status) {
+            return res.status(400).json({
+                success: false,
+                message: 'Status is required'
+            });
+        }
+
+        const validStatuses = ['Scheduled', 'In Progress', 'Completed', 'Overdue', 'Cancelled'];
+        if (!validStatuses.includes(status)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid status. Must be one of: ' + validStatuses.join(', ')
+            });
+        }
+
+        // Check if maintenance exists
+        let checkSql = `
+            SELECT m.*, e.name as equipment_name, e.hospital_id
+            FROM maintenance_schedule m
+            LEFT JOIN equipment e ON m.equipment_id = e.id
+            WHERE m.id = ?
+        `;
+        const existing = await query(checkSql, [id]);
+        
+        if (existing.length === 0) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Maintenance schedule not found' 
+            });
+        }
+
+        // Permission check
+        const isSuperAdmin = req.user.role_name === 'SUPER_ADMIN';
+        const isHospitalAdmin = req.user.role_name === 'HOSPITAL_ADMIN';
+        const isEngineer = req.user.role_name === 'ENGINEER';
+
+        if (!isSuperAdmin) {
+            if (isHospitalAdmin && existing[0].hospital_id !== req.user.hospital_id) {
+                return res.status(403).json({ 
+                    success: false, 
+                    message: 'Access denied' 
+                });
+            }
+            if (isEngineer && existing[0].engineer_id !== req.user.id) {
+                return res.status(403).json({ 
+                    success: false, 
+                    message: 'Access denied: You can only update your own tasks' 
+                });
+            }
+            if (!isHospitalAdmin && !isEngineer) {
+                return res.status(403).json({ 
+                    success: false, 
+                    message: 'Insufficient permissions' 
+                });
+            }
+        }
+
+        await query(
+            'UPDATE maintenance_schedule SET status = ? WHERE id = ?',
+            [status, id]
+        );
+
+        // Send notification on status change
+        const equipmentName = existing[0].equipment_name || 'Equipment';
+        if (status === 'Completed') {
+            await createNotification(
+                1,
+                '✅ Maintenance Completed',
+                `Maintenance completed for "${equipmentName}"`,
+                'maintenance',
+                id,
+                'maintenance'
+            );
+        }
+
+        res.json({ 
+            success: true, 
+            message: 'Maintenance status updated successfully' 
+        });
+    } catch (error) {
+        console.error('❌ Update maintenance status error:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Failed to update status: ' + error.message 
+        });
+    }
+});
+
+// ============================================
+// ✅ GET MAINTENANCE OVERDUE TASKS
+// ============================================
+router.get('/overdue', authenticate, async (req, res) => {
+    try {
+        let sql = `
+            SELECT m.*, 
+                   e.name as equipment_name,
+                   e.model as equipment_model,
+                   e.serial_number,
+                   e.date_of_installation,
+                   h.name as hospital_name,
+                   COALESCE(u.full_name, m.engineer_name) as engineer_name
+            FROM maintenance_schedule m
+            LEFT JOIN equipment e ON m.equipment_id = e.id
+            LEFT JOIN hospitals h ON e.hospital_id = h.id
+            LEFT JOIN users u ON m.engineer_id = u.id
+            WHERE m.next_due_date < CURDATE()
+              AND m.status NOT IN ('Completed', 'Cancelled')
+        `;
+        const params = [];
+
+        // ✅ Filter by engineer
+        if (req.query.engineer_id) {
+            sql += ' AND m.engineer_id = ?';
+            params.push(parseInt(req.query.engineer_id));
+        }
+
+        if (req.user.role_name !== 'SUPER_ADMIN') {
+            sql += ' AND e.hospital_id = ?';
+            params.push(req.user.hospital_id);
+        }
+
+        sql += ' ORDER BY m.next_due_date ASC, m.priority DESC';
+        
+        const schedules = await query(sql, params);
+        res.json({ success: true, schedules });
+    } catch (error) {
+        console.error('❌ Get overdue maintenance error:', error);
+        res.status(500).json({ success: false, message: 'Failed to fetch overdue tasks' });
     }
 });
 
@@ -617,13 +880,12 @@ router.delete('/:id', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), 
             });
         }
 
-        if (req.user.role_name !== 'SUPER_ADMIN') {
-            if (existing[0].hospital_id !== req.user.hospital_id) {
-                return res.status(403).json({ 
-                    success: false, 
-                    message: 'Access denied' 
-                });
-            }
+        // Hospital Admin can only delete from their hospital
+        if (req.user.role_name === 'HOSPITAL_ADMIN' && existing[0].hospital_id !== req.user.hospital_id) {
+            return res.status(403).json({ 
+                success: false, 
+                message: 'Access denied' 
+            });
         }
 
         await query('DELETE FROM maintenance_schedule WHERE id = ?', [id]);

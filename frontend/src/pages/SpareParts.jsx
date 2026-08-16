@@ -1,6 +1,9 @@
 // src/pages/SpareParts.jsx
 // ✅ DARK NAVY + LIGHT CYAN THEME - Matching Sidebar
 // ✅ WITH ATTACHMENT TAB VIEW + PREVIEW
+// ✅ AUTO-STATUS: In Stock / Low Stock / Out of Stock
+// ✅ PKR CURRENCY FORMATTING FIXED
+// ✅ DOWNTIME TRACKING ADDED
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -67,6 +70,8 @@ import {
   Description,
   AttachFile,
   InsertDriveFile,
+  Cancel,
+  TimerOff,
 } from '@mui/icons-material'
 import { sparePartService, repairService } from '../api/services'
 import { toast } from 'react-toastify'
@@ -74,6 +79,7 @@ import { useSelector } from 'react-redux'
 import { useNavigate } from 'react-router-dom'
 import AccessDenied from '../components/Auth/AccessDenied'
 import FileUpload from '../components/FileUpload'
+import api from '../api/axios'
 
 // ============================================================
 // ✅ DARK NAVY + LIGHT CYAN THEME COLORS
@@ -117,6 +123,20 @@ const colors = {
   info: '#3B82F6',
 }
 
+// ============================================================
+// ✅ HELPER: Get Status Based on Quantity
+// ============================================================
+const getStatus = (quantity, minimumStockLevel) => {
+  const minLevel = minimumStockLevel || 5
+  if (quantity <= 0) {
+    return { label: 'Out of Stock', color: colors.error, icon: <Cancel sx={{ fontSize: 14 }} /> }
+  } else if (quantity <= minLevel) {
+    return { label: 'Low Stock', color: colors.warning, icon: <WarningIcon sx={{ fontSize: 14 }} /> }
+  } else {
+    return { label: 'In Stock', color: colors.success, icon: <CheckCircle sx={{ fontSize: 14 }} /> }
+  }
+}
+
 // ==================== HELPER FUNCTIONS ====================
 const getFullImageUrl = (url) => {
   if (!url) return ''
@@ -146,6 +166,19 @@ const getFileName = (url) => {
   if (!url) return 'File'
   const parts = url.split('/')
   return parts[parts.length - 1] || 'File'
+}
+
+// ✅ PKR CURRENCY FORMATTER
+const formatPKR = (value) => {
+  if (!value || value === '0' || value === '0.00') return 'Rs. 0'
+  const numValue = parseFloat(value)
+  if (isNaN(numValue)) return 'Rs. 0'
+  return new Intl.NumberFormat('en-PK', {
+    style: 'currency',
+    currency: 'PKR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  }).format(numValue).replace('PKR', 'Rs.')
 }
 
 // ============================================================
@@ -483,11 +516,37 @@ const SpareParts = () => {
     fetchRepairs()
   }, [])
 
+  // ✅ FETCH SPARE PARTS WITH DOWNTIME
   const fetchSpareParts = async () => {
     setLoading(true)
     try {
       const response = await sparePartService.getAll()
-      setSpareParts(response.data.spareParts || [])
+      const parts = response.data.spareParts || []
+      
+      // ✅ Fetch downtime for each part
+      const partsWithDowntime = await Promise.all(parts.map(async (part) => {
+        try {
+          // Try to get downtime data from API
+          const downtimeRes = await api.get(`/spare-parts/${part.id}/downtime`).catch(() => ({ data: {} }))
+          return {
+            ...part,
+            times_out_of_stock: downtimeRes.data?.times_out_of_stock || 0,
+            first_out_of_stock: downtimeRes.data?.first_out_of_stock || null,
+            total_downtime_days: downtimeRes.data?.total_downtime_days || 0,
+            last_out_of_stock: downtimeRes.data?.last_out_of_stock || null
+          }
+        } catch {
+          return {
+            ...part,
+            times_out_of_stock: 0,
+            first_out_of_stock: null,
+            total_downtime_days: 0,
+            last_out_of_stock: null
+          }
+        }
+      }))
+      
+      setSpareParts(partsWithDowntime)
     } catch (error) {
       console.error('Fetch spare parts error:', error)
       toast.error('Failed to fetch spare parts')
@@ -505,8 +564,13 @@ const SpareParts = () => {
     }
   }
 
-  const lowStockItems = spareParts.filter(p => p.quantity <= (p.minimum_stock_level || 5))
-  const outOfStockItems = spareParts.filter(p => p.quantity === 0)
+  // ✅ Status-based calculations
+  const lowStockItems = spareParts.filter(p => p.quantity <= (p.minimum_stock_level || 5) && p.quantity > 0)
+  const outOfStockItems = spareParts.filter(p => p.quantity <= 0)
+  const inStockItems = spareParts.filter(p => p.quantity > (p.minimum_stock_level || 5))
+  
+  // ✅ Downtime calculation
+  const totalDowntimeDays = spareParts.reduce((sum, p) => sum + (p.total_downtime_days || 0), 0)
 
   const handleTabChange = (event, newValue) => {
     setViewTabValue(newValue)
@@ -631,18 +695,6 @@ const SpareParts = () => {
       }))
     }
   }, [formData.quantity, formData.unit_cost])
-
-  const formatPKR = (value) => {
-    if (!value || value === '0' || value === '0.00') return 'Rs. 0'
-    const numValue = parseFloat(value)
-    if (isNaN(numValue)) return 'Rs. 0'
-    return new Intl.NumberFormat('en-PK', {
-      style: 'currency',
-      currency: 'PKR',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(numValue).replace('PKR', 'Rs.')
-  }
 
   const handleSubmit = async () => {
     try {
@@ -802,7 +854,46 @@ const SpareParts = () => {
         </Box>
       </Box>
 
-      {/* LOW STOCK ALERT */}
+      {/* ✅ OUT OF STOCK ALERT */}
+      {outOfStockItems.length > 0 && (
+        <Alert 
+          severity="error" 
+          sx={{ 
+            mb: 2, 
+            borderRadius: 2,
+            border: `1px solid ${colors.error}33`,
+            '& .MuiAlert-icon': { color: colors.error }
+          }}
+          icon={<WarningIcon />}
+          action={
+            <Button 
+              size="small" 
+              variant="outlined"
+              startIcon={<ShoppingCart />}
+              onClick={() => navigate('/procurement')}
+              sx={{ 
+                mt: 0.5,
+                borderColor: colors.error,
+                color: colors.error,
+                '&:hover': { 
+                  borderColor: colors.lightCyan, 
+                  color: colors.lightCyanDark,
+                  backgroundColor: 'rgba(103, 232, 249, 0.04)'
+                }
+              }}
+            >
+              Order Now
+            </Button>
+          }
+        >
+          <Typography variant="body2">
+            <strong>{outOfStockItems.length}</strong> spare part{outOfStockItems.length > 1 ? 's are' : ' is'} <strong>Out of Stock</strong>!
+            Please order immediately.
+          </Typography>
+        </Alert>
+      )}
+
+      {/* ✅ LOW STOCK ALERT */}
       {lowStockItems.length > 0 && (
         <Alert 
           severity="warning" 
@@ -850,28 +941,9 @@ const SpareParts = () => {
         </Alert>
       )}
 
-      {/* OUT OF STOCK ALERT */}
-      {outOfStockItems.length > 0 && (
-        <Alert 
-          severity="error" 
-          sx={{ 
-            mb: 2, 
-            borderRadius: 2,
-            border: `1px solid ${colors.error}33`,
-            '& .MuiAlert-icon': { color: colors.error }
-          }}
-          icon={<WarningIcon />}
-        >
-          <Typography variant="body2">
-            <strong>{outOfStockItems.length}</strong> spare part{outOfStockItems.length > 1 ? 's are' : ' is'} out of stock!
-            Please order immediately.
-          </Typography>
-        </Alert>
-      )}
-
-      {/* Stats Cards */}
+      {/* ✅ Stats Cards - Status Based + Downtime */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={6} sm={3}>
+        <Grid item xs={6} sm={2.4}>
           <Card sx={{ 
             borderRadius: 2, 
             border: `1px solid ${colors.borderColor}`,
@@ -889,7 +961,7 @@ const SpareParts = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={6} sm={3}>
+        <Grid item xs={6} sm={2.4}>
           <Card sx={{ 
             borderRadius: 2, 
             border: `1px solid ${colors.success}33`,
@@ -902,13 +974,32 @@ const SpareParts = () => {
           }}>
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
               <Typography variant="h4" sx={{ color: colors.success, fontWeight: 700 }}>
-                {spareParts.filter(p => p.quantity > (p.minimum_stock_level || 5)).length}
+                {inStockItems.length}
               </Typography>
               <Typography variant="body2" sx={{ color: colors.lightText }}>In Stock</Typography>
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={6} sm={3}>
+        <Grid item xs={6} sm={2.4}>
+          <Card sx={{ 
+            borderRadius: 2, 
+            border: `1px solid ${colors.warning}33`,
+            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+            bgcolor: `${colors.warning}08`,
+            '&:hover': {
+              borderColor: colors.warning,
+              boxShadow: `0 4px 20px rgba(245, 158, 11, 0.15)`
+            }
+          }}>
+            <CardContent sx={{ textAlign: 'center', py: 2 }}>
+              <Typography variant="h4" sx={{ color: colors.warning, fontWeight: 700 }}>
+                {lowStockItems.length}
+              </Typography>
+              <Typography variant="body2" sx={{ color: colors.lightText }}>Low Stock</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={6} sm={2.4}>
           <Card sx={{ 
             borderRadius: 2, 
             border: `1px solid ${colors.error}33`,
@@ -921,28 +1012,28 @@ const SpareParts = () => {
           }}>
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
               <Typography variant="h4" sx={{ color: colors.error, fontWeight: 700 }}>
-                {lowStockItems.length}
+                {outOfStockItems.length}
               </Typography>
-              <Typography variant="body2" sx={{ color: colors.lightText }}>Low Stock</Typography>
+              <Typography variant="body2" sx={{ color: colors.lightText }}>Out of Stock</Typography>
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={6} sm={3}>
+        <Grid item xs={6} sm={2.4}>
           <Card sx={{ 
             borderRadius: 2, 
-            border: `1px solid ${colors.lightCyan}33`,
+            border: `1px solid ${colors.error}33`,
             boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-            bgcolor: `${colors.lightCyan}08`,
+            bgcolor: `${colors.error}08`,
             '&:hover': {
-              borderColor: colors.lightCyan,
-              boxShadow: `0 4px 20px ${colors.lightCyanGlow}`
+              borderColor: colors.error,
+              boxShadow: `0 4px 20px rgba(239, 68, 68, 0.15)`
             }
           }}>
             <CardContent sx={{ textAlign: 'center', py: 2 }}>
-              <Typography variant="h4" sx={{ color: colors.lightCyanDark, fontWeight: 700 }}>
-                {new Set(spareParts.map(p => p.brand)).size}
+              <Typography variant="h4" sx={{ color: colors.error, fontWeight: 700 }}>
+                {totalDowntimeDays.toFixed(1)}
               </Typography>
-              <Typography variant="body2" sx={{ color: colors.lightText }}>Brands</Typography>
+              <Typography variant="body2" sx={{ color: colors.lightText }}>Total Downtime (Days)</Typography>
             </CardContent>
           </Card>
         </Grid>
@@ -1029,17 +1120,20 @@ const SpareParts = () => {
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Brand</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Quantity</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Min Stock</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Status</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Unit Cost</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Total Cost</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Compatible Equipment</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }}>Image</TableCell>
+              {/* ✅ DOWNTIME COLUMN */}
+              <TableCell sx={{ color: 'white', fontWeight: 600 }}>Downtime</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600 }} align="center">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {filteredParts.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={10} align="center">
+                <TableCell colSpan={12} align="center">
                   <Typography variant="body1" sx={{ py: 4, color: colors.lightText }}>
                     No spare parts found
                   </Typography>
@@ -1047,17 +1141,18 @@ const SpareParts = () => {
               </TableRow>
             ) : (
               filteredParts.map((part) => {
-                const isLowStock = part.quantity <= (part.minimum_stock_level || 5)
+                const status = getStatus(part.quantity, part.minimum_stock_level)
                 const imageUrl = getFullImageUrl(part.image_url)
+                const isLowStock = part.quantity <= (part.minimum_stock_level || 5)
                 
                 return (
                   <TableRow 
                     key={part.id} 
                     hover 
                     sx={{ 
-                      bgcolor: isLowStock ? `${colors.warning}08` : 'inherit',
+                      bgcolor: isLowStock ? (part.quantity <= 0 ? `${colors.error}08` : `${colors.warning}08`) : 'inherit',
                       '&:hover': {
-                        backgroundColor: isLowStock ? `${colors.warning}15` : 'rgba(103, 232, 249, 0.04)',
+                        backgroundColor: isLowStock ? (part.quantity <= 0 ? `${colors.error}15` : `${colors.warning}15`) : 'rgba(103, 232, 249, 0.04)',
                       },
                       '&:last-child td': { borderBottom: 0 }
                     }}
@@ -1067,19 +1162,6 @@ const SpareParts = () => {
                         <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>
                           {part.part_name}
                         </Typography>
-                        {isLowStock && (
-                          <Chip 
-                            label="Low Stock" 
-                            size="small" 
-                            sx={{ 
-                              bgcolor: colors.warning, 
-                              color: 'white',
-                              fontWeight: 500,
-                              '& .MuiChip-icon': { color: 'white' }
-                            }}
-                            icon={<WarningIcon sx={{ fontSize: 14 }} />}
-                          />
-                        )}
                       </Box>
                     </TableCell>
                     <TableCell sx={{ color: colors.lightText }}>{part.part_number || '-'}</TableCell>
@@ -1089,7 +1171,8 @@ const SpareParts = () => {
                         label={part.quantity} 
                         size="small" 
                         sx={{
-                          bgcolor: isLowStock ? colors.error : part.quantity < 10 ? colors.warning : colors.success,
+                          bgcolor: part.quantity <= 0 ? colors.error : 
+                                   part.quantity <= (part.minimum_stock_level || 5) ? colors.warning : colors.success,
                           color: 'white',
                           fontWeight: 500,
                           height: 22,
@@ -1103,6 +1186,22 @@ const SpareParts = () => {
                         size="small" 
                         variant="outlined"
                         sx={{ borderColor: colors.borderColor, color: colors.lightText }}
+                      />
+                    </TableCell>
+                    {/* ✅ STATUS COLUMN */}
+                    <TableCell>
+                      <Chip 
+                        label={status.label} 
+                        size="small"
+                        icon={status.icon}
+                        sx={{
+                          bgcolor: status.color,
+                          color: 'white',
+                          fontWeight: 600,
+                          height: 24,
+                          fontSize: '11px',
+                          '& .MuiChip-icon': { color: 'white' }
+                        }}
                       />
                     </TableCell>
                     <TableCell sx={{ color: colors.darkNavy }}>{formatPKR(part.unit_cost)}</TableCell>
@@ -1145,6 +1244,10 @@ const SpareParts = () => {
                           }}
                         />
                       )}
+                    </TableCell>
+                    {/* ✅ DOWNTIME CELL */}
+                    <TableCell align="center" sx={{ color: colors.error, fontWeight: 600 }}>
+                      {Number(part.total_downtime_days || 0).toFixed(1)} days
                     </TableCell>
                     <TableCell align="center">
                       <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5 }}>
@@ -1222,7 +1325,7 @@ const SpareParts = () => {
       </TableContainer>
 
       {/* ============================================================
-          ✅ VIEW SPARE PART DIALOG WITH TABS
+          ✅ VIEW SPARE PART DIALOG WITH TABS + DOWNTIME
           ============================================================ */}
       <Dialog 
         open={openViewDialog} 
@@ -1353,14 +1456,56 @@ const SpareParts = () => {
                     <Grid item xs={12} md={6}>
                       <Typography variant="body2" sx={{ color: colors.lightText }}>Status</Typography>
                       <Chip 
-                        label={viewingPart.quantity <= (viewingPart.minimum_stock_level || 5) ? 'Low Stock' : 'In Stock'} 
+                        label={getStatus(viewingPart.quantity, viewingPart.minimum_stock_level).label}
                         size="small"
                         sx={{
-                          bgcolor: viewingPart.quantity <= (viewingPart.minimum_stock_level || 5) ? colors.warning : colors.success,
+                          bgcolor: getStatus(viewingPart.quantity, viewingPart.minimum_stock_level).color,
                           color: 'white',
                           fontWeight: 500
                         }}
                       />
+                    </Grid>
+
+                    {/* ✅ DOWNTIME SECTION */}
+                    <Grid item xs={12}>
+                      <Typography variant="subtitle2" sx={{ color: colors.lightText, mb: 1, fontWeight: 600 }}>
+                        <TimerOff sx={{ fontSize: 18, verticalAlign: 'middle', mr: 1 }} />
+                        Downtime History
+                      </Typography>
+                      <Paper sx={{ p: 2, bgcolor: colors.mainBg, borderRadius: 2, border: `1px solid ${colors.borderColor}` }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
+                          <Typography variant="body2" sx={{ color: colors.lightText }}>
+                            Times Out of Stock
+                          </Typography>
+                          <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkNavy }}>
+                            {viewingPart.times_out_of_stock || 0}
+                          </Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
+                          <Typography variant="body2" sx={{ color: colors.lightText }}>
+                            First Out of Stock
+                          </Typography>
+                          <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkNavy }}>
+                            {viewingPart.first_out_of_stock ? new Date(viewingPart.first_out_of_stock).toLocaleString() : '-'}
+                          </Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
+                          <Typography variant="body2" sx={{ color: colors.lightText }}>
+                            Last Out of Stock
+                          </Typography>
+                          <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkNavy }}>
+                            {viewingPart.last_out_of_stock ? new Date(viewingPart.last_out_of_stock).toLocaleString() : '-'}
+                          </Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
+                          <Typography variant="body2" sx={{ color: colors.lightText }}>
+                            Total Downtime
+                          </Typography>
+                          <Typography variant="body2" fontWeight={700} sx={{ color: colors.error }}>
+                            {Number(viewingPart.total_downtime_days || 0).toFixed(1)} days
+                          </Typography>
+                        </Box>
+                      </Paper>
                     </Grid>
 
                     {viewingPart.installation_notes && (
@@ -1839,6 +1984,9 @@ const SpareParts = () => {
               }}>
                 <Typography variant="caption" sx={{ color: colors.lightText }}>
                   <strong>Calculation Preview:</strong> {formData.quantity || 0} × {formData.unit_cost || 0} = {formatPKR(formData.total_cost)}
+                </Typography>
+                <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', mt: 0.5 }}>
+                  <strong>Status Preview:</strong> {getStatus(parseInt(formData.quantity) || 0, parseInt(formData.minimum_stock_level) || 5).label}
                 </Typography>
               </Paper>
             </Grid>
