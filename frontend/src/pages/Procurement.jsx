@@ -3,6 +3,7 @@
 // ✅ UPDATED: Stats cards design matches Equipment page
 // ✅ UPDATED: Header with Filter and Export buttons
 // ✅ ADDED: Animations
+// ✅ UPDATED: All amounts in Pakistani Rupees (PKR)
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -110,6 +111,19 @@ const colors = {
   info: '#3B82F6',
   bgGradientStart: '#F0F4F8',
   bgGradientEnd: '#E8EEF5',
+}
+
+// ✅ PKR Currency Formatter
+const formatPKR = (value) => {
+  if (!value || value === '0' || value === '0.00') return 'Rs. 0'
+  const numValue = parseFloat(value)
+  if (isNaN(numValue)) return 'Rs. 0'
+  return new Intl.NumberFormat('en-PK', {
+    style: 'currency',
+    currency: 'PKR',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  }).format(numValue).replace('PKR', 'Rs.')
 }
 
 // ✅ Animation Styles - Same as Equipment page
@@ -277,14 +291,14 @@ const Procurement = () => {
 
   const exportToCSV = () => {
     try {
-      const headers = ['Equipment', 'Hospital', 'Manufacturer', 'Model', 'Quantity', 'Est. Cost', 'Priority', 'Status', 'Justification']
+      const headers = ['Equipment', 'Hospital', 'Manufacturer', 'Model', 'Quantity', 'Est. Cost (PKR)', 'Priority', 'Status', 'Justification']
       const rows = filteredRequests.map(r => [
         r.equipment_name || '',
         r.hospital_name || 'N/A',
         r.manufacturer || '',
         r.model || '',
         r.quantity || 1,
-        r.estimated_cost || '',
+        r.estimated_cost ? formatPKR(r.estimated_cost) : '',
         r.priority || '',
         r.status || '',
         r.justification || ''
@@ -313,7 +327,7 @@ const Procurement = () => {
         'Manufacturer': r.manufacturer || '',
         'Model': r.model || '',
         'Quantity': r.quantity || 1,
-        'Est. Cost': r.estimated_cost || '',
+        'Est. Cost (PKR)': r.estimated_cost ? formatPKR(r.estimated_cost) : '',
         'Priority': r.priority || '',
         'Status': r.status || '',
         'Justification': r.justification || ''
@@ -346,11 +360,12 @@ const Procurement = () => {
         r.manufacturer || '',
         r.model || '',
         r.quantity || 1,
+        r.estimated_cost ? formatPKR(r.estimated_cost) : '',
         r.priority || '',
         r.status || ''
       ])
       autoTable(doc, {
-        head: [['Equipment', 'Hospital', 'Manufacturer', 'Model', 'Qty', 'Priority', 'Status']],
+        head: [['Equipment', 'Hospital', 'Manufacturer', 'Model', 'Qty', 'Est. Cost', 'Priority', 'Status']],
         body: tableData,
         startY: 40,
         styles: { fontSize: 7, cellPadding: 2 },
@@ -1181,7 +1196,7 @@ const Procurement = () => {
               <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Manufacturer</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Model</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Qty</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Est. Cost</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Est. Cost (PKR)</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Priority</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Status</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }} align="center">Actions</TableCell>
@@ -1233,8 +1248,10 @@ const Procurement = () => {
                   <TableCell sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                     {request.quantity}
                   </TableCell>
-                  <TableCell sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                    {request.estimated_cost ? `$${parseFloat(request.estimated_cost).toFixed(2)}` : '-'}
+                  <TableCell>
+                    <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                      {request.estimated_cost ? formatPKR(request.estimated_cost) : '-'}
+                    </Typography>
                   </TableCell>
                   <TableCell>
                     <Chip
@@ -1577,12 +1594,12 @@ const Procurement = () => {
               <Grid item xs={12} md={4}>
                 <TextField
                   fullWidth
-                  label="Estimated Cost ($)"
+                  label="Estimated Cost (PKR)"
                   name="estimated_cost"
                   type="number"
                   value={formData.estimated_cost}
                   onChange={handleFormChange}
-                  InputProps={{ inputProps: { min: 0, step: 0.01 } }}
+                  InputProps={{ inputProps: { min: 0, step: 1 } }}
                   sx={{
                     '& .MuiOutlinedInput-root': {
                       borderRadius: 2,
@@ -1855,6 +1872,11 @@ const Procurement = () => {
                       Model: {deletingRequest.model}
                     </Typography>
                   )}
+                  {deletingRequest?.estimated_cost && (
+                    <Typography variant="body2" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                      Est. Cost: {formatPKR(deletingRequest.estimated_cost)}
+                    </Typography>
+                  )}
                   <Typography variant="body2" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                     Status: {deletingRequest?.status}
                   </Typography>
@@ -2063,7 +2085,7 @@ const Procurement = () => {
                   {viewingRequest.model || 'N/A'}
                 </Typography>
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid item xs={12} md={4}>
                 <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
                   Quantity
                 </Typography>
@@ -2071,13 +2093,30 @@ const Procurement = () => {
                   {viewingRequest.quantity}
                 </Typography>
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid item xs={12} md={4}>
                 <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
                   Estimated Cost
                 </Typography>
                 <Typography variant="body1" fontWeight={600} sx={{ color: colors.lightCyanDark, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                  {viewingRequest.estimated_cost ? `$${parseFloat(viewingRequest.estimated_cost).toFixed(2)}` : '-'}
+                  {viewingRequest.estimated_cost ? formatPKR(viewingRequest.estimated_cost) : '-'}
                 </Typography>
+              </Grid>
+              <Grid item xs={12} md={4}>
+                <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                  Priority
+                </Typography>
+                <Chip
+                  label={viewingRequest.priority}
+                  size="small"
+                  sx={{
+                    bgcolor: getPriorityColor(viewingRequest.priority),
+                    color: 'white',
+                    fontWeight: 600,
+                    height: 26,
+                    fontSize: '11px',
+                    borderRadius: 2,
+                  }}
+                />
               </Grid>
               <Grid item xs={12} md={6}>
                 <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>

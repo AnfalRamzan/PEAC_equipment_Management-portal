@@ -1,6 +1,5 @@
 // src/pages/Reports.jsx
 // ✅ COMPLETE FIXED VERSION
-// ✅ Engineer Performance with Avg Days
 // ✅ Super Admin can see all engineers
 // ✅ Engineer can see own performance
 // ✅ AMC: Closed removed, only Resolved for downtime calculation
@@ -20,6 +19,10 @@
 // ✅ FIXED: Hospital report response mapping - /error-logs returns { success: true, errors: [...] }
 // ✅ FIXED: Spare Parts case - removed individual downtime API calls
 // ✅ THEME: All icons use Light Cyan color, Refresh border style, buttons prominent
+// ✅ REMOVED: Engineer Performance Report from Super Admin
+// ✅ CHANGED: Equipment Status to Functional/Non-Functional/Under Maintenance
+// ✅ REMOVED: Downtime cards from Equipment Wise Report
+// ✅ REMOVED: Inactive Hours from Equipment Wise Report
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import {
@@ -405,22 +408,7 @@ const getCleanExportData = (data, reportType) => {
     }))
   }
 
-  if (reportType === 'engineer-performance') {
-    return data.map(r => ({
-      'Engineer': r.engineer_name || 'N/A',
-      'Email': r.email || 'N/A',
-      'Hospital': r.hospital_name || 'N/A',
-      'Total Repairs': r.total_repairs || 0,
-      'Completed': r.completed || 0,
-      'Pending': r.pending || 0,
-      'Critical': r.critical || 0,
-      'Avg Days': r.avg_days || '0.0',
-      'Completion Rate': r.completion_rate || '0.0%',
-      'Status': r.status || 'N/A'
-    }))
-  }
-
-  if (reportType === 'maintenance' || reportType === 'my-maintenance') {
+  if (reportType === 'maintenance') {
     return data.map(r => ({
       'Equipment': r.equipment_name || r.name || 'N/A',
       'Type': r.maintenance_type || 'Preventive',
@@ -456,9 +444,7 @@ const getCleanExportData = (data, reportType) => {
       'Serial Number': r.serial_number || 'N/A',
       'Hospital': r.hospital_name || 'N/A',
       'Department': r.department_name || 'N/A',
-      'Status': r.current_status || 'Active',
-      'Inactive (Hours)': Number(r.total_inactive_hours || 0).toFixed(1),
-      'Downtime (Days)': Number(r.total_downtime_days || 0).toFixed(1),
+      'Status': r.current_status || 'Functional',
       'Total Errors': r.total_errors || 0,
       'Open Errors': r.open_errors || 0,
       'Resolved Errors': r.resolved_errors || 0,
@@ -536,18 +522,6 @@ const calculateExportSummary = (rows, reportType) => {
     }
   }
 
-  if (reportType === 'engineer-performance') {
-    const totalRepairs = rows.reduce((s, r) => s + num(r['Total Repairs']), 0)
-    const completed = rows.reduce((s, r) => s + num(r['Completed']), 0)
-    const pending = rows.reduce((s, r) => s + num(r['Pending']), 0)
-    return {
-      'Total Engineers': rows.length,
-      'Total Repairs': totalRepairs,
-      'Completed': completed,
-      'Pending': pending
-    }
-  }
-
   if (reportType === 'maintenance' || reportType === 'my-maintenance') {
     const total = rows.length
     const overdue = rows.filter(r => r['Status'] === 'Overdue' || r.is_overdue).length
@@ -589,24 +563,20 @@ const calculateExportSummary = (rows, reportType) => {
     const criticalErrors = rows.reduce((s, r) => s + num(r['Critical Errors']), 0)
     const totalRepairs = rows.reduce((s, r) => s + num(r['Total Repairs']), 0)
     const totalSpareParts = rows.reduce((s, r) => s + num(r['Spare Parts']), 0)
-    const totalDowntime = rows.reduce((s, r) => s + parseFloat(r['Downtime (Days)'] || 0), 0)
-    const totalInactiveHours = rows.reduce((s, r) => s + parseFloat(r['Inactive (Hours)'] || 0), 0)
-    const active = rows.filter(r => r['Status'] === 'Active').length
-    const inactive = rows.filter(r => r['Status'] === 'Inactive' || r['Status'] === 'Retired').length
-    const maintenance = rows.filter(r => r['Status'] === 'Maintenance' || r['Status'] === 'Under Repair').length
+    const functional = rows.filter(r => r['Status'] === 'Functional').length
+    const nonFunctional = rows.filter(r => r['Status'] === 'Non-Functional').length
+    const underMaintenance = rows.filter(r => r['Status'] === 'Under Maintenance').length
     return {
       'Total Equipment': totalEquipment,
-      'Active': active,
-      'Inactive': inactive,
-      'Maintenance': maintenance,
+      'Functional': functional,
+      'Non-Functional': nonFunctional,
+      'Under Maintenance': underMaintenance,
       'Total Errors': totalErrors,
       'Resolved Errors': resolvedErrors,
       'Open Errors': openErrors,
       'Critical Errors': criticalErrors,
       'Total Repairs': totalRepairs,
       'Total Spare Parts': totalSpareParts,
-      'Total Downtime (Days)': `${totalDowntime.toFixed(1)}`,
-      'Total Inactive (Hours)': `${totalInactiveHours.toFixed(1)}`
     }
   }
 
@@ -1031,9 +1001,9 @@ const FilterMenu = ({
           <MenuItem value="Closed">Closed</MenuItem>
           <MenuItem value="Scheduled">Scheduled</MenuItem>
           <MenuItem value="Overdue">Overdue</MenuItem>
-          <MenuItem value="Active">Active</MenuItem>
-          <MenuItem value="Inactive">Inactive</MenuItem>
-          <MenuItem value="Maintenance">Maintenance</MenuItem>
+          <MenuItem value="Functional">Functional</MenuItem>
+          <MenuItem value="Non-Functional">Non-Functional</MenuItem>
+          <MenuItem value="Under Maintenance">Under Maintenance</MenuItem>
         </Select>
       </FormControl>
 
@@ -1241,6 +1211,7 @@ const SuperAdminReports = () => {
     { value: 'yearly', label: 'Yearly' }
   ]
 
+  // ✅ REMOVED: engineer-performance from Super Admin report types
   const superAdminReportTypes = [
     { value: 'downtime', label: '📉 Equipment Downtime Report' },
     { value: 'equipment-status', label: '📊 Equipment Wise Report' },
@@ -1251,7 +1222,6 @@ const SuperAdminReports = () => {
     { value: 'yearly', label: '📅 Yearly Error Report' },
     { value: 'hospital', label: '🏥 Hospital-wise Report' },
     { value: 'spare-parts', label: '📦 Spare Parts Report' },
-    { value: 'engineer-performance', label: '👨‍🔧 Engineer Performance Report' },
     { value: 'amc', label: '📄 AMC Expiry' }
   ]
 
@@ -1410,6 +1380,17 @@ const SuperAdminReports = () => {
               });
               const eqSpareParts = spareParts.filter(sp => sp.equipment_id === eq.id);
 
+              // Map status to Functional/Non-Functional/Under Maintenance
+              const statusMap = {
+                'active': 'Functional',
+                'inactive': 'Non-Functional',
+                'maintenance': 'Under Maintenance',
+                'under repair': 'Under Maintenance',
+                'retired': 'Non-Functional'
+              };
+              const normalizedStatus = String(eq.status || '').toLowerCase();
+              const currentStatus = statusMap[normalizedStatus] || eq.status || 'Functional';
+
               let downtimeHours = 0;
               const resolvedErrors = eqErrors.filter(e => ['Resolved', 'Closed', 'Completed'].includes(e.status));
               resolvedErrors.forEach(e => {
@@ -1419,20 +1400,14 @@ const SuperAdminReports = () => {
                 }
               });
 
-              let inactiveHours = 0;
               let maintenanceHours = 0;
-              
-              if (eq.status === 'Inactive') {
-                const lastUpdate = new Date(eq.updated_at || eq.created_at);
-                const now = new Date();
-                inactiveHours = Math.max(0, (now - lastUpdate) / (1000 * 60 * 60));
-              } else if (eq.status === 'Maintenance' || eq.status === 'Under Repair') {
+              if (eq.status === 'Maintenance' || eq.status === 'Under Repair') {
                 const lastUpdate = new Date(eq.updated_at || eq.created_at);
                 const now = new Date();
                 maintenanceHours = Math.max(0, (now - lastUpdate) / (1000 * 60 * 60));
               }
 
-              const totalDowntimeHours = downtimeHours + inactiveHours + maintenanceHours;
+              const totalDowntimeHours = downtimeHours + maintenanceHours;
 
               return {
                 id: eq.id,
@@ -1440,14 +1415,12 @@ const SuperAdminReports = () => {
                 model: eq.model || 'N/A',
                 manufacturer: eq.manufacturer || 'N/A',
                 serial_number: eq.serial_number || 'N/A',
-                current_status: eq.status || 'Active',
+                current_status: currentStatus,
                 hospital_name: eq.hospital_name || 'N/A',
                 department_name: eq.department_name || 'N/A',
                 location: eq.location || 'N/A',
                 installation_year: eq.installation_year || 'N/A',
                 equipment_added_on: eq.created_at || 'N/A',
-                total_inactive_hours: inactiveHours.toFixed(1),
-                total_maintenance_hours: maintenanceHours.toFixed(1),
                 total_downtime_hours: totalDowntimeHours.toFixed(1),
                 total_downtime_days: (totalDowntimeHours / 24).toFixed(2),
                 total_errors: eqErrors.length,
@@ -1466,14 +1439,12 @@ const SuperAdminReports = () => {
 
             const stats = {
               total: equipmentData.length,
-              active: equipmentData.filter(d => d.current_status === 'Active').length,
-              inactive: equipmentData.filter(d => d.current_status === 'Inactive').length,
-              maintenance: equipmentData.filter(d => d.current_status === 'Maintenance' || d.current_status === 'Under Repair').length,
-              total_downtime_days: equipmentData.reduce((sum, d) => sum + parseFloat(d.total_downtime_days || 0), 0),
+              functional: equipmentData.filter(d => d.current_status === 'Functional').length,
+              nonFunctional: equipmentData.filter(d => d.current_status === 'Non-Functional').length,
+              underMaintenance: equipmentData.filter(d => d.current_status === 'Under Maintenance').length,
               total_errors: equipmentData.reduce((sum, d) => sum + (d.total_errors || 0), 0),
               total_repairs: equipmentData.reduce((sum, d) => sum + (d.total_repairs || 0), 0),
               total_spare_parts: equipmentData.reduce((sum, d) => sum + (d.total_spare_parts || 0), 0),
-              total_inactive_hours: equipmentData.reduce((sum, d) => sum + parseFloat(d.total_inactive_hours || 0), 0)
             };
 
             equipmentData._summary = stats;
@@ -1708,67 +1679,6 @@ const SuperAdminReports = () => {
             data = []
             break
           }
-        }
-
-        case 'engineer-performance': {
-          const usersRes = await api.get('/users')
-          const users = usersRes.data.users || []
-          const engineers = users.filter(u => u.role_name === 'ENGINEER')
-
-          const repairsRes = await api.get('/repairs')
-          const allRepairs = repairsRes.data.repairs || []
-
-          let filteredRepairs = allRepairs
-          if (filters.startDate) {
-            const start = new Date(`${filters.startDate}T00:00:00`)
-            filteredRepairs = filteredRepairs.filter(r => {
-              const d = new Date(r.created_at || r.repair_date)
-              return d >= start
-            })
-          }
-          if (filters.endDate) {
-            const end = new Date(`${filters.endDate}T23:59:59`)
-            filteredRepairs = filteredRepairs.filter(r => {
-              const d = new Date(r.created_at || r.repair_date)
-              return d <= end
-            })
-          }
-
-          data = engineers.map(eng => {
-            const engineerRepairs = filteredRepairs.filter(r => 
-              String(r.engineer_id) === String(eng.id)
-            )
-
-            const total = engineerRepairs.length
-            const completed = engineerRepairs.filter(r =>
-              ['completed', 'verified', 'resolved'].includes(String(r.status || '').toLowerCase())
-            ).length
-            const pending = engineerRepairs.filter(r =>
-              ['pending', 'in progress', 'assigned'].includes(String(r.status || '').toLowerCase())
-            ).length
-            const critical = engineerRepairs.filter(r => r.spare_part_used === 1).length
-
-            const totalMinutes = engineerRepairs.reduce((sum, r) => sum + (parseInt(r.time_taken) || 0), 0)
-            const avgDays = total > 0 ? (totalMinutes / (24 * 60)) : 0
-
-            return {
-              engineer_id: eng.id,
-              engineer_name: eng.full_name || eng.username || 'Unknown',
-              email: eng.email,
-              hospital_name: eng.hospital_name || 'N/A',
-              total_repairs: total,
-              completed: completed,
-              pending: pending,
-              critical: critical,
-              total_time: totalMinutes,
-              avg_days: avgDays.toFixed(1),
-              completion_rate: total > 0 ? ((completed / total) * 100).toFixed(1) + '%' : '0.0%',
-              status: eng.is_active ? 'Active' : 'Inactive'
-            }
-          })
-
-          data = data.sort((a, b) => b.completed - a.completed)
-          break
         }
 
         case 'hospital': {
@@ -2029,7 +1939,6 @@ const SuperAdminReports = () => {
         hospital: 'Hospital_Report',
         'spare-parts': 'Spare_Parts_Report',
         maintenance: 'Maintenance_Report',
-        'engineer-performance': 'Engineer_Performance',
         amc: 'AMC_Contracts'
       }
       return map[reportType] || 'Report'
@@ -2354,34 +2263,33 @@ const SuperAdminReports = () => {
           </Grid>
           <Grid item xs={6} sm={2.4}>
             <StatsCard
-              title="Active"
-              value={filteredData._summary?.active || 0}
+              title="Functional"
+              value={filteredData._summary?.functional || 0}
               icon={<CheckCircle sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
           <Grid item xs={6} sm={2.4}>
             <StatsCard
-              title="Inactive"
-              value={filteredData._summary?.inactive || 0}
+              title="Non-Functional"
+              value={filteredData._summary?.nonFunctional || 0}
               icon={<Cancel sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
           <Grid item xs={6} sm={2.4}>
             <StatsCard
-              title="Maintenance"
-              value={filteredData._summary?.maintenance || 0}
+              title="Under Maintenance"
+              value={filteredData._summary?.underMaintenance || 0}
               icon={<Build sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
           <Grid item xs={6} sm={2.4}>
             <StatsCard
-              title="Total Downtime"
-              value={Number(filteredData._summary?.total_downtime_days || 0).toFixed(1)}
-              subtitle="Days"
-              icon={<TimerOff sx={{ fontSize: 22, color: colors.lightCyan }} />}
+              title="Total Errors"
+              value={filteredData._summary?.total_errors || 0}
+              icon={<ErrorOutline sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -2604,49 +2512,6 @@ const SuperAdminReports = () => {
                   .filter(Number.isFinite)
               ).toFixed(1)}%`}
               icon={<TrendingUp sx={{ fontSize: 22, color: colors.lightCyan }} />}
-              loading={loading}
-            />
-          </Grid>
-        </Grid>
-      ) : reportType === 'engineer-performance' ? (
-        <Grid container spacing={isMobile ? 1 : 2} sx={{ mb: 3 }}>
-          <Grid item xs={6} sm={2.4}>
-            <StatsCard
-              title="Total Engineers"
-              value={filteredData.length}
-              icon={<Engineering sx={{ fontSize: 22, color: colors.lightCyan }} />}
-              loading={loading}
-            />
-          </Grid>
-          <Grid item xs={6} sm={2.4}>
-            <StatsCard
-              title="Total Repairs"
-              value={filteredData.reduce((sum, row) => sum + row.total_repairs, 0)}
-              icon={<Build sx={{ fontSize: 22, color: colors.lightCyan }} />}
-              loading={loading}
-            />
-          </Grid>
-          <Grid item xs={6} sm={2.4}>
-            <StatsCard
-              title="Completed"
-              value={filteredData.reduce((sum, row) => sum + row.completed, 0)}
-              icon={<CheckCircle sx={{ fontSize: 22, color: colors.lightCyan }} />}
-              loading={loading}
-            />
-          </Grid>
-          <Grid item xs={6} sm={2.4}>
-            <StatsCard
-              title="Pending"
-              value={filteredData.reduce((sum, row) => sum + row.pending, 0)}
-              icon={<Schedule sx={{ fontSize: 22, color: colors.lightCyan }} />}
-              loading={loading}
-            />
-          </Grid>
-          <Grid item xs={6} sm={2.4}>
-            <StatsCard
-              title="Avg Days"
-              value={`${(filteredData.reduce((sum, row) => sum + parseFloat(row.avg_days || 0), 0) / (filteredData.length || 1)).toFixed(1)} days`}
-              icon={<TimerOff sx={{ fontSize: 22, color: colors.lightCyan }} />}
               loading={loading}
             />
           </Grid>
@@ -3054,7 +2919,6 @@ const SuperAdminReports = () => {
                     <TableCell sx={{ color: 'white', fontWeight: 700 }}>Hospital</TableCell>
                     <TableCell sx={{ color: 'white', fontWeight: 700 }}>Department</TableCell>
                     <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Status</TableCell>
-                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Inactive (Hrs)</TableCell>
                     <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Downtime (Days)</TableCell>
                     <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Errors</TableCell>
                     <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Repairs</TableCell>
@@ -3122,19 +2986,6 @@ const SuperAdminReports = () => {
                     <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Critical</TableCell>
                     <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Downtime (Days)</TableCell>
                     <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Availability</TableCell>
-                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Actions</TableCell>
-                  </>
-                ) : reportType === 'engineer-performance' ? (
-                  <>
-                    <TableCell sx={{ color: 'white', fontWeight: 700 }}>Engineer</TableCell>
-                    <TableCell sx={{ color: 'white', fontWeight: 700 }}>Hospital</TableCell>
-                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Total Repairs</TableCell>
-                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Completed</TableCell>
-                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Pending</TableCell>
-                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Critical</TableCell>
-                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Avg Days</TableCell>
-                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Completion Rate</TableCell>
-                    <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Status</TableCell>
                     <TableCell align="center" sx={{ color: 'white', fontWeight: 700 }}>Actions</TableCell>
                   </>
                 ) : isErrorReport ? (
@@ -3234,26 +3085,18 @@ const SuperAdminReports = () => {
                         <TableCell sx={{ color: '#64748B' }}>{item.department_name || 'N/A'}</TableCell>
                         <TableCell align="center">
                           <Chip
-                            label={item.current_status || item.status || 'Active'}
+                            label={item.current_status || item.status || 'Functional'}
                             size="small"
                             sx={{
-                              bgcolor: item.current_status === 'Active' || item.status === 'Active' ? '#22C55E' :
-                                       item.current_status === 'Maintenance' || item.status === 'Maintenance' ? '#F59E0B' :
-                                       item.current_status === 'Under Repair' ? '#EF4444' :
-                                       item.current_status === 'Inactive' || item.status === 'Inactive' || item.current_status === 'Retired' ? '#64748B' : '#3B82F6',
+                              bgcolor: item.current_status === 'Functional' ? '#22C55E' :
+                                       item.current_status === 'Under Maintenance' ? '#F59E0B' :
+                                       item.current_status === 'Non-Functional' ? '#EF4444' : '#3B82F6',
                               color: 'white',
                               fontWeight: 500,
                               height: 22,
                               fontSize: '10px'
                             }}
                           />
-                        </TableCell>
-                        <TableCell align="center" sx={{ 
-                          color: parseFloat(item.total_inactive_hours || 0) > 100 ? '#EF4444' : 
-                                 parseFloat(item.total_inactive_hours || 0) > 50 ? '#F59E0B' : '#64748B',
-                          fontWeight: 600 
-                        }}>
-                          {Number(item.total_inactive_hours || 0).toFixed(1)}h
                         </TableCell>
                         <TableCell align="center" sx={{ 
                           color: parseFloat(item.total_downtime_days || 0) > 10 ? '#EF4444' : 
@@ -3699,84 +3542,6 @@ const SuperAdminReports = () => {
                           </Tooltip>
                         </TableCell>
                       </>
-                    ) : reportType === 'engineer-performance' ? (
-                      <>
-                        <TableCell>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Avatar sx={{ 
-                              width: 32, 
-                              height: 32, 
-                              bgcolor: '#0F172A',
-                              fontSize: '14px',
-                              border: `2px solid #67E8F9`,
-                            }}>
-                              {item.engineer_name?.charAt(0) || 'E'}
-                            </Avatar>
-                            <Box>
-                              <Typography variant="body2" fontWeight={600} sx={{ color: '#0F172A' }}>
-                                {item.engineer_name}
-                              </Typography>
-                              <Typography variant="caption" sx={{ color: '#64748B' }}>
-                                {item.email}
-                              </Typography>
-                            </Box>
-                          </Box>
-                        </TableCell>
-                        <TableCell sx={{ color: '#64748B' }}>{item.hospital_name}</TableCell>
-                        <TableCell align="center" sx={{ fontWeight: 600, color: '#0F172A' }}>{item.total_repairs}</TableCell>
-                        <TableCell align="center" sx={{ color: '#22C55E', fontWeight: 600 }}>{item.completed}</TableCell>
-                        <TableCell align="center" sx={{ color: '#F59E0B', fontWeight: 600 }}>{item.pending}</TableCell>
-                        <TableCell align="center" sx={{ color: '#EF4444', fontWeight: 600 }}>{item.critical}</TableCell>
-                        <TableCell align="center" sx={{ color: '#0F172A', fontWeight: 600 }}>
-                          {item.avg_days} days
-                        </TableCell>
-                        <TableCell align="center">
-                          <Chip
-                            label={item.completion_rate}
-                            size="small"
-                            sx={{
-                              bgcolor: parseFloat(item.completion_rate) >= 80 ? '#22C55E' :
-                                       parseFloat(item.completion_rate) >= 50 ? '#F59E0B' : '#EF4444',
-                              color: 'white',
-                              fontWeight: 600,
-                              height: 22,
-                              fontSize: '10px'
-                            }}
-                          />
-                        </TableCell>
-                        <TableCell align="center">
-                          <Chip
-                            label={item.status}
-                            size="small"
-                            sx={{
-                              bgcolor: item.status === 'Active' ? '#22C55E' : '#EF4444',
-                              color: 'white',
-                              fontWeight: 500,
-                              height: 22,
-                              fontSize: '10px'
-                            }}
-                          />
-                        </TableCell>
-                        <TableCell align="center">
-                          <Tooltip title="View Details">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleView(item)}
-                              sx={{ 
-                                color: '#0F172A', 
-                                '&:hover': { 
-                                  color: '#67E8F9',
-                                  bgcolor: 'rgba(103, 232, 249, 0.1)',
-                                  transform: 'scale(1.1)',
-                                },
-                                transition: 'all 0.3s ease',
-                              }}
-                            >
-                              <Visibility fontSize={isMobile ? 'small' : 'medium'} />
-                            </IconButton>
-                          </Tooltip>
-                        </TableCell>
-                      </>
                     ) : isErrorReport ? (
                       <>
                         <TableCell align="center">
@@ -3948,10 +3713,9 @@ const SuperAdminReports = () => {
                         label={selectedItem.current_status}
                         size="small"
                         sx={{
-                          bgcolor: selectedItem.current_status === 'Active' ? '#22C55E' :
-                                   selectedItem.current_status === 'Maintenance' ? '#F59E0B' :
-                                   selectedItem.current_status === 'Under Repair' ? '#EF4444' :
-                                   selectedItem.current_status === 'Inactive' || selectedItem.current_status === 'Retired' ? '#64748B' : '#3B82F6',
+                          bgcolor: selectedItem.current_status === 'Functional' ? '#22C55E' :
+                                   selectedItem.current_status === 'Under Maintenance' ? '#F59E0B' :
+                                   selectedItem.current_status === 'Non-Functional' ? '#EF4444' : '#3B82F6',
                           color: 'white',
                           fontWeight: 600
                         }}
@@ -3991,14 +3755,6 @@ const SuperAdminReports = () => {
                         {selectedItem.spare_parts_out_of_stock || 0}
                       </Typography>
                     </Box>
-                    {isEquipmentWiseReport && selectedItem.total_inactive_hours !== undefined && (
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
-                        <Typography variant="body2" sx={{ color: '#64748B' }}>Total Inactive Time</Typography>
-                        <Typography variant="body2" fontWeight={600} sx={{ color: '#EF4444' }}>
-                          {Number(selectedItem.total_inactive_hours || 0).toFixed(1)} hours
-                        </Typography>
-                      </Box>
-                    )}
                     {selectedItem.total_spare_parts > 0 && (
                       <Alert severity="info" sx={{ mt: 1, borderRadius: 1 }}>
                         This equipment has {selectedItem.total_spare_parts} associated spare parts.
@@ -4068,14 +3824,6 @@ const SuperAdminReports = () => {
                         {Number(selectedItem.total_downtime_days || 0).toFixed(1)} days
                       </Typography>
                     </Box>
-                    {isEquipmentWiseReport && selectedItem.total_inactive_hours !== undefined && (
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
-                        <Typography variant="body2" sx={{ color: '#64748B' }}>Inactive Time</Typography>
-                        <Typography variant="body2" fontWeight={600} sx={{ color: '#EF4444' }}>
-                          {Number(selectedItem.total_inactive_hours || 0).toFixed(1)} hours
-                        </Typography>
-                      </Box>
-                    )}
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
                       <Typography variant="body2" sx={{ color: '#64748B' }}>Availability</Typography>
                       <Chip
@@ -4156,10 +3904,10 @@ const SuperAdminReports = () => {
                       label={selectedItem.status || selectedItem.current_status || 'N/A'}
                       size="small"
                       sx={{
-                        bgcolor: selectedItem.status === 'Completed' || selectedItem.status === 'Resolved' || selectedItem.status === 'In Stock' || selectedItem.current_status === 'Active' ? '#22C55E' :
+                        bgcolor: selectedItem.status === 'Completed' || selectedItem.status === 'Resolved' || selectedItem.status === 'In Stock' || selectedItem.current_status === 'Functional' ? '#22C55E' :
                           selectedItem.status === 'Pending' || selectedItem.status === 'Low Stock' ? '#F59E0B' :
                           selectedItem.status === 'In Progress' ? '#3B82F6' :
-                          selectedItem.status === 'Critical' || selectedItem.status === 'Out of Stock' || selectedItem.current_status === 'Under Repair' ? '#EF4444' : '#64748B',
+                          selectedItem.status === 'Critical' || selectedItem.status === 'Out of Stock' || selectedItem.current_status === 'Non-Functional' ? '#EF4444' : '#64748B',
                         color: 'white',
                         fontWeight: 500,
                         height: 22,
@@ -4204,14 +3952,6 @@ const SuperAdminReports = () => {
                       <Typography variant="body2" sx={{ color: '#64748B' }}>Downtime</Typography>
                       <Typography variant="body2" fontWeight={500} sx={{ color: '#EF4444' }}>
                         {Number(selectedItem.total_downtime_days || 0).toFixed(1)} days
-                      </Typography>
-                    </Box>
-                  )}
-                  {isEquipmentWiseReport && selectedItem.total_inactive_hours !== undefined && (
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
-                      <Typography variant="body2" sx={{ color: '#64748B' }}>Inactive Time</Typography>
-                      <Typography variant="body2" fontWeight={500} sx={{ color: '#EF4444' }}>
-                        {Number(selectedItem.total_inactive_hours || 0).toFixed(1)} hours
                       </Typography>
                     </Box>
                   )}
@@ -6640,10 +6380,10 @@ const EngineerReports = () => {
                       label={selectedItem.status || selectedItem.current_status || 'N/A'}
                       size="small"
                       sx={{
-                        bgcolor: selectedItem.status === 'Completed' || selectedItem.status === 'Resolved' || selectedItem.status === 'In Stock' || selectedItem.current_status === 'Active' ? '#22C55E' :
+                        bgcolor: selectedItem.status === 'Completed' || selectedItem.status === 'Resolved' || selectedItem.status === 'In Stock' || selectedItem.current_status === 'Functional' ? '#22C55E' :
                           selectedItem.status === 'Pending' || selectedItem.status === 'Low Stock' ? '#F59E0B' :
                           selectedItem.status === 'In Progress' ? '#3B82F6' :
-                          selectedItem.status === 'Critical' || selectedItem.status === 'Out of Stock' || selectedItem.current_status === 'Under Repair' ? '#EF4444' : '#64748B',
+                          selectedItem.status === 'Critical' || selectedItem.status === 'Out of Stock' || selectedItem.current_status === 'Non-Functional' ? '#EF4444' : '#64748B',
                         color: 'white',
                         fontWeight: 500,
                         height: 22,

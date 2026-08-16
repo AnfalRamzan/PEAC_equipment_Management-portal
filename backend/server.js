@@ -17,6 +17,7 @@
 // ✅ UPDATED installation_year TO date_of_installation IN EQUIPMENT TABLE
 // ✅ FIXED: Removed priority column references from dashboard stats
 // ✅ FIXED: Added 'director' field to hospital POST and PUT routes
+// ✅ FIXED: Changed all repair_spare_parts to spare_parts (correct table name)
 
 // ============================================================
 // ✅ LOAD ENVIRONMENT VARIABLES FIRST
@@ -2229,7 +2230,7 @@ app.use('/api/repairs', repairRoutes);
 console.log('🔧 Repair routes registered from routes/repairs.js');
 
 // ============================================================
-// ✅ SPARE PARTS ROUTES
+// ✅ SPARE PARTS ROUTES - FIXED: Using spare_parts table
 // ============================================================
 app.get('/api/spare-parts', authenticate, async (req, res) => {
     try {
@@ -2238,7 +2239,7 @@ app.get('/api/spare-parts', authenticate, async (req, res) => {
                    e.name as equipment_name,
                    e.model as equipment_model,
                    r.engineer_name
-            FROM repair_spare_parts sp
+            FROM spare_parts sp
             LEFT JOIN repairs r ON sp.repair_id = r.id
             LEFT JOIN equipment e ON r.equipment_id = e.id
             WHERE 1=1
@@ -2267,7 +2268,7 @@ app.get('/api/spare-parts/:id', authenticate, async (req, res) => {
             SELECT sp.*, 
                    e.name as equipment_name,
                    r.engineer_name
-            FROM repair_spare_parts sp
+            FROM spare_parts sp
             LEFT JOIN repairs r ON sp.repair_id = r.id
             LEFT JOIN equipment e ON r.equipment_id = e.id
             WHERE sp.id = ?
@@ -2318,7 +2319,7 @@ app.post('/api/spare-parts', authenticate, async (req, res) => {
         }
 
         const result = await query(
-            `INSERT INTO repair_spare_parts 
+            `INSERT INTO spare_parts 
              (repair_id, part_name, part_number, brand, 
               quantity, unit_cost, total_cost, compatible_equipment, 
               installation_notes, manufacturer)
@@ -2341,7 +2342,7 @@ app.post('/api/spare-parts', authenticate, async (req, res) => {
 
         const newSparePart = await query(
             `SELECT sp.*, e.name as equipment_name
-             FROM repair_spare_parts sp
+             FROM spare_parts sp
              LEFT JOIN repairs r ON sp.repair_id = r.id
              LEFT JOIN equipment e ON r.equipment_id = e.id
              WHERE sp.id = ?`,
@@ -2373,7 +2374,7 @@ app.put('/api/spare-parts/:id', authenticate, authorize('SUPER_ADMIN'), async (r
 
         console.log('🔄 Updating spare part:', id);
 
-        const existing = await query('SELECT * FROM repair_spare_parts WHERE id = ?', [id]);
+        const existing = await query('SELECT * FROM spare_parts WHERE id = ?', [id]);
         if (existing.length === 0) {
             return res.status(404).json({ 
                 success: false, 
@@ -2382,7 +2383,7 @@ app.put('/api/spare-parts/:id', authenticate, authorize('SUPER_ADMIN'), async (r
         }
 
         await query(
-            `UPDATE repair_spare_parts SET 
+            `UPDATE spare_parts SET 
              part_name = ?,
              part_number = ?,
              brand = ?,
@@ -2425,7 +2426,7 @@ app.delete('/api/spare-parts/:id', authenticate, authorize('SUPER_ADMIN'), async
         const { id } = req.params;
         console.log('🗑️ Deleting spare part ID:', id);
         
-        const existing = await query('SELECT * FROM repair_spare_parts WHERE id = ?', [id]);
+        const existing = await query('SELECT * FROM spare_parts WHERE id = ?', [id]);
         if (existing.length === 0) {
             return res.status(404).json({ 
                 success: false, 
@@ -2433,7 +2434,7 @@ app.delete('/api/spare-parts/:id', authenticate, authorize('SUPER_ADMIN'), async
             });
         }
 
-        await query('DELETE FROM repair_spare_parts WHERE id = ?', [id]);
+        await query('DELETE FROM spare_parts WHERE id = ?', [id]);
 
         console.log('✅ Spare part deleted successfully:', id);
         res.json({ 
@@ -2450,7 +2451,7 @@ app.delete('/api/spare-parts/:id', authenticate, authorize('SUPER_ADMIN'), async
 });
 
 // ============================================================
-// ✅ SPARE PART DOWNTIME ROUTE
+// ✅ SPARE PART DOWNTIME ROUTE - FIXED: Using spare_parts table
 // ============================================================
 app.get('/api/spare-parts/:id/downtime', authenticate, async (req, res) => {
     try {
@@ -2463,7 +2464,7 @@ app.get('/api/spare-parts/:id/downtime', authenticate, async (req, res) => {
                     r.id as repair_id,
                     e.name as equipment_name,
                     e.id as equipment_id
-             FROM repair_spare_parts sp
+             FROM spare_parts sp
              LEFT JOIN repairs r ON sp.repair_id = r.id
              LEFT JOIN equipment e ON r.equipment_id = e.id
              WHERE sp.id = ?`,
@@ -3219,7 +3220,7 @@ app.get('/api/search', authenticate, async (req, res) => {
                    s.brand, s.quantity, s.unit_cost,
                    eq.name as equipment_name,
                    r.engineer_name
-            FROM repair_spare_parts s
+            FROM spare_parts s
             LEFT JOIN repairs r ON s.repair_id = r.id
             LEFT JOIN equipment eq ON r.equipment_id = eq.id
             WHERE LOWER(s.part_name) LIKE ? 
@@ -3809,7 +3810,7 @@ app.get('/api/dashboard/stats', authenticate, async (req, res) => {
                 query("SELECT COUNT(*) as count FROM repairs"),
                 query("SELECT COUNT(*) as count FROM maintenance_schedule WHERE status = 'Overdue' OR (next_due_date < CURDATE() AND status != 'Completed')"),
                 query("SELECT COUNT(*) as count FROM purchase_orders WHERE status = 'Pending Approval'"),
-                query("SELECT COUNT(*) as count FROM repair_spare_parts WHERE quantity < 5")
+                query("SELECT COUNT(*) as count FROM spare_parts WHERE quantity < 5")
             ]);
 
             stats = {
@@ -3887,7 +3888,7 @@ app.get('/api/dashboard/stats', authenticate, async (req, res) => {
                 query("SELECT COUNT(*) as count FROM repairs WHERE equipment_id IN (SELECT id FROM equipment WHERE hospital_id = ?)", [hospitalId]),
                 query("SELECT COUNT(*) as count FROM maintenance_schedule WHERE status != 'Completed' AND (status = 'Overdue' OR next_due_date < CURDATE()) AND equipment_id IN (SELECT id FROM equipment WHERE hospital_id = ?)", [hospitalId]),
                 query("SELECT COUNT(*) as count FROM purchase_orders WHERE hospital_id = ? AND status = 'Pending Approval'", [hospitalId]),
-                query("SELECT COUNT(*) as count FROM repair_spare_parts WHERE quantity < 5 AND repair_id IN (SELECT id FROM repairs WHERE equipment_id IN (SELECT id FROM equipment WHERE hospital_id = ?))", [hospitalId])
+                query("SELECT COUNT(*) as count FROM spare_parts WHERE quantity < 5 AND repair_id IN (SELECT id FROM repairs WHERE equipment_id IN (SELECT id FROM equipment WHERE hospital_id = ?))", [hospitalId])
             ]);
 
             stats = {
@@ -4713,5 +4714,6 @@ if (require.main === module) {
     console.log('🔧 FIXED: Removed engineer_id from POST /api/repairs');
     console.log('🔧 FIXED: Changed error_log_id to equipment_id in repairs routes');
     console.log('🗑️ FIXED: DELETE /api/repairs/:id uses routes/repairs.js with ON DELETE CASCADE');
+    console.log('🔩 FIXED: All spare_parts routes now use correct table name "spare_parts"');
     console.log('========================================');
 }
