@@ -1,6 +1,8 @@
 // src/pages/Training.jsx
-// ✅ COMPLETE FIXED - Manual participant entry (NO DROPDOWN)
-// ✅ Only Local/Foreign dropdown, everything else manual
+// ✅ COMPLETE TRAINING MANAGEMENT PAGE
+// ✅ DARK NAVY + LIGHT CYAN THEME - Matching Equipment page
+// ✅ PERMISSIONS: Super Admin & Hospital Admin = Full Access, Engineer = View Only + Self Participant
+// ✅ Engineer can add themselves WITHOUT dropdown - one-click join
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -98,7 +100,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 // ============================================================
-// ✅ DARK NAVY + LIGHT CYAN THEME COLORS
+// ✅ DARK NAVY + LIGHT CYAN THEME COLORS - Matching Equipment page
 // ============================================================
 const colors = {
   darkNavy: '#0F172A',
@@ -142,27 +144,6 @@ const animationStyles = `
     transform: translateY(0);
   }
 }
-
-@keyframes prominentGlow {
-  0% {
-    box-shadow: 0 0 20px rgba(103, 232, 249, 0.2), 0 0 40px rgba(103, 232, 249, 0.1);
-    border-color: rgba(103, 232, 249, 0.3);
-  }
-  50% {
-    box-shadow: 0 0 40px rgba(103, 232, 249, 0.4), 0 0 80px rgba(103, 232, 249, 0.2);
-    border-color: rgba(103, 232, 249, 0.6);
-  }
-  100% {
-    box-shadow: 0 0 20px rgba(103, 232, 249, 0.2), 0 0 40px rgba(103, 232, 249, 0.1);
-    border-color: rgba(103, 232, 249, 0.3);
-  }
-}
-
-@keyframes gradientShine {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
 `;
 
 // ============================================================
@@ -188,7 +169,7 @@ const isImageFile = (url) => {
 const isVideoFile = (url) => {
   if (!url) return false;
   const ext = url.split('.').pop()?.toLowerCase() || '';
-  return ['mp4', 'webm', 'mov', 'avi', 'mkv', 'wmv', 'flv', 'webm'].includes(ext);
+  return ['mp4', 'mov', 'avi', 'mkv', 'wmv', 'flv', 'webm'].includes(ext);
 };
 
 const getFileName = (url) => {
@@ -200,7 +181,7 @@ const getFileName = (url) => {
 // ============================================================
 // ✅ ATTACHMENT GRID COMPONENT
 // ============================================================
-const AttachmentGrid = ({ attachments, onFileClick }) => {
+const AttachmentGrid = ({ attachments }) => {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState('');
   const [previewType, setPreviewType] = useState('');
@@ -328,6 +309,7 @@ const AttachmentGrid = ({ attachments, onFileClick }) => {
                 </Box>
               )}
               
+              {/* Overlay */}
               <Box 
                 className="attachment-overlay"
                 sx={{ 
@@ -384,6 +366,7 @@ const AttachmentGrid = ({ attachments, onFileClick }) => {
         })}
       </ImageList>
 
+      {/* Preview Dialog */}
       <PreviewDialog
         open={previewOpen}
         onClose={() => setPreviewOpen(false)}
@@ -481,7 +464,7 @@ const AttachmentGrid = ({ attachments, onFileClick }) => {
 };
 
 // ============================================================
-// ✅ TRAINING COMPONENT
+// ✅ MAIN TRAINING COMPONENT
 // ============================================================
 const Training = () => {
   const { user } = useSelector((state) => state.auth);
@@ -513,14 +496,13 @@ const Training = () => {
   const [viewingTraining, setViewingTraining] = useState(null);
   const [selectedTraining, setSelectedTraining] = useState(null);
   const [stats, setStats] = useState({ total: 0, pending: 0, local: 0, foreign: 0, inProgress: 0, completed: 0 });
+  const [users, setUsers] = useState([]);
+  const [selectedUserId, setSelectedUserId] = useState('');
   const [viewTabValue, setViewTabValue] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [filterAnchorEl, setFilterAnchorEl] = useState(null);
   const [exportAnchorEl, setExportAnchorEl] = useState(null);
   const [selfJoining, setSelfJoining] = useState({});
-
-  // ✅ MANUAL PARTICIPANT NAME - No dropdown, simple text field
-  const [participantName, setParticipantName] = useState('');
 
   const [filters, setFilters] = useState({
     type: '',
@@ -548,7 +530,6 @@ const Training = () => {
     setLoading(true);
     try {
       const response = await api.get('/training');
-      console.log('📦 Trainings response:', response.data);
       setTrainings(response.data.trainings || []);
     } catch (error) {
       console.error('Fetch trainings error:', error);
@@ -567,9 +548,21 @@ const Training = () => {
     }
   };
 
+  const fetchUsers = async () => {
+    try {
+      const response = await api.get('/users');
+      setUsers(response.data.users || []);
+    } catch (error) {
+      console.error('Fetch users error:', error);
+    }
+  };
+
   useEffect(() => {
     fetchTrainings();
     fetchStats();
+    if (canManage) {
+      fetchUsers();
+    }
   }, []);
 
   // ============================================================
@@ -750,21 +743,20 @@ const Training = () => {
     setViewTabValue(0);
   };
 
-  // ✅ OPEN PARTICIPANT DIALOG - Manual entry, no dropdown
   const handleOpenParticipantDialog = (training) => {
     if (!canManage) {
       toast.error('Only Super Admin and Hospital Admin can manage participants');
       return;
     }
     setSelectedTraining(training);
-    setParticipantName(''); // Reset field
+    setSelectedUserId('');
     setOpenParticipantDialog(true);
   };
 
   const handleCloseParticipantDialog = () => {
     setOpenParticipantDialog(false);
     setSelectedTraining(null);
-    setParticipantName('');
+    setSelectedUserId('');
   };
 
   const handleFormChange = (e) => {
@@ -853,17 +845,16 @@ const Training = () => {
     }
   };
 
-  // ✅ Add Participant - MANUAL ENTRY (NO DROPDOWN)
   const handleAddParticipant = async () => {
-    if (!participantName.trim()) {
-      toast.error('Please enter participant name');
+    if (!selectedUserId) {
+      toast.error('Please select a participant');
       return;
     }
     try {
       await api.post(`/training/${selectedTraining.id}/participants`, {
-        name: participantName.trim(),
+        user_id: parseInt(selectedUserId),
       });
-      toast.success(`✅ ${participantName.trim()} added as participant!`);
+      toast.success('Participant added successfully');
       fetchTrainings();
       handleCloseParticipantDialog();
     } catch (error) {
@@ -872,7 +863,6 @@ const Training = () => {
     }
   };
 
-  // ✅ Remove Participant
   const handleRemoveParticipant = async (trainingId, userId) => {
     if (!canManage) {
       toast.error('Only Super Admin and Hospital Admin can remove participants');
@@ -889,7 +879,7 @@ const Training = () => {
     }
   };
 
-  // ✅ ENGINEER SELF-ADD - ONE CLICK
+  // ✅ ENGINEER SELF-ADD - ONE CLICK, NO DROPDOWN
   const handleSelfAddParticipant = async (training) => {
     if (!isEngineer) {
       toast.error('Only Engineers can self-add to trainings');
@@ -992,7 +982,7 @@ const Training = () => {
 
   const filteredTrainings = getFilteredTrainings();
 
-  // ✅ Stats Cards
+  // ✅ Stats Cards Data
   const statsCards = [
     {
       title: 'Total Trainings',
@@ -1045,7 +1035,9 @@ const Training = () => {
     }}>
       <style>{animationStyles}</style>
 
-      {/* HEADER */}
+      {/* ============================================================
+          HEADER
+          ============================================================ */}
       <Box sx={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
@@ -1203,7 +1195,9 @@ const Training = () => {
         </Box>
       </Box>
 
-      {/* STATS CARDS */}
+      {/* ============================================================
+          STATS CARDS
+          ============================================================ */}
       <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }} sx={{ mb: 3 }}>
         {statsCards.map((card, index) => (
           <Grid item xs={6} sm={2.4} key={index}>
@@ -1287,7 +1281,9 @@ const Training = () => {
         ))}
       </Grid>
 
-      {/* TABS */}
+      {/* ============================================================
+          TABS
+          ============================================================ */}
       <Paper sx={{
         mb: 3,
         borderRadius: 3,
@@ -1324,7 +1320,9 @@ const Training = () => {
         </Tabs>
       </Paper>
 
-      {/* SEARCH */}
+      {/* ============================================================
+          SEARCH
+          ============================================================ */}
       <Paper sx={{
         p: 2,
         mb: 3,
@@ -1353,13 +1351,18 @@ const Training = () => {
                   '&:hover fieldset': { borderColor: colors.lightCyan },
                   '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                 },
+                '& .MuiInputBase-input': {
+                  fontSize: '0.9rem',
+                }
               }
             }}
           />
         </Box>
       </Paper>
 
-      {/* FILTER MENU */}
+      {/* ============================================================
+          FILTER MENU
+          ============================================================ */}
       <Menu
         anchorEl={filterAnchorEl}
         open={Boolean(filterAnchorEl)}
@@ -1461,7 +1464,9 @@ const Training = () => {
         </Box>
       </Menu>
 
-      {/* EXPORT MENU */}
+      {/* ============================================================
+          EXPORT MENU
+          ============================================================ */}
       <Menu
         anchorEl={exportAnchorEl}
         open={Boolean(exportAnchorEl)}
@@ -1509,7 +1514,9 @@ const Training = () => {
         </MenuItem>
       </Menu>
 
-      {/* TABLE */}
+      {/* ============================================================
+          TABLE
+          ============================================================ */}
       <TableContainer
         component={Paper}
         sx={{
@@ -1653,7 +1660,7 @@ const Training = () => {
                     <TableCell>{getStatusChip(training.status)}</TableCell>
                     <TableCell align="center">
                       <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5, flexWrap: 'wrap' }}>
-                        {/* View */}
+                        {/* View - Available to ALL */}
                         <Tooltip title="View Details">
                           <IconButton
                             size="small"
@@ -1670,7 +1677,7 @@ const Training = () => {
                           </IconButton>
                         </Tooltip>
 
-                        {/* Edit - Only Admins */}
+                        {/* Edit - ONLY Super Admin & Hospital Admin */}
                         {canManage && (
                           <Tooltip title="Edit Training">
                             <IconButton
@@ -1689,9 +1696,9 @@ const Training = () => {
                           </Tooltip>
                         )}
 
-                        {/* Add Participant - Only Admins (MANUAL ENTRY) */}
+                        {/* Add Participant - ONLY Super Admin & Hospital Admin */}
                         {canManage && (
-                          <Tooltip title="Add Participant (Manual)">
+                          <Tooltip title="Add Participant">
                             <IconButton
                               size="small"
                               onClick={() => handleOpenParticipantDialog(training)}
@@ -1708,7 +1715,7 @@ const Training = () => {
                           </Tooltip>
                         )}
 
-                        {/* Engineer One-Click Self-Add */}
+                        {/* ENGINEER ONE-CLICK SELF-ADD - NO DROPDOWN */}
                         {isEngineer && (
                           isAlreadyParticipant ? (
                             <Tooltip title="You are already a participant">
@@ -1747,7 +1754,7 @@ const Training = () => {
                           )
                         )}
 
-                        {/* Delete - Only Admins */}
+                        {/* Delete - ONLY Super Admin & Hospital Admin */}
                         {canDelete && (
                           <Tooltip title="Delete Training">
                             <IconButton
@@ -2009,7 +2016,7 @@ const Training = () => {
                 />
               </Grid>
 
-              {/* File Upload */}
+              {/* File Upload Section */}
               <Grid item xs={12}>
                 <Divider sx={{ my: 1, borderColor: colors.borderColor }} />
                 <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy, mb: 1 }}>
@@ -2305,7 +2312,7 @@ const Training = () => {
       </Dialog>
 
       {/* ============================================================
-          ADD PARTICIPANT DIALOG - MANUAL ENTRY (NO DROPDOWN) ✅
+          ADD PARTICIPANT DIALOG
           ============================================================ */}
       {canManage && (
         <Dialog
@@ -2340,34 +2347,32 @@ const Training = () => {
           </DialogTitle>
 
           <DialogContent dividers sx={{ borderColor: colors.borderColor, px: 4, py: 3 }}>
-            <Alert severity="info" sx={{ mb: 3, borderRadius: 2 }}>
+            <Alert severity="info" sx={{ mb: 2, borderRadius: 2 }}>
               Add participant to: <strong>{selectedTraining?.title}</strong>
             </Alert>
 
-            <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', mb: 1 }}>
-              Enter participant name manually
-            </Typography>
-
-            <TextField
-              fullWidth
-              label="Participant Name *"
-              value={participantName}
-              onChange={(e) => setParticipantName(e.target.value)}
-              placeholder="Enter full name of participant"
-              autoFocus
-              sx={{
-                '& .MuiOutlinedInput-root': {
+            <FormControl fullWidth>
+              <InputLabel sx={{ color: colors.lightText }}>Select User</InputLabel>
+              <Select
+                value={selectedUserId}
+                onChange={(e) => setSelectedUserId(e.target.value)}
+                label="Select User"
+                sx={{
                   borderRadius: 2,
-                  '&:hover fieldset': { borderColor: colors.lightCyan },
-                  '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                }
-              }}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  handleAddParticipant();
-                }
-              }}
-            />
+                  '& .MuiOutlinedInput-root': {
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                  }
+                }}
+              >
+                <MenuItem value="">Select a user</MenuItem>
+                {users.map((u) => (
+                  <MenuItem key={u.id} value={u.id}>
+                    {u.full_name} ({u.email})
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
           </DialogContent>
 
           <DialogActions sx={{ p: 3, gap: 1 }}>
@@ -2388,7 +2393,7 @@ const Training = () => {
             <Button
               variant="contained"
               onClick={handleAddParticipant}
-              disabled={!participantName.trim()}
+              disabled={!selectedUserId}
               sx={{ 
                 bgcolor: colors.darkNavy,
                 color: colors.text,
