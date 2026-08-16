@@ -1,3 +1,6 @@
+// src/api/services/index.js
+// ✅ COMPLETE FIXED VERSION
+
 import api from './axios'
 
 // ============================================================
@@ -22,11 +25,9 @@ export const userService = {
   getProfile: () => api.get('/users/me'),
   updateProfile: (data) => api.put('/users/me', data),
   changePassword: (data) => api.post('/users/change-password', data),
-  // ✅ Upload profile picture
   uploadProfilePicture: (formData) => api.post('/users/profile-picture', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
-  // ✅ Delete profile picture
   deleteProfilePicture: () => api.delete('/users/profile-picture'),
 }
 
@@ -67,18 +68,12 @@ export const equipmentService = {
   create: (data) => api.post('/equipment', data),
   update: (id, data) => api.put(`/equipment/${id}`, data),
   delete: (id) => api.delete(`/equipment/${id}`),
-  
-  // Equipment Categories
   getCategories: () => api.get('/equipment/categories/all'),
   createCategory: (data) => api.post('/equipment/categories', data),
   updateCategory: (id, data) => api.put(`/equipment/categories/${id}`, data),
   deleteCategory: (id) => api.delete(`/equipment/categories/${id}`),
-  
-  // Departments (Equipment)
   createDepartment: (data) => api.post('/equipment/departments', data),
   getDepartmentsByHospital: (hospitalId) => api.get(`/equipment/departments/hospital/${hospitalId}`),
-  
-  // Upload equipment images
   uploadImages: (id, data) => api.post(`/equipment/${id}/upload`, data, {
     headers: { 'Content-Type': 'multipart/form-data' }
   })
@@ -128,15 +123,20 @@ export const sparePartService = {
 }
 
 // ============================================================
-// ✅ MAINTENANCE SERVICES
+// ✅ MAINTENANCE SERVICES - FIXED ✅
 // ============================================================
 export const maintenanceService = {
-  getAll: (params) => api.get('/maintenance', { params }),
+  // ✅ FIXED: No params - simple GET
+  getAll: () => api.get('/maintenance'),
   getById: (id) => api.get(`/maintenance/${id}`),
   create: (data) => api.post('/maintenance', data),
   update: (id, data) => api.put(`/maintenance/${id}`, data),
   delete: (id) => api.delete(`/maintenance/${id}`),
-  complete: (id, data) => api.put(`/maintenance/${id}/complete`, data)
+  complete: (id, data) => api.put(`/maintenance/${id}/complete`, data),
+  // ✅ ADDED: Overdue schedules
+  getOverdue: () => api.get('/maintenance/overdue'),
+  // ✅ ADDED: Update status only
+  updateStatus: (id, status) => api.patch(`/maintenance/${id}/status`, { status })
 }
 
 // ============================================================

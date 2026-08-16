@@ -1,5 +1,5 @@
-// frontend/src/pages/Login.jsx
-// ✅ DARK NAVY + LIGHT CYAN THEME - Matching MainLayout
+// src/pages/Login.jsx
+// ✅ FIXED: elevation={10} instead of {30}
 
 import React, { useState } from 'react';
 import {
@@ -24,83 +24,49 @@ import { login } from '../redux/slices/authSlice';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
-// ============================================================
-// ✅ DARK NAVY + LIGHT CYAN THEME COLORS
-// ============================================================
 const colors = {
-    darkNavy: '#0F172A',
-    darkNavyLight: '#1E293B',
-    darkNavyDark: '#0A0F1E',
-    darkNavyHover: '#1E3A5F',
-    
-    lightCyan: '#67E8F9',
-    lightCyanBright: '#A5F3FC',
-    lightCyanDark: '#22D3EE',
-    lightCyanGlow: 'rgba(103, 232, 249, 0.15)',
-    lightCyanGlowStrong: 'rgba(103, 232, 249, 0.3)',
-    
-    accentGold: '#C9A227',
-    goldLight: '#E8C84A',
-    
-    text: '#FFFFFF',
-    secondaryText: '#94A3B8',
-    textLight: '#CBD5E1',
-    cyanText: '#67E8F9',
-    darkText: '#0F172A',
-    lightText: '#64748B',
-    
-    error: '#EF4444',
-    success: '#22C55E',
-    warning: '#F59E0B',
-    info: '#3B82F6',
+  darkNavy: '#0F172A',
+  darkNavyLight: '#1E293B',
+  darkNavyDark: '#0A0F1E',
+  darkNavyHover: '#1E3A5F',
+  lightCyan: '#67E8F9',
+  lightCyanBright: '#A5F3FC',
+  lightCyanDark: '#22D3EE',
+  lightCyanGlow: 'rgba(103, 232, 249, 0.15)',
+  lightCyanGlowStrong: 'rgba(103, 232, 249, 0.3)',
+  accentGold: '#C9A227',
+  goldLight: '#E8C84A',
+  text: '#FFFFFF',
+  secondaryText: '#94A3B8',
+  textLight: '#CBD5E1',
+  cyanText: '#67E8F9',
+  darkText: '#0F172A',
+  lightText: '#64748B',
+  error: '#EF4444',
+  success: '#22C55E',
+  warning: '#F59E0B',
+  info: '#3B82F6',
 };
 
-// ============================================================
-// ✅ ANIMATIONS
-// ============================================================
 const loginStyles = `
 @keyframes gradient {
     0% { background-position: 0% 50%; }
     50% { background-position: 100% 50%; }
     100% { background-position: 0% 50%; }
 }
-
 @keyframes pulseGlow {
     0% { opacity: 0.3; transform: scale(1); }
     50% { opacity: 0.8; transform: scale(1.05); }
     100% { opacity: 0.3; transform: scale(1); }
 }
-
-@keyframes shimmerFloat {
-    0% { transform: translateX(-100%) rotate(-5deg); opacity: 0; }
-    20% { opacity: 0.6; }
-    50% { opacity: 1; }
-    80% { opacity: 0.6; }
-    100% { transform: translateX(200%) rotate(-5deg); opacity: 0; }
-}
-
-@keyframes cyanGlowPulse {
-    0% { box-shadow: 0 0 20px rgba(103, 232, 249, 0.1); }
-    50% { box-shadow: 0 0 60px rgba(103, 232, 249, 0.2); }
-    100% { box-shadow: 0 0 20px rgba(103, 232, 249, 0.1); }
-}
-
 @keyframes buttonGradient {
     0% { background-position: 0% 50%; }
     50% { background-position: 100% 50%; }
     100% { background-position: 0% 50%; }
 }
-
-@keyframes bottomGlow {
-    0% { opacity: 0.5; }
-    50% { opacity: 1; }
-    100% { opacity: 0.5; }
-}
-
 .login-paper {
     animation: cyanGlowPulse 4s ease-in-out infinite;
 }
-
 .glow-ring {
     position: absolute;
     border-radius: 50%;
@@ -108,7 +74,19 @@ const loginStyles = `
     background: radial-gradient(circle, rgba(103, 232, 249, 0.08) 0%, transparent 70%);
     animation: pulseGlow 3s ease-in-out infinite;
 }
-`
+@keyframes cyanGlowPulse {
+    0% { box-shadow: 0 0 20px rgba(103, 232, 249, 0.1); }
+    50% { box-shadow: 0 0 60px rgba(103, 232, 249, 0.2); }
+    100% { box-shadow: 0 0 20px rgba(103, 232, 249, 0.1); }
+}
+@keyframes shimmerFloat {
+    0% { transform: translateX(-100%) rotate(-5deg); opacity: 0; }
+    20% { opacity: 0.6; }
+    50% { opacity: 1; }
+    80% { opacity: 0.6; }
+    100% { transform: translateX(200%) rotate(-5deg); opacity: 0; }
+}
+`;
 
 const Login = () => {
     const [formData, setFormData] = useState({ email: '', password: '' });
@@ -144,26 +122,20 @@ const Login = () => {
         e.preventDefault();
         if (validateForm()) {
             try {
-                console.log('📤 Sending login request:', { email: formData.email });
                 const result = await dispatch(login(formData));
-                console.log('📥 Login response:', result);
-                
                 if (result.payload && result.payload.user) {
-                    console.log('👤 Logged in user:', result.payload.user.email, 'Role:', result.payload.user.role);
                     toast.success(`Welcome back, ${result.payload.user.full_name || result.payload.user.email}!`);
                     navigate('/dashboard');
                 } else if (result.error) {
                     toast.error(result.error.message || 'Login failed');
                 }
             } catch (err) {
-                console.error('❌ Login error:', err);
                 toast.error(err.message || 'Login failed');
             }
         }
     };
 
     const handleVideoError = () => {
-        console.log('⚠️ Video failed to load, showing fallback');
         setVideoError(true);
     };
 
@@ -187,7 +159,6 @@ const Login = () => {
                         : 'none',
                 }}
             >
-                {/* Video Background */}
                 {!videoError && (
                     <Box
                         component="video"
@@ -215,7 +186,6 @@ const Login = () => {
                     </Box>
                 )}
 
-                {/* Overlay */}
                 <Box
                     sx={{
                         position: 'absolute',
@@ -233,7 +203,6 @@ const Login = () => {
                     }}
                 />
 
-                {/* Login Form */}
                 <Container 
                     maxWidth={false}
                     sx={{ 
@@ -254,7 +223,7 @@ const Login = () => {
                 >
                     <Grow in timeout={800}>
                         <Paper
-                            elevation={30}
+                            elevation={10}
                             className="login-paper"
                             sx={{
                                 width: '100%',
@@ -292,7 +261,6 @@ const Login = () => {
                                     sm: 'auto',
                                 },
                                 overflowY: 'auto',
-                                // ✅ TOP GRADIENT BAR - Always visible
                                 '&::before': {
                                     content: '""',
                                     position: 'absolute',
@@ -313,7 +281,6 @@ const Login = () => {
                                     zIndex: 10,
                                     pointerEvents: 'none',
                                 },
-                                // ✅ BOTTOM GLOW LINE - Always visible, full width
                                 '&::after': {
                                     content: '""',
                                     position: 'absolute',
@@ -334,46 +301,6 @@ const Login = () => {
                                     zIndex: 10,
                                     pointerEvents: 'none',
                                     opacity: 0.8,
-                                },
-                                // ✅ LEFT SIDE BORDER GLOW
-                                '&::before:before': {
-                                    content: '""',
-                                    position: 'absolute',
-                                    top: 0,
-                                    bottom: 0,
-                                    left: 0,
-                                    width: '2px',
-                                    background: `linear-gradient(180deg, 
-                                        ${colors.darkNavy}, 
-                                        ${colors.lightCyan}, 
-                                        ${colors.accentGold},
-                                        ${colors.lightCyan}, 
-                                        ${colors.darkNavy}
-                                    )`,
-                                    backgroundSize: '100% 200%',
-                                    animation: 'gradient 3s ease infinite',
-                                    zIndex: 10,
-                                    pointerEvents: 'none',
-                                },
-                                // ✅ RIGHT SIDE BORDER GLOW
-                                '&::before:after': {
-                                    content: '""',
-                                    position: 'absolute',
-                                    top: 0,
-                                    bottom: 0,
-                                    right: 0,
-                                    width: '2px',
-                                    background: `linear-gradient(180deg, 
-                                        ${colors.darkNavy}, 
-                                        ${colors.lightCyan}, 
-                                        ${colors.accentGold},
-                                        ${colors.lightCyan}, 
-                                        ${colors.darkNavy}
-                                    )`,
-                                    backgroundSize: '100% 200%',
-                                    animation: 'gradient 3s ease infinite',
-                                    zIndex: 10,
-                                    pointerEvents: 'none',
                                 },
                                 '&:hover': {
                                     borderColor: `rgba(103, 232, 249, 0.3)`,
@@ -397,7 +324,6 @@ const Login = () => {
                                 },
                             }}
                         >
-                            {/* Content */}
                             <Box sx={{ 
                                 position: 'relative', 
                                 zIndex: 1,
@@ -466,7 +392,6 @@ const Login = () => {
                                                     e.target.style.display = 'none'; 
                                                 }}
                                             />
-                                            {/* Glow rings behind logo */}
                                             <Box
                                                 className="glow-ring"
                                                 sx={{
@@ -496,24 +421,6 @@ const Login = () => {
                                                     borderRadius: '50%',
                                                     background: `radial-gradient(circle, rgba(103, 232, 249, 0.04) 0%, transparent 70%)`,
                                                     animation: 'pulseGlow 3s ease-in-out infinite 1s',
-                                                    pointerEvents: 'none',
-                                                    display: {
-                                                        xs: isLandscape ? 'none' : 'block',
-                                                        sm: 'block',
-                                                    }
-                                                }}
-                                            />
-                                            <Box
-                                                className="glow-ring"
-                                                sx={{
-                                                    position: 'absolute',
-                                                    top: '-50px',
-                                                    left: '-50px',
-                                                    right: '-50px',
-                                                    bottom: '-50px',
-                                                    borderRadius: '50%',
-                                                    background: `radial-gradient(circle, rgba(201, 162, 39, 0.04) 0%, transparent 70%)`,
-                                                    animation: 'pulseGlow 4s ease-in-out infinite 0.5s',
                                                     pointerEvents: 'none',
                                                     display: {
                                                         xs: isLandscape ? 'none' : 'block',
@@ -552,7 +459,6 @@ const Login = () => {
                                     </Fade>
                                 </Box>
 
-                                {/* Error Alert */}
                                 {error && (
                                     <Fade in>
                                         <Alert 
@@ -578,7 +484,6 @@ const Login = () => {
                                     </Fade>
                                 )}
 
-                                {/* Form */}
                                 <form onSubmit={handleSubmit}>
                                     <TextField
                                         fullWidth
@@ -729,7 +634,6 @@ const Login = () => {
                                         }}
                                     />
 
-                                    {/* Login Button */}
                                     <Button
                                         fullWidth
                                         type="submit"

@@ -14,6 +14,7 @@
 // ✅ ADDED: Downtime calculation - from error creation to resolution
 // ✅ UPDATED: Downtime shows ONLY days with 2 decimal places (e.g., 1.60d, 5.25d)
 // ✅ FIXED: No hours display anywhere - only days
+// ✅ REMOVED: Total Downtime stats card
 
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -1105,10 +1106,7 @@ const ErrorLogs = () => {
   const openErrors = errors.filter(e => e.status === 'Pending' || e.status === 'In Progress').length
   const resolvedErrors = errors.filter(e => e.status === 'Resolved').length
 
-  // ✅ Total downtime calculation for all errors (only days)
-  const totalDowntimeDays = errors.reduce((sum, e) => sum + calculateDowntime(e).days, 0)
-
-  // ✅ Stats Cards Data
+  // ✅ Stats Cards Data - REMOVED Total Downtime card
   const statsCards = [
     {
       title: 'Total Errors',
@@ -1133,14 +1131,6 @@ const ErrorLogs = () => {
       color: colors.lightCyan,
       bg: 'rgba(103, 232, 249, 0.08)',
       path: '/errors?status=resolved'
-    },
-    {
-      title: 'Total Downtime',
-      value: `${totalDowntimeDays.toFixed(2)}d`,
-      icon: <TimerOff />,
-      color: colors.lightCyan,
-      bg: 'rgba(103, 232, 249, 0.08)',
-      path: '/errors'
     },
   ]
 
@@ -1299,10 +1289,10 @@ const ErrorLogs = () => {
         </Box>
       </Box>
 
-      {/* Stats Cards */}
+      {/* Stats Cards - Only 3 cards now */}
       <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }} sx={{ mb: 3 }}>
         {statsCards.map((card, index) => (
-          <Grid item xs={6} sm={3} key={index}>
+          <Grid item xs={4} sm={4} key={index}>
             <Grow in timeout={300 + index * 100}>
               <Card sx={{ 
                 borderRadius: 3,

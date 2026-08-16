@@ -1,12 +1,5 @@
 // src/pages/Maintenance.jsx
-// ✅ DARK NAVY + LIGHT CYAN THEME - Matching Equipment page
-// ✅ UPDATED: Stats cards design matches Equipment page
-// ✅ UPDATED: Header with Filter and Export buttons
-// ✅ ADDED: Export functionality (Excel, PDF only - no CSV)
-// ✅ ADDED: Filter menu popup
-// ✅ ADDED: Animations
-// ✅ ADDED: Hospital column in main table
-// ✅ ADDED: Hospital filter in filter menu
+// ✅ COMPLETE FIXED VERSION
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -43,7 +36,6 @@ import {
   Fade,
   Grow,
   Menu,
-  Avatar,
 } from '@mui/material'
 import {
   Add,
@@ -53,20 +45,15 @@ import {
   Visibility,
   Close,
   Refresh,
-  CalendarToday,
   Build,
   Schedule,
   Person,
   AdminPanelSettings,
-  Verified,
   FilterList,
   Download,
   FileDownload,
-  Engineering,
   CheckCircle,
   Warning,
-  ErrorOutline,
-  LocalHospital,
 } from '@mui/icons-material'
 import { maintenanceService, equipmentService, hospitalService } from '../api/services'
 import { toast } from 'react-toastify'
@@ -77,7 +64,7 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
 // ============================================================
-// ✅ DARK NAVY + LIGHT CYAN THEME COLORS - Matching Equipment page
+// THEME COLORS
 // ============================================================
 const colors = {
   darkNavy: '#0F172A',
@@ -90,16 +77,12 @@ const colors = {
   lightCyanGlow: 'rgba(103, 232, 249, 0.15)',
   lightCyanGlowStrong: 'rgba(103, 232, 249, 0.3)',
   accentGold: '#C9A227',
-  goldLight: '#E8C84A',
   text: '#FFFFFF',
   secondaryText: '#94A3B8',
   textLight: '#CBD5E1',
-  cyanText: '#67E8F9',
-  darkText: '#0F172A',
   lightText: '#64748B',
   cardBg: '#FFFFFF',
   borderColor: 'rgba(103, 232, 249, 0.1)',
-  shadowColor: 'rgba(15, 23, 42, 0.08)',
   mainBg: '#F1F5F9',
   error: '#EF4444',
   success: '#22C55E',
@@ -109,38 +92,10 @@ const colors = {
   bgGradientEnd: '#E8EEF5',
 }
 
-// ✅ Animation Styles - Same as Equipment page
 const animationStyles = `
 @keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes prominentGlow {
-  0% {
-    box-shadow: 0 0 20px rgba(103, 232, 249, 0.2), 0 0 40px rgba(103, 232, 249, 0.1);
-    border-color: rgba(103, 232, 249, 0.3);
-  }
-  50% {
-    box-shadow: 0 0 40px rgba(103, 232, 249, 0.4), 0 0 80px rgba(103, 232, 249, 0.2);
-    border-color: rgba(103, 232, 249, 0.6);
-  }
-  100% {
-    box-shadow: 0 0 20px rgba(103, 232, 249, 0.2), 0 0 40px rgba(103, 232, 249, 0.1);
-    border-color: rgba(103, 232, 249, 0.3);
-  }
-}
-
-@keyframes gradientShine {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 `
 
@@ -160,6 +115,7 @@ const Maintenance = () => {
   const canChangeStatus = isSuperAdmin
   
   const canEdit = (schedule) => {
+    if (isSuperAdmin) return true
     if (isEngineer) {
       return schedule.engineer_name === user?.full_name
     }
@@ -168,7 +124,7 @@ const Maintenance = () => {
 
   const [schedules, setSchedules] = useState([])
   const [equipment, setEquipment] = useState([])
-  const [hospitals, setHospitals] = useState([]) // ✅ ADDED: Hospitals state
+  const [hospitals, setHospitals] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [openDialog, setOpenDialog] = useState(false)
@@ -178,16 +134,16 @@ const Maintenance = () => {
   const [filterAnchorEl, setFilterAnchorEl] = useState(null)
   const [exportAnchorEl, setExportAnchorEl] = useState(null)
   
-  // ✅ UPDATED: Filters with Hospital
   const [filters, setFilters] = useState({
     status: '',
     frequency: '',
     maintenance_type: '',
-    hospital: '', // ✅ ADDED: Hospital filter
+    hospital: '',
   })
   
   const [formData, setFormData] = useState({
     equipment_id: '',
+    hospital_id: '',
     maintenance_type: 'Preventive',
     frequency: 'Monthly',
     last_maintenance_date: '',
@@ -203,17 +159,37 @@ const Maintenance = () => {
   useEffect(() => {
     fetchSchedules()
     fetchEquipment()
-    fetchHospitals() // ✅ ADDED: Fetch hospitals
+    fetchHospitals()
   }, [])
 
+  // ============================================================
+  // ✅ FETCH SCHEDULES
+  // ============================================================
   const fetchSchedules = async () => {
     setLoading(true)
     try {
       const response = await maintenanceService.getAll()
-      setSchedules(response.data.schedules || [])
+      console.log('📊 API Response:', response)
+      
+      let schedulesData = response.data?.schedules || []
+      
+      // ✅ Debug: Check each schedule
+      schedulesData.forEach((schedule, index) => {
+        console.log(`🔍 Schedule ${index + 1}:`, {
+          id: schedule.id,
+          equipment_name: schedule.equipment_name,
+          equipment_id: schedule.equipment_id,
+          hospital_name: schedule.hospital_name,
+          hospital_id: schedule.hospital_id,
+        })
+      })
+      
+      setSchedules(schedulesData)
+      
     } catch (error) {
-      console.error('Fetch schedules error:', error)
+      console.error('❌ Fetch schedules error:', error)
       toast.error('Failed to fetch maintenance schedules')
+      setSchedules([])
     } finally {
       setLoading(false)
     }
@@ -222,35 +198,32 @@ const Maintenance = () => {
   const fetchEquipment = async () => {
     try {
       const response = await equipmentService.getAll()
-      setEquipment(response.data.equipment || [])
+      setEquipment(response.data?.equipment || [])
     } catch (error) {
-      console.error('Failed to fetch equipment:', error)
+      console.error('❌ Failed to fetch equipment:', error)
     }
   }
 
-  // ✅ ADDED: Fetch hospitals
   const fetchHospitals = async () => {
     try {
       const response = await hospitalService.getAll()
-      setHospitals(response.data.hospitals || [])
+      setHospitals(response.data?.hospitals || [])
     } catch (error) {
-      console.error('Failed to fetch hospitals:', error)
+      console.error('❌ Failed to fetch hospitals:', error)
     }
   }
 
   // ============================================================
-  // ✅ EXPORT HANDLERS - CSV REMOVED, KEEPING EXCEL & PDF
+  // ✅ EXPORT HANDLERS
   // ============================================================
   const handleExportClick = (event) => setExportAnchorEl(event.currentTarget)
   const handleExportClose = () => setExportAnchorEl(null)
 
-  // ❌ CSV export removed - keeping only Excel and PDF
-
   const exportToExcel = () => {
     try {
       const data = filteredSchedules.map(s => ({
-        'Equipment': s.equipment_name || '',
-        'Hospital': s.hospital_name || s.hospital?.name || '',
+        'Equipment': s.equipment_name || 'N/A',
+        'Hospital': s.hospital_name || 'N/A',
         'Type': s.maintenance_type || '',
         'Frequency': s.frequency || '',
         'Engineer': s.engineer_name || '',
@@ -281,8 +254,8 @@ const Maintenance = () => {
       doc.text(`Total Schedules: ${filteredSchedules.length}`, 14, 34)
       
       const tableData = filteredSchedules.map(s => [
-        s.equipment_name || '',
-        s.hospital_name || s.hospital?.name || '',
+        s.equipment_name || 'N/A',
+        s.hospital_name || 'N/A',
         s.maintenance_type || '',
         s.frequency || '',
         s.engineer_name || '',
@@ -321,7 +294,7 @@ const Maintenance = () => {
       status: '', 
       frequency: '', 
       maintenance_type: '',
-      hospital: '' // ✅ ADDED
+      hospital: ''
     })
     setFilterAnchorEl(null)
     toast.info('Filters cleared')
@@ -329,7 +302,7 @@ const Maintenance = () => {
 
   const handleOpenDialog = (schedule = null) => {
     if (schedule && !canEdit(schedule)) {
-      toast.error('Only engineers can edit their own schedules')
+      toast.error('You do not have permission to edit this schedule')
       return
     }
     
@@ -337,6 +310,7 @@ const Maintenance = () => {
       setEditingSchedule(schedule)
       setFormData({
         equipment_id: schedule.equipment_id || '',
+        hospital_id: schedule.hospital_id || '',
         maintenance_type: schedule.maintenance_type || 'Preventive',
         frequency: schedule.frequency || 'Monthly',
         last_maintenance_date: schedule.last_maintenance_date ? new Date(schedule.last_maintenance_date).toISOString().split('T')[0] : '',
@@ -352,6 +326,7 @@ const Maintenance = () => {
       setEditingSchedule(null)
       setFormData({
         equipment_id: '',
+        hospital_id: '',
         maintenance_type: 'Preventive',
         frequency: 'Monthly',
         last_maintenance_date: '',
@@ -406,6 +381,12 @@ const Maintenance = () => {
         toast.error('Please select equipment')
         return
       }
+      
+      if (!formData.hospital_id) {
+        toast.error('Please select a hospital')
+        return
+      }
+      
       if (!formData.next_due_date) {
         toast.error('Next due date is required')
         return
@@ -413,6 +394,7 @@ const Maintenance = () => {
 
       const submitData = {
         equipment_id: parseInt(formData.equipment_id),
+        hospital_id: parseInt(formData.hospital_id),
         maintenance_type: formData.maintenance_type || 'Preventive',
         frequency: formData.frequency || 'Monthly',
         last_maintenance_date: formData.last_maintenance_date || null,
@@ -423,8 +405,9 @@ const Maintenance = () => {
         amc_details: formData.amc_details || '',
         status: isEngineer && editingSchedule ? editingSchedule.status : formData.status,
         engineer_name: formData.engineer_name || user?.full_name || '',
-        assigned_to: null
       }
+
+      console.log('📤 Submitting:', submitData)
 
       if (editingSchedule) {
         await maintenanceService.update(editingSchedule.id, submitData)
@@ -436,7 +419,7 @@ const Maintenance = () => {
       fetchSchedules()
       handleCloseDialog()
     } catch (error) {
-      console.error('Submit error:', error)
+      console.error('❌ Submit error:', error)
       toast.error(error.response?.data?.message || 'Operation failed')
     }
   }
@@ -453,7 +436,7 @@ const Maintenance = () => {
         toast.success('Maintenance schedule deleted successfully')
         fetchSchedules()
       } catch (error) {
-        console.error('Delete error:', error)
+        console.error('❌ Delete error:', error)
         toast.error('Failed to delete schedule')
       }
     }
@@ -480,7 +463,7 @@ const Maintenance = () => {
         setViewingSchedule({ ...viewingSchedule, status })
       }
     } catch (error) {
-      console.error('Status update error:', error)
+      console.error('❌ Status update error:', error)
       toast.error('Failed to update status')
     }
   }
@@ -490,15 +473,14 @@ const Maintenance = () => {
     return new Date(date) < new Date()
   }
 
-  // ✅ UPDATED: Filtered Schedules with Hospital filter
   const filteredSchedules = schedules.filter(schedule => {
-    const matchesSearch = schedule.equipment_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          schedule.maintenance_type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          schedule.engineer_name?.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesSearch = (schedule.equipment_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          (schedule.maintenance_type || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          (schedule.engineer_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          (schedule.hospital_name || '').toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = !filters.status || schedule.status === filters.status
     const matchesFrequency = !filters.frequency || schedule.frequency === filters.frequency
     const matchesType = !filters.maintenance_type || schedule.maintenance_type === filters.maintenance_type
-    // ✅ ADDED: Hospital filter
     const matchesHospital = !filters.hospital || schedule.hospital_id === parseInt(filters.hospital)
     return matchesSearch && matchesStatus && matchesFrequency && matchesType && matchesHospital
   })
@@ -508,7 +490,6 @@ const Maintenance = () => {
   const completedSchedules = schedules.filter(s => s.status === 'Completed').length
   const overdueSchedules = schedules.filter(s => s.status === 'Overdue' || (s.next_due_date && new Date(s.next_due_date) < new Date() && s.status !== 'Completed')).length
 
-  // ✅ Stats Cards Data - Same design as Equipment page
   const statsCards = [
     {
       title: 'Total Schedules',
@@ -540,7 +521,6 @@ const Maintenance = () => {
     },
   ]
 
-  // ✅ Get status color for chips
   const getStatusColor = (status) => {
     switch(status) {
       case 'Completed': return colors.success
@@ -561,14 +541,10 @@ const Maintenance = () => {
       p: { xs: 1, sm: 2, md: 3 },
       background: `linear-gradient(135deg, ${colors.bgGradientStart} 0%, ${colors.bgGradientEnd} 50%, ${colors.bgGradientStart} 100%)`,
       minHeight: '100vh',
-      borderRadius: 0,
-      position: 'relative',
     }}>
       <style>{animationStyles}</style>
 
-      {/* ============================================================
-          HEADER - Same as Equipment page
-          ============================================================ */}
+      {/* HEADER */}
       <Box sx={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
@@ -610,7 +586,6 @@ const Maintenance = () => {
         </Box>
         
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-          {/* ✅ REFRESH BUTTON - BORDER STYLE */}
           <Button 
             variant="outlined" 
             startIcon={<Refresh />} 
@@ -619,7 +594,6 @@ const Maintenance = () => {
             sx={{ 
               borderColor: colors.lightCyan,
               color: colors.lightCyan,
-              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
               textTransform: 'none',
               borderRadius: 2,
               transition: 'all 0.3s ease',
@@ -630,18 +604,11 @@ const Maintenance = () => {
                 boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
                 transform: 'translateY(-2px)',
               },
-              '&:active': {
-                bgcolor: colors.lightCyan,
-                color: colors.darkNavy,
-                borderColor: colors.lightCyan,
-                transform: 'scale(0.96)',
-              }
             }}
           >
             Refresh
           </Button>
           
-          {/* ✅ FILTER BUTTON */}
           <Button 
             variant="contained"
             startIcon={<FilterList />} 
@@ -663,7 +630,6 @@ const Maintenance = () => {
             Filter
           </Button>
           
-          {/* ✅ EXPORT BUTTON */}
           <Button 
             variant="contained"
             startIcon={<Download />} 
@@ -710,9 +676,7 @@ const Maintenance = () => {
         </Box>
       </Box>
 
-      {/* ============================================================
-          STATS CARDS - Same design as Equipment page
-          ============================================================ */}
+      {/* STATS CARDS */}
       <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }} sx={{ mb: 3 }}>
         {statsCards.map((card, index) => (
           <Grid item xs={6} sm={3} key={index}>
@@ -796,9 +760,7 @@ const Maintenance = () => {
         ))}
       </Grid>
 
-      {/* ============================================================
-          OVERDUE ALERT
-          ============================================================ */}
+      {/* OVERDUE ALERT */}
       {overdueSchedules > 0 && (
         <Alert 
           severity="error" 
@@ -825,9 +787,7 @@ const Maintenance = () => {
         </Alert>
       )}
 
-      {/* ============================================================
-          SEARCH - Only search bar
-          ============================================================ */}
+      {/* SEARCH */}
       <Paper sx={{ 
         p: 2, 
         mb: 3, 
@@ -856,19 +816,13 @@ const Maintenance = () => {
                   '&:hover fieldset': { borderColor: colors.lightCyan },
                   '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                 },
-                '& .MuiInputBase-input': {
-                  fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  fontSize: '0.9rem',
-                }
               }
             }}
           />
         </Box>
       </Paper>
 
-      {/* ============================================================
-          FILTER MENU - With Hospital filter added
-          ============================================================ */}
+      {/* FILTER MENU */}
       <Menu
         anchorEl={filterAnchorEl}
         open={Boolean(filterAnchorEl)}
@@ -887,7 +841,6 @@ const Maintenance = () => {
           Filter Schedules
         </Typography>
         
-        {/* ✅ Hospital Filter - ADDED */}
         <FormControl fullWidth size="small" sx={{ mb: 2 }}>
           <InputLabel sx={{ color: colors.lightText }}>Hospital</InputLabel>
           <Select 
@@ -1019,9 +972,7 @@ const Maintenance = () => {
         </Box>
       </Menu>
 
-      {/* ============================================================
-          EXPORT MENU - CSV REMOVED, KEEPING EXCEL & PDF
-          ============================================================ */}
+      {/* EXPORT MENU */}
       <Menu
         anchorEl={exportAnchorEl}
         open={Boolean(exportAnchorEl)}
@@ -1036,7 +987,6 @@ const Maintenance = () => {
           } 
         }}
       >
-        {/* ✅ Excel Export Option */}
         <MenuItem 
           onClick={exportToExcel} 
           sx={{ 
@@ -1053,7 +1003,6 @@ const Maintenance = () => {
           </Box>
         </MenuItem>
         
-        {/* ✅ PDF Export Option */}
         <MenuItem 
           onClick={exportToPDF} 
           sx={{ 
@@ -1071,9 +1020,7 @@ const Maintenance = () => {
         </MenuItem>
       </Menu>
 
-      {/* ============================================================
-          TABLE - WITH HOSPITAL COLUMN ADDED
-          ============================================================ */}
+      {/* TABLE */}
       <TableContainer 
         component={Paper} 
         sx={{ 
@@ -1086,15 +1033,15 @@ const Maintenance = () => {
         <Table>
           <TableHead sx={{ bgcolor: colors.darkNavy }}>
             <TableRow>
-              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Equipment</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Hospital</TableCell> {/* ✅ ADDED */}
-              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Type</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Engineer</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Frequency</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Last</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Next Due</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Status</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }} align="center">Actions</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Equipment</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Hospital</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Type</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Engineer</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Frequency</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Last</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Next Due</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Status</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }} align="center">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -1103,10 +1050,10 @@ const Maintenance = () => {
                 <TableCell colSpan={9} align="center" sx={{ py: 6 }}>
                   <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
                     <Build sx={{ fontSize: 48, color: colors.borderColor }} />
-                    <Typography variant="body1" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                    <Typography variant="body1" sx={{ color: colors.lightText }}>
                       No schedules found
                     </Typography>
-                    <Typography variant="caption" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                    <Typography variant="caption" sx={{ color: colors.lightText }}>
                       Try adjusting your search or filters
                     </Typography>
                   </Box>
@@ -1131,18 +1078,18 @@ const Maintenance = () => {
                     }}
                   >
                     <TableCell>
-                      <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                      <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkNavy }}>
                         {schedule.equipment_name || 'N/A'}
                       </Typography>
                     </TableCell>
-                    <TableCell sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                      {schedule.hospital_name || schedule.hospital?.name || 'N/A'}
+                    <TableCell sx={{ color: colors.lightText }}>
+                      {schedule.hospital_name || 'N/A'}
                     </TableCell>
-                    <TableCell sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                    <TableCell sx={{ color: colors.lightText }}>
                       {schedule.maintenance_type || 'Preventive'}
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                      <Typography variant="body2" sx={{ color: colors.darkNavy }}>
                         {schedule.engineer_name || 'Unassigned'}
                       </Typography>
                       {isOwnSchedule && (
@@ -1161,15 +1108,15 @@ const Maintenance = () => {
                         />
                       )}
                     </TableCell>
-                    <TableCell sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                    <TableCell sx={{ color: colors.lightText }}>
                       {schedule.frequency || 'Monthly'}
                     </TableCell>
-                    <TableCell sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                    <TableCell sx={{ color: colors.lightText }}>
                       {schedule.last_maintenance_date ? new Date(schedule.last_maintenance_date).toLocaleDateString() : '-'}
                     </TableCell>
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                        <Typography sx={{ color: colors.darkNavy }}>
                           {schedule.next_due_date ? new Date(schedule.next_due_date).toLocaleDateString() : '-'}
                         </Typography>
                         {isOverdueStatus && (
@@ -1257,9 +1204,7 @@ const Maintenance = () => {
         </Table>
       </TableContainer>
 
-      {/* ============================================================
-          ADD/EDIT DIALOG
-          ============================================================ */}
+      {/* ADD/EDIT DIALOG */}
       <Dialog 
         open={openDialog} 
         onClose={handleCloseDialog} 
@@ -1280,7 +1225,7 @@ const Maintenance = () => {
           py: 2.5,
         }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+            <Typography variant="h6" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
               {editingSchedule ? <Edit sx={{ fontSize: 28 }} /> : <Add sx={{ fontSize: 28 }} />}
               {editingSchedule ? 'Edit Schedule' : 'Add Schedule'}
             </Typography>
@@ -1289,11 +1234,44 @@ const Maintenance = () => {
             </IconButton>
           </Box>
         </DialogTitle>
+        
         <DialogContent dividers sx={{ px: 4, py: 3 }}>
           <Grid container spacing={2.5}>
+            {/* Hospital Field */}
             <Grid item xs={12}>
               <FormControl fullWidth required>
-                <InputLabel sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Equipment *</InputLabel>
+                <InputLabel sx={{ color: colors.lightText }}>Hospital *</InputLabel>
+                <Select
+                  name="hospital_id"
+                  value={formData.hospital_id}
+                  onChange={handleFormChange}
+                  label="Hospital *"
+                  disabled={isEngineer && !isSuperAdmin}
+                  sx={{
+                    borderRadius: 2,
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                    }
+                  }}
+                >
+                  <MenuItem value="">Select Hospital</MenuItem>
+                  {hospitals.map(h => (
+                    <MenuItem key={h.id} value={h.id}>{h.name}</MenuItem>
+                  ))}
+                </Select>
+                {isEngineer && !isSuperAdmin && (
+                  <FormHelperText sx={{ color: colors.lightText }}>
+                    Auto-assigned to your hospital
+                  </FormHelperText>
+                )}
+              </FormControl>
+            </Grid>
+
+            {/* Equipment Field */}
+            <Grid item xs={12}>
+              <FormControl fullWidth required>
+                <InputLabel sx={{ color: colors.lightText }}>Equipment *</InputLabel>
                 <Select
                   name="equipment_id"
                   value={formData.equipment_id}
@@ -1304,15 +1282,12 @@ const Maintenance = () => {
                     '& .MuiOutlinedInput-root': {
                       '&:hover fieldset': { borderColor: colors.lightCyan },
                       '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                    },
-                    '& .MuiSelect-select': {
-                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                     }
                   }}
                 >
-                  <MenuItem value="" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Select Equipment</MenuItem>
+                  <MenuItem value="">Select Equipment</MenuItem>
                   {equipment.map(item => (
-                    <MenuItem key={item.id} value={item.id} sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                    <MenuItem key={item.id} value={item.id}>
                       {item.name} - {item.model || 'N/A'}
                     </MenuItem>
                   ))}
@@ -1320,9 +1295,10 @@ const Maintenance = () => {
               </FormControl>
             </Grid>
 
+            {/* Type */}
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
-                <InputLabel sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Type</InputLabel>
+                <InputLabel>Type</InputLabel>
                 <Select
                   name="maintenance_type"
                   value={formData.maintenance_type}
@@ -1333,22 +1309,20 @@ const Maintenance = () => {
                     '& .MuiOutlinedInput-root': {
                       '&:hover fieldset': { borderColor: colors.lightCyan },
                       '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                    },
-                    '& .MuiSelect-select': {
-                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                     }
                   }}
                 >
-                  <MenuItem value="Preventive" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Preventive</MenuItem>
-                  <MenuItem value="Corrective" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Corrective</MenuItem>
-                  <MenuItem value="Emergency" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Emergency</MenuItem>
+                  <MenuItem value="Preventive">Preventive</MenuItem>
+                  <MenuItem value="Corrective">Corrective</MenuItem>
+                  <MenuItem value="Emergency">Emergency</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
 
+            {/* Frequency */}
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
-                <InputLabel sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Frequency</InputLabel>
+                <InputLabel>Frequency</InputLabel>
                 <Select
                   name="frequency"
                   value={formData.frequency}
@@ -1359,21 +1333,19 @@ const Maintenance = () => {
                     '& .MuiOutlinedInput-root': {
                       '&:hover fieldset': { borderColor: colors.lightCyan },
                       '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                    },
-                    '& .MuiSelect-select': {
-                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                     }
                   }}
                 >
-                  <MenuItem value="Daily" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Daily</MenuItem>
-                  <MenuItem value="Weekly" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Weekly</MenuItem>
-                  <MenuItem value="Monthly" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Monthly</MenuItem>
-                  <MenuItem value="Quarterly" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Quarterly</MenuItem>
-                  <MenuItem value="Yearly" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Yearly</MenuItem>
+                  <MenuItem value="Daily">Daily</MenuItem>
+                  <MenuItem value="Weekly">Weekly</MenuItem>
+                  <MenuItem value="Monthly">Monthly</MenuItem>
+                  <MenuItem value="Quarterly">Quarterly</MenuItem>
+                  <MenuItem value="Yearly">Yearly</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
 
+            {/* Engineer Name */}
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
@@ -1396,20 +1368,12 @@ const Maintenance = () => {
                     borderRadius: 2,
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                  },
-                  '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  },
-                  '& .MuiInputLabel-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  },
-                  '& .MuiFormHelperText-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                   }
                 }}
               />
             </Grid>
 
+            {/* Last Maintenance */}
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
@@ -1424,14 +1388,12 @@ const Maintenance = () => {
                     borderRadius: 2,
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                  },
-                  '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                   }
                 }}
               />
             </Grid>
 
+            {/* Next Due Date */}
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
@@ -1447,14 +1409,12 @@ const Maintenance = () => {
                     borderRadius: 2,
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                  },
-                  '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                   }
                 }}
               />
             </Grid>
 
+            {/* Checklist */}
             <Grid item xs={12}>
               <TextField
                 fullWidth
@@ -1470,17 +1430,12 @@ const Maintenance = () => {
                     borderRadius: 2,
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                  },
-                  '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  },
-                  '& .MuiInputLabel-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                   }
                 }}
               />
             </Grid>
 
+            {/* Calibration Date */}
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
@@ -1495,14 +1450,12 @@ const Maintenance = () => {
                     borderRadius: 2,
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                  },
-                  '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                   }
                 }}
               />
             </Grid>
 
+            {/* Warranty Expiry */}
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
@@ -1517,14 +1470,12 @@ const Maintenance = () => {
                     borderRadius: 2,
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                  },
-                  '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                   }
                 }}
               />
             </Grid>
 
+            {/* AMC Details */}
             <Grid item xs={12}>
               <TextField
                 fullWidth
@@ -1540,20 +1491,15 @@ const Maintenance = () => {
                     borderRadius: 2,
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                  },
-                  '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  },
-                  '& .MuiInputLabel-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                   }
                 }}
               />
             </Grid>
 
+            {/* Status */}
             <Grid item xs={12}>
               <FormControl fullWidth>
-                <InputLabel sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Status</InputLabel>
+                <InputLabel>Status</InputLabel>
                 <Select
                   name="status"
                   value={formData.status}
@@ -1565,48 +1511,25 @@ const Maintenance = () => {
                     '& .MuiOutlinedInput-root': {
                       '&:hover fieldset': { borderColor: colors.lightCyan },
                       '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                    },
-                    '& .MuiSelect-select': {
-                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                     }
                   }}
                 >
-                  <MenuItem value="Scheduled" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Scheduled</MenuItem>
-                  <MenuItem value="In Progress" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>In Progress</MenuItem>
-                  <MenuItem value="Completed" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Completed</MenuItem>
-                  <MenuItem value="Overdue" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Overdue</MenuItem>
-                  <MenuItem value="Cancelled" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Cancelled</MenuItem>
+                  <MenuItem value="Scheduled">Scheduled</MenuItem>
+                  <MenuItem value="In Progress">In Progress</MenuItem>
+                  <MenuItem value="Completed">Completed</MenuItem>
+                  <MenuItem value="Overdue">Overdue</MenuItem>
+                  <MenuItem value="Cancelled">Cancelled</MenuItem>
                 </Select>
                 {isEngineer && !isSuperAdmin && (
-                  <FormHelperText sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                  <FormHelperText sx={{ color: colors.lightText }}>
                     Status cannot be changed here. Contact Super Admin.
                   </FormHelperText>
                 )}
               </FormControl>
             </Grid>
-
-            {isEngineer && editingSchedule && !isSuperAdmin && (
-              <Grid item xs={12}>
-                <Alert 
-                  severity="info" 
-                  sx={{ 
-                    borderRadius: 2, 
-                    border: `1px solid rgba(103, 232, 249, 0.2)`,
-                    backgroundColor: 'rgba(103, 232, 249, 0.04)',
-                    '& .MuiAlert-icon': { color: colors.lightCyanDark },
-                    '& .MuiAlert-message': {
-                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                    }
-                  }}
-                >
-                  <Typography variant="body2" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                    <strong>Engineer Mode:</strong> You can edit your schedule details, but <strong>Status</strong> cannot be changed here.
-                  </Typography>
-                </Alert>
-              </Grid>
-            )}
           </Grid>
         </DialogContent>
+        
         <DialogActions sx={{ p: 3, gap: 1 }}>
           <Button 
             onClick={handleCloseDialog} 
@@ -1618,7 +1541,6 @@ const Maintenance = () => {
               '&:hover': { 
                 backgroundColor: 'rgba(103, 232, 249, 0.04)'
               },
-              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
             }}
           >
             Cancel
@@ -1645,9 +1567,7 @@ const Maintenance = () => {
         </DialogActions>
       </Dialog>
 
-      {/* ============================================================
-          VIEW DIALOG - WITH HOSPITAL
-          ============================================================ */}
+      {/* VIEW DIALOG */}
       <Dialog 
         open={openViewDialog} 
         onClose={handleCloseView} 
@@ -1668,7 +1588,7 @@ const Maintenance = () => {
           py: 2.5,
         }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+            <Typography variant="h6" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
               <Build sx={{ fontSize: 28 }} />
               Schedule Details
             </Typography>
@@ -1682,23 +1602,23 @@ const Maintenance = () => {
             <Box>
               <Grid container spacing={2.5}>
                 <Grid item xs={12} md={6}>
-                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600 }}>
                     Equipment
                   </Typography>
-                  <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                  <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy }}>
                     {viewingSchedule.equipment_name || 'N/A'}
                   </Typography>
                 </Grid>
                 <Grid item xs={12} md={6}>
-                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600 }}>
                     Hospital
                   </Typography>
-                  <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                    {viewingSchedule.hospital_name || viewingSchedule.hospital?.name || 'N/A'}
+                  <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy }}>
+                    {viewingSchedule.hospital_name || 'N/A'}
                   </Typography>
                 </Grid>
                 <Grid item xs={12} md={6}>
-                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600 }}>
                     Status
                   </Typography>
                   <Chip 
@@ -1715,48 +1635,48 @@ const Maintenance = () => {
                   />
                 </Grid>
                 <Grid item xs={12} md={6}>
-                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600 }}>
                     Type
                   </Typography>
-                  <Typography variant="body1" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                  <Typography variant="body1" sx={{ color: colors.darkNavy }}>
                     {viewingSchedule.maintenance_type || 'Preventive'}
                   </Typography>
                 </Grid>
                 <Grid item xs={12} md={6}>
-                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600 }}>
                     Frequency
                   </Typography>
-                  <Typography variant="body1" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                  <Typography variant="body1" sx={{ color: colors.darkNavy }}>
                     {viewingSchedule.frequency || 'Monthly'}
                   </Typography>
                 </Grid>
                 <Grid item xs={12} md={6}>
-                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600 }}>
                     Engineer
                   </Typography>
-                  <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                  <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy }}>
                     {viewingSchedule.engineer_name || 'Unassigned'}
                   </Typography>
                 </Grid>
                 <Grid item xs={12} md={6}>
-                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600 }}>
                     Last Maintenance
                   </Typography>
-                  <Typography variant="body1" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                  <Typography variant="body1" sx={{ color: colors.darkNavy }}>
                     {viewingSchedule.last_maintenance_date ? new Date(viewingSchedule.last_maintenance_date).toLocaleDateString() : '-'}
                   </Typography>
                 </Grid>
                 <Grid item xs={12} md={6}>
-                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600 }}>
                     Next Due
                   </Typography>
-                  <Typography variant="body1" fontWeight={600} sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                  <Typography variant="body1" fontWeight={600} sx={{ color: colors.darkNavy }}>
                     {viewingSchedule.next_due_date ? new Date(viewingSchedule.next_due_date).toLocaleDateString() : '-'}
                   </Typography>
                 </Grid>
                 {viewingSchedule.maintenance_checklist && (
                   <Grid item xs={12}>
-                    <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                    <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600 }}>
                       Checklist
                     </Typography>
                     <Paper sx={{ 
@@ -1765,7 +1685,7 @@ const Maintenance = () => {
                       borderRadius: 2,
                       border: `1px solid ${colors.borderColor}`
                     }}>
-                      <Typography variant="body2" sx={{ whiteSpace: 'pre-line', color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                      <Typography variant="body2" sx={{ whiteSpace: 'pre-line', color: colors.darkNavy }}>
                         {viewingSchedule.maintenance_checklist}
                       </Typography>
                     </Paper>
@@ -1773,58 +1693,47 @@ const Maintenance = () => {
                 )}
                 {viewingSchedule.calibration_date && (
                   <Grid item xs={12} md={6}>
-                    <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                    <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600 }}>
                       Calibration Date
                     </Typography>
-                    <Typography variant="body1" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                    <Typography variant="body1" sx={{ color: colors.darkNavy }}>
                       {new Date(viewingSchedule.calibration_date).toLocaleDateString()}
                     </Typography>
                   </Grid>
                 )}
                 {viewingSchedule.warranty_expiry && (
                   <Grid item xs={12} md={6}>
-                    <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                    <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600 }}>
                       Warranty Expiry
                     </Typography>
-                    <Typography variant="body1" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                    <Typography variant="body1" sx={{ color: colors.darkNavy }}>
                       {new Date(viewingSchedule.warranty_expiry).toLocaleDateString()}
                     </Typography>
                   </Grid>
                 )}
                 {viewingSchedule.amc_details && (
                   <Grid item xs={12}>
-                    <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
+                    <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600 }}>
                       AMC/CMC Details
                     </Typography>
-                    <Typography variant="body1" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                    <Typography variant="body1" sx={{ color: colors.darkNavy }}>
                       {viewingSchedule.amc_details}
-                    </Typography>
-                  </Grid>
-                )}
-                {viewingSchedule.created_at && (
-                  <Grid item xs={12}>
-                    <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", fontWeight: 600 }}>
-                      Created At
-                    </Typography>
-                    <Typography variant="body2" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                      {new Date(viewingSchedule.created_at).toLocaleString()}
                     </Typography>
                   </Grid>
                 )}
               </Grid>
 
-              {/* SUPER ADMIN STATUS UPDATE SECTION */}
               {isSuperAdmin && (
                 <>
                   <Divider sx={{ my: 3, borderColor: colors.borderColor }} />
-                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }} gutterBottom>
+                  <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>
                     <AdminPanelSettings sx={{ fontSize: 16, verticalAlign: 'middle', mr: 1 }} />
                     Update Status (Super Admin Only)
                   </Typography>
                   
                   <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap', mt: 1 }}>
                     <FormControl size="small" sx={{ minWidth: 200 }}>
-                      <InputLabel sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Select Status</InputLabel>
+                      <InputLabel sx={{ color: colors.lightText }}>Select Status</InputLabel>
                       <Select
                         value={viewingSchedule.status || 'Scheduled'}
                         onChange={(e) => handleStatusChange(viewingSchedule.id, e.target.value)}
@@ -1834,21 +1743,18 @@ const Maintenance = () => {
                           '& .MuiOutlinedInput-root': {
                             '&:hover fieldset': { borderColor: colors.lightCyan },
                             '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                          },
-                          '& .MuiSelect-select': {
-                            fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                           }
                         }}
                       >
-                        <MenuItem value="Scheduled" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Scheduled</MenuItem>
-                        <MenuItem value="In Progress" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>In Progress</MenuItem>
-                        <MenuItem value="Completed" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Completed</MenuItem>
-                        <MenuItem value="Overdue" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Overdue</MenuItem>
-                        <MenuItem value="Cancelled" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Cancelled</MenuItem>
+                        <MenuItem value="Scheduled">Scheduled</MenuItem>
+                        <MenuItem value="In Progress">In Progress</MenuItem>
+                        <MenuItem value="Completed">Completed</MenuItem>
+                        <MenuItem value="Overdue">Overdue</MenuItem>
+                        <MenuItem value="Cancelled">Cancelled</MenuItem>
                       </Select>
                     </FormControl>
                     
-                    <Typography variant="caption" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                    <Typography variant="caption" sx={{ color: colors.lightText }}>
                       Select a new status and it will be updated immediately
                     </Typography>
                   </Box>

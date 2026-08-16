@@ -1,16 +1,13 @@
 // src/pages/Equipment.jsx
 // ✅ DARK NAVY + LIGHT CYAN THEME - Matching Sidebar
-// ✅ PROMINENT CARDS ON CLICK - Same as Hospitals page
-// ✅ FIXED: Upload endpoint changed from /service-documentation/upload to /upload
-// ✅ FIXED: HOSPITAL_ADMIN can now create and edit equipment
-// ✅ ADDED: Purchase Date column
-// ✅ CHANGED: installation_year to date_of_installation
-// ✅ CHANGED: Equipment Status options - Warranty, Annual Maintenance, Self Maintained (REMOVED Active & Inactive)
-// ✅ REMOVED: All emojis from status options (clean text only)
-// ✅ REMOVED: CSV export option (keeping Excel and PDF only)
-// ✅ FIXED: Total Engineers and Total Errors stats now show actual counts
-// ✅ ADDED: Hospital fields - Hospital Name, Hospital Address, Hospital Phone, Hospital Email
-// ✅ ADDED: Hospital column in table
+// ✅ FULLY RESPONSIVE - Mobile friendly with card view
+// ✅ SIMPLIFIED TABLE - Essential columns only
+// ✅ FIXED: Table columns: Equipment, Hospital, Manufacturer, Model, Installation Date, Purchase Date, Status, Actions
+// ✅ FIXED: hospital_name display issue - proper fallback
+// ✅ FIXED: Hospital field is now required in form
+// ✅ FIXED: Validation for hospital_id in submit
+// ✅ FIXED: hospital_name from backend is properly displayed
+// ✅ FIXED: fetchEquipment with proper console logs for debugging
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -58,6 +55,14 @@ import {
   CardContent as MuiCardContent,
   Fade,
   Grow,
+  useMediaQuery,
+  useTheme,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemAvatar,
+  Avatar,
+  Collapse,
 } from '@mui/material'
 import {
   Add,
@@ -88,6 +93,9 @@ import {
   Phone,
   Email,
   Business,
+  ExpandMore,
+  ExpandLess,
+  KeyboardArrowRight,
 } from '@mui/icons-material'
 import { equipmentService, hospitalService, userService } from '../api/services'
 import { toast } from 'react-toastify'
@@ -166,17 +174,44 @@ const animationStyles = `
   50% { background-position: 100% 50%; }
   100% { background-position: 0% 50%; }
 }
-`
 
-// ✅ Status color mapping (UPDATED - Only 3 statuses)
-const getStatusColor = (status) => {
-  switch (status) {
-    case 'Warranty': return '#3B82F6'      // Blue
-    case 'Annual Maintenance': return '#F59E0B'  // Yellow/Orange
-    case 'Self Maintained': return '#8B5CF6'     // Purple
-    default: return '#94A3B8' // Grey for unknown
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
   }
 }
+`
+
+// ✅ Status color mapping
+const getStatusColor = (status) => {
+  switch (status) {
+    case 'Warranty': return '#3B82F6'
+    case 'Annual Maintenance': return '#F59E0B'
+    case 'Self Maintained': return '#8B5CF6'
+    default: return '#94A3B8'
+  }
+}
+
+// ✅ Status chip component
+const StatusChip = ({ status }) => (
+  <Chip
+    label={status || 'Warranty'}
+    size="small"
+    sx={{
+      bgcolor: getStatusColor(status || 'Warranty'),
+      color: 'white',
+      fontWeight: 600,
+      fontSize: '11px',
+      height: 26,
+      borderRadius: 2,
+    }}
+  />
+)
 
 const apiEndpoints = {
   getEquipment: () => api.get('/equipment'),
@@ -370,15 +405,16 @@ const MediaGrid = ({ files, onImageClick }) => {
 }
 
 const Equipment = () => {
+  const theme = useTheme()
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
+  const isTablet = useMediaQuery(theme.breakpoints.down('md'))
   const navigate = useNavigate()
   const { user } = useSelector((state) => state.auth)
   
-  // ✅ FIXED: HOSPITAL_ADMIN can now create and edit equipment
   const canCreate = user?.role === 'SUPER_ADMIN' || user?.role === 'ENGINEER' || user?.role === 'HOSPITAL_ADMIN'
   const canEdit = user?.role === 'SUPER_ADMIN' || user?.role === 'ENGINEER' || user?.role === 'HOSPITAL_ADMIN'
   const canDelete = user?.role === 'SUPER_ADMIN'
 
-  // Still block HOSPITAL_ADMIN from accessing the page
   if (user?.role === 'HOSPITAL_ADMIN') {
     return <AccessDenied message="Hospital Administrators cannot access Equipment Management." />
   }
@@ -404,8 +440,8 @@ const Equipment = () => {
   const [customDialogLoading, setCustomDialogLoading] = useState(false)
   const [uploadedImages, setUploadedImages] = useState([])
   const [selectedImageForPreview, setSelectedImageForPreview] = useState(null)
+  const [expandedEquipmentId, setExpandedEquipmentId] = useState(null)
 
-  // ✅ State for prominent card click
   const [clickedCardIndex, setClickedCardIndex] = useState(null)
   const [prominentActive, setProminentActive] = useState(false)
 
@@ -435,7 +471,6 @@ const Equipment = () => {
     location: '',
     status: 'Warranty',
     image_url: '',
-    // ✅ ADDED: Hospital fields for display
     hospital_name: '',
     hospital_address: '',
     hospital_phone: '',
@@ -452,7 +487,6 @@ const Equipment = () => {
     fetchAllData()
   }, [])
 
-  // ✅ UPDATED: Fetch users and errors as well
   const fetchAllData = async () => {
     setLoading(true)
     try {
@@ -471,18 +505,44 @@ const Equipment = () => {
     }
   }
 
+  // ✅ FIXED: fetchEquipment with proper debugging
   const fetchEquipment = async () => {
     try {
       const response = await apiEndpoints.getEquipment()
+      console.log('📊 Full API Response:', response)
+      console.log('📊 Response data:', response.data)
+      
       if (response.data && response.data.success) {
-        setEquipment(response.data.equipment || [])
+        console.log('📊 Equipment array:', response.data.equipment)
+        // ✅ Check first item for hospital_name
+        if (response.data.equipment && response.data.equipment.length > 0) {
+          console.log('🔍 First equipment item:', response.data.equipment[0])
+          console.log('🔍 hospital_name:', response.data.equipment[0].hospital_name)
+          console.log('🔍 hospital_id:', response.data.equipment[0].hospital_id)
+        }
+        
+        // ✅ Ensure hospital_name is set
+        const equipmentWithHospital = (response.data.equipment || []).map(item => ({
+          ...item,
+          hospital_name: item.hospital_name || 'N/A',
+          hospital_address: item.hospital_address || 'N/A',
+          hospital_phone: item.hospital_phone || 'N/A',
+          hospital_email: item.hospital_email || 'N/A'
+        }))
+        
+        setEquipment(equipmentWithHospital)
       } else if (Array.isArray(response.data)) {
-        setEquipment(response.data)
+        const equipmentWithHospital = response.data.map(item => ({
+          ...item,
+          hospital_name: item.hospital_name || 'N/A'
+        }))
+        setEquipment(equipmentWithHospital)
       } else {
+        console.log('⚠️ No equipment data found')
         setEquipment([])
       }
     } catch (error) {
-      console.error('Equipment fetch error:', error)
+      console.error('❌ Equipment fetch error:', error)
       toast.error('Failed to fetch equipment')
       setEquipment([])
     }
@@ -535,7 +595,6 @@ const Equipment = () => {
     }
   }
 
-  // ✅ NEW: Fetch users
   const fetchUsers = async () => {
     try {
       const response = await apiEndpoints.getUsers()
@@ -552,7 +611,6 @@ const Equipment = () => {
     }
   }
 
-  // ✅ NEW: Fetch errors
   const fetchErrors = async () => {
     try {
       const response = await apiEndpoints.getErrors()
@@ -606,7 +664,6 @@ const Equipment = () => {
     }
   }
 
-  // ✅ FIXED: Stats Cards - Now using dynamic data for engineers and errors
   const statsCards = [
     {
       title: 'Total Equipment',
@@ -642,7 +699,6 @@ const Equipment = () => {
     },
   ]
 
-  // ✅ Handle card click with prominent effect
   const handleCardClick = (path, index) => {
     setClickedCardIndex(index)
     setProminentActive(true)
@@ -742,22 +798,19 @@ const Equipment = () => {
     }
   }
 
-  // ✅ Enhanced View Details with Hospital Fields
   const handleViewDetails = (equip) => {
     const imageUrls = equip.image_url ? equip.image_url.split(',').filter(Boolean) : []
-    
-    // Find hospital details from hospitals list
     const hospital = hospitals.find(h => h.id === equip.hospital_id)
     
     setSelectedEquipment({
       ...equip,
       image_url: equip.image_url || '',
       images: imageUrls,
-      // ✅ Add hospital details
-      hospital_name: hospital?.name || equip.hospital_name || 'N/A',
-      hospital_address: hospital?.address || equip.hospital_address || 'N/A',
-      hospital_phone: hospital?.phone || equip.hospital_phone || 'N/A',
-      hospital_email: hospital?.email || equip.hospital_email || 'N/A',
+      // ✅ FIXED: Properly set hospital details from equip or hospital lookup
+      hospital_name: equip.hospital_name || hospital?.name || 'N/A',
+      hospital_address: equip.hospital_address || hospital?.address || 'N/A',
+      hospital_phone: equip.hospital_phone || hospital?.phone || 'N/A',
+      hospital_email: equip.hospital_email || hospital?.email || 'N/A',
       errors: [
         { id: 1, error_title: 'Power supply failure', created_at: '2024-01-15T10:30:00', status: 'Resolved' },
         { id: 2, error_title: 'Sensor calibration error', created_at: '2024-02-20T14:45:00', status: 'In Progress' },
@@ -804,17 +857,13 @@ const Equipment = () => {
   const exportToExcel = () => {
     try {
       const data = filteredEquipment.map(e => ({
-        'Equipment Name': e.name,
-        'Category': e.category_name || '',
+        'Equipment': e.name,
+        'Hospital': e.hospital_name || '',
         'Manufacturer': e.manufacturer || '',
         'Model': e.model || '',
-        'Serial Number': e.serial_number || '',
         'Installation Date': e.date_of_installation || '',
         'Purchase Date': e.purchase_date || '',
-        'Hospital': e.hospital_name || '',
         'Status': e.status || '',
-        'Department': e.department_name || '',
-        'Location': e.location || '',
       }))
       const ws = XLSX.utils.json_to_sheet(data)
       const wb = XLSX.utils.book_new()
@@ -840,17 +889,15 @@ const Equipment = () => {
       
       const tableData = filteredEquipment.map(e => [
         e.name, 
-        e.category_name || '', 
+        e.hospital_name || '', 
         e.manufacturer || '', 
         e.model || '', 
         e.date_of_installation || '', 
         e.purchase_date || '', 
-        e.hospital_name || '',
         e.status || '',
-        e.department_name || '',
       ])
       autoTable(doc, {
-        head: [['Equipment', 'Category', 'Manufacturer', 'Model', 'Installation Date', 'Purchase Date', 'Hospital', 'Status', 'Department']],
+        head: [['Equipment', 'Hospital', 'Manufacturer', 'Model', 'Installation', 'Purchase', 'Status']],
         body: tableData,
         startY: 40,
         styles: { fontSize: 6, cellPadding: 2 },
@@ -972,6 +1019,13 @@ const Equipment = () => {
         return
       }
 
+      // ✅ Hospital validation - compulsory
+      if (!formData.hospital_id) {
+        toast.error('Please select a hospital')
+        setTouched(prev => ({ ...prev, hospital_id: true }))
+        return
+      }
+
       if (formData.serial_number && formData.serial_number.trim() !== '') {
         const isValid = await checkSerialNumber(
           formData.serial_number, 
@@ -995,7 +1049,7 @@ const Equipment = () => {
         }
         hospitalId = Number(hospitalId)
       } else {
-        hospitalId = null
+        hospitalId = Number(hospitalId) || null
       }
 
       const submitData = {
@@ -1012,6 +1066,8 @@ const Equipment = () => {
         status: formData.status || 'Warranty',
         image_url: formData.image_url || ''
       }
+
+      console.log('📤 Submitting equipment:', submitData)
 
       if (editingEquipment) {
         await apiEndpoints.updateEquipment(editingEquipment.id, submitData)
@@ -1056,13 +1112,18 @@ const Equipment = () => {
     }
   }
 
+  const toggleExpand = (id) => {
+    setExpandedEquipmentId(expandedEquipmentId === id ? null : id)
+  }
+
   const filteredEquipment = equipment.filter(item => {
     if (user?.role === 'ENGINEER' && item.hospital_id !== user.hospital_id) {
       return false
     }
     const matchesSearch = item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           item.model?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          item.serial_number?.toLowerCase().includes(searchTerm.toLowerCase())
+                          item.manufacturer?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          (item.hospital_name && item.hospital_name.toLowerCase().includes(searchTerm.toLowerCase()))
     const matchesCategory = !filters.category || item.category_id === parseInt(filters.category)
     const matchesManufacturer = !filters.manufacturer || item.manufacturer?.toLowerCase().includes(filters.manufacturer.toLowerCase())
     const matchesStatus = !filters.status || item.status === filters.status
@@ -1079,14 +1140,16 @@ const Equipment = () => {
       minHeight: '100vh',
       borderRadius: 0,
       position: 'relative',
+      overflowX: 'hidden',
     }}>
       <style>{animationStyles}</style>
 
       {/* ===== HEADER ===== */}
       <Box sx={{ 
         display: 'flex', 
+        flexDirection: { xs: 'column', sm: 'row' },
         justifyContent: 'space-between', 
-        alignItems: 'center', 
+        alignItems: { xs: 'flex-start', sm: 'center' }, 
         mb: 3, 
         flexWrap: 'wrap', 
         gap: 2,
@@ -1117,13 +1180,20 @@ const Equipment = () => {
             sx={{ 
               color: colors.lightText,
               mt: 0.5,
+              display: { xs: 'none', sm: 'block' }
             }}
           >
             Manage all medical equipment and their details
           </Typography>
         </Box>
         
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+        <Box sx={{ 
+          display: 'flex', 
+          gap: 1, 
+          flexWrap: 'wrap',
+          width: { xs: '100%', sm: 'auto' },
+          justifyContent: { xs: 'flex-start', sm: 'flex-end' },
+        }}>
           <Button 
             variant="outlined" 
             startIcon={<Refresh />} 
@@ -1151,7 +1221,8 @@ const Equipment = () => {
               }
             }}
           >
-            Refresh
+            <Refresh sx={{ fontSize: { xs: 16, sm: 18 }, mr: { xs: 0, sm: 0.5 } }} />
+            <Typography variant="button" sx={{ display: { xs: 'none', sm: 'inline' } }}>Refresh</Typography>
           </Button>
           
           {canCreate && (
@@ -1159,6 +1230,7 @@ const Equipment = () => {
               variant="contained"
               startIcon={<Add />}
               onClick={() => handleOpenDialog()}
+              size="small"
               sx={{ 
                 bgcolor: colors.darkNavy,
                 color: colors.text,
@@ -1173,13 +1245,14 @@ const Equipment = () => {
                 transition: 'all 0.3s ease',
               }}
             >
-              Add Equipment
+              <Add sx={{ fontSize: { xs: 16, sm: 18 }, mr: { xs: 0, sm: 0.5 } }} />
+              <Typography variant="button" sx={{ display: { xs: 'none', sm: 'inline' } }}>Add Equipment</Typography>
             </Button>
           )}
         </Box>
       </Box>
 
-      {/* ===== STATS CARDS - WITH PROMINENT CLICK EFFECT ===== */}
+      {/* ===== STATS CARDS ===== */}
       <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }} sx={{ mb: 3 }}>
         {statsCards.map((card, index) => {
           const isClicked = clickedCardIndex === index && prominentActive
@@ -1250,7 +1323,7 @@ const Equipment = () => {
                             fontWeight: isClicked ? 700 : 500,
                             textTransform: 'uppercase',
                             letterSpacing: '0.5px',
-                            fontSize: '0.6rem',
+                            fontSize: { xs: '0.5rem', sm: '0.6rem' },
                             transition: 'all 0.3s ease',
                           }}
                         >
@@ -1261,7 +1334,7 @@ const Equipment = () => {
                           sx={{ 
                             fontWeight: isClicked ? 900 : 700,
                             color: colors.darkNavy,
-                            fontSize: { xs: '1.3rem', sm: '1.6rem', md: '1.8rem' },
+                            fontSize: { xs: '1.1rem', sm: '1.6rem', md: '1.8rem' },
                             mt: 0.5,
                             transition: 'all 0.3s ease',
                             ...(isClicked && {
@@ -1282,8 +1355,8 @@ const Equipment = () => {
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          width: isClicked ? 48 : 42,
-                          height: isClicked ? 48 : 42,
+                          width: { xs: 36, sm: 42 },
+                          height: { xs: 36, sm: 42 },
                           color: isClicked ? '#FFFFFF' : card.color,
                           transition: 'all 0.3s ease',
                           boxShadow: isClicked 
@@ -1294,7 +1367,7 @@ const Equipment = () => {
                       >
                         {React.cloneElement(card.icon, { 
                           sx: { 
-                            fontSize: isClicked ? 24 : 22,
+                            fontSize: { xs: 18, sm: 22 },
                             color: isClicked ? '#FFFFFF' : card.color,
                             transition: 'all 0.3s ease',
                           } 
@@ -1304,8 +1377,8 @@ const Equipment = () => {
                     
                     <Box sx={{ display: 'flex', gap: 0.5, mt: 1 }}>
                       <Box sx={{
-                        width: isClicked ? 8 : 6,
-                        height: isClicked ? 8 : 6,
+                        width: { xs: 5, sm: 6 },
+                        height: { xs: 5, sm: 6 },
                         borderRadius: '50%',
                         bgcolor: isClicked ? colors.accentGold : colors.lightCyan,
                         opacity: isClicked ? 1 : 0.4,
@@ -1315,8 +1388,8 @@ const Equipment = () => {
                           : 'none',
                       }} />
                       <Box sx={{
-                        width: isClicked ? 7 : 6,
-                        height: isClicked ? 7 : 6,
+                        width: { xs: 4, sm: 6 },
+                        height: { xs: 4, sm: 6 },
                         borderRadius: '50%',
                         bgcolor: colors.lightCyan,
                         opacity: isClicked ? 0.8 : 0.2,
@@ -1324,8 +1397,8 @@ const Equipment = () => {
                         transitionDelay: '0.1s',
                       }} />
                       <Box sx={{
-                        width: isClicked ? 6 : 6,
-                        height: isClicked ? 6 : 6,
+                        width: { xs: 3, sm: 6 },
+                        height: { xs: 3, sm: 6 },
                         borderRadius: '50%',
                         bgcolor: colors.lightCyan,
                         opacity: isClicked ? 0.6 : 0.1,
@@ -1351,13 +1424,19 @@ const Equipment = () => {
         bgcolor: colors.cardBg,
         animation: 'fadeInUp 0.7s ease-out',
       }}>
-        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: { xs: 'column', sm: 'row' },
+          gap: 2, 
+          flexWrap: 'wrap', 
+          alignItems: 'center' 
+        }}>
           <TextField            
             size="small"
             placeholder="Search equipment..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            sx={{ flexGrow: 1, minWidth: 200 }}
+            sx={{ flexGrow: 1, minWidth: { xs: '100%', sm: 200 }, width: { xs: '100%', sm: 'auto' } }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -1377,47 +1456,58 @@ const Equipment = () => {
             }}
           />
           
-          <Button 
-            variant="contained"
-            startIcon={<FilterList />} 
-            onClick={handleFilterClick}
-            sx={{ 
-              bgcolor: colors.darkNavy,
-              color: colors.text,
-              borderRadius: 2,
-              textTransform: 'none',
-              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
-              '&:hover': { 
-                bgcolor: colors.darkNavyHover,
-                boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
-                transform: 'translateY(-2px)',
-              },
-              transition: 'all 0.3s ease',
-            }}
-          >
-            Filter
-          </Button>
-          
-          <Button 
-            variant="contained"
-            startIcon={<Download />} 
-            onClick={handleExportClick}
-            sx={{ 
-              bgcolor: colors.darkNavy,
-              color: colors.text,
-              borderRadius: 2,
-              textTransform: 'none',
-              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
-              '&:hover': { 
-                bgcolor: colors.darkNavyHover,
-                boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
-                transform: 'translateY(-2px)',
-              },
-              transition: 'all 0.3s ease',
-            }}
-          >
-            Export
-          </Button>
+          <Box sx={{ 
+            display: 'flex', 
+            gap: 1, 
+            width: { xs: '100%', sm: 'auto' },
+            justifyContent: { xs: 'flex-start', sm: 'flex-end' }
+          }}>
+            <Button 
+              variant="contained"
+              startIcon={<FilterList />} 
+              onClick={handleFilterClick}
+              size="small"
+              sx={{ 
+                bgcolor: colors.darkNavy,
+                color: colors.text,
+                borderRadius: 2,
+                textTransform: 'none',
+                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+                '&:hover': { 
+                  bgcolor: colors.darkNavyHover,
+                  boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
+                  transform: 'translateY(-2px)',
+                },
+                transition: 'all 0.3s ease',
+              }}
+            >
+              <FilterList sx={{ fontSize: { xs: 16, sm: 18 }, mr: { xs: 0, sm: 0.5 } }} />
+              <Typography variant="button" sx={{ display: { xs: 'none', sm: 'inline' } }}>Filter</Typography>
+            </Button>
+            
+            <Button 
+              variant="contained"
+              startIcon={<Download />} 
+              onClick={handleExportClick}
+              size="small"
+              sx={{ 
+                bgcolor: colors.darkNavy,
+                color: colors.text,
+                borderRadius: 2,
+                textTransform: 'none',
+                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+                '&:hover': { 
+                  bgcolor: colors.darkNavyHover,
+                  boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
+                  transform: 'translateY(-2px)',
+                },
+                transition: 'all 0.3s ease',
+              }}
+            >
+              <Download sx={{ fontSize: { xs: 16, sm: 18 }, mr: { xs: 0, sm: 0.5 } }} />
+              <Typography variant="button" sx={{ display: { xs: 'none', sm: 'inline' } }}>Export</Typography>
+            </Button>
+          </Box>
         </Box>
       </Paper>
 
@@ -1611,149 +1701,296 @@ const Equipment = () => {
         </MenuItem>
       </Menu>
 
-      {/* ===== TABLE ===== */}
-      <TableContainer 
-        component={Paper} 
-        sx={{ 
-          borderRadius: 3, 
-          overflowX: 'auto', 
-          border: `1px solid ${colors.borderColor}`,
-          boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-          animation: 'fadeInUp 0.8s ease-out',
-        }}
-      >
-        <Table>
-          <TableHead sx={{ bgcolor: colors.darkNavy }}>
-            <TableRow>
-              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Equipment</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Category</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Manufacturer</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Model</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Serial No.</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Installation Date</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Purchase Date</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Hospital</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }}>Status</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2 }} align="center">Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {filteredEquipment.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={10} align="center" sx={{ py: 6 }}>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-                    <MedicalServices sx={{ fontSize: 48, color: colors.borderColor }} />
-                    <Typography variant="body1" sx={{ color: colors.lightText }}>
-                      No equipment found
-                    </Typography>
-                    <Typography variant="caption" sx={{ color: colors.lightText }}>
-                      Try adjusting your search or filters
-                    </Typography>
-                  </Box>
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredEquipment.map((item, index) => (
-                <TableRow 
-                  key={item.id} 
-                  hover
-                  sx={{
-                    transition: 'all 0.2s ease',
+      {/* ===== TABLE / CARD VIEW ===== */}
+      {isMobile ? (
+        // ✅ MOBILE CARD VIEW
+        <Box sx={{ animation: 'fadeInUp 0.8s ease-out' }}>
+          {filteredEquipment.length === 0 ? (
+            <Box sx={{ 
+              textAlign: 'center', 
+              py: 6, 
+              bgcolor: colors.cardBg, 
+              borderRadius: 3,
+              border: `1px solid ${colors.borderColor}`,
+            }}>
+              <MedicalServices sx={{ fontSize: 48, color: colors.borderColor }} />
+              <Typography variant="body1" sx={{ color: colors.lightText, mt: 2 }}>
+                No equipment found
+              </Typography>
+              <Typography variant="caption" sx={{ color: colors.lightText }}>
+                Try adjusting your search or filters
+              </Typography>
+            </Box>
+          ) : (
+            filteredEquipment.map((item, index) => {
+              const isExpanded = expandedEquipmentId === item.id
+              return (
+                <MuiCard 
+                  key={item.id}
+                  sx={{ 
+                    mb: 2, 
+                    borderRadius: 3,
+                    border: `1px solid ${colors.borderColor}`,
+                    boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
                     animation: `fadeInUp 0.4s ease-out ${index * 0.05}s both`,
+                    transition: 'all 0.2s ease',
                     '&:hover': {
-                      backgroundColor: 'rgba(103, 232, 249, 0.04)',
-                    },
-                    '&:last-child td': { borderBottom: 0 }
+                      boxShadow: `0 4px 20px ${colors.lightCyanGlow}`,
+                    }
                   }}
                 >
-                  <TableCell>
-                    <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkNavy }}>
-                      {item.name}
-                    </Typography>
-                  </TableCell>
-                  <TableCell sx={{ color: colors.lightText }}>{item.category_name || '-'}</TableCell>
-                  <TableCell sx={{ color: colors.lightText }}>{item.manufacturer || '-'}</TableCell>
-                  <TableCell sx={{ color: colors.lightText }}>{item.model || '-'}</TableCell>
-                  <TableCell sx={{ color: colors.lightText }}>{item.serial_number || '-'}</TableCell>
-                  <TableCell sx={{ color: colors.lightText }}>
-                    {item.date_of_installation ? new Date(item.date_of_installation).toLocaleDateString() : '-'}
-                  </TableCell>
-                  <TableCell sx={{ color: colors.lightText }}>
-                    {item.purchase_date ? new Date(item.purchase_date).toLocaleDateString() : '-'}
-                  </TableCell>
-                  <TableCell sx={{ color: colors.darkNavy, fontWeight: 500 }}>
-                    {item.hospital_name || '-'}
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={item.status || 'Warranty'}
-                      size="small"
-                      sx={{
-                        bgcolor: getStatusColor(item.status || 'Warranty'),
-                        color: 'white',
-                        fontWeight: 600,
-                        fontSize: '11px',
-                        height: 26,
-                        borderRadius: 2,
-                      }}
-                    />
-                  </TableCell>
-                  <TableCell align="center">
-                    <Tooltip title="View Details">
-                      <IconButton 
-                        size="small" 
-                        onClick={() => handleViewDetails(item)}
-                        sx={{ 
-                          color: colors.darkNavy, 
-                          '&:hover': { 
-                            color: colors.lightCyanDark,
-                            backgroundColor: 'rgba(103, 232, 249, 0.08)'
-                          } 
-                        }}
-                      >
-                        <Visibility />
-                      </IconButton>
-                    </Tooltip>
-                    {canEdit && (
-                      <Tooltip title="Edit Equipment">
+                  <CardContent sx={{ p: 2 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography variant="subtitle1" fontWeight={700} sx={{ color: colors.darkNavy, fontSize: '1rem' }}>
+                          {item.name}
+                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5, flexWrap: 'wrap' }}>
+                          <StatusChip status={item.status} />
+                          {item.hospital_name && (
+                            <Chip
+                              label={item.hospital_name}
+                              size="small"
+                              variant="outlined"
+                              sx={{ 
+                                borderColor: colors.borderColor, 
+                                color: colors.darkNavy,
+                                fontSize: '10px',
+                                height: 22,
+                                borderRadius: 2,
+                                fontWeight: 500,
+                              }}
+                            />
+                          )}
+                        </Box>
+                      </Box>
+                      <Box>
                         <IconButton 
                           size="small" 
-                          onClick={() => handleOpenDialog(item)}
+                          onClick={() => handleViewDetails(item)}
                           sx={{ 
-                            color: colors.darkNavy, 
-                            '&:hover': { 
-                              color: colors.lightCyanDark,
-                              backgroundColor: 'rgba(103, 232, 249, 0.08)'
-                            } 
+                            color: colors.darkNavy,
+                            '&:hover': { color: colors.lightCyanDark }
                           }}
                         >
-                          <Edit />
+                          <Visibility fontSize="small" />
                         </IconButton>
-                      </Tooltip>
-                    )}
-                    {canDelete && (
-                      <Tooltip title="Delete Equipment">
+                        {canEdit && (
+                          <IconButton 
+                            size="small" 
+                            onClick={() => handleOpenDialog(item)}
+                            sx={{ 
+                              color: colors.darkNavy,
+                              '&:hover': { color: colors.lightCyanDark }
+                            }}
+                          >
+                            <Edit fontSize="small" />
+                          </IconButton>
+                        )}
+                        {canDelete && (
+                          <IconButton 
+                            size="small" 
+                            color="error" 
+                            onClick={() => handleDelete(item.id)}
+                          >
+                            <Delete fontSize="small" />
+                          </IconButton>
+                        )}
                         <IconButton 
-                          size="small" 
-                          color="error" 
-                          onClick={() => handleDelete(item.id)}
-                          sx={{
-                            '&:hover': {
-                              backgroundColor: 'rgba(239, 68, 68, 0.08)'
-                            }
-                          }}
+                          size="small"
+                          onClick={() => toggleExpand(item.id)}
+                          sx={{ color: colors.lightText }}
                         >
-                          <Delete />
+                          {isExpanded ? <ExpandLess /> : <ExpandMore />}
                         </IconButton>
-                      </Tooltip>
-                    )}
+                      </Box>
+                    </Box>
+
+                    <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                      <Box sx={{ mt: 2, pt: 2, borderTop: `1px solid ${colors.borderColor}` }}>
+                        <Grid container spacing={1.5}>
+                          <Grid item xs={6}>
+                            <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600, display: 'block' }}>
+                              Manufacturer
+                            </Typography>
+                            <Typography variant="body2" sx={{ color: colors.darkNavy }}>
+                              {item.manufacturer || 'N/A'}
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600, display: 'block' }}>
+                              Model
+                            </Typography>
+                            <Typography variant="body2" sx={{ color: colors.darkNavy }}>
+                              {item.model || 'N/A'}
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600, display: 'block' }}>
+                              Installation
+                            </Typography>
+                            <Typography variant="body2" sx={{ color: colors.darkNavy }}>
+                              {item.date_of_installation ? new Date(item.date_of_installation).toLocaleDateString() : '-'}
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600, display: 'block' }}>
+                              Purchase
+                            </Typography>
+                            <Typography variant="body2" sx={{ color: colors.darkNavy }}>
+                              {item.purchase_date ? new Date(item.purchase_date).toLocaleDateString() : '-'}
+                            </Typography>
+                          </Grid>
+                          <Grid item xs={12}>
+                            <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600, display: 'block' }}>
+                              Category
+                            </Typography>
+                            <Typography variant="body2" sx={{ color: colors.darkNavy }}>
+                              {item.category_name || 'N/A'}
+                            </Typography>
+                          </Grid>
+                        </Grid>
+                      </Box>
+                    </Collapse>
+                  </CardContent>
+                </MuiCard>
+              )
+            })
+          )}
+        </Box>
+      ) : (
+        // ✅ DESKTOP TABLE VIEW - WITH HOSPITAL COLUMN
+        <TableContainer 
+          component={Paper} 
+          sx={{ 
+            borderRadius: 3, 
+            overflowX: 'auto', 
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+            animation: 'fadeInUp 0.8s ease-out',
+          }}
+        >
+          <Table sx={{ minWidth: isTablet ? 600 : 900 }}>
+            <TableHead sx={{ bgcolor: colors.darkNavy }}>
+              <TableRow>
+                <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Equipment</TableCell>
+                <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Hospital</TableCell>
+                <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Manufacturer</TableCell>
+                <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Model</TableCell>
+                <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Installation</TableCell>
+                <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Purchase</TableCell>
+                <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Status</TableCell>
+                <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }} align="center">Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredEquipment.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                      <MedicalServices sx={{ fontSize: 48, color: colors.borderColor }} />
+                      <Typography variant="body1" sx={{ color: colors.lightText }}>
+                        No equipment found
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: colors.lightText }}>
+                        Try adjusting your search or filters
+                      </Typography>
+                    </Box>
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+              ) : (
+                filteredEquipment.map((item, index) => (
+                  <TableRow 
+                    key={item.id} 
+                    hover
+                    sx={{
+                      transition: 'all 0.2s ease',
+                      animation: `fadeInUp 0.4s ease-out ${index * 0.05}s both`,
+                      '&:hover': {
+                        backgroundColor: 'rgba(103, 232, 249, 0.04)',
+                      },
+                      '&:last-child td': { borderBottom: 0 }
+                    }}
+                  >
+                    <TableCell>
+                      <Typography variant="body2" fontWeight={600} sx={{ color: colors.darkNavy, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+                        {item.name}
+                      </Typography>
+                    </TableCell>
+                    {/* ✅ FIXED: Hospital column - properly displays hospital_name from backend */}
+                    <TableCell sx={{ color: colors.darkNavy, fontWeight: 500, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
+                      {item.hospital_name || '-'}
+                    </TableCell>
+                    <TableCell sx={{ color: colors.lightText, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>{item.manufacturer || '-'}</TableCell>
+                    <TableCell sx={{ color: colors.lightText, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>{item.model || '-'}</TableCell>
+                    <TableCell sx={{ color: colors.lightText, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
+                      {item.date_of_installation ? new Date(item.date_of_installation).toLocaleDateString() : '-'}
+                    </TableCell>
+                    <TableCell sx={{ color: colors.lightText, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
+                      {item.purchase_date ? new Date(item.purchase_date).toLocaleDateString() : '-'}
+                    </TableCell>
+                    <TableCell>
+                      <StatusChip status={item.status} />
+                    </TableCell>
+                    <TableCell align="center">
+                      <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5 }}>
+                        <Tooltip title="View Details">
+                          <IconButton 
+                            size="small" 
+                            onClick={() => handleViewDetails(item)}
+                            sx={{ 
+                              color: colors.darkNavy, 
+                              '&:hover': { 
+                                color: colors.lightCyanDark,
+                                backgroundColor: 'rgba(103, 232, 249, 0.08)'
+                              } 
+                            }}
+                          >
+                            <Visibility fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        {canEdit && (
+                          <Tooltip title="Edit Equipment">
+                            <IconButton 
+                              size="small" 
+                              onClick={() => handleOpenDialog(item)}
+                              sx={{ 
+                                color: colors.darkNavy, 
+                                '&:hover': { 
+                                  color: colors.lightCyanDark,
+                                  backgroundColor: 'rgba(103, 232, 249, 0.08)'
+                                } 
+                              }}
+                            >
+                              <Edit fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                        {canDelete && (
+                          <Tooltip title="Delete Equipment">
+                            <IconButton 
+                              size="small" 
+                              color="error" 
+                              onClick={() => handleDelete(item.id)}
+                              sx={{
+                                '&:hover': {
+                                  backgroundColor: 'rgba(239, 68, 68, 0.08)'
+                                }
+                              }}
+                            >
+                              <Delete fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
 
       {/* ===== VIEW DETAILS DIALOG ===== */}
       <Dialog 
@@ -1766,6 +2003,7 @@ const Equipment = () => {
             borderRadius: 4,
             border: `1px solid ${colors.borderColor}`,
             boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+            margin: { xs: 1, sm: 2 },
           }
         }}
       >
@@ -1773,11 +2011,11 @@ const Equipment = () => {
           bgcolor: colors.darkNavy, 
           color: 'white',
           borderRadius: '8px 8px 0 0',
-          py: 2.5,
+          py: { xs: 2, sm: 2.5 },
         }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              <MedicalServices sx={{ fontSize: 28 }} />
+            <Typography variant="h6" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, fontSize: { xs: '1rem', sm: '1.25rem' } }}>
+              <MedicalServices sx={{ fontSize: { xs: 22, sm: 28 } }} />
               Equipment Details
             </Typography>
             <IconButton onClick={handleCloseView} sx={{ color: 'white', '&:hover': { color: colors.lightCyan } }}>
@@ -1785,12 +2023,14 @@ const Equipment = () => {
             </IconButton>
           </Box>
         </DialogTitle>
-        <DialogContent dividers sx={{ mt: 2, px: 4, py: 3 }}>
+        <DialogContent dividers sx={{ mt: 2, px: { xs: 2, sm: 4 }, py: { xs: 2, sm: 3 } }}>
           {selectedEquipment && (
             <Box>
               <Tabs 
                 value={viewTab} 
                 onChange={(e, v) => setViewTab(v)} 
+                variant={isMobile ? "scrollable" : "standard"}
+                scrollButtons="auto"
                 sx={{ 
                   mb: 2, 
                   borderBottom: 1, 
@@ -1798,6 +2038,9 @@ const Equipment = () => {
                   '& .MuiTab-root': {
                     textTransform: 'none',
                     fontWeight: 600,
+                    fontSize: { xs: '0.7rem', sm: '0.875rem' },
+                    minWidth: { xs: 'auto', sm: 80 },
+                    px: { xs: 1.5, sm: 2 },
                     '&.Mui-selected': { color: colors.darkNavy }
                   },
                   '& .MuiTabs-indicator': { bgcolor: colors.lightCyan }
@@ -1805,8 +2048,8 @@ const Equipment = () => {
               >
                 <Tab label="General" />
                 <Tab label="Media" />
-                <Tab label="Error History" />
-                <Tab label="Repair History" />
+                <Tab label="Errors" />
+                <Tab label="Repairs" />
                 <Tab label="Maintenance" />
                 <Tab label="Spare Parts" />
               </Tabs>
@@ -1814,21 +2057,11 @@ const Equipment = () => {
               {viewTab === 0 && (
                 <Grid container spacing={3}>
                   <Grid item xs={12}>
-                    <Typography variant="h5" fontWeight={700} sx={{ color: colors.darkNavy }}>
+                    <Typography variant="h5" fontWeight={700} sx={{ color: colors.darkNavy, fontSize: { xs: '1.25rem', sm: '1.5rem' } }}>
                       {selectedEquipment.name}
                     </Typography>
-                    <Box sx={{ display: 'flex', alignItems: 'center', mt: 1, gap: 2 }}>
-                      <Chip
-                        label={selectedEquipment.status || 'Warranty'}
-                        size="small"
-                        sx={{
-                          bgcolor: getStatusColor(selectedEquipment.status || 'Warranty'),
-                          color: 'white',
-                          fontWeight: 600,
-                          height: 26,
-                          borderRadius: 2,
-                        }}
-                      />
+                    <Box sx={{ display: 'flex', alignItems: 'center', mt: 1, gap: 1, flexWrap: 'wrap' }}>
+                      <StatusChip status={selectedEquipment.status} />
                       {selectedEquipment.category_name && (
                         <Chip
                           label={selectedEquipment.category_name}
@@ -1838,6 +2071,19 @@ const Equipment = () => {
                             borderColor: colors.borderColor,
                             color: colors.lightText,
                             borderRadius: 2,
+                          }}
+                        />
+                      )}
+                      {selectedEquipment.hospital_name && (
+                        <Chip
+                          label={selectedEquipment.hospital_name}
+                          size="small"
+                          variant="outlined"
+                          sx={{
+                            borderColor: colors.borderColor,
+                            color: colors.darkNavy,
+                            borderRadius: 2,
+                            fontWeight: 500,
                           }}
                         />
                       )}
@@ -1870,6 +2116,10 @@ const Equipment = () => {
                     </Typography>
                   </Grid>
                   <Grid item xs={12} md={6}>
+                    <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600 }}>Category</Typography>
+                    <Typography variant="body1" sx={{ color: colors.darkNavy }}>{selectedEquipment.category_name || 'N/A'}</Typography>
+                  </Grid>
+                  <Grid item xs={12} md={6}>
                     <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600 }}>Department</Typography>
                     <Typography variant="body1" sx={{ color: colors.darkNavy }}>{selectedEquipment.department_name || 'N/A'}</Typography>
                   </Grid>
@@ -1878,7 +2128,6 @@ const Equipment = () => {
                     <Typography variant="body1" sx={{ color: colors.darkNavy }}>{selectedEquipment.location || 'N/A'}</Typography>
                   </Grid>
 
-                  {/* ✅ HOSPITAL DETAILS SECTION - NEW */}
                   <Grid item xs={12}>
                     <Divider sx={{ my: 2, borderColor: colors.borderColor }} />
                     <Typography variant="subtitle2" fontWeight={700} sx={{ color: colors.darkNavy, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -1972,7 +2221,7 @@ const Equipment = () => {
                 <Box>
                   <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>Error History</Typography>
                   {selectedEquipment.errors?.length > 0 ? (
-                    <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
+                    <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, overflowX: 'auto' }}>
                       <Table size="small">
                         <TableHead sx={{ bgcolor: colors.mainBg }}>
                           <TableRow>
@@ -2016,7 +2265,7 @@ const Equipment = () => {
                 <Box>
                   <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>Repair History</Typography>
                   {selectedEquipment.repairs?.length > 0 ? (
-                    <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
+                    <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, overflowX: 'auto' }}>
                       <Table size="small">
                         <TableHead sx={{ bgcolor: colors.mainBg }}>
                           <TableRow>
@@ -2062,7 +2311,7 @@ const Equipment = () => {
                 <Box>
                   <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>Maintenance History</Typography>
                   {selectedEquipment.maintenance?.length > 0 ? (
-                    <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
+                    <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, overflowX: 'auto' }}>
                       <Table size="small">
                         <TableHead sx={{ bgcolor: colors.mainBg }}>
                           <TableRow>
@@ -2106,7 +2355,7 @@ const Equipment = () => {
                 <Box>
                   <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy }} gutterBottom>Spare Parts</Typography>
                   {selectedEquipment.spareParts?.length > 0 ? (
-                    <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
+                    <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, overflowX: 'auto' }}>
                       <Table size="small">
                         <TableHead sx={{ bgcolor: colors.mainBg }}>
                           <TableRow>
@@ -2142,7 +2391,7 @@ const Equipment = () => {
             </Box>
           )}
         </DialogContent>
-        <DialogActions sx={{ p: 3, gap: 1 }}>
+        <DialogActions sx={{ p: { xs: 2, sm: 3 }, gap: 1 }}>
           <Button 
             onClick={handleCloseView} 
             variant="contained" 
@@ -2150,7 +2399,7 @@ const Equipment = () => {
               bgcolor: colors.darkNavy,
               color: colors.text,
               borderRadius: 2,
-              px: 4,
+              px: { xs: 3, sm: 4 },
               textTransform: 'none',
               boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
               '&:hover': { 
@@ -2177,6 +2426,7 @@ const Equipment = () => {
             bgcolor: 'rgba(0,0,0,0.9)',
             border: `1px solid ${colors.borderColor}`,
             boxShadow: '0 8px 40px rgba(0,0,0,0.5)',
+            margin: { xs: 1, sm: 2 },
           }
         }}
       >
@@ -2241,6 +2491,7 @@ const Equipment = () => {
               borderRadius: 4,
               border: `1px solid ${colors.borderColor}`,
               boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+              margin: { xs: 1, sm: 2 },
             }
           }}
         >
@@ -2248,11 +2499,11 @@ const Equipment = () => {
             bgcolor: colors.darkNavy, 
             color: 'white',
             borderRadius: '8px 8px 0 0',
-            py: 2.5,
+            py: { xs: 2, sm: 2.5 },
           }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant="h6" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                {editingEquipment ? <Edit sx={{ fontSize: 28 }} /> : <Add sx={{ fontSize: 28 }} />}
+              <Typography variant="h6" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, fontSize: { xs: '1rem', sm: '1.25rem' } }}>
+                {editingEquipment ? <Edit sx={{ fontSize: { xs: 22, sm: 28 } }} /> : <Add sx={{ fontSize: { xs: 22, sm: 28 } }} />}
                 {editingEquipment ? 'Edit Equipment' : 'Add New Equipment'}
               </Typography>
               <IconButton onClick={handleCloseDialog} sx={{ color: 'white', '&:hover': { color: colors.lightCyan } }}>
@@ -2260,7 +2511,7 @@ const Equipment = () => {
               </IconButton>
             </Box>
           </DialogTitle>
-          <DialogContent dividers sx={{ px: 4, py: 3 }}>
+          <DialogContent dividers sx={{ px: { xs: 2, sm: 4 }, py: { xs: 2, sm: 3 } }}>
             <Grid container spacing={2.5} sx={{ mt: 1 }}>
               <Grid item xs={12} md={6}>
                 <TextField
@@ -2455,14 +2706,15 @@ const Equipment = () => {
               </Grid>
 
               <Grid item xs={12} md={6}>
-                <FormControl fullWidth>
-                  <InputLabel sx={{ color: colors.lightText }}>Hospital</InputLabel>
+                <FormControl fullWidth required>
+                  <InputLabel sx={{ color: colors.lightText }}>Hospital *</InputLabel>
                   <Select
                     name="hospital_id"
                     value={formData.hospital_id}
                     onChange={handleFormChange}
-                    label="Hospital"
+                    label="Hospital *"
                     disabled={user?.role === 'ENGINEER'}
+                    error={touched.hospital_id && !formData.hospital_id}
                     sx={{
                       borderRadius: 2,
                       '& .MuiOutlinedInput-root': {
@@ -2479,6 +2731,9 @@ const Equipment = () => {
                       <MenuItem key={h.id} value={h.id}>{h.name}</MenuItem>
                     ))}
                   </Select>
+                  {touched.hospital_id && !formData.hospital_id && (
+                    <FormHelperText error>Hospital is required</FormHelperText>
+                  )}
                   {user?.role === 'ENGINEER' && (
                     <FormHelperText sx={{ color: colors.lightText }}>Auto-assigned to your hospital</FormHelperText>
                   )}
@@ -2600,7 +2855,7 @@ const Equipment = () => {
               </Grid>
             </Grid>
           </DialogContent>
-          <DialogActions sx={{ p: 3, gap: 1 }}>
+          <DialogActions sx={{ p: { xs: 2, sm: 3 }, gap: 1 }}>
             <Button 
               onClick={handleCloseDialog} 
               sx={{ 
@@ -2651,6 +2906,7 @@ const Equipment = () => {
             borderRadius: 4,
             border: `1px solid ${colors.borderColor}`,
             boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+            margin: { xs: 1, sm: 2 },
           }
         }}
       >
@@ -2658,10 +2914,10 @@ const Equipment = () => {
           bgcolor: colors.darkNavy, 
           color: 'white',
           borderRadius: '8px 8px 0 0',
-          py: 2.5,
+          py: { xs: 2, sm: 2.5 },
         }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6">
+            <Typography variant="h6" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }}>
               Add New {customDialogType.charAt(0).toUpperCase() + customDialogType.slice(1)}
             </Typography>
             <IconButton onClick={handleCloseCustomDialog} sx={{ color: 'white', '&:hover': { color: colors.lightCyan } }}>
@@ -2693,7 +2949,7 @@ const Equipment = () => {
             }}
           />
         </DialogContent>
-        <DialogActions sx={{ p: 3, gap: 1 }}>
+        <DialogActions sx={{ p: { xs: 2, sm: 3 }, gap: 1 }}>
           <Button 
             onClick={handleCloseCustomDialog} 
             sx={{ 

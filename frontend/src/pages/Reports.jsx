@@ -1,7 +1,5 @@
 // src/pages/Reports.jsx
-// ✅ COMPLETE WORKING VERSION
-// ✅ Downtime calculation SAME as ErrorLogs
-// ✅ 2 decimal places (e.g., 1.60d, 5.25d)
+// ✅ FIXED: Type conversion for equipment_id matching
 
 import React, { useState, useEffect, useCallback } from 'react'
 import {
@@ -32,7 +30,6 @@ import {
   Alert,
   Tooltip,
   Menu,
-  Divider,
   Card,
   CardContent,
   Avatar,
@@ -47,9 +44,6 @@ import {
   Refresh,
   ErrorOutline,
   MedicalServices,
-  Warning,
-  TimerOff,
-  TrendingUp,
   CheckCircle,
   Cancel,
   FilterList,
@@ -58,15 +52,11 @@ import {
   PictureAsPdf,
   Clear,
   Build,
-  LocalHospital,
 } from '@mui/icons-material'
 import { useSelector } from 'react-redux'
 import { toast } from 'react-toastify'
 import AccessDenied from '../components/Auth/AccessDenied'
 import api from '../api/axios'
-import * as XLSX from 'xlsx'
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
 
 const colors = {
   darkNavy: '#0F172A',
@@ -100,14 +90,14 @@ const formatDate = (date) => {
 
 const getStatusColor = (status) => {
   const s = status?.toLowerCase() || ''
-  if (s === 'active' || s === 'resolved' || s === 'completed') return colors.success
-  if (s === 'pending' || s === 'in progress') return colors.warning
-  if (s === 'inactive' || s === 'cancelled') return colors.error
-  if (s === 'maintenance') return colors.info
-  return colors.lightText
+  if (s === 'active' || s === 'resolved' || s === 'completed') return '#22C55E'
+  if (s === 'pending' || s === 'in progress') return '#F59E0B'
+  if (s === 'inactive' || s === 'cancelled') return '#EF4444'
+  if (s === 'maintenance') return '#3B82F6'
+  return '#64748B'
 }
 
-// ✅ SAME AS ERROR LOGS - Calculate downtime
+// ✅ Calculate downtime from errors (SAME AS ERROR LOGS)
 const calculateDowntimeFromErrors = (errors) => {
   let totalHours = 0
   errors.forEach(error => {
@@ -124,21 +114,6 @@ const calculateDowntimeFromErrors = (errors) => {
     }
   })
   return totalHours
-}
-
-// ✅ Display downtime in days with 2 decimal places
-const getDowntimeDisplay = (hours) => {
-  if (!hours || hours === 0) return '0.00d'
-  const days = hours / 24
-  return `${days.toFixed(2)}d`
-}
-
-// ✅ Get downtime color based on days
-const getDowntimeColor = (hours) => {
-  const days = hours / 24
-  if (days > 10) return '#EF4444'
-  if (days > 5) return '#F59E0B'
-  return '#0F172A'
 }
 
 const StatsCard = ({ title, value, icon, loading, color = colors.lightCyan }) => (
@@ -196,9 +171,7 @@ const Reports = () => {
   const [error, setError] = useState(null)
   const [hospitalOptions, setHospitalOptions] = useState([])
   const [filterAnchorEl, setFilterAnchorEl] = useState(null)
-  const [filters, setFilters] = useState({
-    hospital_id: '',
-  })
+  const [filters, setFilters] = useState({ hospital_id: '' })
   const [summaryStats, setSummaryStats] = useState({
     total: 0,
     active: 0,
@@ -208,7 +181,6 @@ const Reports = () => {
     total_downtime_days: 0,
   })
 
-  // Fetch hospitals
   useEffect(() => {
     const fetchHospitals = async () => {
       try {
@@ -225,7 +197,7 @@ const Reports = () => {
     fetchHospitals()
   }, [])
 
-  // Generate report from multiple endpoints
+  // Generate report
   const generateReport = useCallback(async () => {
     setLoading(true)
     setError(null)
@@ -246,18 +218,15 @@ const Reports = () => {
       console.log('✅ Equipment:', equipment.length)
       console.log('✅ Errors:', errors.length)
       console.log('✅ Repairs:', repairs.length)
-      console.log('📊 Error details:', errors.map(e => ({ id: e.id, status: e.status, created: e.created_at, resolved: e.resolved_at })))
 
-      // Build report data
+      // ✅ CRITICAL FIX: Match errors with equipment using Number() conversion
       let items = equipment.map(eq => {
-        const eqErrors = errors.filter(e => e.equipment_id === eq.id)
-        const eqRepairs = repairs.filter(r => r.equipment_id === eq.id)
+        const eqErrors = errors.filter(e => Number(e.equipment_id) === Number(eq.id))
+        const eqRepairs = repairs.filter(r => Number(r.equipment_id) === Number(eq.id))
         
-        // ✅ SAME AS ERROR LOGS - Calculate downtime
         const downtimeHours = calculateDowntimeFromErrors(eqErrors)
         const downtimeDays = downtimeHours / 24
         
-        // Calculate availability (1 year = 8760 hours)
         const totalHours = 8760
         const availability = totalHours > 0 
           ? Math.max(0, Math.min(100, ((totalHours - downtimeHours) / totalHours) * 100))
@@ -266,11 +235,6 @@ const Reports = () => {
         const resolvedErrors = eqErrors.filter(e => 
           ['Resolved', 'Closed', 'Completed'].includes(e.status)
         ).length
-
-        // ✅ Log downtime calculation for debugging
-        if (eqErrors.length > 0) {
-          console.log(`🔍 ${eq.name}: ${eqErrors.length} errors, ${downtimeHours}h downtime, ${downtimeDays.toFixed(2)}d`)
-        }
 
         return {
           id: eq.id,
@@ -290,24 +254,19 @@ const Reports = () => {
           total_downtime_days: downtimeDays,
           availability_percentage: availability,
           equipment_added_on: eq.created_at || eq.date_of_installation || null,
-          error_details: eqErrors.map(e => ({
-            title: e.error_title,
-            status: e.status,
-            created: e.created_at,
-            resolved: e.resolved_at
-          }))
         }
       })
 
-      // Apply hospital filter
       if (filters.hospital_id) {
         items = items.filter(item => item.hospital_id === parseInt(filters.hospital_id))
       }
 
+      console.log('📊 Items with errors:', items.filter(i => i.total_errors > 0).length)
+      console.log('📊 Items with downtime:', items.filter(i => i.total_downtime_days > 0).length)
+
       setReportData(items)
       setFilteredData(items)
       
-      // Calculate summary stats
       const totalDowntimeDays = items.reduce((sum, i) => sum + (i.total_downtime_days || 0), 0)
       
       setSummaryStats({
@@ -329,24 +288,20 @@ const Reports = () => {
     }
   }, [filters])
 
-  // Initial load
   useEffect(() => {
     generateReport()
-  }, [])
+  }, [generateReport])
 
-  // Handle filter change
   const handleFilterChange = (e) => {
     setFilters({ ...filters, [e.target.name]: e.target.value })
   }
 
-  // Apply filters
   const applyFilters = () => {
     generateReport()
     setFilterAnchorEl(null)
     toast.info('📊 Filters applied!')
   }
 
-  // Clear filters
   const clearFilters = () => {
     setFilters({ hospital_id: '' })
     setSearchTerm('')
@@ -355,24 +310,37 @@ const Reports = () => {
     setTimeout(generateReport, 100)
   }
 
-  // Handle view
   const handleView = (item) => {
     setSelectedItem(item)
     setOpenViewDialog(true)
   }
 
+  const displayData = filteredData.filter(item => {
+    if (!searchTerm) return true
+    const search = searchTerm.toLowerCase()
+    return (
+      (item.equipment_name || '').toLowerCase().includes(search) ||
+      (item.model || '').toLowerCase().includes(search) ||
+      (item.hospital_name || '').toLowerCase().includes(search) ||
+      (item.current_status || '').toLowerCase().includes(search)
+    )
+  })
+
+  const statsCards = [
+    { title: 'Total Equipment', value: summaryStats.total || displayData.length, icon: <MedicalServices />, color: colors.lightCyan },
+    { title: 'Active', value: summaryStats.active || 0, icon: <CheckCircle />, color: colors.success },
+    { title: 'Maintenance', value: summaryStats.maintenance || 0, icon: <Build />, color: colors.warning },
+    { title: 'Total Errors', value: summaryStats.total_errors || 0, icon: <ErrorOutline />, color: colors.error },
+    { title: 'Total Repairs', value: summaryStats.total_repairs || 0, icon: <Build />, color: colors.info },
+  ]
+
   // Export functions
   const exportToCSV = () => {
-    if (!filteredData.length) {
-      toast.warning('No data to export')
-      return
-    }
-
+    if (!displayData.length) { toast.warning('No data'); return }
     try {
-      const headers = ['Equipment Name', 'Model', 'Serial Number', 'Hospital', 'Department', 'Status', 'Total Errors', 'Resolved Errors', 'Open Errors', 'Total Repairs', 'Completed Repairs', 'Downtime (Hours)', 'Downtime (Days)', 'Availability %']
-      
+      const headers = ['Equipment Name', 'Model', 'Serial Number', 'Hospital', 'Department', 'Status', 'Total Errors', 'Resolved Errors', 'Open Errors', 'Total Repairs', 'Completed Repairs', 'Downtime (Days)', 'Availability %']
       let csv = headers.join(',') + '\n'
-      filteredData.forEach(item => {
+      displayData.forEach(item => {
         const row = [
           `"${item.equipment_name || 'N/A'}"`,
           `"${item.model || 'N/A'}"`,
@@ -385,13 +353,11 @@ const Reports = () => {
           item.open_errors || 0,
           item.total_repairs || 0,
           item.completed_repairs || 0,
-          safeToFixed(item.total_downtime_hours || 0, 2),
           safeToFixed(item.total_downtime_days || 0, 2),
           safeToFixed(item.availability_percentage || 100, 1),
         ]
         csv += row.join(',') + '\n'
       })
-
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
@@ -403,19 +369,13 @@ const Reports = () => {
       URL.revokeObjectURL(url)
       toast.success('✅ CSV exported!')
       setExportAnchorEl(null)
-    } catch (error) {
-      toast.error('Export failed: ' + error.message)
-    }
+    } catch (err) { toast.error('Export failed') }
   }
 
   const exportToExcel = () => {
-    if (!filteredData.length) {
-      toast.warning('No data to export')
-      return
-    }
-
+    if (!displayData.length) { toast.warning('No data'); return }
     try {
-      const data = filteredData.map(item => ({
+      const data = displayData.map(item => ({
         'Equipment Name': item.equipment_name || 'N/A',
         'Model': item.model || 'N/A',
         'Serial Number': item.serial_number || 'N/A',
@@ -427,43 +387,29 @@ const Reports = () => {
         'Open Errors': item.open_errors || 0,
         'Total Repairs': item.total_repairs || 0,
         'Completed Repairs': item.completed_repairs || 0,
-        'Downtime (Hours)': safeToFixed(item.total_downtime_hours || 0, 2),
         'Downtime (Days)': safeToFixed(item.total_downtime_days || 0, 2),
         'Availability %': safeToFixed(item.availability_percentage || 100, 1),
       }))
-      
-      const ws = XLSX.utils.json_to_sheet(data)
-      const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws, 'Equipment Report')
-      XLSX.writeFile(wb, `equipment_report_${new Date().toISOString().slice(0,10)}.xlsx`)
-      toast.success('✅ Excel exported!')
-      setExportAnchorEl(null)
-    } catch (error) {
-      toast.error('Export failed: ' + error.message)
-    }
+      import('xlsx').then(XLSX => {
+        const ws = XLSX.utils.json_to_sheet(data)
+        const wb = XLSX.utils.book_new()
+        XLSX.utils.book_append_sheet(wb, ws, 'Equipment Report')
+        XLSX.writeFile(wb, `equipment_report_${new Date().toISOString().slice(0,10)}.xlsx`)
+        toast.success('✅ Excel exported!')
+        setExportAnchorEl(null)
+      })
+    } catch (err) { toast.error('Export failed') }
   }
 
   const exportToPDF = () => {
-    if (!filteredData.length) {
-      toast.warning('No data to export')
-      return
-    }
-
+    if (!displayData.length) { toast.warning('No data'); return }
     try {
       const printWindow = window.open('', '_blank', 'width=1200,height=800')
-      if (!printWindow) {
-        toast.warning('Please allow pop-ups to export PDF')
-        return
-      }
-
+      if (!printWindow) { toast.warning('Please allow pop-ups'); return }
       const headers = ['Equipment', 'Model', 'Hospital', 'Department', 'Status', 'Errors', 'Repairs', 'Downtime (Days)', 'Availability']
-
-      const totalDowntimeDays = filteredData.reduce((sum, i) => sum + (i.total_downtime_days || 0), 0)
-      const avgAvailability = filteredData.length > 0 
-        ? filteredData.reduce((sum, i) => sum + (i.availability_percentage || 100), 0) / filteredData.length 
-        : 100
-
-      const rows = filteredData.map(item => `
+      const totalDowntime = displayData.reduce((sum, i) => sum + (i.total_downtime_days || 0), 0)
+      const avgAvailability = displayData.length > 0 ? displayData.reduce((sum, i) => sum + (i.availability_percentage || 100), 0) / displayData.length : 100
+      const rows = displayData.map(item => `
         <tr>
           <td>${item.equipment_name || 'N/A'}</td>
           <td>${item.model || 'N/A'}</td>
@@ -472,11 +418,10 @@ const Reports = () => {
           <td>${item.current_status || 'N/A'}</td>
           <td style="text-align:center">${item.total_errors || 0}</td>
           <td style="text-align:center">${item.total_repairs || 0}</td>
-          <td style="text-align:center;font-weight:700;color:${getDowntimeColor(item.total_downtime_hours || 0)}">${safeToFixed(item.total_downtime_days || 0, 2)}d</td>
+          <td style="text-align:center;font-weight:700;color:${item.total_downtime_days > 10 ? '#EF4444' : item.total_downtime_days > 5 ? '#F59E0B' : '#0F172A'}">${safeToFixed(item.total_downtime_days || 0, 2)}d</td>
           <td style="text-align:center">${safeToFixed(item.availability_percentage || 100, 1)}%</td>
         </tr>
       `).join('')
-
       printWindow.document.write(`
         <html><head><title>Equipment Report</title>
         <style>
@@ -496,48 +441,22 @@ const Reports = () => {
         <h1>Equipment Report</h1>
         <div class="sub">PAEC Equipment Management System • ${new Date().toLocaleString()}</div>
         <div class="summary">
-          <div class="card"><div class="label">Total Equipment</div><div class="value">${filteredData.length}</div></div>
+          <div class="card"><div class="label">Total Equipment</div><div class="value">${displayData.length}</div></div>
           <div class="card"><div class="label">Total Errors</div><div class="value">${summaryStats.total_errors || 0}</div></div>
           <div class="card"><div class="label">Total Repairs</div><div class="value">${summaryStats.total_repairs || 0}</div></div>
-          <div class="card"><div class="label">Total Downtime (Days)</div><div class="value">${safeToFixed(totalDowntimeDays, 2)}d</div></div>
+          <div class="card"><div class="label">Total Downtime (Days)</div><div class="value">${safeToFixed(totalDowntime, 2)}d</div></div>
           <div class="card"><div class="label">Avg Availability</div><div class="value">${safeToFixed(avgAvailability, 1)}%</div></div>
         </div>
         <table><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
         <tbody>${rows}</tbody></table>
-        <script>
-          window.onload = function() {
-            setTimeout(function() { window.print(); window.onafterprint = function() { window.close(); } }, 500);
-          };
-        </script>
+        <script>setTimeout(() => { window.print(); window.onafterprint = function() { window.close(); } }, 500);</script>
         </body></html>
       `)
       printWindow.document.close()
-      toast.info('🖨️ PDF print dialog opened — choose "Save as PDF"')
+      toast.info('🖨️ PDF print dialog opened')
       setExportAnchorEl(null)
-    } catch (error) {
-      toast.error('Export failed: ' + error.message)
-    }
+    } catch (err) { toast.error('Export failed') }
   }
-
-  // Filter by search term
-  const displayData = filteredData.filter(item => {
-    if (!searchTerm) return true
-    const search = searchTerm.toLowerCase()
-    return (
-      (item.equipment_name || '').toLowerCase().includes(search) ||
-      (item.model || '').toLowerCase().includes(search) ||
-      (item.hospital_name || '').toLowerCase().includes(search) ||
-      (item.current_status || '').toLowerCase().includes(search)
-    )
-  })
-
-  const statsCards = [
-    { title: 'Total Equipment', value: summaryStats.total || displayData.length, icon: <MedicalServices />, color: colors.lightCyan },
-    { title: 'Active', value: summaryStats.active || 0, icon: <CheckCircle />, color: colors.success },
-    { title: 'Maintenance', value: summaryStats.maintenance || 0, icon: <Build />, color: colors.warning },
-    { title: 'Total Errors', value: summaryStats.total_errors || 0, icon: <ErrorOutline />, color: colors.error },
-    { title: 'Total Repairs', value: summaryStats.total_repairs || 0, icon: <Build />, color: colors.info },
-  ]
 
   return (
     <Box sx={{ 
@@ -865,7 +784,7 @@ const Reports = () => {
                   <Divider sx={{ my: 1 }} />
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
                     <Typography variant="body2" sx={{ color: colors.lightText }}>Downtime (Days)</Typography>
-                    <Typography variant="body2" fontWeight={700} sx={{ color: getDowntimeColor(selectedItem.total_downtime_hours || 0) }}>
+                    <Typography variant="body2" fontWeight={700} sx={{ color: selectedItem.total_downtime_days > 10 ? '#EF4444' : selectedItem.total_downtime_days > 5 ? '#F59E0B' : '#0F172A' }}>
                       {safeToFixed(selectedItem.total_downtime_days || 0, 2)}d
                     </Typography>
                   </Box>

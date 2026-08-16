@@ -1,131 +1,99 @@
 // src/components/Notifications/NotificationsDropdown.jsx
-// ✅ Notifications Dropdown Component
-// ✅ Fixed: elevation issue resolved
-// ✅ Added: Sound toggle, click outside to close, escape key support
+// ✅ FIXED: Typography nesting issue resolved
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
+  IconButton,
+  Badge,
+  Popover,
   Box,
-  Paper,
+  Typography,
   List,
   ListItem,
   ListItemText,
   ListItemAvatar,
   Avatar,
-  Typography,
-  Divider,
-  IconButton,
   Chip,
-  CircularProgress,
-  Badge,
-  Tooltip,
   Button,
-  Snackbar,
+  Divider,
+  CircularProgress,
+  Tooltip,
   Alert,
 } from '@mui/material';
 import {
   Notifications as NotificationsIcon,
   CheckCircle as CheckCircleIcon,
   DoneAll as DoneAllIcon,
+  Delete as DeleteIcon,
   Error as ErrorIcon,
   Build as BuildIcon,
   ShoppingCart as ShoppingCartIcon,
   LocalShipping as LocalShippingIcon,
   Warning as WarningIcon,
   Info as InfoIcon,
-  VolumeUp as VolumeUpIcon,
-  VolumeOff as VolumeOffIcon,
+  NotificationsOff as NotificationsOffIcon,
 } from '@mui/icons-material';
 import { useDispatch, useSelector } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
 import { 
   fetchNotifications, 
   markAsRead, 
-  markAllAsRead,
+  markAllAsRead, 
+  deleteNotification,
   fetchUnreadCount 
 } from '../../redux/slices/notificationSlice';
 import { toast } from 'react-toastify';
 
-// ============================================================
-// ✅ SOUND EFFECT FUNCTION
-// ============================================================
-const playNotificationSound = () => {
-  try {
-    // Try to play audio file first
-    const audio = new Audio('/sounds/notification.mp3');
-    audio.volume = 0.5;
-    audio.play().catch(() => {
-      // Fallback: Use Web Audio API beep
-      try {
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const oscillator = audioCtx.createOscillator();
-        const gainNode = audioCtx.createGain();
-        oscillator.connect(gainNode);
-        gainNode.connect(audioCtx.destination);
-        oscillator.frequency.value = 880;
-        oscillator.type = 'sine';
-        gainNode.gain.value = 0.3;
-        oscillator.start();
-        setTimeout(() => oscillator.stop(), 150);
-      } catch (e) {
-        console.log('🔊 Sound not available');
-      }
-    });
-  } catch(e) {
-    console.log('🔊 Sound not available');
-  }
+const colors = {
+  sidebar: '#01411C',
+  sidebarHover: '#0B542B',
+  active: '#0E6335',
+  accentGold: '#C9A227',
+  goldLight: '#E8C84A',
+  text: '#FFFFFF',
+  secondaryText: '#B8C8BE',
+  mainBg: '#F0F2F5',
+  white: '#FFFFFF',
+  darkText: '#1A2A3A',
+  lightText: '#5A7A8A',
+  error: '#D32F2F',
+  success: '#2E7D32',
+  warning: '#ED6C02',
+  info: '#0B5FA5',
+  borderColor: 'rgba(1, 65, 28, 0.08)',
 };
 
-// ============================================================
-// ✅ GET NOTIFICATION ICON
-// ============================================================
 const getNotificationIcon = (type) => {
   switch (type?.toLowerCase()) {
-    case 'error': 
-      return <ErrorIcon sx={{ color: '#f44336', fontSize: 20 }} />;
-    case 'repair': 
-      return <BuildIcon sx={{ color: '#ff9800', fontSize: 20 }} />;
-    case 'maintenance': 
-      return <BuildIcon sx={{ color: '#2196f3', fontSize: 20 }} />;
+    case 'error': return <ErrorIcon sx={{ color: colors.error }} />;
+    case 'repair': return <BuildIcon sx={{ color: colors.warning }} />;
+    case 'maintenance': return <BuildIcon sx={{ color: colors.info }} />;
     case 'purchaseorder':
     case 'purchase-order':
-    case 'purchase': 
-      return <ShoppingCartIcon sx={{ color: '#4caf50', fontSize: 20 }} />;
-    case 'procurement': 
-      return <LocalShippingIcon sx={{ color: '#9c27b0', fontSize: 20 }} />;
-    case 'warning': 
-      return <WarningIcon sx={{ color: '#ff9800', fontSize: 20 }} />;
-    case 'amc':
-      return <LocalShippingIcon sx={{ color: '#00bcd4', fontSize: 20 }} />;
-    default: 
-      return <InfoIcon sx={{ color: '#0B5FA5', fontSize: 20 }} />;
+    case 'purchase': return <ShoppingCartIcon sx={{ color: colors.success }} />;
+    case 'procurement': return <LocalShippingIcon sx={{ color: '#9c27b0' }} />;
+    case 'warning': return <WarningIcon sx={{ color: colors.warning }} />;
+    case 'amc': return <LocalShippingIcon sx={{ color: '#00bcd4' }} />;
+    default: return <InfoIcon sx={{ color: colors.sidebar }} />;
   }
 };
 
-// ============================================================
-// ✅ GET NOTIFICATION COLOR
-// ============================================================
 const getNotificationColor = (type) => {
   switch (type?.toLowerCase()) {
-    case 'error': return '#f44336';
-    case 'repair': return '#ff9800';
-    case 'maintenance': return '#2196f3';
+    case 'error': return colors.error;
+    case 'repair': return colors.warning;
+    case 'maintenance': return colors.info;
     case 'purchaseorder':
     case 'purchase-order':
-    case 'purchase': return '#4caf50';
+    case 'purchase': return colors.success;
     case 'procurement': return '#9c27b0';
-    case 'warning': return '#ff9800';
+    case 'warning': return colors.warning;
     case 'amc': return '#00bcd4';
-    default: return '#0B5FA5';
+    default: return colors.sidebar;
   }
 };
 
-// ============================================================
-// ✅ FORMAT TIME
-// ============================================================
 const formatTime = (dateString) => {
   if (!dateString) return 'Just now';
-  
   const date = new Date(dateString);
   const now = new Date();
   const diffMs = now - date;
@@ -140,417 +108,346 @@ const formatTime = (dateString) => {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 };
 
-// ============================================================
-// ✅ MAIN COMPONENT
-// ============================================================
-const NotificationsDropdown = ({ open, anchorEl, onClose }) => {
+const NotificationsDropdown = () => {
   const dispatch = useDispatch();
-  const navigate = useNavigate();
-  const { notifications, unreadCount, isLoading } = useSelector(
-    (state) => state.notifications
-  );
-  const dropdownRef = useRef();
-  const prevNotificationsRef = useRef([]);
-  const [soundEnabled, setSoundEnabled] = useState(true);
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  const { notifications, unreadCount, isLoading } = useSelector((state) => state.notifications);
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const open = Boolean(anchorEl);
+  const listRef = useRef(null);
 
-  // ============================================================
-  // ✅ HANDLE CLICK OUTSIDE TO CLOSE
-  // ============================================================
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      // If dropdown is open and click is outside the dropdown
-      if (open && dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        // Check if click is on the notification icon
-        const notificationIcon = document.querySelector('[data-notification-icon]');
-        if (notificationIcon && notificationIcon.contains(event.target)) {
-          return; // Don't close if clicking the icon
-        }
-        onClose();
-      }
-    };
-
-    // ✅ Handle escape key to close
-    const handleEscapeKey = (event) => {
-      if (event.key === 'Escape' && open) {
-        onClose();
-      }
-    };
-
-    // Add event listeners
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleEscapeKey);
-
-    // Cleanup
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleEscapeKey);
-    };
-  }, [open, onClose]);
-
-  // ============================================================
-  // ✅ FETCH NOTIFICATIONS WHEN OPENED
-  // ============================================================
   useEffect(() => {
     if (open) {
       dispatch(fetchNotifications());
-      dispatch(fetchUnreadCount());
     }
   }, [open, dispatch]);
 
-  // ============================================================
-  // ✅ PLAY SOUND ON NEW NOTIFICATIONS
-  // ============================================================
-  useEffect(() => {
-    if (!open || !soundEnabled || notifications.length === 0) return;
+  const handleClick = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
 
-    // Check for new notifications
-    const prevIds = prevNotificationsRef.current.map(n => n.id);
-    const newNotifications = notifications.filter(n => !prevIds.includes(n.id));
+  const handleClose = () => {
+    setAnchorEl(null);
+  };
 
-    if (newNotifications.length > 0) {
-      const now = new Date();
-      const hasRecent = newNotifications.some(n => {
-        const notifTime = new Date(n.created_at);
-        const diffSeconds = (now - notifTime) / 1000;
-        return diffSeconds < 10 && !n.is_read;
-      });
-
-      if (hasRecent) {
-        console.log('🔔 New notification in dropdown! Playing sound...');
-        playNotificationSound();
-      }
-    }
-
-    // Update previous notifications reference
-    prevNotificationsRef.current = notifications;
-  }, [open, notifications, soundEnabled]);
-
-  // ============================================================
-  // ✅ HANDLE MARK AS READ
-  // ============================================================
-  const handleMarkAsRead = async (id, e) => {
-    e.stopPropagation();
+  const handleMarkAsRead = async (id) => {
     try {
       await dispatch(markAsRead(id)).unwrap();
       await dispatch(fetchUnreadCount()).unwrap();
-      showSnackbar('Notification marked as read', 'success');
     } catch (error) {
-      showSnackbar('Failed to mark as read', 'error');
+      toast.error('Failed to mark as read');
     }
   };
 
-  // ============================================================
-  // ✅ HANDLE MARK ALL AS READ
-  // ============================================================
-  const handleMarkAllAsRead = async (e) => {
-    e.stopPropagation();
+  const handleMarkAllAsRead = async () => {
     try {
       await dispatch(markAllAsRead()).unwrap();
       await dispatch(fetchUnreadCount()).unwrap();
-      showSnackbar('All notifications marked as read', 'success');
       toast.success('All notifications marked as read');
     } catch (error) {
-      showSnackbar('Failed to mark all as read', 'error');
+      toast.error('Failed to mark all as read');
     }
   };
 
-  // ============================================================
-  // ✅ HANDLE NOTIFICATION CLICK
-  // ============================================================
-  const handleNotificationClick = (notification) => {
-    if (!notification.is_read) {
-      dispatch(markAsRead(notification.id));
+  const handleDelete = async (id) => {
+    try {
+      await dispatch(deleteNotification(id)).unwrap();
+      await dispatch(fetchUnreadCount()).unwrap();
+      toast.success('Notification deleted');
+    } catch (error) {
+      toast.error('Failed to delete notification');
     }
-    
-    // Navigate based on notification type
-    if (notification.related_module) {
-      navigate(`/${notification.related_module}`);
+  };
+
+  const handleScroll = (e) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.target;
+    if (scrollTop + clientHeight >= scrollHeight - 20 && !loadingMore && hasMore) {
+      // Load more if needed
     }
-    onClose(); // Close dropdown after clicking
   };
-
-  // ============================================================
-  // ✅ HANDLE VIEW ALL
-  // ============================================================
-  const handleViewAll = () => {
-    navigate('/notifications');
-    onClose(); // Close dropdown after navigating
-  };
-
-  // ============================================================
-  // ✅ SHOW SNACKBAR
-  // ============================================================
-  const showSnackbar = (message, severity = 'success') => {
-    setSnackbar({ open: true, message, severity });
-  };
-
-  // ============================================================
-  // ✅ TOGGLE SOUND
-  // ============================================================
-  const toggleSound = (e) => {
-    e.stopPropagation();
-    setSoundEnabled(!soundEnabled);
-    showSnackbar(soundEnabled ? 'Sound disabled' : 'Sound enabled', 'info');
-  };
-
-  const displayedNotifications = notifications?.slice(0, 5) || [];
 
   return (
     <>
-      {/* ✅ FIXED: Removed elevation={30} - using boxShadow instead */}
-      <Paper
-        ref={dropdownRef}
-        sx={{
-          position: 'fixed',
-          top: { xs: '60px', sm: '68px' },
-          right: { xs: '10px', sm: '20px' },
-          width: { xs: 'calc(100% - 20px)', sm: 420 },
-          maxHeight: 480,
-          overflow: 'auto',
-          borderRadius: 2,
-          boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
-          zIndex: 9999,
-          display: open ? 'block' : 'none',
-          '&::-webkit-scrollbar': {
-            width: '4px'
-          },
-          '&::-webkit-scrollbar-thumb': {
-            background: '#ccc',
-            borderRadius: '4px'
-          }
+      <Tooltip title="Notifications">
+        <IconButton
+          onClick={handleClick}
+          sx={{
+            color: colors.text,
+            '&:hover': {
+              bgcolor: 'rgba(255,255,255,0.1)',
+            },
+          }}
+        >
+          <Badge
+            badgeContent={unreadCount}
+            color="secondary"
+            sx={{
+              '& .MuiBadge-badge': {
+                bgcolor: colors.accentGold,
+                color: 'white',
+                fontWeight: 700,
+                fontSize: '10px',
+                minWidth: '18px',
+                height: '18px',
+                border: `2px solid ${colors.sidebar}`,
+              },
+            }}
+          >
+            <NotificationsIcon sx={{ fontSize: 24 }} />
+          </Badge>
+        </IconButton>
+      </Tooltip>
+
+      <Popover
+        open={open}
+        anchorEl={anchorEl}
+        onClose={handleClose}
+        anchorOrigin={{
+          vertical: 'bottom',
+          horizontal: 'right',
         }}
-        onClick={(e) => e.stopPropagation()}
+        transformOrigin={{
+          vertical: 'top',
+          horizontal: 'right',
+        }}
+        PaperProps={{
+          sx: {
+            width: 380,
+            maxHeight: 450,
+            borderRadius: 2,
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+            overflow: 'hidden',
+            bgcolor: colors.white,
+          },
+        }}
       >
-        {/* Header */}
         <Box sx={{ 
           p: 2, 
           display: 'flex', 
           justifyContent: 'space-between', 
           alignItems: 'center',
-          borderBottom: '1px solid #e9ecef',
-          bgcolor: '#fafafa',
-          position: 'sticky',
-          top: 0,
-          zIndex: 1,
+          borderBottom: `1px solid ${colors.borderColor}`,
+          bgcolor: colors.sidebar,
+          color: colors.text,
         }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Badge 
-              badgeContent={unreadCount} 
-              color="secondary" 
-              sx={{
-                '& .MuiBadge-badge': {
-                  bgcolor: '#C9A227',
-                  color: 'white',
-                  fontSize: '10px',
-                  minWidth: 18,
-                  height: 18,
-                }
+          <Typography variant="subtitle1" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <NotificationsIcon sx={{ fontSize: 20 }} />
+            Notifications
+            <Chip 
+              label={unreadCount} 
+              size="small" 
+              sx={{ 
+                bgcolor: colors.accentGold, 
+                color: 'white',
+                height: 20,
+                fontSize: '10px',
+                fontWeight: 600,
+                '& .MuiChip-label': { px: 1 }
+              }} 
+            />
+          </Typography>
+          {unreadCount > 0 && (
+            <Button
+              size="small"
+              startIcon={<DoneAllIcon sx={{ fontSize: 16 }} />}
+              onClick={handleMarkAllAsRead}
+              sx={{ 
+                color: colors.text,
+                textTransform: 'none',
+                '&:hover': { bgcolor: 'rgba(255,255,255,0.1)' },
+                fontSize: '12px',
               }}
             >
-              <NotificationsIcon sx={{ color: '#0B5FA5' }} />
-            </Badge>
-            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-              Notifications
-            </Typography>
-          </Box>
-          
-          <Box sx={{ display: 'flex', gap: 0.5 }}>
-            {/* Sound Toggle */}
-            <Tooltip title={soundEnabled ? 'Sound On' : 'Sound Off'}>
-              <IconButton 
-                size="small" 
-                onClick={toggleSound}
-                sx={{ 
-                  color: soundEnabled ? '#0B5FA5' : '#999',
-                  '&:hover': {
-                    bgcolor: soundEnabled ? 'rgba(11,95,165,0.08)' : 'rgba(0,0,0,0.04)',
-                  }
-                }}
-              >
-                {soundEnabled ? <VolumeUpIcon fontSize="small" /> : <VolumeOffIcon fontSize="small" />}
-              </IconButton>
-            </Tooltip>
-            
-            {/* Mark All Read */}
-            {unreadCount > 0 && (
-              <Tooltip title="Mark all as read">
-                <IconButton 
-                  size="small" 
-                  onClick={handleMarkAllAsRead}
-                  sx={{ color: '#0B5FA5' }}
-                >
-                  <DoneAllIcon fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            )}
-          </Box>
+              Mark all read
+            </Button>
+          )}
         </Box>
 
-        {/* Loading */}
-        {isLoading && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-            <CircularProgress size={30} />
+        {isLoading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+            <CircularProgress size={30} sx={{ color: colors.sidebar }} />
           </Box>
-        )}
-
-        {/* Empty State */}
-        {!isLoading && displayedNotifications.length === 0 && (
-          <Box sx={{ p: 4, textAlign: 'center' }}>
-            <NotificationsIcon sx={{ fontSize: 40, color: '#ccc', mb: 1 }} />
-            <Typography variant="body2" color="text.secondary">
+        ) : notifications.length === 0 ? (
+          <Box sx={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            alignItems: 'center', 
+            py: 4,
+            px: 2,
+          }}>
+            <NotificationsOffIcon sx={{ fontSize: 48, color: colors.lightText, mb: 1 }} />
+            <Typography variant="body1" sx={{ color: colors.lightText }}>
               No notifications
             </Typography>
+            <Typography variant="caption" sx={{ color: colors.lightText }}>
+              You're all caught up!
+            </Typography>
           </Box>
-        )}
-
-        {/* Notifications List */}
-        <List sx={{ p: 0 }}>
-          {displayedNotifications.map((notification, index) => (
-            <React.Fragment key={notification.id}>
-              <ListItem
-                sx={{
-                  px: 2,
-                  py: 1.5,
-                  bgcolor: notification.is_read ? 'transparent' : 'rgba(11, 95, 165, 0.04)',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  '&:hover': {
-                    bgcolor: notification.is_read ? 'rgba(0,0,0,0.02)' : 'rgba(11, 95, 165, 0.08)',
-                  }
-                }}
-                onClick={() => handleNotificationClick(notification)}
-              >
-                <ListItemAvatar>
-                  <Avatar sx={{ 
-                    bgcolor: `${getNotificationColor(notification.type)}20`,
-                    color: getNotificationColor(notification.type),
-                    width: 36,
-                    height: 36,
-                  }}>
-                    {getNotificationIcon(notification.type)}
-                  </Avatar>
-                </ListItemAvatar>
-                
-                <ListItemText
-                  primary={
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Typography 
-                        variant="body2" 
-                        sx={{ 
-                          fontWeight: notification.is_read ? 400 : 600, 
-                          flex: 1,
-                          fontSize: '0.875rem'
-                        }}
-                      >
-                        {notification.title}
-                      </Typography>
-                      {!notification.is_read && (
-                        <Chip 
-                          label="New" 
-                          size="small" 
+        ) : (
+          <List 
+            ref={listRef}
+            onScroll={handleScroll}
+            sx={{ 
+              p: 0, 
+              overflowY: 'auto',
+              maxHeight: 350,
+            }}
+          >
+            {notifications.slice(0, 20).map((notification, index) => (
+              <React.Fragment key={notification.id}>
+                <ListItem
+                  sx={{
+                    px: 2,
+                    py: 1.5,
+                    bgcolor: notification.is_read ? 'transparent' : `${colors.sidebar}08`,
+                    transition: 'all 0.2s',
+                    '&:hover': {
+                      bgcolor: notification.is_read ? 'rgba(0,0,0,0.02)' : `${colors.sidebar}14`,
+                    },
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => {
+                    if (!notification.is_read) {
+                      handleMarkAsRead(notification.id);
+                    }
+                  }}
+                >
+                  <ListItemAvatar>
+                    <Avatar sx={{ 
+                      bgcolor: `${getNotificationColor(notification.type)}20`,
+                      color: getNotificationColor(notification.type),
+                      width: 36,
+                      height: 36,
+                    }}>
+                      {getNotificationIcon(notification.type)}
+                    </Avatar>
+                  </ListItemAvatar>
+                  
+                  <ListItemText
+                    primary={
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                        <Typography 
+                          variant="subtitle2" 
+                          component="span"
                           sx={{ 
-                            bgcolor: '#C9A227', 
-                            color: 'white',
-                            height: 18,
-                            '& .MuiChip-label': { fontSize: '9px', px: 0.5 }
-                          }} 
-                        />
-                      )}
-                    </Box>
-                  }
-                  secondary={
-                    <>
-                      <Typography 
-                        variant="caption" 
-                        color="text.secondary" 
-                        sx={{ display: 'block' }}
-                      >
-                        {notification.message?.length > 60 
-                          ? notification.message.substring(0, 60) + '...' 
-                          : notification.message}
-                      </Typography>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
-                        <Typography variant="caption" color="text.secondary">
-                          {formatTime(notification.created_at)}
+                            fontWeight: notification.is_read ? 400 : 600,
+                            color: colors.darkText,
+                            fontSize: '13px',
+                          }}
+                        >
+                          {notification.title}
                         </Typography>
-                        {notification.type && (
+                        {!notification.is_read && (
                           <Chip 
-                            label={notification.type} 
-                            size="small"
+                            label="New" 
+                            size="small" 
                             sx={{ 
-                              height: 16,
+                              bgcolor: colors.accentGold, 
+                              color: 'white',
+                              height: 18,
                               fontSize: '8px',
-                              bgcolor: `${getNotificationColor(notification.type)}20`,
-                              color: getNotificationColor(notification.type),
-                              '& .MuiChip-label': { px: 0.5 }
-                            }}
+                              fontWeight: 600,
+                              '& .MuiChip-label': { px: 1 }
+                            }} 
                           />
                         )}
                       </Box>
-                    </>
-                  }
-                />
-                
-                {!notification.is_read && (
-                  <IconButton
-                    size="small"
-                    onClick={(e) => handleMarkAsRead(notification.id, e)}
-                    sx={{ color: '#0B5FA5' }}
-                  >
-                    <CheckCircleIcon fontSize="small" />
-                  </IconButton>
-                )}
-              </ListItem>
-              {index < displayedNotifications.length - 1 && <Divider />}
-            </React.Fragment>
-          ))}
-        </List>
-
-        {/* Footer */}
-        <Box sx={{ 
-          p: 1.5, 
-          borderTop: '1px solid #e9ecef',
-          display: 'flex',
-          justifyContent: 'center',
-          bgcolor: '#fafafa',
-          position: 'sticky',
-          bottom: 0,
-        }}>
-          <Button 
-            size="small" 
-            onClick={handleViewAll}
-            sx={{ 
-              color: '#0B5FA5',
-              fontWeight: 500,
-              textTransform: 'none',
-              '&:hover': {
-                bgcolor: 'rgba(11, 95, 165, 0.08)',
-              }
-            }}
-          >
-            View All Notifications
-          </Button>
-        </Box>
-      </Paper>
-
-      {/* Snackbar */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={2000}
-        onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
-        sx={{ zIndex: 10000 }}
-      >
-        <Alert 
-          severity={snackbar.severity} 
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          variant="filled"
-          sx={{ fontSize: '0.875rem' }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
+                    }
+                    secondary={
+                      <Box>
+                        <Typography 
+                          variant="body2" 
+                          component="span"
+                          sx={{ 
+                            color: colors.lightText,
+                            fontSize: '12px',
+                            display: 'block',
+                            mt: 0.5,
+                          }}
+                        >
+                          {notification.message}
+                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                          <Typography variant="caption" component="span" sx={{ color: colors.lightText, fontSize: '10px' }}>
+                            {formatTime(notification.created_at)}
+                          </Typography>
+                          {notification.type && (
+                            <Chip 
+                              label={notification.type} 
+                              size="small"
+                              sx={{ 
+                                height: 16,
+                                fontSize: '7px',
+                                bgcolor: `${getNotificationColor(notification.type)}20`,
+                                color: getNotificationColor(notification.type),
+                                fontWeight: 500,
+                                '& .MuiChip-label': { px: 0.5 }
+                              }}
+                            />
+                          )}
+                        </Box>
+                      </Box>
+                    }
+                  />
+                  
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, ml: 1 }}>
+                    {!notification.is_read && (
+                      <Tooltip title="Mark as read">
+                        <IconButton
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleMarkAsRead(notification.id);
+                          }}
+                          sx={{ 
+                            color: colors.sidebar,
+                            padding: '2px',
+                            '&:hover': { 
+                              color: colors.accentGold,
+                              bgcolor: `${colors.accentGold}14`
+                            }
+                          }}
+                        >
+                          <CheckCircleIcon fontSize="small" sx={{ fontSize: 14 }} />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                    <Tooltip title="Delete">
+                      <IconButton
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(notification.id);
+                        }}
+                        sx={{ 
+                          color: colors.lightText,
+                          padding: '2px',
+                          '&:hover': { 
+                            color: colors.error,
+                            bgcolor: `${colors.error}14`
+                          }
+                        }}
+                      >
+                        <DeleteIcon fontSize="small" sx={{ fontSize: 14 }} />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                </ListItem>
+                {index < notifications.length - 1 && <Divider sx={{ borderColor: colors.borderColor }} />}
+              </React.Fragment>
+            ))}
+            {notifications.length > 20 && (
+              <Box sx={{ p: 1, textAlign: 'center' }}>
+                <Button size="small" sx={{ color: colors.sidebar, textTransform: 'none' }}>
+                  View all
+                </Button>
+              </Box>
+            )}
+          </List>
+        )}
+      </Popover>
     </>
   );
 };

@@ -10,6 +10,7 @@
 // ✅ KEPT: engineer_name (user types manually)
 // ✅ ADDED: Hospital column in main table
 // ✅ ADDED: Hospital filter in filter menu
+// ✅ ADDED: Hospital field in Add/Edit Form
 
 import React, { useState, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
@@ -484,7 +485,7 @@ const Repairs = () => {
   const [repairs, setRepairs] = useState([])
   const [errors, setErrors] = useState([])
   const [equipment, setEquipment] = useState([])
-  const [hospitals, setHospitals] = useState([]) // ✅ ADDED: Hospitals state
+  const [hospitals, setHospitals] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [openDialog, setOpenDialog] = useState(false)
@@ -516,9 +517,10 @@ const Repairs = () => {
 
   const [uploadedFiles, setUploadedFiles] = useState([])
 
-  // ✅ FIXED: REMOVED error_log_id from formData
+  // ✅ ADDED: hospital_id in formData
   const [formData, setFormData] = useState({
     equipment_id: '',
+    hospital_id: '',  // ✅ NEW: Hospital field in form
     engineer_name: '',
     problem_analysis: '',
     repair_procedure: '',
@@ -552,12 +554,12 @@ const Repairs = () => {
         repairService.getAll(),
         errorService.getAll(),
         equipmentService.getAll(),
-        hospitalService.getAll() // ✅ ADDED: Fetch hospitals
+        hospitalService.getAll()
       ])
       setRepairs(repairsRes.data.repairs || [])
       setErrors(errorsRes.data.errors || [])
       setEquipment(equipmentRes.data.equipment || [])
-      setHospitals(hospitalsRes.data.hospitals || []) // ✅ ADDED: Set hospitals
+      setHospitals(hospitalsRes.data.hospitals || [])
     } catch (error) {
       console.error('❌ Fetch error:', error)
       toast.error('Failed to fetch data')
@@ -695,6 +697,7 @@ const Repairs = () => {
   }
 
   // ✅ FIXED: REMOVED error_log_id from handleOpenDialog
+  // ✅ ADDED: hospital_id reset
   const handleOpenDialog = () => {
     if (!isEngineer && !isSuperAdmin) {
       toast.error('You do not have permission to create repairs')
@@ -703,6 +706,7 @@ const Repairs = () => {
     
     setFormData({
       equipment_id: '',
+      hospital_id: '',  // ✅ NEW: Reset hospital
       engineer_name: '',
       problem_analysis: '',
       repair_procedure: '',
@@ -804,6 +808,7 @@ const Repairs = () => {
   }
 
   // ✅ FIXED: REMOVED error_log_id from handleSubmit
+  // ✅ ADDED: hospital_id in payload
   const handleSubmit = async () => {
     if (!isEngineer && !isSuperAdmin) {
       toast.error('You do not have permission to create repairs')
@@ -816,8 +821,15 @@ const Repairs = () => {
         return
       }
 
+      // ✅ NEW: Hospital validation (optional - you can make it required)
+      // if (!formData.hospital_id) {
+      //   toast.error('Hospital is required')
+      //   return
+      // }
+
       const payload = {
         equipment_id: parseInt(formData.equipment_id),
+        hospital_id: formData.hospital_id ? parseInt(formData.hospital_id) : null, // ✅ NEW: Send hospital_id
         engineer_name: formData.engineer_name || user?.full_name || '',
         problem_analysis: formData.problem_analysis || '',
         repair_procedure: formData.repair_procedure || '',
@@ -1382,7 +1394,7 @@ const Repairs = () => {
           <TableHead sx={{ bgcolor: colors.darkNavy }}>
             <TableRow>
               <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Equipment</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Hospital</TableCell> {/* ✅ ADDED */}
+              <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Hospital</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Engineer</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Problem</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2 }}>Spare Used</TableCell>
@@ -1391,6 +1403,7 @@ const Repairs = () => {
               <TableCell sx={{ color: 'white', fontWeight: 600, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", py: 2, textAlign: 'center' }}>Actions</TableCell>
             </TableRow>
           </TableHead>
+          {/* ✅ FIXED: TableBody - No extra text nodes, only TableRow components */}
           <TableBody>
             {filteredRepairs.length === 0 ? (
               <TableRow>
@@ -1515,7 +1528,7 @@ const Repairs = () => {
         </Table>
       </TableContainer>
 
-      {/* ✅ Add Repair Dialog - FIXED: REMOVED error_log_id field */}
+      {/* ✅ Add Repair Dialog - WITH HOSPITAL FIELD IN FORM */}
       <Dialog 
         open={openDialog} 
         onClose={handleCloseDialog} 
@@ -1548,6 +1561,38 @@ const Repairs = () => {
         
         <DialogContent dividers sx={{ px: 4, py: 3 }}>
           <Grid container spacing={2.5}>
+            {/* ✅ NEW: Hospital Field in Form */}
+            <Grid item xs={12}>
+              <FormControl fullWidth>
+                <InputLabel sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                  Select Hospital
+                </InputLabel>
+                <Select
+                  name="hospital_id"
+                  value={formData.hospital_id}
+                  onChange={handleFormChange}
+                  label="Select Hospital"
+                  sx={{
+                    borderRadius: 2,
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                    },
+                    '& .MuiSelect-select': {
+                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                    }
+                  }}
+                >
+                  <MenuItem value="">Select hospital</MenuItem>
+                  {hospitals.map((h) => (
+                    <MenuItem key={h.id} value={h.id} sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                      {h.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+
             {/* ✅ KEPT: Equipment Selection */}
             <Grid item xs={12}>
               <FormControl fullWidth>

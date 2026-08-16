@@ -1,13 +1,5 @@
 // src/pages/SpareParts.jsx
-// ✅ STANDALONE INVENTORY - No links to other modules
-// ✅ DARK NAVY + LIGHT CYAN THEME - Matching Equipment page
-// ✅ WITH ATTACHMENT TAB VIEW + PREVIEW
-// ✅ AUTO-STATUS: In Stock / Low Stock / Out of Stock
-// ✅ PKR CURRENCY FORMATTING FIXED
-// ✅ DOWNTIME TRACKING ADDED
-// ✅ Everyone can Add and View, only Super Admin can Edit and Delete
-// ✅ Hospital & Equipment as Text Fields (stored directly in spare_parts table)
-// ✅ REMOVED: Brand, Manufacturer, Compatible Equipment (Legacy)
+// ✅ COMPLETE FIXED VERSION - Hospital and Equipment names display correctly
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -98,7 +90,7 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 
 // ============================================================
-// ✅ DARK NAVY + LIGHT CYAN THEME COLORS - Matching Equipment page
+// ✅ DARK NAVY + LIGHT CYAN THEME COLORS
 // ============================================================
 const colors = {
   darkNavy: '#0F172A',
@@ -555,12 +547,41 @@ const SpareParts = () => {
     fetchSpareParts()
   }, [])
 
-  // ✅ FETCH SPARE PARTS
+  // ✅ FETCH SPARE PARTS - COMPLETE FIXED VERSION
   const fetchSpareParts = async () => {
     setLoading(true)
     try {
       const response = await sparePartService.getAll()
-      const parts = response.data.spareParts || []
+      console.log('📦 RAW API Response:', response)
+      console.log('📦 Response data:', response.data)
+      
+      // ✅ Extract parts from response
+      let parts = []
+      if (response.data && response.data.spareParts) {
+        parts = response.data.spareParts
+      } else if (response.data && response.data.data) {
+        parts = response.data.data
+      } else if (Array.isArray(response.data)) {
+        parts = response.data
+      } else {
+        parts = []
+      }
+      
+      console.log('📊 Extracted parts:', parts)
+      
+      // ✅ Ensure hospital_name and equipment_name are properly set
+      parts = parts.map(part => ({
+        ...part,
+        hospital_name: part.hospital_name || 'N/A',
+        equipment_name: part.equipment_name || 'N/A'
+      }))
+      
+      console.log('✅ Processed parts with names:', parts.map(p => ({
+        id: p.id,
+        part_name: p.part_name,
+        hospital_name: p.hospital_name,
+        equipment_name: p.equipment_name
+      })))
       
       // ✅ Fetch downtime for each part
       const partsWithDowntime = await Promise.all(parts.map(async (part) => {
@@ -585,8 +606,10 @@ const SpareParts = () => {
       }))
       
       setSpareParts(partsWithDowntime)
+      console.log('✅ Final spareParts state:', partsWithDowntime.length, 'parts')
+      
     } catch (error) {
-      console.error('Fetch spare parts error:', error)
+      console.error('❌ Fetch spare parts error:', error)
       toast.error('Failed to fetch spare parts')
     } finally {
       setLoading(false)
@@ -903,10 +926,10 @@ const SpareParts = () => {
   const filteredParts = spareParts.filter(part => {
     const matchesSearch = part.part_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           part.part_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          part.hospital_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          part.equipment_name?.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesHospital = !filters.hospital_name || part.hospital_name?.toLowerCase().includes(filters.hospital_name.toLowerCase())
-    const matchesEquipment = !filters.equipment_name || part.equipment_name?.toLowerCase().includes(filters.equipment_name.toLowerCase())
+                          (part.hospital_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          (part.equipment_name || '').toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesHospital = !filters.hospital_name || (part.hospital_name || '').toLowerCase().includes(filters.hospital_name.toLowerCase())
+    const matchesEquipment = !filters.equipment_name || (part.equipment_name || '').toLowerCase().includes(filters.equipment_name.toLowerCase())
     const matchesStatus = !filters.status || getStatus(part.quantity, part.minimum_stock_level).label === filters.status
     return matchesSearch && matchesHospital && matchesEquipment && matchesStatus
   })
@@ -1451,6 +1474,14 @@ const SpareParts = () => {
                 const status = getStatus(part.quantity, part.minimum_stock_level)
                 const isLowStock = part.quantity <= (part.minimum_stock_level || 5)
                 
+                // ✅ DEBUG LOG - Check what's being rendered
+                console.log(`🔍 Rendering part ${index}:`, {
+                  id: part.id,
+                  part_name: part.part_name,
+                  hospital_name: part.hospital_name,
+                  equipment_name: part.equipment_name
+                })
+                
                 return (
                   <TableRow 
                     key={part.id} 
@@ -1468,14 +1499,14 @@ const SpareParts = () => {
                     <TableCell sx={{ color: colors.darkNavy, fontWeight: 500 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                         <LocalHospital sx={{ fontSize: 14, color: colors.lightCyanDark }} />
-                        {part.hospital_name || '-'}
+                        {part.hospital_name || 'N/A'}
                       </Box>
                     </TableCell>
                     
                     <TableCell sx={{ color: colors.darkNavy, fontWeight: 500 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                         <MedicalServices sx={{ fontSize: 14, color: colors.lightCyanDark }} />
-                        {part.equipment_name || '-'}
+                        {part.equipment_name || 'N/A'}
                       </Box>
                     </TableCell>
                     
@@ -1764,7 +1795,6 @@ const SpareParts = () => {
                       </Typography>
                     </Grid>
 
-                    {/* Downtime Section */}
                     <Grid item xs={12}>
                       <Divider sx={{ my: 2 }} />
                       <Typography variant="subtitle2" sx={{ color: colors.lightText, mb: 1, fontWeight: 600 }}>
@@ -1978,7 +2008,6 @@ const SpareParts = () => {
         </DialogTitle>
         <DialogContent dividers sx={{ px: 4, py: 3 }}>
           <Grid container spacing={2.5}>
-            {/* Hospital Name - TEXT FIELD */}
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
@@ -2004,7 +2033,6 @@ const SpareParts = () => {
               />
             </Grid>
 
-            {/* Equipment Name - TEXT FIELD */}
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
@@ -2030,7 +2058,6 @@ const SpareParts = () => {
               />
             </Grid>
 
-            {/* Part Name */}
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
@@ -2056,7 +2083,6 @@ const SpareParts = () => {
               />
             </Grid>
 
-            {/* Part Number */}
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
@@ -2081,7 +2107,6 @@ const SpareParts = () => {
               />
             </Grid>
 
-            {/* Quantity */}
             <Grid item xs={12} md={4}>
               <TextField
                 fullWidth
@@ -2111,7 +2136,6 @@ const SpareParts = () => {
               />
             </Grid>
 
-            {/* Minimum Stock Level */}
             <Grid item xs={12} md={4}>
               <TextField
                 fullWidth
@@ -2141,7 +2165,6 @@ const SpareParts = () => {
               />
             </Grid>
 
-            {/* Unit Cost */}
             <Grid item xs={12} md={4}>
               <TextField
                 fullWidth
@@ -2174,7 +2197,6 @@ const SpareParts = () => {
               />
             </Grid>
 
-            {/* Total Cost - Auto-calculated */}
             <Grid item xs={12}>
               <TextField
                 fullWidth
@@ -2208,7 +2230,6 @@ const SpareParts = () => {
               />
             </Grid>
 
-            {/* Installation Notes */}
             <Grid item xs={12}>
               <TextField
                 fullWidth
@@ -2235,7 +2256,6 @@ const SpareParts = () => {
               />
             </Grid>
 
-            {/* Image Upload */}
             <Grid item xs={12}>
               <Typography variant="subtitle2" sx={{ color: colors.lightText }} gutterBottom>
                 <Image sx={{ fontSize: 18, verticalAlign: 'middle', mr: 1 }} />
@@ -2300,7 +2320,6 @@ const SpareParts = () => {
               )}
             </Grid>
 
-            {/* Calculation Preview */}
             <Grid item xs={12}>
               <Paper sx={{ 
                 p: 2, 

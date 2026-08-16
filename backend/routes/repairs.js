@@ -4,6 +4,7 @@
 // ✅ FIXED: All routes updated for new schema
 // ✅ FIXED: DELETE with CASCADE support (database handles it)
 // ✅ FIXED: Proper error handling and logging
+// ✅ ADDED: hospital_id support in CREATE and UPDATE
 
 const express = require('express');
 const router = express.Router();
@@ -28,21 +29,22 @@ const createNotification = async (userId, title, message, type, relatedId = null
 };
 
 // ============================================
-// ✅ GET ALL REPAIRS - UPDATED: Direct join with equipment
+// ✅ GET ALL REPAIRS - UPDATED: WITH hospital_name
 // ============================================
 router.get('/', authenticate, async (req, res) => {
     try {
         let sql = `
-            SELECT r.id, r.equipment_id,
+            SELECT r.id, r.equipment_id, r.hospital_id,
                    r.engineer_name,
                    r.problem_analysis, r.repair_procedure,
                    r.spare_part_used, r.remarks, r.repair_date, r.attachments,
                    r.created_at, r.updated_at,
                    e.name as equipment_name,
                    e.model as equipment_model,
-                   e.hospital_id
+                   h.name as hospital_name
             FROM repairs r
             LEFT JOIN equipment e ON r.equipment_id = e.id
+            LEFT JOIN hospitals h ON r.hospital_id = h.id
             WHERE 1=1
         `;
         const params = [];
@@ -56,8 +58,9 @@ router.get('/', authenticate, async (req, res) => {
             params.push(req.query.end_date);
         }
 
+        // ✅ Hospital filter for non-super admins
         if (req.user.role_name !== 'SUPER_ADMIN') {
-            sql += ' AND e.hospital_id = ?';
+            sql += ' AND r.hospital_id = ?';
             params.push(req.user.hospital_id);
         }
 
@@ -72,28 +75,30 @@ router.get('/', authenticate, async (req, res) => {
 });
 
 // ============================================
-// ✅ GET SINGLE REPAIR - UPDATED: Direct join with equipment
+// ✅ GET SINGLE REPAIR - UPDATED: WITH hospital_name
 // ============================================
 router.get('/:id', authenticate, async (req, res) => {
     try {
         const { id } = req.params;
         
         let sql = `
-            SELECT r.id, r.equipment_id,
+            SELECT r.id, r.equipment_id, r.hospital_id,
                    r.engineer_name,
                    r.problem_analysis, r.repair_procedure,
                    r.spare_part_used, r.remarks, r.repair_date, r.attachments,
                    r.created_at, r.updated_at,
                    e.name as equipment_name,
-                   e.model as equipment_model
+                   e.model as equipment_model,
+                   h.name as hospital_name
             FROM repairs r
             LEFT JOIN equipment e ON r.equipment_id = e.id
+            LEFT JOIN hospitals h ON r.hospital_id = h.id
             WHERE r.id = ?
         `;
         const params = [id];
 
         if (req.user.role_name !== 'SUPER_ADMIN') {
-            sql += ' AND e.hospital_id = ?';
+            sql += ' AND r.hospital_id = ?';
             params.push(req.user.hospital_id);
         }
 
@@ -123,12 +128,13 @@ router.get('/:id', authenticate, async (req, res) => {
 });
 
 // ============================================
-// ✅ CREATE REPAIR - UPDATED: Uses equipment_id instead of error_log_id
+// ✅ CREATE REPAIR - UPDATED: WITH hospital_id support
 // ============================================
 router.post('/', authenticate, async (req, res) => {
     try {
         const {
             equipment_id,
+            hospital_id,        // ✅ NEW: Accept hospital_id from frontend
             engineer_name,
             problem_analysis,
             repair_procedure,
@@ -139,6 +145,7 @@ router.post('/', authenticate, async (req, res) => {
         } = req.body;
 
         console.log('🛠️ Creating repair for equipment:', equipment_id);
+        console.log('🏥 Hospital ID:', hospital_id);
         console.log('👤 Engineer:', engineer_name || req.user.full_name);
 
         // ✅ Check if equipment exists
@@ -161,12 +168,21 @@ router.post('/', authenticate, async (req, res) => {
             });
         }
 
+        // ✅ Determine final hospital_id
+        // Priority: 1. From request body, 2. From equipment, 3. From user
+        let finalHospitalId = hospital_id || equipment[0].hospital_id || req.user.hospital_id || null;
+        
+        if (finalHospitalId) {
+            finalHospitalId = parseInt(finalHospitalId);
+        }
+
         // Permission check
         if (req.user.role_name !== 'SUPER_ADMIN') {
-            if (equipment[0].hospital_id !== req.user.hospital_id) {
+            // If user is not super admin, they can only create repairs for their hospital
+            if (finalHospitalId !== req.user.hospital_id) {
                 return res.status(403).json({ 
                     success: false, 
-                    message: 'Access denied' 
+                    message: 'You can only create repairs for your hospital' 
                 });
             }
         }
@@ -190,14 +206,15 @@ router.post('/', authenticate, async (req, res) => {
         const spareUsed = spare_part_used === 'Yes' ? 1 : 0;
         const finalRepairDate = repair_date || new Date().toISOString().slice(0, 19).replace('T', ' ');
 
-        // ✅ INSERT - NO engineer_id, uses equipment_id directly
+        // ✅ INSERT - WITH hospital_id
         const result = await query(
             `INSERT INTO repairs 
-             (equipment_id, engineer_name, problem_analysis,
+             (equipment_id, hospital_id, engineer_name, problem_analysis,
               repair_procedure, spare_part_used, remarks, repair_date, attachments)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 parseInt(equipment_id),
+                finalHospitalId,
                 finalEngineerName.trim(),
                 problem_analysis || null,
                 repair_procedure || null,
@@ -234,40 +251,46 @@ router.post('/', authenticate, async (req, res) => {
 
         // Notifications
         const equipmentName = equipment[0].name || 'Equipment';
-        const hospitalId = equipment[0].hospital_id;
+        const hospitalName = await query(
+            'SELECT name FROM hospitals WHERE id = ?',
+            [finalHospitalId]
+        );
+        const hospitalNameStr = hospitalName.length > 0 ? hospitalName[0].name : 'Hospital';
 
         await createNotification(
             1,
             '🔧 New Repair Started',
-            `Repair started for "${equipmentName}"`,
+            `Repair started for "${equipmentName}" at ${hospitalNameStr}`,
             'repair',
             result.insertId,
             'repairs'
         );
 
         // Notify hospital admins
-        if (hospitalId) {
+        if (finalHospitalId) {
             await query(
                 `INSERT INTO notifications (user_id, title, message, type, related_id, related_module, created_at)
                  SELECT u.id, '🔧 Repair Started', 
-                        CONCAT('Repair started for "', ?, '"'), 'repair', ?, 'repairs', NOW()
+                        CONCAT('Repair started for "', ?, '" at ', ?), 'repair', ?, 'repairs', NOW()
                  FROM users u
                  WHERE u.role_id = 2 
                    AND u.hospital_id = ?
                    AND u.is_active = 1`,
-                [equipmentName, result.insertId, hospitalId]
+                [equipmentName, hospitalNameStr, result.insertId, finalHospitalId]
             );
         }
 
         const newRepair = await query(
-            `SELECT r.id, r.equipment_id,
+            `SELECT r.id, r.equipment_id, r.hospital_id,
                     r.engineer_name,
                     r.problem_analysis, r.repair_procedure,
                     r.spare_part_used, r.remarks, r.repair_date, r.attachments,
                     r.created_at, r.updated_at,
-                    e.name as equipment_name
+                    e.name as equipment_name,
+                    h.name as hospital_name
              FROM repairs r
              LEFT JOIN equipment e ON r.equipment_id = e.id
+             LEFT JOIN hospitals h ON r.hospital_id = h.id
              WHERE r.id = ?`,
             [result.insertId]
         );
@@ -288,13 +311,14 @@ router.post('/', authenticate, async (req, res) => {
 });
 
 // ============================================
-// ✅ UPDATE REPAIR - UPDATED: Removed error_log_id reference
+// ✅ UPDATE REPAIR - UPDATED: WITH hospital_id support
 // ============================================
 router.put('/:id', authenticate, async (req, res) => {
     try {
         const { id } = req.params;
         const {
             equipment_id,
+            hospital_id,        // ✅ NEW: Accept hospital_id
             engineer_name,
             problem_analysis,
             repair_procedure,
@@ -307,7 +331,7 @@ router.put('/:id', authenticate, async (req, res) => {
         console.log('🔄 Updating repair ID:', id);
 
         let sql = `
-            SELECT r.*, e.hospital_id
+            SELECT r.*, e.hospital_id as equipment_hospital_id
             FROM repairs r
             LEFT JOIN equipment e ON r.equipment_id = e.id
             WHERE r.id = ?
@@ -336,10 +360,17 @@ router.put('/:id', authenticate, async (req, res) => {
             finalEquipmentId = parseInt(finalEquipmentId);
         }
 
-        // ✅ UPDATE - NO engineer_id
+        // ✅ Determine final hospital_id for update
+        let finalHospitalId = hospital_id !== undefined ? hospital_id : existing[0].hospital_id;
+        if (finalHospitalId) {
+            finalHospitalId = parseInt(finalHospitalId);
+        }
+
+        // ✅ UPDATE - WITH hospital_id
         await query(
             `UPDATE repairs SET 
              equipment_id = ?,
+             hospital_id = ?,
              engineer_name = ?,
              problem_analysis = ?,
              repair_procedure = ?,
@@ -350,6 +381,7 @@ router.put('/:id', authenticate, async (req, res) => {
              WHERE id = ?`,
             [
                 finalEquipmentId,
+                finalHospitalId,
                 engineer_name || existing[0].engineer_name,
                 problem_analysis || existing[0].problem_analysis,
                 repair_procedure || existing[0].repair_procedure,
@@ -383,18 +415,20 @@ router.get('/equipment/:equipmentId', authenticate, async (req, res) => {
         const { equipmentId } = req.params;
         
         let sql = `
-            SELECT r.id, r.equipment_id,
+            SELECT r.id, r.equipment_id, r.hospital_id,
                     r.engineer_name,
                     r.problem_analysis, r.repair_procedure,
                     r.spare_part_used, r.remarks, r.repair_date, r.attachments,
-                    r.created_at, r.updated_at
+                    r.created_at, r.updated_at,
+                    h.name as hospital_name
             FROM repairs r
+            LEFT JOIN hospitals h ON r.hospital_id = h.id
             WHERE r.equipment_id = ?
         `;
         const params = [equipmentId];
 
         if (req.user.role_name !== 'SUPER_ADMIN') {
-            sql += ' AND EXISTS (SELECT 1 FROM equipment e WHERE e.id = r.equipment_id AND e.hospital_id = ?)';
+            sql += ' AND r.hospital_id = ?';
             params.push(req.user.hospital_id);
         }
 
@@ -414,21 +448,23 @@ router.get('/equipment/:equipmentId', authenticate, async (req, res) => {
 router.get('/my-repairs', authenticate, async (req, res) => {
     try {
         let sql = `
-            SELECT r.id, r.equipment_id,
+            SELECT r.id, r.equipment_id, r.hospital_id,
                    r.engineer_name,
                    r.problem_analysis, r.repair_procedure,
                    r.spare_part_used, r.remarks, r.repair_date, r.attachments,
                    r.created_at, r.updated_at,
                    e.name as equipment_name,
-                   e.model as equipment_model
+                   e.model as equipment_model,
+                   h.name as hospital_name
             FROM repairs r
             LEFT JOIN equipment e ON r.equipment_id = e.id
+            LEFT JOIN hospitals h ON r.hospital_id = h.id
             WHERE LOWER(r.engineer_name) = LOWER(?)
         `;
         const params = [req.user.full_name];
 
         if (req.user.role_name !== 'SUPER_ADMIN') {
-            sql += ' AND e.hospital_id = ?';
+            sql += ' AND r.hospital_id = ?';
             params.push(req.user.hospital_id);
         }
 
@@ -469,7 +505,6 @@ router.delete('/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) =
         }
 
         // ✅ Database will automatically delete spare parts via ON DELETE CASCADE
-        // No need to manually delete repair_spare_parts
         await query('DELETE FROM repairs WHERE id = ?', [id]);
 
         console.log('✅ Repair deleted successfully:', id);
@@ -505,7 +540,7 @@ router.get('/stats/summary', authenticate, async (req, res) => {
         const params = [];
 
         if (req.user.role_name !== 'SUPER_ADMIN') {
-            sql += ' AND e.hospital_id = ?';
+            sql += ' AND r.hospital_id = ?';
             params.push(req.user.hospital_id);
         }
 
