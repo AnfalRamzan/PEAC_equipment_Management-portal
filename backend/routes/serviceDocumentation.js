@@ -1,5 +1,4 @@
-// backend/routes/serviceDocumentation.js
-// ✅ COMPLETE FIXED VERSION - Uses Vercel Blob
+// backend/routes/serviceDocumentation.js - FIXED VERSION
 
 const express = require('express');
 const router = express.Router();
@@ -109,10 +108,10 @@ const getBlobToken = () => {
 };
 
 // ============================================================
-// ✅ FIXED: Use memoryStorage for Vercel
+// ✅ Use memoryStorage for Vercel
 // ============================================================
 const upload = multer({
-    storage: multer.memoryStorage(),  // ✅ Memory storage - Vercel compatible
+    storage: multer.memoryStorage(),
     limits: { fileSize: 50 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
         const allowedTypes = [
@@ -205,7 +204,7 @@ router.get('/:id', authenticate, async (req, res) => {
 });
 
 // ============================================================
-// ✅ DOWNLOAD file - Redirect to Vercel Blob
+// ✅ DOWNLOAD file
 // ============================================================
 router.get('/:id/download', authenticate, async (req, res) => {
     try {
@@ -235,13 +234,11 @@ router.get('/:id/download', authenticate, async (req, res) => {
             });
         }
 
-        // ✅ If it's a Vercel Blob URL, redirect to it
         if (doc.file_url.startsWith('http://') || doc.file_url.startsWith('https://')) {
             console.log('✅ Redirecting to Vercel Blob URL:', doc.file_url);
             return res.redirect(doc.file_url);
         }
 
-        // ✅ Fallback for local development
         const filename = doc.file_url.split('/').pop();
         const filePath = path.join(__dirname, '..', 'uploads', 'service-documentation', filename);
         
@@ -264,7 +261,7 @@ router.get('/:id/download', authenticate, async (req, res) => {
 });
 
 // ============================================================
-// ✅ FIXED: UPLOAD file - Vercel Blob
+// ✅ UPLOAD file - Vercel Blob
 // ============================================================
 router.post('/upload', authenticate, (req, res) => {
     console.log('📤 ServiceDoc Upload request received');
@@ -290,7 +287,6 @@ router.post('/upload', authenticate, (req, res) => {
             console.log('📏 Size:', req.file.size, 'bytes');
             console.log('📁 Type:', req.file.mimetype);
 
-            // ✅ Get credentials
             const credentials = getBlobToken();
             if (!credentials) {
                 return res.status(500).json({
@@ -299,7 +295,6 @@ router.post('/upload', authenticate, (req, res) => {
                 });
             }
 
-            // ✅ Upload to Vercel Blob
             const ext = path.extname(req.file.originalname);
             const filename = `doc-${Date.now()}-${Math.round(Math.random() * 1E9)}${ext}`;
             
@@ -322,7 +317,6 @@ router.post('/upload', authenticate, (req, res) => {
             });
         } catch (error) {
             console.error('❌ Upload processing error:', error);
-            console.error('❌ Error details:', error.message);
             
             let errorMessage = 'Upload failed';
             if (error.message.includes('blob credentials')) {
@@ -340,7 +334,7 @@ router.post('/upload', authenticate, (req, res) => {
 });
 
 // ============================================================
-// ✅ POST create service documentation
+// ✅ POST create service documentation - FIXED
 // ============================================================
 router.post('/', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), async (req, res) => {
     try {
@@ -350,17 +344,23 @@ router.post('/', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), async
             category,
             equipment_id,
             equipment,
+            hospital,
+            hospital_id,
             description,
             file_url,
             file_name,
             file_size,
             version,
-            hospital_id
+            uploaded_by,
+            uploaded_by_name
         } = req.body;
 
         console.log('📄 Creating service documentation:', title);
+        console.log('🔧 Equipment:', equipment);
+        console.log('🏥 Hospital:', hospital || hospital_id);
         console.log('📎 File URL:', file_url);
 
+        // ✅ Validation
         if (!title || title.trim() === '') {
             return res.status(400).json({ 
                 success: false, 
@@ -368,7 +368,56 @@ router.post('/', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), async
             });
         }
 
-        const finalHospitalId = hospital_id || req.user.hospital_id;
+        if (!equipment || equipment.trim() === '') {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Equipment name is required' 
+            });
+        }
+
+        if (!hospital && !hospital_id) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Hospital is required' 
+            });
+        }
+
+        // ✅ Determine final hospital_id
+        let finalHospitalId = hospital_id || req.user.hospital_id;
+        
+        // ✅ If hospital name is provided, try to find hospital ID
+        if (hospital && !hospital_id) {
+            try {
+                const hospitals = await query(
+                    'SELECT id FROM hospitals WHERE name = ? OR hospital_name = ?',
+                    [hospital, hospital]
+                );
+                if (hospitals.length > 0) {
+                    finalHospitalId = hospitals[0].id;
+                }
+            } catch (err) {
+                console.log('⚠️ Error finding hospital:', err.message);
+            }
+        }
+
+        // ✅ Try to find equipment ID if equipment name is provided
+        let finalEquipmentId = equipment_id || null;
+        if (equipment && !equipment_id) {
+            try {
+                const equipments = await query(
+                    'SELECT id FROM equipment WHERE name = ?',
+                    [equipment]
+                );
+                if (equipments.length > 0) {
+                    finalEquipmentId = equipments[0].id;
+                }
+            } catch (err) {
+                console.log('⚠️ Error finding equipment:', err.message);
+            }
+        }
+
+        console.log('🏥 Final Hospital ID:', finalHospitalId);
+        console.log('🔧 Final Equipment ID:', finalEquipmentId);
 
         const result = await query(
             `INSERT INTO service_documentation (
@@ -377,27 +426,31 @@ router.post('/', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), async
                 category,
                 equipment_id,
                 equipment,
+                hospital,
+                hospital_id,
                 description,
                 file_url,
                 file_name,
                 file_size,
                 version,
                 uploaded_by,
-                hospital_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                uploaded_by_name
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 title.trim(),
                 document_type || 'PDF',
                 category || 'Other',
-                equipment_id || null,
-                equipment || '',
+                finalEquipmentId || null,
+                equipment.trim(),
+                hospital || null,
+                finalHospitalId || null,
                 description || null,
                 file_url || null,
                 file_name || '',
                 file_size || '',
                 version || '1.0',
                 req.user.id,
-                finalHospitalId
+                uploaded_by_name || req.user.full_name || null
             ]
         );
 
@@ -406,9 +459,11 @@ router.post('/', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), async
         const newDocument = await query(
             `SELECT sd.*, 
                     e.name as equipment_name,
+                    h.name as hospital_name,
                     u.full_name as uploaded_by_name
              FROM service_documentation sd
              LEFT JOIN equipment e ON sd.equipment_id = e.id
+             LEFT JOIN hospitals h ON sd.hospital_id = h.id
              LEFT JOIN users u ON sd.uploaded_by = u.id
              WHERE sd.id = ?`,
             [result.insertId]
@@ -422,6 +477,7 @@ router.post('/', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), async
 
     } catch (error) {
         console.error('❌ Create error:', error);
+        console.error('❌ Error details:', error.message);
         res.status(500).json({ 
             success: false, 
             message: 'Failed to create service documentation: ' + error.message 
@@ -430,7 +486,139 @@ router.post('/', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), async
 });
 
 // ============================================================
-// ✅ DELETE service documentation - with Vercel Blob delete
+// ✅ PUT update service documentation - FIXED
+// ============================================================
+router.put('/:id', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const {
+            title,
+            document_type,
+            category,
+            equipment_id,
+            equipment,
+            hospital,
+            hospital_id,
+            description,
+            file_url,
+            file_name,
+            file_size,
+            version,
+            uploaded_by_name
+        } = req.body;
+
+        console.log('📝 Updating service documentation:', id);
+        console.log('🔧 Equipment:', equipment);
+        console.log('🏥 Hospital:', hospital || hospital_id);
+
+        const existing = await query('SELECT * FROM service_documentation WHERE id = ?', [id]);
+        if (existing.length === 0) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Service documentation not found' 
+            });
+        }
+
+        // ✅ Determine final hospital_id
+        let finalHospitalId = hospital_id || existing[0].hospital_id;
+        
+        if (hospital && !hospital_id) {
+            try {
+                const hospitals = await query(
+                    'SELECT id FROM hospitals WHERE name = ? OR hospital_name = ?',
+                    [hospital, hospital]
+                );
+                if (hospitals.length > 0) {
+                    finalHospitalId = hospitals[0].id;
+                }
+            } catch (err) {
+                console.log('⚠️ Error finding hospital:', err.message);
+            }
+        }
+
+        // ✅ Determine final equipment_id
+        let finalEquipmentId = equipment_id || existing[0].equipment_id;
+        if (equipment && !equipment_id) {
+            try {
+                const equipments = await query(
+                    'SELECT id FROM equipment WHERE name = ?',
+                    [equipment]
+                );
+                if (equipments.length > 0) {
+                    finalEquipmentId = equipments[0].id;
+                }
+            } catch (err) {
+                console.log('⚠️ Error finding equipment:', err.message);
+            }
+        }
+
+        await query(
+            `UPDATE service_documentation SET
+                title = ?,
+                document_type = ?,
+                category = ?,
+                equipment_id = ?,
+                equipment = ?,
+                hospital = ?,
+                hospital_id = ?,
+                description = ?,
+                file_url = ?,
+                file_name = ?,
+                file_size = ?,
+                version = ?,
+                uploaded_by_name = ?,
+                updated_at = NOW()
+            WHERE id = ?`,
+            [
+                title.trim(),
+                document_type || 'PDF',
+                category || 'Other',
+                finalEquipmentId || null,
+                equipment || '',
+                hospital || null,
+                finalHospitalId || null,
+                description || null,
+                file_url || null,
+                file_name || '',
+                file_size || '',
+                version || '1.0',
+                uploaded_by_name || req.user.full_name || null,
+                id
+            ]
+        );
+
+        console.log('✅ Service documentation updated. ID:', id);
+
+        const updatedDocument = await query(
+            `SELECT sd.*, 
+                    e.name as equipment_name,
+                    h.name as hospital_name,
+                    u.full_name as uploaded_by_name
+             FROM service_documentation sd
+             LEFT JOIN equipment e ON sd.equipment_id = e.id
+             LEFT JOIN hospitals h ON sd.hospital_id = h.id
+             LEFT JOIN users u ON sd.uploaded_by = u.id
+             WHERE sd.id = ?`,
+            [id]
+        );
+
+        res.json({
+            success: true,
+            message: 'Service documentation updated successfully',
+            document: updatedDocument[0] || { id }
+        });
+
+    } catch (error) {
+        console.error('❌ Update error:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Failed to update service documentation: ' + error.message 
+        });
+    }
+});
+
+// ============================================================
+// ✅ DELETE service documentation
 // ============================================================
 router.delete('/:id', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), async (req, res) => {
     try {
@@ -444,7 +632,6 @@ router.delete('/:id', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), 
             });
         }
 
-        // ✅ Delete from Vercel Blob if URL is a Blob URL
         if (existing[0].file_url && existing[0].file_url.includes('blob.vercel-storage.com')) {
             try {
                 const credentials = getBlobToken();

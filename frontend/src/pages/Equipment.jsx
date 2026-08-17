@@ -2,12 +2,7 @@
 // ✅ DARK NAVY + LIGHT CYAN THEME - Matching Sidebar
 // ✅ FULLY RESPONSIVE - Mobile friendly with card view
 // ✅ SIMPLIFIED TABLE - Essential columns only
-// ✅ FIXED: Table columns: Equipment, Hospital, Manufacturer, Model, Installation Date, Purchase Date, Status, Actions
-// ✅ FIXED: hospital_name display issue - proper fallback
-// ✅ FIXED: Hospital field is now required in form
-// ✅ FIXED: Validation for hospital_id in submit
-// ✅ FIXED: hospital_name from backend is properly displayed
-// ✅ FIXED: fetchEquipment with proper console logs for debugging
+// ✅ FIXED: Duplicate icons removed from buttons
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -505,23 +500,10 @@ const Equipment = () => {
     }
   }
 
-  // ✅ FIXED: fetchEquipment with proper debugging
   const fetchEquipment = async () => {
     try {
       const response = await apiEndpoints.getEquipment()
-      console.log('📊 Full API Response:', response)
-      console.log('📊 Response data:', response.data)
-      
       if (response.data && response.data.success) {
-        console.log('📊 Equipment array:', response.data.equipment)
-        // ✅ Check first item for hospital_name
-        if (response.data.equipment && response.data.equipment.length > 0) {
-          console.log('🔍 First equipment item:', response.data.equipment[0])
-          console.log('🔍 hospital_name:', response.data.equipment[0].hospital_name)
-          console.log('🔍 hospital_id:', response.data.equipment[0].hospital_id)
-        }
-        
-        // ✅ Ensure hospital_name is set
         const equipmentWithHospital = (response.data.equipment || []).map(item => ({
           ...item,
           hospital_name: item.hospital_name || 'N/A',
@@ -529,7 +511,6 @@ const Equipment = () => {
           hospital_phone: item.hospital_phone || 'N/A',
           hospital_email: item.hospital_email || 'N/A'
         }))
-        
         setEquipment(equipmentWithHospital)
       } else if (Array.isArray(response.data)) {
         const equipmentWithHospital = response.data.map(item => ({
@@ -538,11 +519,10 @@ const Equipment = () => {
         }))
         setEquipment(equipmentWithHospital)
       } else {
-        console.log('⚠️ No equipment data found')
         setEquipment([])
       }
     } catch (error) {
-      console.error('❌ Equipment fetch error:', error)
+      console.error('Equipment fetch error:', error)
       toast.error('Failed to fetch equipment')
       setEquipment([])
     }
@@ -806,7 +786,6 @@ const Equipment = () => {
       ...equip,
       image_url: equip.image_url || '',
       images: imageUrls,
-      // ✅ FIXED: Properly set hospital details from equip or hospital lookup
       hospital_name: equip.hospital_name || hospital?.name || 'N/A',
       hospital_address: equip.hospital_address || hospital?.address || 'N/A',
       hospital_phone: equip.hospital_phone || hospital?.phone || 'N/A',
@@ -1019,7 +998,6 @@ const Equipment = () => {
         return
       }
 
-      // ✅ Hospital validation - compulsory
       if (!formData.hospital_id) {
         toast.error('Please select a hospital')
         setTouched(prev => ({ ...prev, hospital_id: true }))
@@ -1066,8 +1044,6 @@ const Equipment = () => {
         status: formData.status || 'Warranty',
         image_url: formData.image_url || ''
       }
-
-      console.log('📤 Submitting equipment:', submitData)
 
       if (editingEquipment) {
         await apiEndpoints.updateEquipment(editingEquipment.id, submitData)
@@ -1194,9 +1170,9 @@ const Equipment = () => {
           width: { xs: '100%', sm: 'auto' },
           justifyContent: { xs: 'flex-start', sm: 'flex-end' },
         }}>
+          {/* ✅ Refresh Button - Single Icon */}
           <Button 
             variant="outlined" 
-            startIcon={<Refresh />} 
             onClick={fetchAllData} 
             size="small"
             sx={{ 
@@ -1205,6 +1181,8 @@ const Equipment = () => {
               fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
               textTransform: 'none',
               borderRadius: 2,
+              minWidth: { xs: '40px', sm: 'auto' },
+              px: { xs: 1, sm: 2 },
               transition: 'all 0.3s ease',
               '&:hover': { 
                 bgcolor: colors.lightCyan,
@@ -1221,14 +1199,22 @@ const Equipment = () => {
               }
             }}
           >
-            <Refresh sx={{ fontSize: { xs: 16, sm: 18 }, mr: { xs: 0, sm: 0.5 } }} />
-            <Typography variant="button" sx={{ display: { xs: 'none', sm: 'inline' } }}>Refresh</Typography>
+            <Refresh sx={{ fontSize: { xs: 18, sm: 20 } }} />
+            <Typography 
+              variant="button" 
+              sx={{ 
+                display: { xs: 'none', sm: 'inline' },
+                ml: 0.5,
+              }}
+            >
+              Refresh
+            </Typography>
           </Button>
           
+          {/* ✅ Add Equipment Button - Single Icon */}
           {canCreate && (
             <Button
               variant="contained"
-              startIcon={<Add />}
               onClick={() => handleOpenDialog()}
               size="small"
               sx={{ 
@@ -1236,6 +1222,8 @@ const Equipment = () => {
                 color: colors.text,
                 borderRadius: 2,
                 textTransform: 'none',
+                minWidth: { xs: '40px', sm: 'auto' },
+                px: { xs: 1, sm: 2 },
                 boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
                 '&:hover': { 
                   bgcolor: colors.darkNavyHover,
@@ -1245,8 +1233,16 @@ const Equipment = () => {
                 transition: 'all 0.3s ease',
               }}
             >
-              <Add sx={{ fontSize: { xs: 16, sm: 18 }, mr: { xs: 0, sm: 0.5 } }} />
-              <Typography variant="button" sx={{ display: { xs: 'none', sm: 'inline' } }}>Add Equipment</Typography>
+              <Add sx={{ fontSize: { xs: 18, sm: 20 } }} />
+              <Typography 
+                variant="button" 
+                sx={{ 
+                  display: { xs: 'none', sm: 'inline' },
+                  ml: 0.5,
+                }}
+              >
+                Add Equipment
+              </Typography>
             </Button>
           )}
         </Box>
@@ -1462,9 +1458,9 @@ const Equipment = () => {
             width: { xs: '100%', sm: 'auto' },
             justifyContent: { xs: 'flex-start', sm: 'flex-end' }
           }}>
+            {/* ✅ Filter Button - Single Icon */}
             <Button 
               variant="contained"
-              startIcon={<FilterList />} 
               onClick={handleFilterClick}
               size="small"
               sx={{ 
@@ -1472,6 +1468,8 @@ const Equipment = () => {
                 color: colors.text,
                 borderRadius: 2,
                 textTransform: 'none',
+                minWidth: { xs: '40px', sm: 'auto' },
+                px: { xs: 1, sm: 2 },
                 boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
                 '&:hover': { 
                   bgcolor: colors.darkNavyHover,
@@ -1481,13 +1479,21 @@ const Equipment = () => {
                 transition: 'all 0.3s ease',
               }}
             >
-              <FilterList sx={{ fontSize: { xs: 16, sm: 18 }, mr: { xs: 0, sm: 0.5 } }} />
-              <Typography variant="button" sx={{ display: { xs: 'none', sm: 'inline' } }}>Filter</Typography>
+              <FilterList sx={{ fontSize: { xs: 18, sm: 20 } }} />
+              <Typography 
+                variant="button" 
+                sx={{ 
+                  display: { xs: 'none', sm: 'inline' },
+                  ml: 0.5,
+                }}
+              >
+                Filter
+              </Typography>
             </Button>
             
+            {/* ✅ Export Button - Single Icon */}
             <Button 
               variant="contained"
-              startIcon={<Download />} 
               onClick={handleExportClick}
               size="small"
               sx={{ 
@@ -1495,6 +1501,8 @@ const Equipment = () => {
                 color: colors.text,
                 borderRadius: 2,
                 textTransform: 'none',
+                minWidth: { xs: '40px', sm: 'auto' },
+                px: { xs: 1, sm: 2 },
                 boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
                 '&:hover': { 
                   bgcolor: colors.darkNavyHover,
@@ -1504,8 +1512,16 @@ const Equipment = () => {
                 transition: 'all 0.3s ease',
               }}
             >
-              <Download sx={{ fontSize: { xs: 16, sm: 18 }, mr: { xs: 0, sm: 0.5 } }} />
-              <Typography variant="button" sx={{ display: { xs: 'none', sm: 'inline' } }}>Export</Typography>
+              <Download sx={{ fontSize: { xs: 18, sm: 20 } }} />
+              <Typography 
+                variant="button" 
+                sx={{ 
+                  display: { xs: 'none', sm: 'inline' },
+                  ml: 0.5,
+                }}
+              >
+                Export
+              </Typography>
             </Button>
           </Box>
         </Box>
@@ -1703,7 +1719,6 @@ const Equipment = () => {
 
       {/* ===== TABLE / CARD VIEW ===== */}
       {isMobile ? (
-        // ✅ MOBILE CARD VIEW
         <Box sx={{ animation: 'fadeInUp 0.8s ease-out' }}>
           {filteredEquipment.length === 0 ? (
             <Box sx={{ 
@@ -1859,7 +1874,6 @@ const Equipment = () => {
           )}
         </Box>
       ) : (
-        // ✅ DESKTOP TABLE VIEW - WITH HOSPITAL COLUMN
         <TableContainer 
           component={Paper} 
           sx={{ 
@@ -1917,7 +1931,6 @@ const Equipment = () => {
                         {item.name}
                       </Typography>
                     </TableCell>
-                    {/* ✅ FIXED: Hospital column - properly displays hospital_name from backend */}
                     <TableCell sx={{ color: colors.darkNavy, fontWeight: 500, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
                       {item.hospital_name || '-'}
                     </TableCell>

@@ -1,11 +1,11 @@
 // src/pages/ServiceDocumentationWithPO.jsx
-// ✅ SERVICE DOCUMENTATION WITH PURCHASE ORDERS TAB
-// ✅ DARK NAVY + LIGHT CYAN THEME
-// ✅ ALL USERS CAN VIEW AND UPLOAD
-// ✅ ONLY SUPER ADMIN CAN EDIT AND DELETE
-// ✅ REMOVED: Status from Purchase Orders
-// ✅ ADDED: Manual input for Equipment (not dropdown)
-// ✅ ADDED: Currency support (PKR / USD)
+// ✅ UPDATED: Equipment and Hospital are now MANUAL TEXT INPUT fields (not dropdown)
+// ✅ UPDATED: All fields from backend are shown
+// ✅ UPDATED: Added Hospital field in Upload Document form
+// ✅ UPDATED: Attachments section improved with better frontend
+// ✅ UPDATED: Filter button icon changed to Upload
+// ✅ REMOVED: Refresh button from tabs (only Refresh All at top)
+// ✅ FIXED: Hospital icon changed to LocalHospital (MUI export fix)
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -51,6 +51,11 @@ import {
   TableRow,
   Switch,
   FormControlLabel,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  ListItemSecondaryAction,
 } from '@mui/material'
 import {
   Upload,
@@ -96,6 +101,17 @@ import {
   ChevronRight,
   MonetizationOn,
   CurrencyExchange,
+  RestartAlt,
+  Clear,
+  LocalHospital,
+  LocationCity,
+  Email,
+  Phone,
+  Link as LinkIcon,
+  CloudUpload,
+  FileCopy,
+  DeleteOutline,
+  DriveFolderUpload,
 } from '@mui/icons-material'
 import { toast } from 'react-toastify'
 import { useSelector } from 'react-redux'
@@ -107,7 +123,7 @@ import { purchaseOrderService, hospitalService, equipmentService } from '../api/
 import FileUpload from '../components/FileUpload'
 
 // ============================================================
-// ✅ DARK NAVY + LIGHT CYAN THEME COLORS
+// ✅ THEME COLORS
 // ============================================================
 const colors = {
   darkNavy: '#0F172A',
@@ -142,35 +158,22 @@ const colors = {
 // ✅ Animation Styles
 const animationStyles = `
 @keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
 }
-
-@keyframes prominentGlow {
-  0% {
-    box-shadow: 0 0 20px rgba(103, 232, 249, 0.2), 0 0 40px rgba(103, 232, 249, 0.1);
-    border-color: rgba(103, 232, 249, 0.3);
-  }
-  50% {
-    box-shadow: 0 0 40px rgba(103, 232, 249, 0.4), 0 0 80px rgba(103, 232, 249, 0.2);
-    border-color: rgba(103, 232, 249, 0.6);
-  }
-  100% {
-    box-shadow: 0 0 20px rgba(103, 232, 249, 0.2), 0 0 40px rgba(103, 232, 249, 0.1);
-    border-color: rgba(103, 232, 249, 0.3);
-  }
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
-
-@keyframes gradientShine {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+.refresh-spin { animation: spin 0.8s ease-in-out; }
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.02); }
+  100% { transform: scale(1); }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 `
 
@@ -180,22 +183,7 @@ const animationStyles = `
 const formatDate = (dateString) => {
   if (!dateString) return '-'
   const date = new Date(dateString)
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  })
-}
-
-const getFullUrl = (url) => {
-  if (!url) return ''
-  if (url.startsWith('http://') || url.startsWith('https://')) {
-    return url
-  }
-  if (url.startsWith('/uploads')) {
-    return `http://localhost:5000${url}`
-  }
-  return url
+  return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
 }
 
 const safeToFixed = (value, decimals = 2) => {
@@ -205,16 +193,9 @@ const safeToFixed = (value, decimals = 2) => {
 
 const safeFormatDate = (date) => {
   if (!date) return 'N/A'
-  try {
-    return new Date(date).toLocaleDateString()
-  } catch {
-    return 'N/A'
-  }
+  try { return new Date(date).toLocaleDateString() } catch { return 'N/A' }
 }
 
-// ============================================================
-// ✅ GET FILE COLOR
-// ============================================================
 const getFileColor = (type) => {
   switch(type) {
     case 'PDF': return colors.error
@@ -239,21 +220,13 @@ const getFileIcon = (type) => {
 const ServiceDocumentationWithPO = () => {
   const { user } = useSelector((state) => state.auth)
   
-  console.log('🔐 ServiceDocumentationWithPO - User:', user)
-  console.log('🔐 Token exists:', !!localStorage.getItem('token'))
-  
   if (!user) {
-    console.warn('⚠️ No user found, redirecting to login')
     window.location.href = '/login'
     return null
   }
   
-  // ✅ ALL USERS CAN ACCESS - No restriction
   const isSuperAdmin = user?.role === 'SUPER_ADMIN'
   
-  // ✅ PERMISSIONS:
-  // All users can View and Upload
-  // Only Super Admin can Edit and Delete
   const canView = true
   const canUpload = true
   const canEdit = isSuperAdmin
@@ -276,6 +249,7 @@ const ServiceDocumentationWithPO = () => {
   // ============================================================
   const [documents, setDocuments] = useState([])
   const [equipmentList, setEquipmentList] = useState([])
+  const [hospitalList, setHospitalList] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [openDialog, setOpenDialog] = useState(false)
@@ -285,30 +259,27 @@ const ServiceDocumentationWithPO = () => {
   const [editingDocument, setEditingDocument] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [categoryFilter, setCategoryFilter] = useState('all')
+  const [hospitalFilter, setHospitalFilter] = useState('all')
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' })
   const [error, setError] = useState(null)
   const [docFilterAnchorEl, setDocFilterAnchorEl] = useState(null)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [selectedFile, setSelectedFile] = useState(null)
 
   const [formData, setFormData] = useState({
     title: '',
     document_type: 'PDF',
     category: 'Service Manual',
     equipment: '',
-    equipment_id: '',
+    hospital: '',
     description: '',
     file: null,
-    fileUrl: ''
+    fileUrl: '',
+    file_name: '',
+    file_size: '',
   })
 
-  const categories = [
-    'All',
-    'Service Manual',
-    'Calibration',
-    'Repair Guide',
-    'User Manual',
-    'Warranty',
-    'Other'
-  ]
+  const categories = ['All', 'Service Manual', 'Calibration', 'Repair Guide', 'User Manual', 'Warranty', 'Other']
 
   // ============================================================
   // ✅ PURCHASE ORDERS STATE
@@ -322,14 +293,11 @@ const ServiceDocumentationWithPO = () => {
   const [poFilterAnchorEl, setPoFilterAnchorEl] = useState(null)
   const [poExportAnchorEl, setPoExportAnchorEl] = useState(null)
   const [searchTermPO, setSearchTermPO] = useState('')
+  const [isRefreshingPO, setIsRefreshingPO] = useState(false)
   
-  // ✅ Currency state
   const [currency, setCurrency] = useState('PKR')
   
-  const [poFilters, setPoFilters] = useState({
-    equipment: '',
-    hospital: ''
-  })
+  const [poFilters, setPoFilters] = useState({ equipment: '', hospital: '' })
   
   const [itemsList, setItemsList] = useState([
     { id: 1, description: '', quantity: 1, unit_price: 0, total: 0 }
@@ -354,39 +322,36 @@ const ServiceDocumentationWithPO = () => {
   })
 
   // ============================================================
-  // ✅ FETCH FUNCTIONS - DOCUMENTS
+  // ✅ FETCH FUNCTIONS
   // ============================================================
   const fetchDocuments = async () => {
     setLoading(true)
     setError(null)
     try {
-      console.log('📄 Fetching service documentation...')
       const response = await api.get('/service-documentation')
-      console.log('✅ Documents fetched:', response.data)
-      
       const equipmentResponse = await api.get('/equipment')
+      const hospitalResponse = await api.get('/hospitals')
       const equipmentMap = {}
       ;(equipmentResponse.data.equipment || []).forEach(eq => {
         equipmentMap[eq.id] = eq.status || 'Warranty'
       })
-      
+      const hospitalMap = {}
+      ;(hospitalResponse.data.hospitals || []).forEach(h => {
+        hospitalMap[h.id] = h.name || h.hospital_name || 'Unknown Hospital'
+      })
       const docsWithStatus = (response.data.documents || []).map(doc => ({
         ...doc,
-        equipment_status: doc.equipment_id ? equipmentMap[doc.equipment_id] : 'Warranty'
+        equipment_status: doc.equipment_id ? equipmentMap[doc.equipment_id] : 'Warranty',
+        hospital_name: doc.hospital_id ? hospitalMap[doc.hospital_id] : doc.hospital || 'N/A'
       }))
-      
       setDocuments(docsWithStatus)
     } catch (error) {
-      console.error('❌ Error fetching documents:', error)
-      
       if (error.response?.status === 401) {
-        console.warn('⚠️ Unauthorized, redirecting to login')
         localStorage.removeItem('token')
         localStorage.removeItem('user')
         window.location.href = '/login'
         return
       }
-      
       setError(error.response?.data?.message || 'Failed to fetch documents')
       toast.error(error.response?.data?.message || 'Failed to fetch documents')
       setDocuments([])
@@ -399,15 +364,20 @@ const ServiceDocumentationWithPO = () => {
     try {
       const response = await equipmentService.getAll()
       setEquipmentList(response.data.equipment || [])
-      console.log('✅ Equipment list loaded:', response.data.equipment?.length || 0, 'items')
     } catch (error) {
       console.error('Error fetching equipment:', error)
     }
   }
 
-  // ============================================================
-  // ✅ FETCH FUNCTIONS - PURCHASE ORDERS
-  // ============================================================
+  const fetchHospitalList = async () => {
+    try {
+      const response = await hospitalService.getAll()
+      setHospitalList(response.data.hospitals || [])
+    } catch (error) {
+      console.error('Error fetching hospitals:', error)
+    }
+  }
+
   const fetchOrders = async () => {
     setLoadingPO(true)
     try {
@@ -420,18 +390,32 @@ const ServiceDocumentationWithPO = () => {
     }
   }
 
+  // ✅ Combined Refresh Function
+  const handleRefresh = async () => {
+    if (tabValue === 0) {
+      setIsRefreshing(true)
+      await fetchDocuments()
+      setTimeout(() => setIsRefreshing(false), 500)
+    } else {
+      setIsRefreshingPO(true)
+      await fetchOrders()
+      setTimeout(() => setIsRefreshingPO(false), 500)
+    }
+    toast.success('Refreshed successfully')
+  }
+
   // ============================================================
   // ✅ USE EFFECT
   // ============================================================
   useEffect(() => {
     const token = localStorage.getItem('token')
     if (!token) {
-      console.warn('⚠️ No token found, redirecting to login')
       window.location.href = '/login'
       return
     }
     fetchDocuments()
     fetchEquipmentList()
+    fetchHospitalList()
     fetchOrders()
   }, [])
 
@@ -445,8 +429,13 @@ const ServiceDocumentationWithPO = () => {
     setCategoryFilter(e.target.value)
   }
 
+  const handleHospitalFilterChange = (e) => {
+    setHospitalFilter(e.target.value)
+  }
+
   const clearDocFilters = () => {
     setCategoryFilter('all')
+    setHospitalFilter('all')
     setSearchTerm('')
     setDocFilterAnchorEl(null)
     toast.info('Filters cleared')
@@ -454,10 +443,7 @@ const ServiceDocumentationWithPO = () => {
 
   const handleDocFormChange = (e) => {
     const { name, value } = e.target
-    setFormData({
-      ...formData,
-      [name]: value
-    })
+    setFormData({ ...formData, [name]: value })
   }
 
   const handleFileChange = (e) => {
@@ -467,7 +453,7 @@ const ServiceDocumentationWithPO = () => {
         toast.error('File size must be less than 50MB')
         return
       }
-      console.log('📎 File selected:', file.name, file.size, file.type)
+      setSelectedFile(file)
       setFormData({
         ...formData,
         file: file,
@@ -477,16 +463,27 @@ const ServiceDocumentationWithPO = () => {
     }
   }
 
+  const removeSelectedFile = () => {
+    setSelectedFile(null)
+    setFormData({
+      ...formData,
+      file: null,
+      file_name: '',
+      file_size: '',
+    })
+  }
+
   const handleDocUpload = async () => {
-    console.log('📤 Uploading document with data:', formData)
-    
     if (!formData.title || formData.title.trim() === '') {
       toast.error('Please enter a document title')
       return
     }
-
     if (!formData.equipment || formData.equipment.trim() === '') {
       toast.error('Please enter equipment name')
+      return
+    }
+    if (!formData.hospital || formData.hospital.trim() === '') {
+      toast.error('Please enter hospital name')
       return
     }
 
@@ -502,20 +499,14 @@ const ServiceDocumentationWithPO = () => {
         const fileFormData = new FormData()
         fileFormData.append('file', formData.file)
         
-        console.log('📤 Uploading file:', formData.file.name)
-        
         const uploadResponse = await api.post('/service-documentation/upload', fileFormData, {
-          headers: {
-            'Content-Type': 'multipart/form-data'
-          },
+          headers: { 'Content-Type': 'multipart/form-data' },
           onUploadProgress: (progressEvent) => {
             const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total)
             setUploadProgress(percentCompleted)
           },
           timeout: 120000
         })
-        
-        console.log('✅ File upload response:', uploadResponse.data)
         
         if (uploadResponse.data.success) {
           fileUrl = uploadResponse.data.file.url
@@ -535,49 +526,46 @@ const ServiceDocumentationWithPO = () => {
         document_type: formData.document_type || 'PDF',
         category: formData.category || 'Other',
         equipment: formData.equipment.trim(),
+        hospital: formData.hospital.trim(),
         description: formData.description || '',
         file_url: fileUrl,
         file_name: fileName,
         file_size: fileSize,
         version: '1.0',
-        hospital_id: user?.hospital_id || null,
         uploaded_by: user?.id || null,
         uploaded_by_name: user?.full_name || ''
       }
 
-      console.log('📤 Creating document record:', payload)
-
-      let response
       if (editingDocument) {
         if (!isSuperAdmin) {
           toast.error('Only Super Admin can edit documents')
           return
         }
-        response = await api.put(`/service-documentation/${selectedDoc.id}`, payload)
+        await api.put(`/service-documentation/${selectedDoc.id}`, payload)
         toast.success('Document updated successfully')
       } else {
-        response = await api.post('/service-documentation', payload)
+        await api.post('/service-documentation', payload)
         toast.success('Document uploaded successfully')
       }
       
-      console.log('✅ Document saved:', response.data)
-      
       setOpenDialog(false)
       setEditingDocument(false)
+      setSelectedFile(null)
       setFormData({
         title: '',
         document_type: 'PDF',
         category: 'Service Manual',
         equipment: '',
-        equipment_id: '',
+        hospital: '',
         description: '',
         file: null,
-        fileUrl: ''
+        fileUrl: '',
+        file_name: '',
+        file_size: '',
       })
       setUploadProgress(0)
       fetchDocuments()
     } catch (error) {
-      console.error('❌ Upload error:', error)
       toast.error(error.response?.data?.message || error.message || 'Operation failed')
     } finally {
       setUploading(false)
@@ -601,11 +589,14 @@ const ServiceDocumentationWithPO = () => {
       document_type: doc.document_type || 'PDF',
       category: doc.category || 'Other',
       equipment: doc.equipment || '',
-      equipment_id: doc.equipment_id || '',
+      hospital: doc.hospital || doc.hospital_name || '',
       description: doc.description || '',
       file: null,
-      fileUrl: doc.file_url || ''
+      fileUrl: doc.file_url || '',
+      file_name: doc.file_name || '',
+      file_size: doc.file_size || '',
     })
+    setSelectedFile(null)
     setOpenDialog(true)
   }
 
@@ -619,7 +610,6 @@ const ServiceDocumentationWithPO = () => {
         const response = await api.get(`/service-documentation/${doc.id}/download`, {
           responseType: 'blob'
         })
-        
         const url = window.URL.createObjectURL(new Blob([response.data]))
         const link = document.createElement('a')
         link.href = url
@@ -630,7 +620,6 @@ const ServiceDocumentationWithPO = () => {
         toast.success('Download started')
       }
     } catch (error) {
-      console.error('Download error:', error)
       toast.error('Download failed')
     }
   }
@@ -640,14 +629,12 @@ const ServiceDocumentationWithPO = () => {
       toast.error('Only Super Admin can delete documents')
       return
     }
-    
     if (window.confirm('Are you sure you want to delete this document?')) {
       try {
         await api.delete(`/service-documentation/${id}`)
         toast.success('Document deleted successfully')
         fetchDocuments()
       } catch (error) {
-        console.error('Delete error:', error)
         toast.error(error.response?.data?.message || 'Delete failed')
       }
     }
@@ -852,19 +839,13 @@ const ServiceDocumentationWithPO = () => {
 
   const handlePOFormChange = (e) => {
     const { name, value } = e.target
-    setPoFormData({
-      ...poFormData,
-      [name]: value
-    })
+    setPoFormData({ ...poFormData, [name]: value })
   }
 
   const handleCurrencyChange = (e) => {
     const newCurrency = e.target.value
     setCurrency(newCurrency)
-    setPoFormData({
-      ...poFormData,
-      currency: newCurrency
-    })
+    setPoFormData({ ...poFormData, currency: newCurrency })
   }
 
   const handlePOItemChange = (index, field, value) => {
@@ -955,7 +936,6 @@ const ServiceDocumentationWithPO = () => {
       fetchOrders()
       handlePOCloseDialog()
     } catch (error) {
-      console.error('Submit error:', error)
       toast.error(error.response?.data?.message || 'Operation failed')
     }
   }
@@ -965,14 +945,12 @@ const ServiceDocumentationWithPO = () => {
       toast.error('Only Super Admin can delete purchase orders')
       return
     }
-    
     if (window.confirm('Are you sure you want to delete this purchase order?')) {
       try {
         await purchaseOrderService.delete(id)
         toast.success('Purchase order deleted successfully')
         fetchOrders()
       } catch (error) {
-        console.error('Delete error:', error)
         toast.error(error.response?.data?.message || 'Failed to delete purchase order')
       }
     }
@@ -1068,7 +1046,6 @@ const ServiceDocumentationWithPO = () => {
       printWindow.document.write(content)
       printWindow.document.close()
     } catch (error) {
-      console.error('Print error:', error)
       toast.error('Failed to print: ' + error.message)
     }
   }
@@ -1079,9 +1056,12 @@ const ServiceDocumentationWithPO = () => {
   const filteredDocs = documents.filter(doc => {
     const matchesSearch = doc.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           doc.equipment?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          doc.category?.toLowerCase().includes(searchTerm.toLowerCase())
+                          doc.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          doc.hospital?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          doc.hospital_name?.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesCategory = categoryFilter === 'all' || doc.category === categoryFilter
-    return matchesSearch && matchesCategory
+    const matchesHospital = hospitalFilter === 'all' || doc.hospital === hospitalFilter || doc.hospital_name === hospitalFilter || doc.hospital_id === hospitalFilter
+    return matchesSearch && matchesCategory && matchesHospital
   })
 
   const filteredOrders = orders.filter(order => {
@@ -1129,9 +1109,7 @@ const ServiceDocumentationWithPO = () => {
             transform: isHovered ? 'translateY(-8px)' : 'translateY(0)',
             boxShadow: isHovered ? `0 12px 40px ${colors.shadowColor}` : `0 2px 8px ${colors.shadowColor}`,
             bgcolor: colors.cardBg,
-            '&:hover': {
-              borderColor: colors.lightCyan,
-            }
+            '&:hover': { borderColor: colors.lightCyan }
           }}
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
@@ -1315,7 +1293,6 @@ const ServiceDocumentationWithPO = () => {
   // ============================================================
   const renderDocumentsTab = () => (
     <>
-      {/* Stats Cards */}
       <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }} sx={{ mb: 3 }}>
         {docStatsCards.map((card, index) => (
           <Grid item xs={6} sm={3} key={index}>
@@ -1399,7 +1376,6 @@ const ServiceDocumentationWithPO = () => {
         ))}
       </Grid>
 
-      {/* Search and Filters */}
       <Paper sx={{ 
         p: 2, 
         mb: 3, 
@@ -1411,7 +1387,7 @@ const ServiceDocumentationWithPO = () => {
         <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
           <TextField
             size="small"
-            placeholder="Search documents..."
+            placeholder="Search documents by title, equipment, hospital..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             sx={{ flexGrow: 1, minWidth: 200 }}
@@ -1427,49 +1403,53 @@ const ServiceDocumentationWithPO = () => {
                   '&:hover fieldset': { borderColor: colors.lightCyan },
                   '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                 },
-                '& .MuiInputBase-input': {
-                  fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  fontSize: '0.9rem',
-                }
               }
             }}
           />
           
+          {/* ✅ FILTER Button */}
           <Button 
-            variant="outlined"
-            startIcon={<FilterList />} 
+            variant="contained"
             onClick={handleDocFilterClick}
             size="small"
             sx={{ 
-              borderColor: colors.lightCyan,
-              color: colors.lightCyan,
-              textTransform: 'none',
+              bgcolor: colors.darkNavy,
+              color: colors.text,
               borderRadius: 2,
+              textTransform: 'none',
+              minWidth: { xs: '40px', sm: 'auto' },
+              px: { xs: 1, sm: 2 },
+              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
               '&:hover': { 
-                bgcolor: colors.lightCyan,
-                color: colors.darkNavy,
-                borderColor: colors.lightCyan,
-              }
+                bgcolor: colors.darkNavyHover,
+                boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
+              },
             }}
           >
-            Filter
+            <Upload sx={{ fontSize: { xs: 18, sm: 20 } }} />
+            <Typography variant="button" sx={{ display: { xs: 'none', sm: 'inline' }, ml: 0.5 }}>
+              Filter
+            </Typography>
           </Button>
           
+          {/* ✅ UPLOAD Button */}
           {canUpload && (
             <Button
               variant="contained"
-              startIcon={<Upload />}
               onClick={() => {
                 setEditingDocument(false)
+                setSelectedFile(null)
                 setFormData({
                   title: '',
                   document_type: 'PDF',
                   category: 'Service Manual',
                   equipment: '',
-                  equipment_id: '',
+                  hospital: '',
                   description: '',
                   file: null,
-                  fileUrl: ''
+                  fileUrl: '',
+                  file_name: '',
+                  file_size: '',
                 })
                 setOpenDialog(true)
               }}
@@ -1478,6 +1458,8 @@ const ServiceDocumentationWithPO = () => {
                 color: colors.text,
                 borderRadius: 2,
                 textTransform: 'none',
+                minWidth: { xs: '40px', sm: 'auto' },
+                px: { xs: 1, sm: 2 },
                 boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
                 '&:hover': { 
                   bgcolor: colors.darkNavyHover,
@@ -1485,232 +1467,235 @@ const ServiceDocumentationWithPO = () => {
                 },
               }}
             >
-              Upload Document
+              <Upload sx={{ fontSize: { xs: 18, sm: 20 } }} />
+              <Typography variant="button" sx={{ display: { xs: 'none', sm: 'inline' }, ml: 0.5 }}>
+                Upload Document
+              </Typography>
             </Button>
           )}
         </Box>
       </Paper>
 
-      {/* Document Cards Grid */}
       <Grid container spacing={3}>
-        {filteredDocs.map((doc) => {
-          const isImage = doc.document_type === 'Image' || doc.file_url?.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i)
-          
-          return (
-            <Grid item xs={12} sm={6} md={4} lg={3} key={doc.id}>
-              <Grow in timeout={300}>
-                <Card
-                  sx={{
-                    borderRadius: 3,
-                    transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
-                    border: `1px solid ${colors.borderColor}`,
-                    position: 'relative',
-                    overflow: 'hidden',
-                    '&:hover': {
-                      transform: 'translateY(-4px)',
-                      boxShadow: `0 8px 30px ${colors.lightCyanGlow}`,
-                      borderColor: colors.lightCyan,
-                    },
-                    height: '100%',
-                    display: 'flex',
-                    flexDirection: 'column'
-                  }}
-                >
-                  {/* Top Gradient Bar */}
-                  <Box sx={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    height: 3,
-                    background: `linear-gradient(90deg, ${colors.darkNavy}, ${colors.lightCyan})`,
-                  }} />
-                  
-                  <CardContent sx={{ p: 3, position: 'relative', flexGrow: 1 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-                      <Badge
-                        badgeContent={doc.document_type}
-                        color="primary"
-                        sx={{
-                          '& .MuiBadge-badge': {
-                            bgcolor: getFileColor(doc.document_type),
+        {filteredDocs.map((doc) => (
+          <Grid item xs={12} sm={6} md={4} lg={3} key={doc.id}>
+            <Grow in timeout={300}>
+              <Card
+                sx={{
+                  borderRadius: 3,
+                  transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                  border: `1px solid ${colors.borderColor}`,
+                  position: 'relative',
+                  overflow: 'hidden',
+                  '&:hover': {
+                    transform: 'translateY(-4px)',
+                    boxShadow: `0 8px 30px ${colors.lightCyanGlow}`,
+                    borderColor: colors.lightCyan,
+                  },
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column'
+                }}
+              >
+                <Box sx={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: 3,
+                  background: `linear-gradient(90deg, ${colors.darkNavy}, ${colors.lightCyan})`,
+                }} />
+                
+                <CardContent sx={{ p: 3, position: 'relative', flexGrow: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+                    <Badge
+                      badgeContent={doc.document_type}
+                      color="primary"
+                      sx={{
+                        '& .MuiBadge-badge': {
+                          bgcolor: getFileColor(doc.document_type),
+                          color: 'white',
+                          fontWeight: 600,
+                          fontSize: '8px',
+                          height: 18,
+                          minWidth: 18,
+                          border: `2px solid white`,
+                          textTransform: 'uppercase'
+                        }
+                      }}
+                    >
+                      <Avatar sx={{ 
+                        bgcolor: `${getFileColor(doc.document_type)}15`,
+                        width: 56,
+                        height: 56,
+                        border: `2px solid ${getFileColor(doc.document_type)}33`,
+                        boxShadow: `0 4px 20px ${getFileColor(doc.document_type)}33`,
+                      }}>
+                        {getFileIcon(doc.document_type)}
+                      </Avatar>
+                    </Badge>
+                    
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography variant="h6" fontWeight={700} sx={{ color: colors.darkNavy, mb: 0.5, fontSize: '0.95rem' }}>
+                        {doc.title}
+                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                        <Chip
+                          label={doc.category}
+                          size="small"
+                          sx={{
+                            bgcolor: colors.darkNavy + '10',
+                            color: colors.darkNavy,
+                            fontWeight: 500,
+                            fontSize: '10px',
+                            height: 20,
+                            borderRadius: 2,
+                            border: `1px solid ${colors.darkNavy}20`
+                          }}
+                        />
+                        <Box sx={{ width: 4, height: 4, borderRadius: '50%', bgcolor: colors.borderColor }} />
+                        <Typography variant="caption" sx={{ color: colors.lightText }}>
+                          {doc.file_size || '0 KB'}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Box>
+
+                  <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                      <MedicalServices sx={{ fontSize: 16, color: colors.lightText }} />
+                      <Typography variant="body2" sx={{ color: colors.lightText, fontSize: '0.8rem' }}>
+                        {doc.equipment || 'No Equipment'}
+                      </Typography>
+                      {doc.equipment_status && (
+                        <Chip
+                          label={doc.equipment_status}
+                          size="small"
+                          sx={{
+                            bgcolor: '#3B82F6',
                             color: 'white',
-                            fontWeight: 600,
-                            fontSize: '8px',
+                            fontWeight: 500,
                             height: 18,
-                            minWidth: 18,
-                            border: `2px solid white`,
-                            textTransform: 'uppercase'
+                            fontSize: '8px',
+                            borderRadius: 1,
+                            '& .MuiChip-label': { px: 0.5 }
+                          }}
+                        />
+                      )}
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <LocalHospital sx={{ fontSize: 16, color: colors.lightText }} />
+                      <Typography variant="body2" sx={{ color: colors.lightText, fontSize: '0.8rem' }}>
+                        {doc.hospital_name || doc.hospital || 'N/A'}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Person sx={{ fontSize: 16, color: colors.lightText }} />
+                      <Typography variant="body2" sx={{ color: colors.lightText, fontSize: '0.8rem' }}>
+                        {doc.uploaded_by_name || doc.uploaded_by || 'System'}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CalendarToday sx={{ fontSize: 16, color: colors.lightText }} />
+                      <Typography variant="body2" sx={{ color: colors.lightText, fontSize: '0.8rem' }}>
+                        {formatDate(doc.created_at || doc.uploaded_at)}
+                      </Typography>
+                    </Box>
+                  </Box>
+
+                  {doc.description && (
+                    <Typography variant="body2" sx={{ 
+                      mt: 1.5, 
+                      color: colors.lightText,
+                      fontSize: '0.75rem',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden'
+                    }}>
+                      {doc.description}
+                    </Typography>
+                  )}
+                </CardContent>
+
+                <CardActions sx={{ p: 2, pt: 0, gap: 0.5, flexWrap: 'wrap' }}>
+                  <Tooltip title="View Details">
+                    <Button 
+                      size="small" 
+                      startIcon={<Visibility sx={{ fontSize: 18 }} />}
+                      onClick={() => handleDocView(doc)}
+                      sx={{ 
+                        color: colors.darkNavy,
+                        '&:hover': { 
+                          color: colors.lightCyanDark, 
+                          bgcolor: 'rgba(103, 232, 249, 0.08)' 
+                        },
+                        borderRadius: 2,
+                        textTransform: 'none',
+                        fontWeight: 500,
+                        fontSize: '0.75rem'
+                      }}
+                    >
+                      View
+                    </Button>
+                  </Tooltip>
+                  
+                  <Tooltip title="Download">
+                    <Button 
+                      size="small" 
+                      startIcon={<Download sx={{ fontSize: 18 }} />}
+                      onClick={() => handleDocDownload(doc)}
+                      sx={{ 
+                        color: colors.darkNavy,
+                        '&:hover': { 
+                          color: colors.lightCyanDark, 
+                          bgcolor: 'rgba(103, 232, 249, 0.08)' 
+                        },
+                        borderRadius: 2,
+                        textTransform: 'none',
+                        fontWeight: 500,
+                        fontSize: '0.75rem'
+                      }}
+                    >
+                      Download
+                    </Button>
+                  </Tooltip>
+                  
+                  {canEdit && (
+                    <Tooltip title="Edit">
+                      <IconButton 
+                        size="small" 
+                        onClick={() => handleDocEdit(doc)}
+                        sx={{ 
+                          color: colors.darkNavy,
+                          '&:hover': { 
+                            color: colors.lightCyanDark, 
+                            bgcolor: 'rgba(103, 232, 249, 0.08)' 
                           }
                         }}
                       >
-                        <Avatar sx={{ 
-                          bgcolor: `${getFileColor(doc.document_type)}15`,
-                          width: 56,
-                          height: 56,
-                          border: `2px solid ${getFileColor(doc.document_type)}33`,
-                          boxShadow: `0 4px 20px ${getFileColor(doc.document_type)}33`,
-                        }}>
-                          {getFileIcon(doc.document_type)}
-                        </Avatar>
-                      </Badge>
-                      
-                      <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography variant="h6" fontWeight={700} sx={{ color: colors.darkNavy, mb: 0.5, fontSize: '0.95rem' }}>
-                          {doc.title}
-                        </Typography>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                          <Chip
-                            label={doc.category}
-                            size="small"
-                            sx={{
-                              bgcolor: colors.darkNavy + '10',
-                              color: colors.darkNavy,
-                              fontWeight: 500,
-                              fontSize: '10px',
-                              height: 20,
-                              borderRadius: 2,
-                              border: `1px solid ${colors.darkNavy}20`
-                            }}
-                          />
-                          <Box sx={{ width: 4, height: 4, borderRadius: '50%', bgcolor: colors.borderColor }} />
-                          <Typography variant="caption" sx={{ color: colors.lightText }}>
-                            {doc.file_size || '0 KB'}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    </Box>
-
-                    <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                        <MedicalServices sx={{ fontSize: 16, color: colors.lightText }} />
-                        <Typography variant="body2" sx={{ color: colors.lightText, fontSize: '0.8rem' }}>
-                          {doc.equipment || 'No Equipment'}
-                        </Typography>
-                        {doc.equipment_status && (
-                          <Chip
-                            label={doc.equipment_status}
-                            size="small"
-                            sx={{
-                              bgcolor: '#3B82F6',
-                              color: 'white',
-                              fontWeight: 500,
-                              height: 18,
-                              fontSize: '8px',
-                              borderRadius: 1,
-                              '& .MuiChip-label': { px: 0.5 }
-                            }}
-                          />
-                        )}
-                      </Box>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Person sx={{ fontSize: 16, color: colors.lightText }} />
-                        <Typography variant="body2" sx={{ color: colors.lightText, fontSize: '0.8rem' }}>
-                          {doc.uploaded_by_name || doc.uploaded_by || 'System'}
-                        </Typography>
-                      </Box>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <CalendarToday sx={{ fontSize: 16, color: colors.lightText }} />
-                        <Typography variant="body2" sx={{ color: colors.lightText, fontSize: '0.8rem' }}>
-                          {formatDate(doc.created_at || doc.uploaded_at)}
-                        </Typography>
-                      </Box>
-                    </Box>
-
-                    {doc.description && (
-                      <Typography variant="body2" sx={{ 
-                        mt: 1.5, 
-                        color: colors.lightText,
-                        fontSize: '0.75rem',
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
-                        overflow: 'hidden'
-                      }}>
-                        {doc.description}
-                      </Typography>
-                    )}
-                  </CardContent>
-
-                  <CardActions sx={{ p: 2, pt: 0, gap: 0.5, flexWrap: 'wrap' }}>
-                    <Tooltip title="View Details">
-                      <Button 
-                        size="small" 
-                        startIcon={<Visibility sx={{ fontSize: 18 }} />}
-                        onClick={() => handleDocView(doc)}
-                        sx={{ 
-                          color: colors.darkNavy,
-                          '&:hover': { 
-                            color: colors.lightCyanDark, 
-                            bgcolor: 'rgba(103, 232, 249, 0.08)' 
-                          },
-                          borderRadius: 2,
-                          textTransform: 'none',
-                          fontWeight: 500,
-                          fontSize: '0.75rem'
-                        }}
-                      >
-                        View
-                      </Button>
+                        <Edit fontSize="small" />
+                      </IconButton>
                     </Tooltip>
-                    
-                    <Tooltip title="Download">
-                      <Button 
+                  )}
+                  
+                  {canDelete && (
+                    <Tooltip title="Delete">
+                      <IconButton 
                         size="small" 
-                        startIcon={<Download sx={{ fontSize: 18 }} />}
-                        onClick={() => handleDocDownload(doc)}
-                        sx={{ 
-                          color: colors.darkNavy,
-                          '&:hover': { 
-                            color: colors.lightCyanDark, 
-                            bgcolor: 'rgba(103, 232, 249, 0.08)' 
-                          },
-                          borderRadius: 2,
-                          textTransform: 'none',
-                          fontWeight: 500,
-                          fontSize: '0.75rem'
-                        }}
+                        color="error"
+                        onClick={() => handleDocDelete(doc.id)}
+                        sx={{ '&:hover': { bgcolor: `${colors.error}10` } }}
                       >
-                        Download
-                      </Button>
+                        <Delete fontSize="small" />
+                      </IconButton>
                     </Tooltip>
-                    
-                    {canEdit && (
-                      <Tooltip title="Edit">
-                        <IconButton 
-                          size="small" 
-                          onClick={() => handleDocEdit(doc)}
-                          sx={{ 
-                            color: colors.darkNavy,
-                            '&:hover': { 
-                              color: colors.lightCyanDark, 
-                              bgcolor: 'rgba(103, 232, 249, 0.08)' 
-                            }
-                          }}
-                        >
-                          <Edit fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    )}
-                    
-                    {canDelete && (
-                      <Tooltip title="Delete">
-                        <IconButton 
-                          size="small" 
-                          color="error"
-                          onClick={() => handleDocDelete(doc.id)}
-                          sx={{ '&:hover': { bgcolor: `${colors.error}10` } }}
-                        >
-                          <Delete fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    )}
-                  </CardActions>
-                </Card>
-              </Grow>
-            </Grid>
-          )
-        })}
+                  )}
+                </CardActions>
+              </Card>
+            </Grow>
+          </Grid>
+        ))}
       </Grid>
 
       {filteredDocs.length === 0 && !loading && (
@@ -1731,7 +1716,6 @@ const ServiceDocumentationWithPO = () => {
         </Paper>
       )}
 
-      {/* Document Filter Menu */}
       <Menu
         anchorEl={docFilterAnchorEl}
         open={Boolean(docFilterAnchorEl)}
@@ -1739,7 +1723,7 @@ const ServiceDocumentationWithPO = () => {
         PaperProps={{ 
           sx: { 
             p: 2.5, 
-            width: 280,
+            width: 320,
             border: `1px solid ${colors.borderColor}`,
             boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
             borderRadius: 3,
@@ -1768,6 +1752,30 @@ const ServiceDocumentationWithPO = () => {
             <MenuItem value="all">All Categories</MenuItem>
             {categories.filter(c => c !== 'All').map(cat => (
               <MenuItem key={cat} value={cat}>{cat}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
+        <FormControl fullWidth size="small" sx={{ mb: 2 }}>
+          <InputLabel sx={{ color: colors.lightText }}>Hospital</InputLabel>
+          <Select 
+            name="hospital" 
+            value={hospitalFilter} 
+            onChange={handleHospitalFilterChange} 
+            label="Hospital"
+            sx={{
+              borderRadius: 2,
+              '& .MuiOutlinedInput-root': {
+                '&:hover fieldset': { borderColor: colors.lightCyan },
+                '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+              }
+            }}
+          >
+            <MenuItem value="all">All Hospitals</MenuItem>
+            {hospitalList.map(h => (
+              <MenuItem key={h.id} value={h.name || h.hospital_name || h.id}>
+                {h.name || h.hospital_name || 'Unknown Hospital'}
+              </MenuItem>
             ))}
           </Select>
         </FormControl>
@@ -1818,7 +1826,6 @@ const ServiceDocumentationWithPO = () => {
   // ============================================================
   const renderPurchaseOrdersTab = () => (
     <>
-      {/* PO Stats Cards */}
       <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }} sx={{ mb: 3 }}>
         {poStatsCards.map((card, index) => (
           <Grid item xs={6} sm={3} key={index}>
@@ -1902,7 +1909,6 @@ const ServiceDocumentationWithPO = () => {
         ))}
       </Grid>
 
-      {/* PO Search and Filters */}
       <Paper sx={{ 
         p: 2, 
         mb: 3, 
@@ -1930,37 +1936,38 @@ const ServiceDocumentationWithPO = () => {
                   '&:hover fieldset': { borderColor: colors.lightCyan },
                   '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                 },
-                '& .MuiInputBase-input': {
-                  fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  fontSize: '0.9rem',
-                }
               }
             }}
           />
           
+          {/* ✅ FILTER Button */}
           <Button 
-            variant="outlined"
-            startIcon={<FilterList />} 
+            variant="contained"
             onClick={handlePOFilterClick}
             size="small"
             sx={{ 
-              borderColor: colors.lightCyan,
-              color: colors.lightCyan,
-              textTransform: 'none',
+              bgcolor: colors.darkNavy,
+              color: colors.text,
               borderRadius: 2,
+              textTransform: 'none',
+              minWidth: { xs: '40px', sm: 'auto' },
+              px: { xs: 1, sm: 2 },
+              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
               '&:hover': { 
-                bgcolor: colors.lightCyan,
-                color: colors.darkNavy,
-                borderColor: colors.lightCyan,
-              }
+                bgcolor: colors.darkNavyHover,
+                boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
+              },
             }}
           >
-            Filter
+            <Upload sx={{ fontSize: { xs: 18, sm: 20 } }} />
+            <Typography variant="button" sx={{ display: { xs: 'none', sm: 'inline' }, ml: 0.5 }}>
+              Filter
+            </Typography>
           </Button>
           
+          {/* ✅ EXPORT Button */}
           <Button 
             variant="outlined"
-            startIcon={<Download />} 
             onClick={handlePOExportClick}
             size="small"
             sx={{ 
@@ -1968,6 +1975,8 @@ const ServiceDocumentationWithPO = () => {
               color: colors.lightCyan,
               textTransform: 'none',
               borderRadius: 2,
+              minWidth: { xs: '40px', sm: 'auto' },
+              px: { xs: 1, sm: 2 },
               '&:hover': { 
                 bgcolor: colors.lightCyan,
                 color: colors.darkNavy,
@@ -1975,19 +1984,24 @@ const ServiceDocumentationWithPO = () => {
               }
             }}
           >
-            Export
+            <FileDownload sx={{ fontSize: { xs: 18, sm: 20 } }} />
+            <Typography variant="button" sx={{ display: { xs: 'none', sm: 'inline' }, ml: 0.5 }}>
+              Export
+            </Typography>
           </Button>
           
+          {/* ✅ CREATE PURCHASE ORDER Button */}
           {canCreatePO && (
             <Button
               variant="contained"
-              startIcon={<Add />}
               onClick={() => handlePOOpenDialog()}
               sx={{ 
                 bgcolor: colors.darkNavy,
                 color: colors.text,
                 borderRadius: 2,
                 textTransform: 'none',
+                minWidth: { xs: '40px', sm: 'auto' },
+                px: { xs: 1, sm: 2 },
                 boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
                 '&:hover': { 
                   bgcolor: colors.darkNavyHover,
@@ -1995,13 +2009,15 @@ const ServiceDocumentationWithPO = () => {
                 },
               }}
             >
-              Create Purchase Order
+              <Add sx={{ fontSize: { xs: 18, sm: 20 } }} />
+              <Typography variant="button" sx={{ display: { xs: 'none', sm: 'inline' }, ml: 0.5 }}>
+                Create Purchase Order
+              </Typography>
             </Button>
           )}
         </Box>
       </Paper>
 
-      {/* PO Cards Grid */}
       <Grid container spacing={3}>
         {filteredOrders.map((order) => (
           <Grid item xs={12} sm={6} md={4} key={order.id}>
@@ -2036,7 +2052,6 @@ const ServiceDocumentationWithPO = () => {
           {canCreatePO && (
             <Button
               variant="contained"
-              startIcon={<Add />}
               onClick={() => handlePOOpenDialog()}
               sx={{ 
                 mt: 2,
@@ -2044,6 +2059,8 @@ const ServiceDocumentationWithPO = () => {
                 color: colors.text,
                 borderRadius: 2,
                 textTransform: 'none',
+                minWidth: { xs: '40px', sm: 'auto' },
+                px: { xs: 1, sm: 2 },
                 boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
                 '&:hover': { 
                   bgcolor: colors.darkNavyHover,
@@ -2051,13 +2068,15 @@ const ServiceDocumentationWithPO = () => {
                 },
               }}
             >
-              Create First Purchase Order
+              <Add sx={{ fontSize: { xs: 18, sm: 20 } }} />
+              <Typography variant="button" sx={{ display: { xs: 'none', sm: 'inline' }, ml: 0.5 }}>
+                Create First Purchase Order
+              </Typography>
             </Button>
           )}
         </Paper>
       )}
 
-      {/* PO Filter Menu */}
       <Menu
         anchorEl={poFilterAnchorEl}
         open={Boolean(poFilterAnchorEl)}
@@ -2151,7 +2170,6 @@ const ServiceDocumentationWithPO = () => {
         </Box>
       </Menu>
 
-      {/* PO Export Menu */}
       <Menu
         anchorEl={poExportAnchorEl}
         open={Boolean(poExportAnchorEl)}
@@ -2263,7 +2281,6 @@ const ServiceDocumentationWithPO = () => {
     }}>
       <style>{animationStyles}</style>
 
-      {/* Header */}
       <Box sx={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
@@ -2305,36 +2322,37 @@ const ServiceDocumentationWithPO = () => {
         </Box>
         
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+          {/* ✅ REFRESH ALL Button (Top) - ONLY REFRESH BUTTON REMAINING */}
           <Button 
-            variant="outlined" 
-            startIcon={<Refresh />} 
-            onClick={() => {
-              fetchDocuments()
-              fetchOrders()
-            }} 
+            variant="contained"
+            onClick={handleRefresh}
             size="small"
             sx={{ 
-              borderColor: colors.lightCyan,
-              color: colors.lightCyan,
-              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-              textTransform: 'none',
+              bgcolor: colors.darkNavy,
+              color: colors.text,
               borderRadius: 2,
-              transition: 'all 0.3s ease',
+              textTransform: 'none',
+              minWidth: { xs: '40px', sm: 'auto' },
+              px: { xs: 1, sm: 2 },
+              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
               '&:hover': { 
-                bgcolor: colors.lightCyan,
-                color: colors.darkNavy,
-                borderColor: colors.lightCyan,
-                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
-                transform: 'translateY(-2px)',
+                bgcolor: colors.darkNavyHover,
+                boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
               },
+              '&:disabled': {
+                bgcolor: colors.secondaryText,
+              }
             }}
+            disabled={isRefreshing || isRefreshingPO}
           >
-            Refresh
+            <RestartAlt className={isRefreshing || isRefreshingPO ? 'refresh-spin' : ''} sx={{ fontSize: { xs: 18, sm: 20 } }} />
+            <Typography variant="button" sx={{ display: { xs: 'none', sm: 'inline' }, ml: 0.5 }}>
+              {isRefreshing || isRefreshingPO ? 'Refreshing...' : 'Refresh All'}
+            </Typography>
           </Button>
         </Box>
       </Box>
 
-      {/* Tabs */}
       <Paper sx={{ 
         borderRadius: 3,
         border: `1px solid ${colors.borderColor}`,
@@ -2343,35 +2361,53 @@ const ServiceDocumentationWithPO = () => {
         overflow: 'hidden',
         mb: 3,
       }}>
+        {/* ✅ UPDATED: KHULE/KHULY (EXPANDED) TABS */}
         <Tabs 
           value={tabValue} 
           onChange={handleTabChange}
           sx={{
+            px: 3,
+            pt: 2,
+            pb: 1,
             borderBottom: `1px solid ${colors.borderColor}`,
+            '& .MuiTabs-indicator': {
+              display: 'none',
+            },
             '& .MuiTab-root': {
               textTransform: 'none',
               fontWeight: 600,
-              fontSize: '0.9rem',
+              fontSize: '0.95rem',
               fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-              color: colors.lightText,
+              color: colors.lightCyan,
+              borderRadius: '10px !important',
+              px: { xs: 3, sm: 5 },
+              py: 1.5,
+              minHeight: '52px',
+              minWidth: { xs: 'auto', sm: 160 },
               transition: 'all 0.3s ease',
+              border: `2px solid ${colors.lightCyan}`,
+              backgroundColor: 'transparent',
+              mr: 2,
               '&.Mui-selected': {
-                color: colors.darkNavy,
+                color: colors.text,
+                backgroundColor: colors.darkNavy,
+                borderColor: colors.lightCyan,
+                boxShadow: `0 4px 20px ${colors.lightCyanGlow}`,
+              },
+              '&:hover': {
+                backgroundColor: `${colors.darkNavy}80`,
+                borderColor: colors.lightCyanBright,
               },
             },
-            '& .MuiTabs-indicator': {
-              backgroundColor: colors.lightCyan,
-              height: 3,
-            }
           }}
         >
           <Tab 
-            icon={<MenuBook sx={{ fontSize: 20 }} />} 
+            icon={<MenuBook sx={{ fontSize: 22 }} />} 
             iconPosition="start"
             label="Documents" 
           />
           <Tab 
-            icon={<ShoppingCart sx={{ fontSize: 20 }} />} 
+            icon={<ShoppingCart sx={{ fontSize: 22 }} />} 
             iconPosition="start"
             label="Purchase Orders" 
           />
@@ -2384,71 +2420,59 @@ const ServiceDocumentationWithPO = () => {
       </Paper>
 
       {/* ============================================================
-          DOCUMENT UPLOAD/EDIT DIALOG
-          ============================================================ */}
-      {canUpload && (
-        <Dialog 
-          open={openDialog} 
-          onClose={() => {
-            setOpenDialog(false)
-            setEditingDocument(false)
-          }} 
-          maxWidth="sm" 
-          fullWidth
-          PaperProps={{
-            sx: {
-              borderRadius: 4,
-              border: `1px solid ${colors.borderColor}`,
-              boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
-            }
-          }}
-        >
-          <DialogTitle sx={{ 
-            bgcolor: colors.darkNavy, 
-            color: 'white',
-            borderRadius: '8px 8px 0 0',
-            py: 2.5,
-          }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant="h6" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                {editingDocument ? <Edit sx={{ fontSize: 28 }} /> : <Upload sx={{ fontSize: 28 }} />}
-                {editingDocument ? 'Edit Document' : 'Upload Document'}
-              </Typography>
-              <IconButton onClick={() => {
-                setOpenDialog(false)
-                setEditingDocument(false)
-              }} sx={{ color: 'white', '&:hover': { color: colors.lightCyan } }}>
-                <Close />
-              </IconButton>
-            </Box>
-          </DialogTitle>
-          <DialogContent dividers sx={{ px: 4, py: 3 }}>
-            <Box>
+          ✅ UPLOAD/EDIT DOCUMENT DIALOG - WITH MANUAL TEXT INPUTS FOR EQUIPMENT & HOSPITAL
+      ============================================================ */}
+      <Dialog 
+        open={openDialog} 
+        onClose={() => setOpenDialog(false)} 
+        maxWidth="md" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 4,
+            boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
+            border: `1px solid ${colors.borderColor}`,
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          borderBottom: `1px solid ${colors.borderColor}`,
+          px: 3,
+          py: 2,
+        }}>
+          <Typography variant="h6" fontWeight={700} sx={{ color: colors.darkNavy }}>
+            {editingDocument ? 'Edit Document' : 'Upload Document'}
+          </Typography>
+          <IconButton onClick={() => setOpenDialog(false)}>
+            <Close />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ p: 3 }}>
+          <Grid container spacing={2.5}>
+            <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Document Title *"
+                label="Document Title"
                 name="title"
                 value={formData.title}
                 onChange={handleDocFormChange}
                 required
-                sx={{ mb: 2 }}
-                placeholder="Enter document title"
-                InputProps={{
-                  sx: {
+                sx={{
+                  '& .MuiOutlinedInput-root': {
                     borderRadius: 2,
-                    '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.lightCyan },
-                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                    },
-                    '& .MuiInputBase-input': {
-                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                    },
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
-              
-              <FormControl fullWidth sx={{ mb: 2 }}>
-                <InputLabel sx={{ color: colors.lightText }}>Document Type</InputLabel>
+            </Grid>
+            
+            <Grid item xs={6}>
+              <FormControl fullWidth>
+                <InputLabel>Document Type</InputLabel>
                 <Select
                   name="document_type"
                   value={formData.document_type}
@@ -2459,20 +2483,20 @@ const ServiceDocumentationWithPO = () => {
                     '& .MuiOutlinedInput-root': {
                       '&:hover fieldset': { borderColor: colors.lightCyan },
                       '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                    },
+                    }
                   }}
                 >
                   <MenuItem value="PDF">PDF</MenuItem>
-                  <MenuItem value="Word">Word Document</MenuItem>
-                  <MenuItem value="Excel">Excel Spreadsheet</MenuItem>
                   <MenuItem value="Video">Video</MenuItem>
                   <MenuItem value="Image">Image</MenuItem>
                   <MenuItem value="Other">Other</MenuItem>
                 </Select>
               </FormControl>
-
-              <FormControl fullWidth sx={{ mb: 2 }}>
-                <InputLabel sx={{ color: colors.lightText }}>Category</InputLabel>
+            </Grid>
+            
+            <Grid item xs={6}>
+              <FormControl fullWidth>
+                <InputLabel>Category</InputLabel>
                 <Select
                   name="category"
                   value={formData.category}
@@ -2483,7 +2507,7 @@ const ServiceDocumentationWithPO = () => {
                     '& .MuiOutlinedInput-root': {
                       '&:hover fieldset': { borderColor: colors.lightCyan },
                       '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                    },
+                    }
                   }}
                 >
                   <MenuItem value="Service Manual">Service Manual</MenuItem>
@@ -2494,32 +2518,49 @@ const ServiceDocumentationWithPO = () => {
                   <MenuItem value="Other">Other</MenuItem>
                 </Select>
               </FormControl>
+            </Grid>
 
-              {/* ✅ EQUIPMENT - Manual Input (No Dropdown) */}
+            {/* ✅ EQUIPMENT Field - MANUAL TEXT INPUT (Dropdown removed) */}
+            <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label="Equipment Name *"
+                label="Equipment"
                 name="equipment"
                 value={formData.equipment}
                 onChange={handleDocFormChange}
                 required
                 placeholder="Enter equipment name"
-                sx={{ 
-                  mb: 2,
+                sx={{
                   '& .MuiOutlinedInput-root': {
                     borderRadius: 2,
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                  },
-                  '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  },
-                  '& .MuiInputLabel-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                   }
                 }}
               />
+            </Grid>
 
+            {/* ✅ HOSPITAL Field - MANUAL TEXT INPUT (Dropdown removed) */}
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Hospital"
+                name="hospital"
+                value={formData.hospital}
+                onChange={handleDocFormChange}
+                required
+                placeholder="Enter hospital name"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                  }
+                }}
+              />
+            </Grid>
+
+            <Grid item xs={12}>
               <TextField
                 fullWidth
                 label="Description"
@@ -2527,351 +2568,339 @@ const ServiceDocumentationWithPO = () => {
                 value={formData.description}
                 onChange={handleDocFormChange}
                 multiline
-                rows={2}
-                sx={{ mb: 2 }}
-                placeholder="Brief description of the document"
-                InputProps={{
-                  sx: {
+                rows={3}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
                     borderRadius: 2,
-                    '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.lightCyan },
-                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                    },
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   }
                 }}
               />
+            </Grid>
+
+            {/* ✅ UPDATED: Better Attachments Section */}
+            <Grid item xs={12}>
+              <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy, mb: 1.5 }}>
+                Attachments
+              </Typography>
               
-              {!editingDocument && (
-                <>
-                  <Button
-                    variant="outlined"
-                    component="label"
-                    startIcon={<FilePresent />}
-                    fullWidth
-                    sx={{ 
-                      py: 3, 
-                      borderStyle: 'dashed',
-                      borderColor: colors.borderColor,
-                      color: colors.lightText,
-                      borderRadius: 2,
-                      '&:hover': {
-                        borderColor: colors.lightCyan,
-                        borderStyle: 'dashed',
-                        color: colors.lightCyanDark
-                      },
-                    }}
-                  >
-                    {formData.file ? formData.file.name : 'Choose File (Max: 50MB)'}
-                    <input 
-                      type="file" 
-                      hidden 
-                      onChange={handleFileChange}
-                      accept=".pdf,.doc,.docx,.xls,.xlsx,.mp4,.avi,.mov,.jpg,.jpeg,.png,.gif,.webp"
-                    />
-                  </Button>
-                  <Typography variant="caption" sx={{ color: colors.lightText, mt: 1, display: 'block' }}>
-                    Supported formats: PDF, DOC, DOCX, XLS, XLSX, MP4, JPG, PNG (Max: 50MB)
+              {!selectedFile && !formData.fileUrl ? (
+                <Box
+                  sx={{
+                    border: `2px dashed ${colors.borderColor}`,
+                    borderRadius: 3,
+                    p: 4,
+                    textAlign: 'center',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease',
+                    backgroundColor: 'rgba(103, 232, 249, 0.02)',
+                    '&:hover': {
+                      borderColor: colors.lightCyan,
+                      backgroundColor: 'rgba(103, 232, 249, 0.05)',
+                      transform: 'scale(1.01)',
+                    },
+                    position: 'relative',
+                  }}
+                  onClick={() => document.getElementById('file-upload-input').click()}
+                >
+                  <input
+                    id="file-upload-input"
+                    type="file"
+                    hidden
+                    onChange={handleFileChange}
+                    accept=".pdf,.mp4,.mov,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx,.xls,.xlsx,.txt"
+                  />
+                  <CloudUpload sx={{ fontSize: 48, color: colors.lightCyanDark, opacity: 0.7, mb: 1 }} />
+                  <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy }}>
+                    Click to upload or drag & drop
                   </Typography>
-                  {formData.file && (
-                    <Alert severity="info" sx={{ mt: 2, borderRadius: 2, border: `1px solid rgba(103, 232, 249, 0.2)` }}>
-                      Selected: {formData.file.name} ({(formData.file.size / 1024 / 1024).toFixed(2)} MB)
-                    </Alert>
-                  )}
-                </>
-              )}
-
-              {editingDocument && formData.fileUrl && (
-                <Alert severity="success" sx={{ mt: 2, borderRadius: 2, border: `1px solid ${colors.success}33` }}>
-                  Current file: {formData.file_name || 'document'}
-                  <Button 
-                    size="small" 
-                    href={formData.fileUrl} 
-                    target="_blank"
-                    sx={{ 
-                      ml: 2,
-                      color: colors.darkNavy,
-                      '&:hover': { color: colors.lightCyanDark },
-                    }}
-                  >
-                    View
-                  </Button>
-                </Alert>
-              )}
-
-              {uploading && uploadProgress > 0 && (
-                <Box sx={{ mt: 2 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                    <Typography variant="caption" sx={{ color: colors.lightText }}>
-                      Uploading...
-                    </Typography>
-                    <Typography variant="caption" sx={{ color: colors.lightText }}>
-                      {uploadProgress}%
-                    </Typography>
+                  <Typography variant="caption" sx={{ color: colors.lightText }}>
+                    Supported: PDF, MP4, MOV, JPG, PNG, GIF, DOC, DOCX, XLS, XLSX, TXT (Max 50MB)
+                  </Typography>
+                </Box>
+              ) : (
+                <Box
+                  sx={{
+                    border: `1px solid ${colors.lightCyan}`,
+                    borderRadius: 3,
+                    p: 2,
+                    backgroundColor: 'rgba(103, 232, 249, 0.05)',
+                    animation: 'slideUp 0.3s ease-out',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Avatar
+                      sx={{
+                        bgcolor: colors.lightCyan + '15',
+                        width: 48,
+                        height: 48,
+                        border: `2px solid ${colors.lightCyan}30`,
+                      }}
+                    >
+                      <AttachFile sx={{ color: colors.lightCyanDark, fontSize: 24 }} />
+                    </Avatar>
+                    <Box>
+                      <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>
+                        {formData.file_name || selectedFile?.name || 'Document'}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: colors.lightText }}>
+                        {formData.file_size || (selectedFile ? `${(selectedFile.size / 1024 / 1024).toFixed(2)} MB` : '0 KB')}
+                      </Typography>
+                    </Box>
                   </Box>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Tooltip title="Change File">
+                      <IconButton
+                        size="small"
+                        onClick={() => document.getElementById('file-upload-input').click()}
+                        sx={{
+                          color: colors.lightCyanDark,
+                          '&:hover': { backgroundColor: 'rgba(103, 232, 249, 0.1)' }
+                        }}
+                      >
+                        <DriveFolderUpload fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Remove File">
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={removeSelectedFile}
+                        sx={{
+                          '&:hover': { backgroundColor: 'rgba(239, 68, 68, 0.1)' }
+                        }}
+                      >
+                        <DeleteOutline fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                </Box>
+              )}
+              
+              {formData.fileUrl && !selectedFile && (
+                <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <LinkIcon sx={{ fontSize: 16, color: colors.lightText }} />
+                  <Typography variant="caption" sx={{ color: colors.lightText }}>
+                    Existing file: {formData.file_name || 'Document'}
+                  </Typography>
+                </Box>
+              )}
+            </Grid>
+
+            {uploading && (
+              <Grid item xs={12}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                   <LinearProgress 
                     variant="determinate" 
                     value={uploadProgress} 
                     sx={{ 
-                      height: 6, 
-                      borderRadius: 3,
-                      bgcolor: colors.borderColor,
-                      '& .MuiLinearProgress-bar': { bgcolor: colors.lightCyan }
+                      flexGrow: 1, 
+                      borderRadius: 2, 
+                      height: 8,
+                      backgroundColor: colors.borderColor,
+                      '& .MuiLinearProgress-bar': {
+                        backgroundColor: colors.lightCyan,
+                      }
                     }} 
                   />
+                  <Typography variant="caption" sx={{ color: colors.lightText }}>
+                    {uploadProgress}%
+                  </Typography>
                 </Box>
-              )}
-            </Box>
-          </DialogContent>
-          <DialogActions sx={{ p: 3, gap: 1 }}>
-            <Button 
-              onClick={() => {
-                setOpenDialog(false)
-                setEditingDocument(false)
-              }}
-              variant="outlined"
-              sx={{ 
-                color: colors.darkNavy, 
-                borderColor: colors.borderColor,
-                '&:hover': { 
-                  borderColor: colors.lightCyan,
-                  backgroundColor: 'rgba(103, 232, 249, 0.04)'
-                },
-                textTransform: 'none',
-                borderRadius: 2,
-              }}
-              disabled={uploading}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="contained"
-              onClick={handleDocUpload}
-              disabled={uploading}
-              sx={{ 
-                bgcolor: colors.darkNavy,
-                color: colors.text,
-                borderRadius: 2,
-                px: 4,
-                textTransform: 'none',
-                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
-                '&:hover': { 
-                  bgcolor: colors.darkNavyHover,
-                  boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
-                },
-              }}
-              startIcon={editingDocument ? <Edit /> : <Upload />}
-            >
-              {uploading ? 'Uploading...' : (editingDocument ? 'Update' : 'Upload')}
-            </Button>
-          </DialogActions>
-        </Dialog>
-      )}
+              </Grid>
+            )}
+          </Grid>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, borderTop: `1px solid ${colors.borderColor}` }}>
+          <Button 
+            onClick={() => setOpenDialog(false)} 
+            sx={{ 
+              color: colors.lightText, 
+              textTransform: 'none',
+              borderRadius: 2,
+              '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' }
+            }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleDocUpload} 
+            variant="contained"
+            disabled={uploading}
+            sx={{ 
+              bgcolor: colors.darkNavy,
+              color: colors.text,
+              borderRadius: 2,
+              textTransform: 'none',
+              px: 4,
+              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+              '&:hover': { 
+                bgcolor: colors.darkNavyHover,
+                boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
+              }
+            }}
+          >
+            {uploading ? 'Uploading...' : (editingDocument ? 'Update' : 'Upload')}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
-      {/* ============================================================
-          DOCUMENT VIEW DIALOG
-          ============================================================ */}
+      {/* View Document Dialog */}
       <Dialog 
         open={openViewDialog} 
         onClose={() => setOpenViewDialog(false)} 
         maxWidth="md" 
         fullWidth
         PaperProps={{
-          sx: { 
+          sx: {
             borderRadius: 4,
+            boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
             border: `1px solid ${colors.borderColor}`,
-            boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
           }
         }}
       >
         <DialogTitle sx={{ 
-          bgcolor: colors.darkNavy, 
-          color: 'white',
-          borderRadius: '8px 8px 0 0',
-          py: 2.5,
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          borderBottom: `1px solid ${colors.borderColor}`,
+          px: 3,
+          py: 2,
         }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              <MenuBook sx={{ fontSize: 28 }} />
-              Document Details
-            </Typography>
-            <IconButton onClick={() => setOpenViewDialog(false)} sx={{ color: 'white', '&:hover': { color: colors.lightCyan } }}>
-              <Close />
-            </IconButton>
-          </Box>
+          <Typography variant="h6" fontWeight={700} sx={{ color: colors.darkNavy }}>
+            Document Details
+          </Typography>
+          <IconButton onClick={() => setOpenViewDialog(false)}>
+            <Close />
+          </IconButton>
         </DialogTitle>
-        <DialogContent dividers sx={{ px: 4, py: 3 }}>
+        <DialogContent sx={{ p: 3 }}>
           {selectedDoc && (
             <Box>
-              <Grid container spacing={2.5}>
-                <Grid item xs={12} sx={{ display: 'flex', alignItems: 'center' }}>
-                  <Box>
-                    <Typography variant="h5" fontWeight={600} sx={{ color: colors.darkNavy }}>
-                      {selectedDoc.title}
-                    </Typography>
-                    <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5, flexWrap: 'wrap' }}>
-                      <Chip
-                        label={selectedDoc.document_type}
-                        size="small"
-                        sx={{
-                          bgcolor: getFileColor(selectedDoc.document_type),
-                          color: 'white',
-                          fontWeight: 600,
-                          height: 26,
-                          borderRadius: 2,
-                        }}
-                      />
-                      <Chip
-                        label={selectedDoc.category}
-                        size="small"
-                        variant="outlined"
-                        sx={{ borderColor: colors.borderColor, color: colors.lightText, borderRadius: 2 }}
-                      />
-                    </Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, mb: 3 }}>
+                <Avatar sx={{ 
+                  width: 64, 
+                  height: 64, 
+                  bgcolor: `${getFileColor(selectedDoc.document_type)}15`,
+                  border: `2px solid ${getFileColor(selectedDoc.document_type)}33`,
+                }}>
+                  {getFileIcon(selectedDoc.document_type)}
+                </Avatar>
+                <Box>
+                  <Typography variant="h6" fontWeight={700} sx={{ color: colors.darkNavy }}>
+                    {selectedDoc.title}
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 1, mt: 0.5, flexWrap: 'wrap' }}>
+                    <Chip 
+                      label={selectedDoc.category} 
+                      size="small"
+                      sx={{
+                        bgcolor: colors.darkNavy + '10',
+                        color: colors.darkNavy,
+                        fontWeight: 500,
+                        fontSize: '10px',
+                        height: 20,
+                      }}
+                    />
+                    <Chip 
+                      label={selectedDoc.document_type} 
+                      size="small"
+                      sx={{
+                        bgcolor: getFileColor(selectedDoc.document_type) + '20',
+                        color: getFileColor(selectedDoc.document_type),
+                        fontWeight: 500,
+                        fontSize: '10px',
+                        height: 20,
+                      }}
+                    />
                   </Box>
-                </Grid>
+                </Box>
+              </Box>
 
-                <Grid item xs={12}>
-                  <Divider sx={{ borderColor: colors.borderColor }} />
-                </Grid>
-
-                <Grid item xs={12} md={6}>
-                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600 }}>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
                     Equipment
                   </Typography>
-                  <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy }}>
-                    {selectedDoc.equipment || '-'}
+                  <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>
+                    {selectedDoc.equipment || 'N/A'}
                   </Typography>
                 </Grid>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600 }}>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
+                    Hospital
+                  </Typography>
+                  <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>
+                    {selectedDoc.hospital_name || selectedDoc.hospital || 'N/A'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
                     Uploaded By
                   </Typography>
-                  <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy }}>
+                  <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>
                     {selectedDoc.uploaded_by_name || selectedDoc.uploaded_by || 'System'}
                   </Typography>
                 </Grid>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600 }}>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
                     Uploaded Date
                   </Typography>
-                  <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy }}>
+                  <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>
                     {formatDate(selectedDoc.created_at || selectedDoc.uploaded_at)}
                   </Typography>
                 </Grid>
-                <Grid item xs={12} md={6}>
-                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600 }}>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
                     File Size
                   </Typography>
-                  <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy }}>
-                    {selectedDoc.file_size || '-'}
+                  <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>
+                    {selectedDoc.file_size || 'N/A'}
                   </Typography>
                 </Grid>
-
                 {selectedDoc.description && (
                   <Grid item xs={12}>
-                    <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600 }}>
+                    <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
                       Description
                     </Typography>
-                    <Typography variant="body1" sx={{ mt: 1, color: colors.darkNavy }}>
+                    <Typography variant="body2" sx={{ color: colors.darkNavy, mt: 0.5 }}>
                       {selectedDoc.description}
                     </Typography>
                   </Grid>
                 )}
-
-                <Grid item xs={12}>
-                  <Divider sx={{ borderColor: colors.borderColor }} />
-                </Grid>
-
-                <Grid item xs={12}>
-                  <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
+                {selectedDoc.file_url && (
+                  <Grid item xs={12}>
                     <Button
-                      variant="contained"
+                      variant="outlined"
                       startIcon={<Download />}
                       onClick={() => handleDocDownload(selectedDoc)}
-                      sx={{ 
-                        bgcolor: colors.darkNavy,
-                        color: colors.text,
+                      fullWidth
+                      sx={{
                         borderRadius: 2,
-                        px: 4,
+                        borderColor: colors.lightCyan,
+                        color: colors.darkNavy,
                         textTransform: 'none',
-                        boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
-                        '&:hover': { 
-                          bgcolor: colors.darkNavyHover,
-                          boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
-                        },
+                        '&:hover': {
+                          bgcolor: 'rgba(103, 232, 249, 0.08)',
+                          borderColor: colors.lightCyanDark,
+                        }
                       }}
                     >
-                      Download Document
+                      Download File
                     </Button>
-                    {selectedDoc.file_url && (
-                      <Button
-                        variant="outlined"
-                        startIcon={<Visibility />}
-                        onClick={() => window.open(selectedDoc.file_url, '_blank')}
-                        sx={{ 
-                          px: 4,
-                          borderColor: colors.darkNavy,
-                          color: colors.darkNavy,
-                          '&:hover': { 
-                            borderColor: colors.lightCyan, 
-                            color: colors.lightCyanDark,
-                            backgroundColor: 'rgba(103, 232, 249, 0.04)'
-                          },
-                          textTransform: 'none',
-                          borderRadius: 2,
-                        }}
-                      >
-                        Open in Browser
-                      </Button>
-                    )}
-                  </Box>
-                </Grid>
+                  </Grid>
+                )}
               </Grid>
             </Box>
           )}
         </DialogContent>
-        <DialogActions sx={{ p: 3, gap: 1 }}>
-          <Button 
-            onClick={() => setOpenViewDialog(false)}
-            variant="contained"
-            sx={{ 
-              bgcolor: colors.darkNavy,
-              color: colors.text,
-              borderRadius: 2,
-              px: 4,
-              textTransform: 'none',
-              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
-              '&:hover': { 
-                bgcolor: colors.darkNavyHover,
-                boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
-              },
-            }}
-          >
-            Close
-          </Button>
-          {isSuperAdmin && selectedDoc && (
-            <Button
-              variant="contained"
-              color="error"
-              onClick={() => {
-                handleDocDelete(selectedDoc.id)
-                setOpenViewDialog(false)
-              }}
-              startIcon={<Delete />}
-              sx={{ 
-                borderRadius: 2,
-                textTransform: 'none',
-              }}
-            >
-              Delete
-            </Button>
-          )}
-        </DialogActions>
       </Dialog>
 
-      {/* ============================================================
-          PURCHASE ORDER CREATE/EDIT DIALOG (Remains same)
-          ============================================================ */}
+      {/* Purchase Order Dialog */}
       <Dialog 
         open={openPODialog} 
         onClose={handlePOCloseDialog} 
@@ -2880,135 +2909,66 @@ const ServiceDocumentationWithPO = () => {
         PaperProps={{
           sx: {
             borderRadius: 4,
+            boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
             border: `1px solid ${colors.borderColor}`,
-            boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
-            bgcolor: colors.cardBg,
           }
         }}
       >
         <DialogTitle sx={{ 
-          bgcolor: colors.darkNavy, 
-          color: colors.text,
-          borderRadius: '8px 8px 0 0',
-          py: 2.5,
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          borderBottom: `1px solid ${colors.borderColor}`,
+          px: 3,
+          py: 2,
         }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              {editingOrder ? <Edit sx={{ fontSize: 28 }} /> : <Add sx={{ fontSize: 28 }} />}
-              {editingOrder ? 'Edit Purchase Order' : 'Create Purchase Order'}
-            </Typography>
-            <IconButton onClick={handlePOCloseDialog} sx={{ color: colors.text, '&:hover': { color: colors.lightCyan } }}>
-              <Close />
-            </IconButton>
-          </Box>
+          <Typography variant="h6" fontWeight={700} sx={{ color: colors.darkNavy }}>
+            {editingOrder ? 'Edit Purchase Order' : 'Create Purchase Order'}
+          </Typography>
+          <IconButton onClick={handlePOCloseDialog}>
+            <Close />
+          </IconButton>
         </DialogTitle>
-        <DialogContent dividers sx={{ borderColor: colors.borderColor, px: 4, py: 3 }}>
+        <DialogContent sx={{ p: 3 }}>
           <Grid container spacing={2.5}>
-            {/* Hospital - Manual Input */}
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label="Hospital Name *"
+                label="Hospital Name"
                 name="hospital"
                 value={poFormData.hospital}
                 onChange={handlePOFormChange}
                 required
-                placeholder="Enter hospital name"
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     borderRadius: 2,
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                  },
+                  }
                 }}
               />
             </Grid>
-
-            {/* Equipment - Manual Input */}
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label="Equipment Name *"
+                label="Equipment Name"
                 name="equipment"
                 value={poFormData.equipment}
                 onChange={handlePOFormChange}
                 required
-                placeholder="Enter equipment name"
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     borderRadius: 2,
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                  },
+                  }
                 }}
               />
             </Grid>
-
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label="PO Number *"
-                name="po_number"
-                value={poFormData.po_number}
-                onChange={handlePOFormChange}
-                required
-                disabled={editingOrder}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                    '&:hover fieldset': { borderColor: colors.lightCyan },
-                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                  },
-                }}
-              />
-            </Grid>
-
-            {/* Currency Selector */}
-            <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
-                <InputLabel sx={{ color: colors.lightText }}>Currency *</InputLabel>
-                <Select
-                  name="currency"
-                  value={poFormData.currency || 'PKR'}
-                  onChange={handleCurrencyChange}
-                  label="Currency *"
-                  required
-                  sx={{
-                    borderRadius: 2,
-                    '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.lightCyan },
-                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                    },
-                  }}
-                >
-                  <MenuItem value="PKR">
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <MonetizationOn sx={{ fontSize: 20 }} />
-                      PKR - Pakistani Rupee (Rs.)
-                    </Box>
-                  </MenuItem>
-                  <MenuItem value="USD">
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <CurrencyExchange sx={{ fontSize: 20 }} />
-                      USD - US Dollar ($)
-                    </Box>
-                  </MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-
-            <Grid item xs={12}>
-              <Divider sx={{ my: 1, borderColor: colors.borderColor }}>
-                <Typography variant="caption" sx={{ color: colors.lightText }}>
-                  <Business sx={{ fontSize: 16, mr: 1 }} />
-                  Vendor Details
-                </Typography>
-              </Divider>
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Vendor Name *"
+                label="Vendor Name"
                 name="vendor_name"
                 value={poFormData.vendor_name}
                 onChange={handlePOFormChange}
@@ -3018,11 +2978,28 @@ const ServiceDocumentationWithPO = () => {
                     borderRadius: 2,
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                  },
+                  }
                 }}
               />
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="PO Number"
+                name="po_number"
+                value={poFormData.po_number}
+                onChange={handlePOFormChange}
+                required
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                  }
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
                 label="Vendor Contact Person"
@@ -3034,11 +3011,11 @@ const ServiceDocumentationWithPO = () => {
                     borderRadius: 2,
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                  },
+                  }
                 }}
               />
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
                 label="Vendor Email"
@@ -3051,11 +3028,11 @@ const ServiceDocumentationWithPO = () => {
                     borderRadius: 2,
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                  },
+                  }
                 }}
               />
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
                 label="Vendor Phone"
@@ -3067,38 +3044,27 @@ const ServiceDocumentationWithPO = () => {
                     borderRadius: 2,
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                  },
+                  }
                 }}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
                 label="Vendor Address"
                 name="vendor_address"
                 value={poFormData.vendor_address}
                 onChange={handlePOFormChange}
-                multiline
-                rows={2}
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     borderRadius: 2,
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                  },
+                  }
                 }}
               />
             </Grid>
-
-            <Grid item xs={12}>
-              <Divider sx={{ my: 1, borderColor: colors.borderColor }}>
-                <Typography variant="caption" sx={{ color: colors.lightText }}>
-                  <Receipt sx={{ fontSize: 16, mr: 1 }} />
-                  Order Details
-                </Typography>
-              </Divider>
-            </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
                 label="Order Date"
@@ -3112,11 +3078,11 @@ const ServiceDocumentationWithPO = () => {
                     borderRadius: 2,
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                  },
+                  }
                 }}
               />
             </Grid>
-            <Grid item xs={12} md={6}>
+            <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
                 label="Delivery Date"
@@ -3130,150 +3096,107 @@ const ServiceDocumentationWithPO = () => {
                     borderRadius: 2,
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                  },
+                  }
                 }}
               />
             </Grid>
-
-            <Grid item xs={12}>
-              <Divider sx={{ my: 1, borderColor: colors.borderColor }}>
-                <Typography variant="caption" sx={{ color: colors.lightText }}>
-                  <ShoppingCart sx={{ fontSize: 16, mr: 1 }} />
-                  Order Items
-                </Typography>
-              </Divider>
-            </Grid>
-            <Grid item xs={12}>
-              <Paper variant="outlined" sx={{ p: 2, borderColor: colors.borderColor, borderRadius: 2 }}>
-                {itemsList.map((item, index) => (
-                  <Grid container spacing={1} key={item.id} sx={{ mb: 1 }}>
-                    <Grid item xs={4}>
-                      <TextField
-                        size="small"
-                        label="Description"
-                        value={item.description}
-                        onChange={(e) => handlePOItemChange(index, 'description', e.target.value)}
-                        fullWidth
-                        sx={{
-                          '& .MuiOutlinedInput-root': {
-                            borderRadius: 2,
-                            '&:hover fieldset': { borderColor: colors.lightCyan },
-                            '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                          },
-                        }}
-                      />
-                    </Grid>
-                    <Grid item xs={2}>
-                      <TextField
-                        size="small"
-                        label="Qty"
-                        type="number"
-                        value={item.quantity}
-                        onChange={(e) => handlePOItemChange(index, 'quantity', parseFloat(e.target.value) || 0)}
-                        fullWidth
-                        InputProps={{ inputProps: { min: 1, step: 1 } }}
-                        sx={{
-                          '& .MuiOutlinedInput-root': {
-                            borderRadius: 2,
-                            '&:hover fieldset': { borderColor: colors.lightCyan },
-                            '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                          },
-                        }}
-                      />
-                    </Grid>
-                    <Grid item xs={2.5}>
-                      <TextField
-                        size="small"
-                        label="Unit Price"
-                        type="number"
-                        value={item.unit_price}
-                        onChange={(e) => handlePOItemChange(index, 'unit_price', parseFloat(e.target.value) || 0)}
-                        fullWidth
-                        InputProps={{ 
-                          inputProps: { min: 0, step: 0.01 },
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              <Typography sx={{ fontWeight: 500, color: colors.lightText }}>
-                                {currency === 'PKR' ? 'Rs.' : '$'}
-                              </Typography>
-                            </InputAdornment>
-                          )
-                        }}
-                        sx={{
-                          '& .MuiOutlinedInput-root': {
-                            borderRadius: 2,
-                            '&:hover fieldset': { borderColor: colors.lightCyan },
-                            '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                          },
-                        }}
-                      />
-                    </Grid>
-                    <Grid item xs={2.5}>
-                      <TextField
-                        size="small"
-                        label="Total"
-                        value={item.total.toFixed(2)}
-                        fullWidth
-                        disabled
-                        InputProps={{
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              <Typography sx={{ fontWeight: 500, color: colors.lightText }}>
-                                {currency === 'PKR' ? 'Rs.' : '$'}
-                              </Typography>
-                            </InputAdornment>
-                          )
-                        }}
-                        sx={{ 
-                          '& .MuiInputBase-root': { bgcolor: colors.mainBg },
-                          '& .MuiOutlinedInput-root': {
-                            borderRadius: 2,
-                          },
-                        }}
-                      />
-                    </Grid>
-                    <Grid item xs={1}>
-                      <IconButton 
-                        size="small" 
-                        color="error" 
-                        onClick={() => removePOItem(index)}
-                        disabled={itemsList.length <= 1}
-                        sx={{
-                          '&:hover': {
-                            backgroundColor: 'rgba(239, 68, 68, 0.08)'
-                          }
-                        }}
-                      >
-                        <Delete fontSize="small" />
-                      </IconButton>
-                    </Grid>
-                  </Grid>
-                ))}
-                <Button 
-                  size="small" 
-                  startIcon={<Add />} 
-                  onClick={addPOItem}
-                  sx={{ 
-                    mt: 1,
-                    color: colors.darkNavy,
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth>
+                <InputLabel>Currency</InputLabel>
+                <Select
+                  value={currency}
+                  onChange={handleCurrencyChange}
+                  label="Currency"
+                  sx={{
                     borderRadius: 2,
-                    '&:hover': { 
-                      color: colors.lightCyanDark,
-                      backgroundColor: 'rgba(103, 232, 249, 0.08)'
-                    },
-                    textTransform: 'none',
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                    }
                   }}
                 >
-                  Add Item
-                </Button>
-                <Box sx={{ mt: 2, textAlign: 'right' }}>
-                  <Typography variant="subtitle1" fontWeight={600} sx={{ color: colors.darkNavy }}>
-                    Total Amount: {currency === 'PKR' ? 'Rs.' : '$'} {calculatePOTotal().toFixed(2)}
-                  </Typography>
-                </Box>
-              </Paper>
+                  <MenuItem value="PKR">PKR - Pakistani Rupee</MenuItem>
+                  <MenuItem value="USD">USD - US Dollar</MenuItem>
+                  <MenuItem value="EUR">EUR - Euro</MenuItem>
+                  <MenuItem value="GBP">GBP - British Pound</MenuItem>
+                </Select>
+              </FormControl>
             </Grid>
-
+            <Grid item xs={12}>
+              <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy, mb: 1 }}>
+                Order Items
+              </Typography>
+              {itemsList.map((item, index) => (
+                <Box key={item.id} sx={{ display: 'flex', gap: 1, mb: 1, alignItems: 'center' }}>
+                  <TextField
+                    size="small"
+                    placeholder="Description"
+                    value={item.description}
+                    onChange={(e) => handlePOItemChange(index, 'description', e.target.value)}
+                    sx={{ flexGrow: 1 }}
+                    InputProps={{
+                      sx: { borderRadius: 2 }
+                    }}
+                  />
+                  <TextField
+                    size="small"
+                    type="number"
+                    placeholder="Qty"
+                    value={item.quantity}
+                    onChange={(e) => handlePOItemChange(index, 'quantity', e.target.value)}
+                    sx={{ width: 70 }}
+                    InputProps={{
+                      sx: { borderRadius: 2 }
+                    }}
+                  />
+                  <TextField
+                    size="small"
+                    type="number"
+                    placeholder="Price"
+                    value={item.unit_price}
+                    onChange={(e) => handlePOItemChange(index, 'unit_price', e.target.value)}
+                    sx={{ width: 100 }}
+                    InputProps={{
+                      sx: { borderRadius: 2 }
+                    }}
+                  />
+                  <Typography variant="body2" sx={{ width: 80, color: colors.darkNavy, fontWeight: 500 }}>
+                    {currency} {safeToFixed(item.total)}
+                  </Typography>
+                  <IconButton 
+                    size="small" 
+                    color="error"
+                    onClick={() => removePOItem(index)}
+                    disabled={itemsList.length === 1}
+                  >
+                    <Delete fontSize="small" />
+                  </IconButton>
+                </Box>
+              ))}
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<Add />}
+                onClick={addPOItem}
+                sx={{
+                  borderRadius: 2,
+                  borderColor: colors.lightCyan,
+                  color: colors.darkNavy,
+                  textTransform: 'none',
+                  '&:hover': {
+                    bgcolor: 'rgba(103, 232, 249, 0.08)',
+                    borderColor: colors.lightCyanDark,
+                  }
+                }}
+              >
+                Add Item
+              </Button>
+              <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+                <Typography variant="subtitle1" fontWeight={700} sx={{ color: colors.darkNavy }}>
+                  Total: {currency} {safeToFixed(calculatePOTotal())}
+                </Typography>
+              </Box>
+            </Grid>
             <Grid item xs={12}>
               <TextField
                 fullWidth
@@ -3282,98 +3205,44 @@ const ServiceDocumentationWithPO = () => {
                 value={poFormData.notes}
                 onChange={handlePOFormChange}
                 multiline
-                rows={3}
-                placeholder="Additional notes or special instructions..."
+                rows={2}
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     borderRadius: 2,
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                  },
+                  }
                 }}
               />
-            </Grid>
-
-            <Grid item xs={12}>
-              <Typography variant="subtitle2" sx={{ color: colors.lightText }} gutterBottom>
-                <AttachFile sx={{ fontSize: 18, verticalAlign: 'middle', mr: 1 }} />
-                Documents (Quotation, Invoice, etc.)
-              </Typography>
-              
-              <FileUpload
-                endpoint="/upload"
-                accept=".pdf,.doc,.docx,.xls,.xlsx,image/*"
-                multiple={true}
-                label="Click to upload documents"
-                maxFiles={5}
-                maxSize={20}
-                showPreview={true}
-                onUploadComplete={(files) => {
-                  const urls = files.map(f => f.url || f.fileUrl).filter(Boolean)
-                  const currentFiles = poFormData.documents ? poFormData.documents.split(',') : []
-                  const updatedFiles = [...currentFiles, ...urls]
-                  setPoFormData(prev => ({
-                    ...prev,
-                    documents: updatedFiles.join(',')
-                  }))
-                  toast.success(`${files.length} document(s) uploaded successfully`)
-                }}
-                onUploadError={(error) => toast.error('Upload failed: ' + error)}
-                onDelete={(file) => {
-                  const currentFiles = poFormData.documents?.split(',') || []
-                  const updatedFiles = currentFiles.filter(f => f !== file.url)
-                  setPoFormData(prev => ({
-                    ...prev,
-                    documents: updatedFiles.join(',')
-                  }))
-                  toast.info('Document removed')
-                }}
-                existingFiles={poFormData.documents ? poFormData.documents.split(',').filter(Boolean).map(url => ({
-                  url: url,
-                  name: url.split('/').pop(),
-                  type: 'document'
-                })) : []}
-              />
-              
-              {poFormData.documents && poFormData.documents.split(',').filter(Boolean).length > 0 && (
-                <Box sx={{ mt: 1 }}>
-                  <Typography variant="caption" sx={{ color: colors.lightText }}>
-                    {poFormData.documents.split(',').filter(Boolean).length} document(s) attached
-                  </Typography>
-                </Box>
-              )}
             </Grid>
           </Grid>
         </DialogContent>
-        <DialogActions sx={{ p: 3, gap: 1 }}>
+        <DialogActions sx={{ p: 3, borderTop: `1px solid ${colors.borderColor}` }}>
           <Button 
             onClick={handlePOCloseDialog} 
             sx={{ 
-              color: colors.darkNavy,
-              borderRadius: 2,
-              px: 3,
+              color: colors.lightText, 
               textTransform: 'none',
-              '&:hover': { 
-                backgroundColor: 'rgba(103, 232, 249, 0.04)'
-              },
+              borderRadius: 2,
+              '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' }
             }}
           >
             Cancel
           </Button>
-          <Button
+          <Button 
+            onClick={handlePOSubmit} 
             variant="contained"
-            onClick={handlePOSubmit}
             sx={{ 
               bgcolor: colors.darkNavy,
               color: colors.text,
               borderRadius: 2,
-              px: 4,
               textTransform: 'none',
+              px: 4,
               boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
               '&:hover': { 
                 bgcolor: colors.darkNavyHover,
                 boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
-              },
+              }
             }}
           >
             {editingOrder ? 'Update' : 'Create'}
@@ -3381,244 +3250,202 @@ const ServiceDocumentationWithPO = () => {
         </DialogActions>
       </Dialog>
 
-      {/* ============================================================
-          PURCHASE ORDER VIEW DIALOG (Remains same)
-          ============================================================ */}
+      {/* View Purchase Order Dialog */}
       <Dialog 
         open={openPOViewDialog} 
         onClose={handlePOCloseView} 
         maxWidth="md" 
         fullWidth
         PaperProps={{
-          sx: { 
+          sx: {
             borderRadius: 4,
+            boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
             border: `1px solid ${colors.borderColor}`,
-            boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
-            bgcolor: colors.cardBg,
           }
         }}
       >
         <DialogTitle sx={{ 
-          bgcolor: colors.darkNavy, 
-          color: colors.text,
-          borderRadius: '8px 8px 0 0',
-          py: 2.5,
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          borderBottom: `1px solid ${colors.borderColor}`,
+          px: 3,
+          py: 2,
         }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              <ShoppingCart sx={{ fontSize: 28 }} />
-              Purchase Order Details
-            </Typography>
-            <IconButton onClick={handlePOCloseView} sx={{ color: colors.text, '&:hover': { color: colors.lightCyan } }}>
+          <Typography variant="h6" fontWeight={700} sx={{ color: colors.darkNavy }}>
+            Purchase Order Details
+          </Typography>
+          <Box>
+            <IconButton onClick={() => viewingOrder && handlePOPrint(viewingOrder)}>
+              <Print />
+            </IconButton>
+            <IconButton onClick={handlePOCloseView}>
               <Close />
             </IconButton>
           </Box>
         </DialogTitle>
-        <DialogContent dividers sx={{ borderColor: colors.borderColor, px: 4, py: 3 }}>
+        <DialogContent sx={{ p: 3 }}>
           {viewingOrder && (
-            <Grid container spacing={2.5}>
-              <Grid item xs={12}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Typography variant="h6" fontWeight={600} sx={{ color: colors.darkNavy }}>
-                    {viewingOrder.po_number}
+            <Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                <Typography variant="h5" fontWeight={700} sx={{ color: colors.darkNavy }}>
+                  {viewingOrder.po_number}
+                </Typography>
+                <Chip
+                  label={viewingOrder.currency || 'PKR'}
+                  sx={{
+                    bgcolor: colors.darkNavy,
+                    color: colors.text,
+                    fontWeight: 600,
+                  }}
+                />
+              </Box>
+
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
+                    Hospital
                   </Typography>
-                  <Chip
-                    label={viewingOrder.currency || 'PKR'}
-                    size="small"
-                    sx={{
-                      bgcolor: colors.darkNavy,
-                      color: colors.text,
-                      fontWeight: 600,
-                      height: 24,
-                      fontSize: '11px',
-                      borderRadius: 2,
-                    }}
-                  />
-                </Box>
-              </Grid>
-              <Grid item xs={12}>
-                <Divider sx={{ borderColor: colors.borderColor }} />
-              </Grid>
-
-              <Grid item xs={12} md={6}>
-                <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600 }}>
-                  Hospital
-                </Typography>
-                <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy }}>
-                  {viewingOrder.hospital || 'N/A'}
-                </Typography>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600 }}>
-                  Equipment
-                </Typography>
-                <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy }}>
-                  {viewingOrder.equipment || 'N/A'}
-                </Typography>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600 }}>
-                  Vendor
-                </Typography>
-                <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy }}>
-                  {viewingOrder.vendor_name}
-                </Typography>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600 }}>
-                  Order Date
-                </Typography>
-                <Typography variant="body1" sx={{ color: colors.darkNavy }}>
-                  {viewingOrder.order_date ? new Date(viewingOrder.order_date).toLocaleDateString() : '-'}
-                </Typography>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600 }}>
-                  Delivery Date
-                </Typography>
-                <Typography variant="body1" sx={{ color: colors.darkNavy }}>
-                  {viewingOrder.delivery_date ? new Date(viewingOrder.delivery_date).toLocaleDateString() : '-'}
-                </Typography>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600 }}>
-                  Total Amount
-                </Typography>
-                <Typography variant="body1" fontWeight={600} sx={{ color: colors.lightCyanDark }}>
-                  {viewingOrder.currency === 'PKR' ? 'Rs.' : '$'} {safeToFixed(viewingOrder.total_amount)}
-                </Typography>
-              </Grid>
-
-              {viewingOrder.items && viewingOrder.items.length > 0 && (
-                <>
-                  <Grid item xs={12}>
-                    <Divider sx={{ borderColor: colors.borderColor }} />
-                    <Typography variant="subtitle2" sx={{ color: colors.darkNavy, mt: 2, mb: 1, fontWeight: 600 }}>
-                      Order Items
+                  <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>
+                    {viewingOrder.hospital || 'N/A'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
+                    Equipment
+                  </Typography>
+                  <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>
+                    {viewingOrder.equipment || 'N/A'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
+                    Vendor
+                  </Typography>
+                  <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>
+                    {viewingOrder.vendor_name || 'N/A'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
+                    Order Date
+                  </Typography>
+                  <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>
+                    {safeFormatDate(viewingOrder.order_date)}
+                  </Typography>
+                </Grid>
+                {viewingOrder.vendor_contact && (
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
+                      Contact Person
+                    </Typography>
+                    <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>
+                      {viewingOrder.vendor_contact}
                     </Typography>
                   </Grid>
-                  <Grid item xs={12}>
-                    <TableContainer component={Paper} variant="outlined" sx={{ borderColor: colors.borderColor, borderRadius: 2 }}>
-                      <Table size="small">
-                        <TableHead sx={{ bgcolor: colors.mainBg }}>
-                          <TableRow>
-                            <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }}>#</TableCell>
-                            <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }}>Description</TableCell>
-                            <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }} align="center">Quantity</TableCell>
-                            <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }} align="right">Unit Price</TableCell>
-                            <TableCell sx={{ fontWeight: 600, color: colors.darkNavy }} align="right">Total</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {viewingOrder.items.map((item, index) => (
-                            <TableRow key={index}>
-                              <TableCell>{index + 1}</TableCell>
-                              <TableCell>{item.description}</TableCell>
-                              <TableCell align="center">{item.quantity}</TableCell>
-                              <TableCell align="right">
-                                {viewingOrder.currency === 'PKR' ? 'Rs.' : '$'} {parseFloat(item.unit_price).toFixed(2)}
-                              </TableCell>
-                              <TableCell align="right">
-                                {viewingOrder.currency === 'PKR' ? 'Rs.' : '$'} {parseFloat(item.total).toFixed(2)}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
+                )}
+                {viewingOrder.vendor_email && (
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
+                      Vendor Email
+                    </Typography>
+                    <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>
+                      {viewingOrder.vendor_email}
+                    </Typography>
                   </Grid>
-                </>
-              )}
+                )}
+                {viewingOrder.vendor_phone && (
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
+                      Vendor Phone
+                    </Typography>
+                    <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>
+                      {viewingOrder.vendor_phone}
+                    </Typography>
+                  </Grid>
+                )}
+                {viewingOrder.vendor_address && (
+                  <Grid item xs={12}>
+                    <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
+                      Vendor Address
+                    </Typography>
+                    <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>
+                      {viewingOrder.vendor_address}
+                    </Typography>
+                  </Grid>
+                )}
+                {viewingOrder.delivery_date && (
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
+                      Delivery Date
+                    </Typography>
+                    <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>
+                      {safeFormatDate(viewingOrder.delivery_date)}
+                    </Typography>
+                  </Grid>
+                )}
+              </Grid>
+
+              <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy, mt: 3, mb: 1 }}>
+                Order Items
+              </Typography>
+              <TableContainer component={Paper} sx={{ borderRadius: 2, border: `1px solid ${colors.borderColor}` }}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: colors.darkNavy }}>
+                      <TableCell sx={{ color: colors.text }}>#</TableCell>
+                      <TableCell sx={{ color: colors.text }}>Description</TableCell>
+                      <TableCell sx={{ color: colors.text, textAlign: 'center' }}>Qty</TableCell>
+                      <TableCell sx={{ color: colors.text, textAlign: 'right' }}>Unit Price</TableCell>
+                      <TableCell sx={{ color: colors.text, textAlign: 'right' }}>Total</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {viewingOrder.items && viewingOrder.items.length > 0 ? (
+                      viewingOrder.items.map((item, index) => {
+                        const currencySymbol = viewingOrder.currency === 'PKR' ? 'Rs.' : '$'
+                        return (
+                          <TableRow key={index}>
+                            <TableCell>{index + 1}</TableCell>
+                            <TableCell>{item.description || 'N/A'}</TableCell>
+                            <TableCell sx={{ textAlign: 'center' }}>{item.quantity || 0}</TableCell>
+                            <TableCell sx={{ textAlign: 'right' }}>{currencySymbol}{safeToFixed(item.unit_price)}</TableCell>
+                            <TableCell sx={{ textAlign: 'right' }}>{currencySymbol}{safeToFixed(item.total)}</TableCell>
+                          </TableRow>
+                        )
+                      })
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={5} sx={{ textAlign: 'center', color: colors.lightText }}>
+                          No items in this order
+                        </TableCell>
+                      </TableRow>
+                    )}
+                    <TableRow sx={{ bgcolor: 'rgba(103, 232, 249, 0.05)' }}>
+                      <TableCell colSpan={4} sx={{ textAlign: 'right', fontWeight: 700, color: colors.darkNavy }}>
+                        Total Amount
+                      </TableCell>
+                      <TableCell sx={{ textAlign: 'right', fontWeight: 700, color: colors.darkNavy }}>
+                        {viewingOrder.currency === 'PKR' ? 'Rs.' : '$'}{safeToFixed(viewingOrder.total_amount)}
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </TableContainer>
 
               {viewingOrder.notes && (
-                <Grid item xs={12}>
-                  <Divider sx={{ borderColor: colors.borderColor }} />
-                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600, mt: 2 }}>
+                <Box sx={{ mt: 2, p: 2, bgcolor: 'rgba(103, 232, 249, 0.05)', borderRadius: 2 }}>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
                     Notes
                   </Typography>
-                  <Typography variant="body1" sx={{ color: colors.darkNavy }}>
+                  <Typography variant="body2" sx={{ color: colors.darkNavy }}>
                     {viewingOrder.notes}
                   </Typography>
-                </Grid>
+                </Box>
               )}
-
-              {viewingOrder.documents && viewingOrder.documents.split(',').filter(Boolean).length > 0 && (
-                <Grid item xs={12}>
-                  <Divider sx={{ borderColor: colors.borderColor }} />
-                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600, mt: 2, mb: 1 }}>
-                    <AttachFile sx={{ fontSize: 16, verticalAlign: 'middle' }} />
-                    Attached Documents ({viewingOrder.documents.split(',').filter(Boolean).length})
-                  </Typography>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                    {viewingOrder.documents.split(',').filter(Boolean).map((url, index) => {
-                      const isImage = url.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i)
-                      const isPDF = url.match(/\.(pdf)$/i)
-                      
-                      return (
-                        <Button
-                          key={index}
-                          variant="outlined"
-                          size="small"
-                          startIcon={isImage ? <Image /> : isPDF ? <PictureAsPdf /> : <Description />}
-                          href={getFullUrl(url)}
-                          target="_blank"
-                          sx={{ 
-                            textTransform: 'none',
-                            borderColor: colors.borderColor,
-                            color: colors.darkNavy,
-                            borderRadius: 2,
-                            '&:hover': { borderColor: colors.lightCyan, color: colors.lightCyanDark }
-                          }}
-                        >
-                          {url.split('/').pop().substring(0, 20)}
-                        </Button>
-                      )
-                    })}
-                  </Box>
-                </Grid>
-              )}
-            </Grid>
+            </Box>
           )}
         </DialogContent>
-        <DialogActions sx={{ p: 3, gap: 1 }}>
-          <Button 
-            onClick={handlePOCloseView} 
-            variant="contained"
-            sx={{ 
-              bgcolor: colors.darkNavy,
-              color: colors.text,
-              borderRadius: 2,
-              px: 4,
-              textTransform: 'none',
-              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
-              '&:hover': { 
-                bgcolor: colors.darkNavyHover,
-                boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
-              },
-            }}
-          >
-            Close
-          </Button>
-          <Button 
-            variant="contained" 
-            startIcon={<Print />} 
-            sx={{ 
-              bgcolor: colors.darkNavy,
-              color: colors.text,
-              borderRadius: 2,
-              px: 4,
-              textTransform: 'none',
-              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
-              '&:hover': { 
-                bgcolor: colors.darkNavyHover,
-                boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
-              },
-            }}
-            onClick={() => handlePOPrint(viewingOrder)}
-          >
-            Print
-          </Button>
-        </DialogActions>
       </Dialog>
 
       <Snackbar
