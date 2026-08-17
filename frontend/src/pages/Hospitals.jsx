@@ -355,18 +355,19 @@ const Hospitals = () => {
     setExportAnchorEl(null)
   }
 
-  // ✅ CSV export removed - keeping only Excel and PDF
-
+  // ✅ IMPROVED EXCEL EXPORT WITH PROPER FORMATTING
   const exportToExcel = () => {
     try {
       import('xlsx').then((XLSX) => {
-        const data = filteredHospitals.map(h => ({
-          'Hospital Name': h.name,
+        // Prepare data with proper formatting
+        const data = filteredHospitals.map((h, index) => ({
+          'S.No': index + 1,
+          'Hospital Name': h.name || '',
           'Hospital Code': h.hospital_code || '',
           'Address': h.address || '',
           'City': h.city || '',
           'State': h.state || '',
-          'Country': h.country || '',
+          'Country': h.country || 'Pakistan',
           'Phone': h.phone || '',
           'Email': h.email || '',
           'Director': h.director || '',
@@ -374,21 +375,166 @@ const Hospitals = () => {
           'Status': h.is_active ? 'Active' : 'Inactive'
         }))
         
+        // Create workbook and worksheet
         const ws = XLSX.utils.json_to_sheet(data)
         const wb = XLSX.utils.book_new()
+        
+        // Set column widths for better readability
+        const columnWidths = [
+          { wch: 6 },   // S.No
+          { wch: 35 },  // Hospital Name
+          { wch: 18 },  // Hospital Code
+          { wch: 40 },  // Address
+          { wch: 15 },  // City
+          { wch: 15 },  // State
+          { wch: 12 },  // Country
+          { wch: 18 },  // Phone
+          { wch: 30 },  // Email
+          { wch: 25 },  // Director
+          { wch: 25 },  // Biomedical Head
+          { wch: 10 },  // Status
+        ]
+        ws['!cols'] = columnWidths
+        
+        // Apply styling to all cells
+        const range = XLSX.utils.decode_range(ws['!ref'])
+        for (let R = range.s.r; R <= range.e.r; R++) {
+          for (let C = range.s.c; C <= range.e.c; C++) {
+            const cellAddress = XLSX.utils.encode_cell({ r: R, c: C })
+            if (!ws[cellAddress]) continue
+            
+            // Header row styling (row 0)
+            if (R === 0) {
+              ws[cellAddress].s = {
+                font: { 
+                  bold: true, 
+                  color: { rgb: "FFFFFF" },
+                  sz: 11
+                },
+                fill: { fgColor: { rgb: "0F172A" } },
+                alignment: { 
+                  horizontal: 'center', 
+                  vertical: 'center',
+                  wrapText: true 
+                },
+                border: {
+                  top: { style: 'thin', color: { rgb: "CCCCCC" } },
+                  bottom: { style: 'thin', color: { rgb: "CCCCCC" } },
+                  left: { style: 'thin', color: { rgb: "CCCCCC" } },
+                  right: { style: 'thin', color: { rgb: "CCCCCC" } }
+                }
+              }
+            } else {
+              // Status column (index 11) - color coded
+              if (C === 11) {
+                const statusValue = ws[cellAddress]?.v || ''
+                const isActive = statusValue === 'Active'
+                ws[cellAddress].s = {
+                  font: { 
+                    color: { rgb: isActive ? "22C55E" : "EF4444" },
+                    bold: true,
+                    sz: 10
+                  },
+                  alignment: { horizontal: 'center', vertical: 'center' },
+                  border: {
+                    top: { style: 'thin', color: { rgb: "E5E7EB" } },
+                    bottom: { style: 'thin', color: { rgb: "E5E7EB" } },
+                    left: { style: 'thin', color: { rgb: "E5E7EB" } },
+                    right: { style: 'thin', color: { rgb: "E5E7EB" } }
+                  }
+                }
+              } else {
+                // Regular cells
+                const isAddress = C === 3 // Address column
+                const isSNo = C === 0 // S.No column
+                ws[cellAddress].s = {
+                  font: { sz: 10 },
+                  alignment: { 
+                    horizontal: isAddress ? 'left' : (isSNo ? 'center' : 'left'),
+                    vertical: 'center',
+                    wrapText: true 
+                  },
+                  border: {
+                    top: { style: 'thin', color: { rgb: "E5E7EB" } },
+                    bottom: { style: 'thin', color: { rgb: "E5E7EB" } },
+                    left: { style: 'thin', color: { rgb: "E5E7EB" } },
+                    right: { style: 'thin', color: { rgb: "E5E7EB" } }
+                  }
+                }
+              }
+            }
+          }
+        }
+        
+        // Append worksheet to workbook
         XLSX.utils.book_append_sheet(wb, ws, 'Hospitals')
-        XLSX.writeFile(wb, `hospitals_${new Date().toISOString().split('T')[0]}.xlsx`)
+        
+        // Add a summary sheet with statistics
+        const summaryData = [
+          ['🏥 HOSPITAL REPORT SUMMARY'],
+          [''],
+          ['Generated On:', new Date().toLocaleString()],
+          ['Total Hospitals:', filteredHospitals.length],
+          ['Active Hospitals:', filteredHospitals.filter(h => h.is_active).length],
+          ['Inactive Hospitals:', filteredHospitals.filter(h => !h.is_active).length],
+          [''],
+          ['Report generated from PAEC Hospitals Management System']
+        ]
+        const summaryWs = XLSX.utils.aoa_to_sheet(summaryData)
+        summaryWs['!cols'] = [{ wch: 25 }, { wch: 35 }]
+        
+        // Style summary sheet
+        const summaryRange = XLSX.utils.decode_range(summaryWs['!ref'])
+        for (let R = summaryRange.s.r; R <= summaryRange.e.r; R++) {
+          for (let C = summaryRange.s.c; C <= summaryRange.e.c; C++) {
+            const cellAddress = XLSX.utils.encode_cell({ r: R, c: C })
+            if (!summaryWs[cellAddress]) continue
+            
+            if (R === 0) {
+              summaryWs[cellAddress].s = {
+                font: { bold: true, sz: 16, color: { rgb: "0F172A" } },
+                alignment: { horizontal: 'center', vertical: 'center' }
+              }
+            } else if (R === 7) {
+              summaryWs[cellAddress].s = {
+                font: { italic: true, sz: 10, color: { rgb: "6B7280" } },
+                alignment: { horizontal: 'center', vertical: 'center' }
+              }
+            } else if (R >= 2 && R <= 5) {
+              summaryWs[cellAddress].s = {
+                font: { 
+                  bold: C === 0, 
+                  sz: 11,
+                  color: { rgb: C === 0 ? "4B5563" : "0F172A" } 
+                },
+                alignment: { 
+                  horizontal: C === 0 ? 'right' : 'left', 
+                  vertical: 'center' 
+                }
+              }
+            }
+          }
+        }
+        
+        XLSX.utils.book_append_sheet(wb, summaryWs, 'Summary')
+        
+        // Save the file
+        const fileName = `hospitals_${new Date().toISOString().split('T')[0]}.xlsx`
+        XLSX.writeFile(wb, fileName)
         
         toast.success('Excel exported successfully!')
         handleExportClose()
-      }).catch(() => {
-        toast.error('Excel library not loaded.')
+      }).catch((err) => {
+        toast.error('Excel library not loaded. Please check your installation.')
+        console.error('Excel export error:', err)
       })
     } catch (error) {
       toast.error('Failed to export Excel: ' + error.message)
+      console.error('Excel export error:', error)
     }
   }
 
+  // ✅ IMPROVED PDF EXPORT WITH BETTER FORMATTING
   const exportToPDF = () => {
     try {
       Promise.all([
@@ -398,19 +544,22 @@ const Hospitals = () => {
         const { default: jsPDF } = jsPDFModule
         const { default: autoTable } = autoTableModule
         
-        const doc = new jsPDF()
+        const doc = new jsPDF('landscape', 'mm', 'a4')
         
-        doc.setFontSize(18)
+        // Header
+        doc.setFontSize(20)
         doc.setTextColor(colors.darkNavy)
-        doc.text('Hospitals Report', 14, 20)
+        doc.text('🏥 Hospitals Report', 14, 20)
         
-        doc.setFontSize(10)
+        doc.setFontSize(11)
         doc.setTextColor('#666666')
         doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 28)
         doc.text(`Total Hospitals: ${filteredHospitals.length}`, 14, 34)
+        doc.text(`Active: ${filteredHospitals.filter(h => h.is_active).length} | Inactive: ${filteredHospitals.filter(h => !h.is_active).length}`, 14, 40)
         
+        // Table data
         const tableData = filteredHospitals.map(h => [
-          h.name,
+          h.name || '',
           h.hospital_code || '',
           h.city || '',
           h.phone || '',
@@ -422,12 +571,62 @@ const Hospitals = () => {
         autoTable(doc, {
           head: [['Hospital Name', 'Code', 'City', 'Phone', 'Director', 'Biomedical Head', 'Status']],
           body: tableData,
-          startY: 40,
-          styles: { fontSize: 8, cellPadding: 2 },
-          headStyles: { fillColor: colors.darkNavy, textColor: '#FFFFFF', fontSize: 9, fontStyle: 'bold' },
-          alternateRowStyles: { fillColor: '#F5F7FA' },
-          margin: { left: 14, right: 14 }
+          startY: 48,
+          styles: { 
+            fontSize: 9, 
+            cellPadding: 3,
+            font: 'helvetica'
+          },
+          headStyles: { 
+            fillColor: [15, 23, 42], // Dark navy
+            textColor: [255, 255, 255],
+            fontSize: 10,
+            fontStyle: 'bold',
+            halign: 'center'
+          },
+          alternateRowStyles: { fillColor: [245, 247, 250] },
+          columnStyles: {
+            0: { cellWidth: 45, halign: 'left' },
+            1: { cellWidth: 25, halign: 'center' },
+            2: { cellWidth: 25, halign: 'left' },
+            3: { cellWidth: 30, halign: 'left' },
+            4: { cellWidth: 35, halign: 'left' },
+            5: { cellWidth: 35, halign: 'left' },
+            6: { cellWidth: 20, halign: 'center' }
+          },
+          margin: { left: 14, right: 14 },
+          didDrawCell: function(data) {
+            // Color code status cells
+            if (data.column.index === 6 && data.cell.section === 'body') {
+              const status = data.cell.raw
+              if (status === 'Active') {
+                doc.setTextColor(34, 197, 94) // Green
+              } else {
+                doc.setTextColor(239, 68, 68) // Red
+              }
+              doc.setFont('helvetica', 'bold')
+              doc.text(status, data.cell.x + data.cell.width / 2, data.cell.y + data.cell.height / 2 + 3, {
+                align: 'center'
+              })
+              doc.setTextColor(0, 0, 0)
+              doc.setFont('helvetica', 'normal')
+            }
+          }
         })
+        
+        // Footer
+        const pageCount = doc.internal.getNumberOfPages()
+        for (let i = 1; i <= pageCount; i++) {
+          doc.setPage(i)
+          doc.setFontSize(8)
+          doc.setTextColor('#999999')
+          doc.text(
+            `Page ${i} of ${pageCount} | PAEC Hospitals Management System`,
+            doc.internal.pageSize.width / 2,
+            doc.internal.pageSize.height - 10,
+            { align: 'center' }
+          )
+        }
         
         doc.save(`hospitals_${new Date().toISOString().split('T')[0]}.pdf`)
         
@@ -435,9 +634,11 @@ const Hospitals = () => {
         handleExportClose()
       }).catch((err) => {
         toast.error('PDF export failed: ' + err.message)
+        console.error('PDF export error:', err)
       })
     } catch (error) {
       toast.error('Failed to export PDF: ' + error.message)
+      console.error('PDF export error:', error)
     }
   }
 

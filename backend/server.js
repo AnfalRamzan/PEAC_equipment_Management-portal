@@ -22,6 +22,7 @@
 // ✅ FIXED: Changed all repair_spare_parts to spare_parts (correct table name)
 // ✅ REMOVED: status column from purchase_orders
 // ✅ FIXED: Spare parts now use modular routes from routes/spareParts.js
+// ✅ FIXED: Procurement routes now use department_name instead of department
 
 // ============================================================
 // ✅ LOAD ENVIRONMENT VARIABLES FIRST
@@ -3551,10 +3552,7 @@ app.delete('/api/purchase-orders/:id', authenticate, async (req, res) => {
 console.log('📦 Purchase Order routes registered (STATUS REMOVED - hospital, equipment, currency added)');
 
 // ============================================================
-// ✅ PROCUREMENT ROUTES
-// ============================================================
-// ============================================================
-// ✅ PROCUREMENT ROUTES - FIXED: ENGINEER can create
+// ✅ PROCUREMENT ROUTES - FIXED: department_name instead of department
 // ============================================================
 app.get('/api/procurement', authenticate, async (req, res) => {
     try {
@@ -3622,16 +3620,18 @@ app.get('/api/procurement/:id', authenticate, async (req, res) => {
 });
 
 // ✅ FIXED: SUPER_ADMIN, HOSPITAL_ADMIN, and ENGINEER can create
+// ✅ FIXED: department -> department_name
 app.post('/api/procurement', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN', 'ENGINEER'), async (req, res) => {
     try {
         const { 
             hospital_id, equipment_name, category_id, manufacturer, 
             model, quantity, estimated_cost, justification, 
-            priority, requested_by, department, attachments
+            priority, requested_by, department_name, attachments
         } = req.body;
 
         console.log('📦 Creating procurement request by:', req.user.email, 'Role:', req.user.role_name);
         console.log('📦 Equipment:', equipment_name);
+        console.log('📦 Department:', department_name);
 
         if (!hospital_id) {
             return res.status(400).json({ 
@@ -3657,11 +3657,12 @@ app.post('/api/procurement', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_AD
             }
         }
 
+        // ✅ CORRECT: Using department_name (NOT department)
         const result = await query(
             `INSERT INTO equipment_procurement 
              (hospital_id, equipment_name, category_id, manufacturer,
               model, quantity, estimated_cost, justification,
-              priority, status, requested_by, department, attachments)
+              priority, status, requested_by, department_name, attachments)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 parseInt(hospital_id),
@@ -3675,7 +3676,7 @@ app.post('/api/procurement', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_AD
                 priority || 'Medium',
                 'Requested',
                 req.user.id,
-                department || '',
+                department_name || '',
                 attachments || ''
             ]
         );
@@ -3708,16 +3709,18 @@ app.post('/api/procurement', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_AD
 });
 
 // ✅ FIXED: ONLY SUPER_ADMIN can update (edit)
+// ✅ FIXED: department -> department_name
 app.put('/api/procurement/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     try {
         const { id } = req.params;
         const { 
             equipment_name, category_id, manufacturer, 
             model, quantity, estimated_cost, justification, 
-            priority, status, department, attachments
+            priority, status, department_name, attachments
         } = req.body;
 
         console.log('🔄 Updating procurement request:', id);
+        console.log('📦 Department:', department_name);
 
         const existing = await query('SELECT * FROM equipment_procurement WHERE id = ?', [id]);
         if (existing.length === 0) {
@@ -3735,12 +3738,13 @@ app.put('/api/procurement/:id', authenticate, authorize('SUPER_ADMIN'), async (r
             });
         }
 
+        // ✅ CORRECT: Using department_name (NOT department)
         await query(
             `UPDATE equipment_procurement SET 
              equipment_name = ?, category_id = ?, manufacturer = ?,
              model = ?, quantity = ?, estimated_cost = ?,
              justification = ?, priority = ?, status = ?,
-             department = ?, attachments = ?
+             department_name = ?, attachments = ?
              WHERE id = ?`,
             [
                 equipment_name || existing[0].equipment_name,
@@ -3752,7 +3756,7 @@ app.put('/api/procurement/:id', authenticate, authorize('SUPER_ADMIN'), async (r
                 justification || existing[0].justification,
                 priority || existing[0].priority,
                 status || existing[0].status,
-                department || existing[0].department,
+                department_name || existing[0].department_name,
                 attachments || existing[0].attachments,
                 id
             ]
@@ -3919,6 +3923,7 @@ app.put('/api/procurement/:id/status', authenticate, authorize('SUPER_ADMIN', 'H
         });
     }
 });
+
 // ============================================================
 // ✅ NOTIFICATIONS ROUTES
 // ============================================================
@@ -4060,5 +4065,6 @@ if (require.main === module) {
     console.log('📦 Purchase Order routes: hospital, equipment, currency, vendor_phone added');
     console.log('📅 Maintenance routes modularized in routes/maintenance.js');
     console.log('🔩 Spare parts routes modularized in routes/spareParts.js');
+    console.log('📦 PROCUREMENT ROUTES FIXED: department -> department_name');
     console.log('========================================');
 }

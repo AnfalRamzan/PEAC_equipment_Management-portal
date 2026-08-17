@@ -1,7 +1,5 @@
 // src/pages/Reports.jsx
-// ✅ FIXED: Type conversion for equipment_id matching
-// ✅ ADDED: Advanced filters - Equipment, Hospital, Date Range, Status
-// ✅ ADDED: Filter button with popup menu (same as Equipment.jsx)
+// ✅ FIXED: Stats cards with correct names: Functional, Non-Functional, Availability
 
 import React, { useState, useEffect, useCallback } from 'react'
 import {
@@ -64,6 +62,9 @@ import {
   Devices,
   CalendarToday,
   Tune,
+  CheckCircle as CheckCircleIcon,
+  DoNotDisturb,
+  TrendingUp,
 } from '@mui/icons-material'
 import { useSelector } from 'react-redux'
 import { toast } from 'react-toastify'
@@ -124,7 +125,7 @@ const getStatusColor = (status) => {
   if (s === 'active' || s === 'resolved' || s === 'completed') return '#22C55E'
   if (s === 'pending' || s === 'in progress') return '#F59E0B'
   if (s === 'inactive' || s === 'cancelled') return '#EF4444'
-  if (s === 'maintenance' || s === 'under repair') return '#3B82F6'
+  if (s === 'maintenance' || s === 'under repair') return '#EF4444'
   if (s === 'warranty') return '#8B5CF6'
   return '#64748B'
 }
@@ -148,7 +149,7 @@ const calculateDowntimeFromErrors = (errors) => {
   return totalHours
 }
 
-const StatsCard = ({ title, value, icon, loading, color = colors.lightCyan }) => (
+const StatsCard = ({ title, value, icon, loading, color = colors.lightCyan, subtitle }) => (
   <Grow in timeout={300}>
     <Card sx={{
       borderRadius: 3,
@@ -171,11 +172,16 @@ const StatsCard = ({ title, value, icon, loading, color = colors.lightCyan }) =>
               {React.cloneElement(icon, { sx: { fontSize: 22, color: color } })}
             </Avatar>
             <Typography variant="h4" sx={{ color: '#0F172A', fontWeight: 700 }}>
-              {value || 0}
+              {value !== undefined && value !== null ? value : 0}
             </Typography>
             <Typography variant="body2" sx={{ color: '#64748B', fontWeight: 500 }}>
               {title}
             </Typography>
+            {subtitle && (
+              <Typography variant="caption" sx={{ color: '#94A3B8', display: 'block', mt: 0.5 }}>
+                {subtitle}
+              </Typography>
+            )}
           </>
         )}
       </CardContent>
@@ -200,7 +206,7 @@ const Reports = () => {
   const [openViewDialog, setOpenViewDialog] = useState(false)
   const [selectedItem, setSelectedItem] = useState(null)
   const [exportAnchorEl, setExportAnchorEl] = useState(null)
-  const [filterAnchorEl, setFilterAnchorEl] = useState(null) // ✅ Filter menu anchor
+  const [filterAnchorEl, setFilterAnchorEl] = useState(null)
   const [error, setError] = useState(null)
   const [hospitalOptions, setHospitalOptions] = useState([])
   const [equipmentOptions, setEquipmentOptions] = useState([])
@@ -218,8 +224,8 @@ const Reports = () => {
 
   const [summaryStats, setSummaryStats] = useState({
     total: 0,
-    active: 0,
-    maintenance: 0,
+    functional: 0,      // ✅ Active equipment
+    nonFunctional: 0,   // ✅ Maintenance/Under Repair
     total_errors: 0,
     total_repairs: 0,
     total_downtime_days: 0,
@@ -355,17 +361,34 @@ const Reports = () => {
       setReportData(items)
       setFilteredData(items)
       
+      // ✅ Calculate summary stats from filtered data
+      const totalEquipment = items.length
+      // ✅ Functional = Active status
+      const functionalCount = items.filter(i => 
+        i.current_status === 'Active' || 
+        i.current_status === 'Operational' || 
+        i.current_status === 'Working'
+      ).length
+      // ✅ Non-Functional = Maintenance, Under Repair, Inactive
+      const nonFunctionalCount = items.filter(i => 
+        i.current_status === 'Maintenance' || 
+        i.current_status === 'Under Repair' || 
+        i.current_status === 'Inactive' ||
+        i.current_status === 'Broken'
+      ).length
+      const totalErrors = items.reduce((sum, i) => sum + (i.total_errors || 0), 0)
+      const totalRepairs = items.reduce((sum, i) => sum + (i.total_repairs || 0), 0)
       const totalDowntimeDays = items.reduce((sum, i) => sum + (i.total_downtime_days || 0), 0)
       const avgAvailability = items.length > 0 
         ? items.reduce((sum, i) => sum + (i.availability_percentage || 100), 0) / items.length 
-        : 100
+        : 0
       
       setSummaryStats({
-        total: items.length,
-        active: items.filter(i => i.current_status === 'Active').length,
-        maintenance: items.filter(i => i.current_status === 'Maintenance' || i.current_status === 'Under Repair').length,
-        total_errors: items.reduce((sum, i) => sum + (i.total_errors || 0), 0),
-        total_repairs: items.reduce((sum, i) => sum + (i.total_repairs || 0), 0),
+        total: totalEquipment,
+        functional: functionalCount,
+        nonFunctional: nonFunctionalCount,
+        total_errors: totalErrors,
+        total_repairs: totalRepairs,
         total_downtime_days: totalDowntimeDays,
         avg_availability: avgAvailability,
       })
@@ -422,7 +445,6 @@ const Reports = () => {
     setFilters(prev => ({ ...prev, [name]: value }))
   }
 
-  // ✅ Filter menu handlers (same as Equipment.jsx)
   const handleFilterClick = (event) => {
     setFilterAnchorEl(event.currentTarget)
   }
@@ -460,12 +482,36 @@ const Reports = () => {
 
   const displayData = filteredData
 
+  // ✅ STATS CARDS - Updated with correct names
   const statsCards = [
-    { title: 'Total Equipment', value: summaryStats.total || 0, icon: <MedicalServices />, color: colors.lightCyan },
-    { title: 'Active', value: summaryStats.active || 0, icon: <CheckCircle />, color: colors.success },
-    { title: 'Maintenance', value: summaryStats.maintenance || 0, icon: <Build />, color: colors.warning },
-    { title: 'Total Errors', value: summaryStats.total_errors || 0, icon: <ErrorOutline />, color: colors.error },
-    { title: 'Avg Availability', value: `${safeToFixed(summaryStats.avg_availability || 100, 1)}%`, icon: <MedicalServices />, color: colors.info },
+    { 
+      title: 'Total Equipment', 
+      value: summaryStats.total || 0, 
+      icon: <MedicalServices />, 
+      color: colors.lightCyan,
+      subtitle: 'All equipment in system'
+    },
+    { 
+      title: 'Functional', 
+      value: summaryStats.functional || 0, 
+      icon: <CheckCircleIcon />, 
+      color: colors.success,
+      subtitle: 'Active & Working'
+    },
+    { 
+      title: 'Non-Functional', 
+      value: summaryStats.nonFunctional || 0, 
+      icon: <DoNotDisturb />, 
+      color: colors.error,
+      subtitle: 'Maintenance / Under Repair'
+    },
+    { 
+      title: 'Availability', 
+      value: summaryStats.avg_availability > 0 ? `${safeToFixed(summaryStats.avg_availability, 1)}%` : '0%', 
+      icon: <TrendingUp />, 
+      color: colors.info,
+      subtitle: 'Average uptime'
+    },
   ]
 
   // ✅ Export functions
@@ -569,7 +615,7 @@ const Reports = () => {
           body { font-family: Arial; padding: 15px; }
           h1 { text-align: center; font-size: 18px; }
           .sub { text-align: center; color: #64748B; font-size: 9px; }
-          .summary { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-bottom: 10px; }
+          .summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 10px; }
           .card { border: 1px solid #e5e7eb; border-radius: 4px; padding: 5px; text-align: center; }
           .label { font-size: 7px; color: #64748B; }
           .value { font-size: 12px; font-weight: 700; }
@@ -582,9 +628,8 @@ const Reports = () => {
         <div class="sub">PAEC Equipment Management System • ${new Date().toLocaleString()}</div>
         <div class="summary">
           <div class="card"><div class="label">Total Equipment</div><div class="value">${displayData.length}</div></div>
-          <div class="card"><div class="label">Total Errors</div><div class="value">${summaryStats.total_errors || 0}</div></div>
-          <div class="card"><div class="label">Total Repairs</div><div class="value">${summaryStats.total_repairs || 0}</div></div>
-          <div class="card"><div class="label">Total Downtime (Days)</div><div class="value">${safeToFixed(totalDowntime, 2)}d</div></div>
+          <div class="card"><div class="label">Functional</div><div class="value">${summaryStats.functional || 0}</div></div>
+          <div class="card"><div class="label">Non-Functional</div><div class="value">${summaryStats.nonFunctional || 0}</div></div>
           <div class="card"><div class="label">Avg Availability</div><div class="value">${safeToFixed(avgAvailability, 1)}%</div></div>
         </div>
         <table><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
@@ -659,7 +704,6 @@ const Reports = () => {
             {loading ? 'Loading...' : 'Refresh'}
           </Button>
 
-          {/* ✅ FILTER BUTTON - Same as Equipment.jsx */}
           <Badge badgeContent={activeFilterCount} color="error" invisible={activeFilterCount === 0}>
             <Button
               variant="contained"
@@ -711,7 +755,7 @@ const Reports = () => {
         </Box>
       </Box>
 
-      {/* ✅ FILTER MENU - Same as Equipment.jsx */}
+      {/* ✅ FILTER MENU */}
       <Menu
         anchorEl={filterAnchorEl}
         open={Boolean(filterAnchorEl)}
@@ -739,7 +783,6 @@ const Reports = () => {
           )}
         </Typography>
         
-        {/* Hospital Filter */}
         <FormControl fullWidth size="small" sx={{ mb: 2 }}>
           <InputLabel sx={{ color: colors.lightText }}>Hospital</InputLabel>
           <Select
@@ -762,7 +805,6 @@ const Reports = () => {
           </Select>
         </FormControl>
 
-        {/* Equipment Filter */}
         <FormControl fullWidth size="small" sx={{ mb: 2 }}>
           <InputLabel sx={{ color: colors.lightText }}>Equipment</InputLabel>
           <Select
@@ -785,7 +827,6 @@ const Reports = () => {
           </Select>
         </FormControl>
 
-        {/* Status Filter */}
         <FormControl fullWidth size="small" sx={{ mb: 2 }}>
           <InputLabel sx={{ color: colors.lightText }}>Status</InputLabel>
           <Select
@@ -810,7 +851,6 @@ const Reports = () => {
           </Select>
         </FormControl>
 
-        {/* Date From */}
         <TextField
           fullWidth
           size="small"
@@ -830,7 +870,6 @@ const Reports = () => {
           }}
         />
 
-        {/* Date To */}
         <TextField
           fullWidth
           size="small"
@@ -850,7 +889,6 @@ const Reports = () => {
           }}
         />
 
-        {/* Min Availability */}
         <TextField
           fullWidth
           size="small"
@@ -871,7 +909,6 @@ const Reports = () => {
           }}
         />
 
-        {/* Max Downtime */}
         <TextField
           fullWidth
           size="small"
@@ -997,10 +1034,10 @@ const Reports = () => {
         </Alert>
       )}
 
-      {/* STATS CARDS */}
+      {/* ✅ STATS CARDS - 4 cards with correct names */}
       <Grid container spacing={{ xs: 1, sm: 2 }} sx={{ mb: 3 }}>
         {statsCards.map((card, index) => (
-          <Grid item xs={6} sm={2.4} key={index}>
+          <Grid item xs={6} sm={3} key={index}>
             <StatsCard {...card} loading={loading} />
           </Grid>
         ))}

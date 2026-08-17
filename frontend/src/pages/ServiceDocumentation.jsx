@@ -4,7 +4,7 @@
 // ✅ ALL USERS CAN VIEW AND UPLOAD
 // ✅ ONLY SUPER ADMIN CAN EDIT AND DELETE
 // ✅ REMOVED: Status from Purchase Orders
-// ✅ ADDED: Manual input for Hospital & Equipment
+// ✅ ADDED: Manual input for Equipment (not dropdown)
 // ✅ ADDED: Currency support (PKR / USD)
 
 import React, { useState, useEffect } from 'react'
@@ -485,8 +485,8 @@ const ServiceDocumentationWithPO = () => {
       return
     }
 
-    if (!formData.equipment_id) {
-      toast.error('Please select equipment')
+    if (!formData.equipment || formData.equipment.trim() === '') {
+      toast.error('Please enter equipment name')
       return
     }
 
@@ -534,8 +534,7 @@ const ServiceDocumentationWithPO = () => {
         title: formData.title.trim(),
         document_type: formData.document_type || 'PDF',
         category: formData.category || 'Other',
-        equipment_id: parseInt(formData.equipment_id),
-        equipment: formData.equipment || '',
+        equipment: formData.equipment.trim(),
         description: formData.description || '',
         file_url: fileUrl,
         file_name: fileName,
@@ -2496,30 +2495,30 @@ const ServiceDocumentationWithPO = () => {
                 </Select>
               </FormControl>
 
-              <FormControl fullWidth sx={{ mb: 2 }} required>
-                <InputLabel sx={{ color: colors.lightText }}>Equipment *</InputLabel>
-                <Select
-                  name="equipment_id"
-                  value={formData.equipment_id}
-                  onChange={handleDocFormChange}
-                  label="Equipment *"
-                  required
-                  sx={{
+              {/* ✅ EQUIPMENT - Manual Input (No Dropdown) */}
+              <TextField
+                fullWidth
+                label="Equipment Name *"
+                name="equipment"
+                value={formData.equipment}
+                onChange={handleDocFormChange}
+                required
+                placeholder="Enter equipment name"
+                sx={{ 
+                  mb: 2,
+                  '& .MuiOutlinedInput-root': {
                     borderRadius: 2,
-                    '& .MuiOutlinedInput-root': {
-                      '&:hover fieldset': { borderColor: colors.lightCyan },
-                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                    },
-                  }}
-                >
-                  <MenuItem value="">Select Equipment</MenuItem>
-                  {equipmentList.map((eq) => (
-                    <MenuItem key={eq.id} value={eq.id}>
-                      {eq.name} - {eq.model} ({eq.hospital_name || 'No Hospital'})
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                  },
+                  '& .MuiInputBase-input': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                  },
+                  '& .MuiInputLabel-root': {
+                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                  }
+                }}
+              />
 
               <TextField
                 fullWidth
@@ -2871,7 +2870,7 @@ const ServiceDocumentationWithPO = () => {
       </Dialog>
 
       {/* ============================================================
-          PURCHASE ORDER CREATE/EDIT DIALOG
+          PURCHASE ORDER CREATE/EDIT DIALOG (Remains same)
           ============================================================ */}
       <Dialog 
         open={openPODialog} 
@@ -2905,7 +2904,7 @@ const ServiceDocumentationWithPO = () => {
         </DialogTitle>
         <DialogContent dividers sx={{ borderColor: colors.borderColor, px: 4, py: 3 }}>
           <Grid container spacing={2.5}>
-            {/* ✅ Hospital - Manual Input */}
+            {/* Hospital - Manual Input */}
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
@@ -2925,7 +2924,7 @@ const ServiceDocumentationWithPO = () => {
               />
             </Grid>
 
-            {/* ✅ Equipment - Manual Input */}
+            {/* Equipment - Manual Input */}
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
@@ -2964,7 +2963,7 @@ const ServiceDocumentationWithPO = () => {
               />
             </Grid>
 
-            {/* ✅ Currency Selector */}
+            {/* Currency Selector */}
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
                 <InputLabel sx={{ color: colors.lightText }}>Currency *</InputLabel>
@@ -3383,7 +3382,7 @@ const ServiceDocumentationWithPO = () => {
       </Dialog>
 
       {/* ============================================================
-          PURCHASE ORDER VIEW DIALOG
+          PURCHASE ORDER VIEW DIALOG (Remains same)
           ============================================================ */}
       <Dialog 
         open={openPOViewDialog} 
