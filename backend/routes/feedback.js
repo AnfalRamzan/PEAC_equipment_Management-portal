@@ -1,12 +1,8 @@
 // backend/routes/feedback.js
-// ✅ Feedback routes for Medical Equipment Portal
+// ✅ UPDATED: Support hospital_name and admin_name fields
 
 const express = require('express');
 const router = express.Router();
-
-// ============================================================
-// ✅ HELPER: Get database connection
-// ============================================================
 const { query } = require('../config/database');
 
 // ============================================================
@@ -14,7 +10,6 @@ const { query } = require('../config/database');
 // ============================================================
 router.get('/', async (req, res) => {
     try {
-        // Check if user is admin
         if (req.user.role_name !== 'SUPER_ADMIN' && req.user.role_name !== 'ENGINEER') {
             return res.status(403).json({
                 success: false,
@@ -23,7 +18,18 @@ router.get('/', async (req, res) => {
         }
 
         const feedbacks = await query(
-            `SELECT * FROM feedback 
+            `SELECT 
+                id,
+                user_name,
+                user_email,
+                rating,
+                message,
+                hospital_name,
+                admin_name,
+                user_id,
+                created_at,
+                updated_at
+             FROM feedback 
              ORDER BY created_at DESC`
         );
 
@@ -48,22 +54,25 @@ router.get('/', async (req, res) => {
 // ============================================================
 router.post('/', async (req, res) => {
     try {
-        const { user, email, rating, message, timestamp } = req.body;
+        const { 
+            user_name, 
+            email, 
+            rating, 
+            message, 
+            hospital_name, 
+            admin_name, 
+            timestamp 
+        } = req.body;
 
         console.log('📝 New feedback submission:');
-        console.log('👤 User:', user);
+        console.log('👤 User:', user_name);
         console.log('📧 Email:', email);
         console.log('⭐ Rating:', rating);
+        console.log('🏥 Hospital:', hospital_name);
+        console.log('👤 Admin:', admin_name);
         console.log('💬 Message:', message?.substring(0, 50) + '...');
 
-        // Validation
-        if (!rating || rating < 1 || rating > 5) {
-            return res.status(400).json({
-                success: false,
-                message: 'Rating must be between 1 and 5'
-            });
-        }
-
+        // ✅ Validation - Only message is required
         if (!message || message.trim() === '') {
             return res.status(400).json({
                 success: false,
@@ -71,23 +80,27 @@ router.post('/', async (req, res) => {
             });
         }
 
-        // Insert into database
+        // ✅ Insert into database with new fields
         const result = await query(
             `INSERT INTO feedback (
                 user_name, 
                 user_email, 
                 rating, 
                 message, 
-                created_at,
-                user_id
-            ) VALUES (?, ?, ?, ?, ?, ?)`,
+                hospital_name,
+                admin_name,
+                user_id,
+                created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
             [
-                user || 'Anonymous User',
+                user_name || 'Anonymous User',
                 email || 'No email',
-                rating,
+                rating || 0,
                 message.trim(),
-                timestamp || new Date().toISOString(),
-                req.user?.id || null
+                hospital_name || null,
+                admin_name || null,
+                req.user?.id || null,
+                timestamp || new Date().toISOString()
             ]
         );
 
@@ -95,7 +108,6 @@ router.post('/', async (req, res) => {
 
         // ✅ Notify admins about new feedback
         try {
-            // Send notification to SUPER_ADMIN
             const admins = await query(
                 `SELECT u.id FROM users u
                  JOIN roles r ON u.role_id = r.id
@@ -104,12 +116,19 @@ router.post('/', async (req, res) => {
 
             for (const admin of admins) {
                 await query(
-                    `INSERT INTO notifications (user_id, title, message, type, related_id, related_module, created_at)
-                     VALUES (?, ?, ?, ?, ?, ?, NOW())`,
+                    `INSERT INTO notifications (
+                        user_id, 
+                        title, 
+                        message, 
+                        type, 
+                        related_id, 
+                        related_module, 
+                        created_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, NOW())`,
                     [
                         admin.id,
                         '📝 New Feedback Received',
-                        `New feedback from ${user || 'Anonymous'}: ${rating}⭐ - ${message?.substring(0, 80)}${message?.length > 80 ? '...' : ''}`,
+                        `New feedback from ${user_name || 'Anonymous'}: ${rating || 'No rating'}⭐ - ${message?.substring(0, 80)}${message?.length > 80 ? '...' : ''}`,
                         'Feedback',
                         result.insertId,
                         'feedback'
@@ -122,16 +141,35 @@ router.post('/', async (req, res) => {
             console.warn('⚠️ Failed to send notifications:', notifyError.message);
         }
 
+        // ✅ Return saved feedback
+        const savedFeedback = await query(
+            `SELECT 
+                id,
+                user_name,
+                user_email,
+                rating,
+                message,
+                hospital_name,
+                admin_name,
+                user_id,
+                created_at
+             FROM feedback 
+             WHERE id = ?`,
+            [result.insertId]
+        );
+
         res.status(201).json({
             success: true,
             message: 'Feedback submitted successfully',
             feedback_id: result.insertId,
-            feedback: {
+            feedback: savedFeedback[0] || {
                 id: result.insertId,
-                user: user || 'Anonymous User',
-                email: email || 'No email',
-                rating: rating,
+                user_name: user_name || 'Anonymous User',
+                user_email: email || 'No email',
+                rating: rating || 0,
                 message: message.trim(),
+                hospital_name: hospital_name || null,
+                admin_name: admin_name || null,
                 created_at: timestamp || new Date().toISOString()
             }
         });
@@ -139,7 +177,21 @@ router.post('/', async (req, res) => {
     } catch (error) {
         console.error('❌ Error submitting feedback:', error);
         
-        // ✅ Fallback to localStorage if database fails
+        // ✅ Check if table missing columns
+        if (error.message && error.message.includes('Unknown column')) {
+            console.log('⚠️ Table missing columns, adding them...');
+            try {
+                await query(`ALTER TABLE feedback ADD COLUMN IF NOT EXISTS hospital_name VARCHAR(255) DEFAULT NULL`);
+                await query(`ALTER TABLE feedback ADD COLUMN IF NOT EXISTS admin_name VARCHAR(255) DEFAULT NULL`);
+                console.log('✅ Columns added successfully');
+                
+                // Retry after adding columns
+                return router.handle(req, res);
+            } catch (alterError) {
+                console.error('❌ Failed to add columns:', alterError);
+            }
+        }
+
         res.status(500).json({
             success: false,
             message: 'Failed to submit feedback: ' + error.message,
@@ -155,7 +207,6 @@ router.delete('/:id', async (req, res) => {
     try {
         const { id } = req.params;
 
-        // Check if user is admin
         if (req.user.role_name !== 'SUPER_ADMIN' && req.user.role_name !== 'ENGINEER') {
             return res.status(403).json({
                 success: false,
@@ -163,11 +214,7 @@ router.delete('/:id', async (req, res) => {
             });
         }
 
-        // Check if feedback exists
-        const existing = await query(
-            'SELECT * FROM feedback WHERE id = ?',
-            [id]
-        );
+        const existing = await query('SELECT * FROM feedback WHERE id = ?', [id]);
 
         if (existing.length === 0) {
             return res.status(404).json({
@@ -176,7 +223,6 @@ router.delete('/:id', async (req, res) => {
             });
         }
 
-        // Delete feedback
         await query('DELETE FROM feedback WHERE id = ?', [id]);
 
         console.log(`🗑️ Feedback ${id} deleted by ${req.user.email}`);
@@ -199,7 +245,6 @@ router.delete('/:id', async (req, res) => {
 // ============================================================
 router.get('/stats', async (req, res) => {
     try {
-        // Check if user is admin
         if (req.user.role_name !== 'SUPER_ADMIN' && req.user.role_name !== 'ENGINEER') {
             return res.status(403).json({
                 success: false,
@@ -214,12 +259,13 @@ router.get('/stats', async (req, res) => {
                 MIN(rating) as min_rating,
                 MAX(rating) as max_rating,
                 COUNT(CASE WHEN rating >= 4 THEN 1 END) as positive_count,
-                COUNT(CASE WHEN rating <= 2 THEN 1 END) as negative_count,
+                COUNT(CASE WHEN rating <= 2 AND rating > 0 THEN 1 END) as negative_count,
                 COUNT(CASE WHEN rating = 5 THEN 1 END) as five_star,
                 COUNT(CASE WHEN rating = 4 THEN 1 END) as four_star,
                 COUNT(CASE WHEN rating = 3 THEN 1 END) as three_star,
                 COUNT(CASE WHEN rating = 2 THEN 1 END) as two_star,
-                COUNT(CASE WHEN rating = 1 THEN 1 END) as one_star
+                COUNT(CASE WHEN rating = 1 THEN 1 END) as one_star,
+                COUNT(CASE WHEN rating = 0 OR rating IS NULL THEN 1 END) as not_rated
             FROM feedback
         `);
 
@@ -228,7 +274,8 @@ router.get('/stats', async (req, res) => {
             2: parseInt(stats[0]?.two_star) || 0,
             3: parseInt(stats[0]?.three_star) || 0,
             4: parseInt(stats[0]?.four_star) || 0,
-            5: parseInt(stats[0]?.five_star) || 0
+            5: parseInt(stats[0]?.five_star) || 0,
+            0: parseInt(stats[0]?.not_rated) || 0
         };
 
         res.json({

@@ -1,28 +1,6 @@
 // backend/server.js
-// ✅ COMPLETE FIXED VERSION - WITH MODULAR ROUTES
-// ✅ FIXED: Maintenance routes moved to routes/maintenance.js
-// ✅ FIXED: Spare parts routes moved to routes/spareParts.js
-// ✅ FIXED: Removed engineer_id from POST /api/repairs
-// ✅ FIXED: Changed error_log_id to equipment_id in repairs routes
-// ✅ FIXED: DELETE route now uses routes/repairs.js (removed duplicate from server.js)
-// ✅ CATEGORY ROUTES FIXED - Allows SUPER_ADMIN and ENGINEER
-// ✅ ENGINEER sees their categories + global categories
-// ✅ REMOVED HOSPITAL FILTER FROM EQUIPMENT - ALL USERS SEE ALL EQUIPMENT
-// ✅ ALL ROUTES REGISTERED - Including Training Routes & Downtime Report
-// ✅ ENGINEER DASHBOARD STATS FIXED - Using engineer_id and assigned_to
-// ✅ ERROR ROUTES IMPORTED FROM routes/errors.js
-// ✅ AMC ROUTES IMPORTED FROM routes/amc.js
-// ✅ MAINTENANCE ROUTES WITH ENGINEER NAME MATCHING
-// ✅ REPORTS ROUTES INTEGRATED
-// ✅ ERROR LOGS ALIAS ROUTE ADDED (/api/error-logs)
-// ✅ SPARE PART DOWNTIME ROUTE ADDED (/api/spare-parts/:id/downtime)
-// ✅ UPDATED installation_year TO date_of_installation IN EQUIPMENT TABLE
-// ✅ FIXED: Removed priority column references from dashboard stats
-// ✅ FIXED: Added 'director' field to hospital POST and PUT routes
-// ✅ FIXED: Changed all repair_spare_parts to spare_parts (correct table name)
-// ✅ REMOVED: status column from purchase_orders
-// ✅ FIXED: Spare parts now use modular routes from routes/spareParts.js
-// ✅ FIXED: Procurement routes now use department_name instead of department
+// ✅ COMPLETE FIXED VERSION - WITH FEEDBACK ROUTES
+// ✅ FIXED: Feedback routes imported and registered
 
 // ============================================================
 // ✅ LOAD ENVIRONMENT VARIABLES FIRST
@@ -60,6 +38,8 @@ const trainingRoutes = require('./routes/training');
 const amcRoutes = require('./routes/amc');
 const maintenanceRoutes = require('./routes/maintenance');
 const sparePartsRoutes = require('./routes/spareParts');
+// ✅ ADD THIS LINE - Feedback Routes Import
+const feedbackRoutes = require('./routes/feedback');
 
 const app = express();
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-key-2024';
@@ -2235,6 +2215,12 @@ app.use('/api/spare-parts', sparePartsRoutes);
 console.log('🔩 Spare parts routes registered from routes/spareParts.js');
 
 // ============================================================
+// ✅ FEEDBACK ROUTES - ADDED
+// ============================================================
+app.use('/api/feedback', authenticate, feedbackRoutes);
+console.log('💬 Feedback routes registered');
+
+// ============================================================
 // ✅ KNOWLEDGE BASE ROUTES
 // ============================================================
 
@@ -4049,6 +4035,7 @@ if (require.main === module) {
     console.log('📊 Downtime Report route registered');
     console.log('📋 AMC routes registered from routes/amc.js with auto-status update');
     console.log('📊 Reports routes registered from routes/reports.js');
+    console.log('💬 Feedback routes registered');  // ✅ ADDED
     console.log('📋 Error Logs Alias route registered (/api/error-logs)');
     console.log('📊 Spare Part Downtime route registered (/api/spare-parts/:id/downtime)');
     console.log('📦 Category routes fixed:');

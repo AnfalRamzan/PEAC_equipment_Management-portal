@@ -1,11 +1,5 @@
 // src/components/Layout/MainLayout.jsx
-// ✅ UPDATED: Purchase Orders REMOVED from sidebar
-// ✅ UPDATED: Service Doc. → Documentation
-// ✅ UPDATED: Maintenance → Preventive Maintenance
-// ✅ Procurement KEPT (not removed)
-// ✅ DARK NAVY + LIGHT CYAN THEME - PREMIUM GLITTER EFFECT SIDEBAR
-// ✅ UPDATED: "PAEC Equipment Management" → "MEDICAL EQUIPMENT PORTAL"
-// ✅ ADDED: Feedback option with modal
+// ✅ UPDATED: Feedback with Hospital Name, Admin Name & Feedback Box
 
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -37,10 +31,13 @@ import {
   Rating,
   Button,
   Stack,
+  FormControl,
+  InputLabel,
+  Select,
+  Paper,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
-  AccountCircle,
   Notifications,
   Logout,
   PersonAdd,
@@ -52,7 +49,6 @@ import {
   Build,
   Handyman,
   Description,
-  ShoppingCart,
   LocalShipping,
   Assessment,
   Inventory,
@@ -61,6 +57,9 @@ import {
   School,
   RateReview,
   Close as CloseIcon,
+  Person,
+  Comment,
+  Send,
 } from '@mui/icons-material';
 import { useNavigate, Outlet } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -72,7 +71,12 @@ import NotificationSound from '../NotificationSound';
 import { toast } from 'react-toastify';
 
 // ============================================================
-// ✅ DYNAMIC DRAWER WIDTH BASED ON SCREEN SIZE
+// ✅ API URL
+// ============================================================
+const API_URL = 'http://localhost:5000/api';
+
+// ============================================================
+// ✅ DYNAMIC DRAWER WIDTH
 // ============================================================
 const getDrawerWidth = (isMobile, isTablet, isSmallDesktop) => {
   if (isMobile) return 210;
@@ -82,37 +86,32 @@ const getDrawerWidth = (isMobile, isTablet, isSmallDesktop) => {
 };
 
 // ============================================================
-// ✅ FONT FAMILY CONSTANT - SATOSHI (Premium & Sleek)
+// ✅ FONT FAMILY
 // ============================================================
 const FONT_FAMILY = "'Satoshi', 'Segoe UI', 'Roboto', sans-serif";
 
 // ============================================================
-// ✅ DARK NAVY + LIGHT CYAN THEME COLORS
+// ✅ COLORS
 // ============================================================
 const colors = {
   darkNavy: '#0F172A',
   darkNavyLight: '#1E293B',
   darkNavyDark: '#0A0F1E',
   darkNavyHover: '#1E3A5F',
-  
   lightCyan: '#67E8F9',
   lightCyanBright: '#A5F3FC',
   lightCyanDark: '#22D3EE',
   lightCyanGlow: 'rgba(103, 232, 249, 0.15)',
   lightCyanGlowStrong: 'rgba(103, 232, 249, 0.3)',
-  
   sidebar: 'rgba(15, 23, 42, 0.92)',
   sidebarHover: 'rgba(30, 58, 95, 0.7)',
   active: 'rgba(30, 58, 95, 0.8)',
-  
   text: '#FFFFFF',
   secondaryText: '#94A3B8',
   textLight: '#CBD5E1',
   cyanText: '#67E8F9',
-  
   accentGold: '#C9A227',
   goldLight: '#E8C84A',
-  
   mainBg: '#F1F5F9',
   white: '#FFFFFF',
   darkText: '#0F172A',
@@ -121,7 +120,6 @@ const colors = {
   success: '#22C55E',
   warning: '#F59E0B',
   info: '#3B82F6',
-  
   glassBorder: 'rgba(103, 232, 249, 0.1)',
   glassBg: 'rgba(15, 23, 42, 0.7)',
   glassShine: 'rgba(103, 232, 249, 0.03)',
@@ -130,7 +128,7 @@ const colors = {
 };
 
 // ============================================================
-// ✅ PREMIUM GLITTER & SHINE ANIMATIONS
+// ✅ ANIMATIONS
 // ============================================================
 const badgeStyles = `
 @keyframes badgePulse {
@@ -139,7 +137,6 @@ const badgeStyles = `
     70% { transform: scale(0.9); }
     100% { transform: scale(1); }
 }
-
 @keyframes bellRing {
     0% { transform: rotate(0deg); }
     25% { transform: rotate(-15deg); }
@@ -147,234 +144,32 @@ const badgeStyles = `
     75% { transform: rotate(-10deg); }
     100% { transform: rotate(0deg); }
 }
-
 @keyframes glowPulse {
     0% { opacity: 0.3; }
     50% { opacity: 0.9; }
     100% { opacity: 0.3; }
 }
-
 @keyframes cyanGlowPulse {
-    0% { 
-        box-shadow: 0 0 15px rgba(103, 232, 249, 0.2);
-        opacity: 0.6;
-    }
-    50% { 
-        box-shadow: 0 0 35px rgba(103, 232, 249, 0.5);
-        opacity: 1;
-    }
-    100% { 
-        box-shadow: 0 0 15px rgba(103, 232, 249, 0.2);
-        opacity: 0.6;
-    }
+    0% { box-shadow: 0 0 15px rgba(103, 232, 249, 0.2); opacity: 0.6; }
+    50% { box-shadow: 0 0 35px rgba(103, 232, 249, 0.5); opacity: 1; }
+    100% { box-shadow: 0 0 15px rgba(103, 232, 249, 0.2); opacity: 0.6; }
 }
-
 @keyframes iconFloat {
     0% { transform: translateY(0px); }
     50% { transform: translateY(-3px); }
     100% { transform: translateY(0px); }
 }
-
 @keyframes gradientShine {
     0% { background-position: 0% 50%; }
     50% { background-position: 100% 50%; }
     100% { background-position: 0% 50%; }
 }
-
-@keyframes glassShimmer {
-    0% { background-position: -200% center; }
-    100% { background-position: 200% center; }
-}
-
-@keyframes cyanBorderPulse {
-    0% { border-color: rgba(103, 232, 249, 0.1); }
-    50% { border-color: rgba(103, 232, 249, 0.4); }
-    100% { border-color: rgba(103, 232, 249, 0.1); }
-}
-
-@keyframes glitterShine {
-    0% {
-        background-position: -300% center;
-        opacity: 0;
-    }
-    10% {
-        opacity: 1;
-    }
-    50% {
-        opacity: 0.8;
-    }
-    90% {
-        opacity: 1;
-    }
-    100% {
-        background-position: 300% center;
-        opacity: 0;
-    }
-}
-
-@keyframes shimmerFloat {
-    0% {
-        transform: translateX(-100%) rotate(-5deg);
-        opacity: 0;
-    }
-    20% {
-        opacity: 0.6;
-    }
-    50% {
-        opacity: 1;
-    }
-    80% {
-        opacity: 0.6;
-    }
-    100% {
-        transform: translateX(200%) rotate(-5deg);
-        opacity: 0;
-    }
-}
-
-@keyframes sparkle {
-    0% {
-        transform: scale(0) rotate(0deg);
-        opacity: 0;
-    }
-    30% {
-        transform: scale(1.2) rotate(30deg);
-        opacity: 1;
-    }
-    60% {
-        transform: scale(0.8) rotate(60deg);
-        opacity: 0.8;
-    }
-    100% {
-        transform: scale(0) rotate(90deg);
-        opacity: 0;
-    }
-}
-
-@keyframes goldSparkle {
-    0% {
-        transform: scale(0) rotate(0deg);
-        opacity: 0;
-        box-shadow: 0 0 0px rgba(201, 162, 39, 0);
-    }
-    50% {
-        transform: scale(1.5) rotate(180deg);
-        opacity: 1;
-        box-shadow: 0 0 30px rgba(201, 162, 39, 0.6);
-    }
-    100% {
-        transform: scale(0) rotate(360deg);
-        opacity: 0;
-        box-shadow: 0 0 0px rgba(201, 162, 39, 0);
-    }
-}
-
-@keyframes cyanSparkle {
-    0% {
-        transform: scale(0) rotate(0deg);
-        opacity: 0;
-        box-shadow: 0 0 0px rgba(103, 232, 249, 0);
-    }
-    50% {
-        transform: scale(1.5) rotate(180deg);
-        opacity: 1;
-        box-shadow: 0 0 30px rgba(103, 232, 249, 0.6);
-    }
-    100% {
-        transform: scale(0) rotate(360deg);
-        opacity: 0;
-        box-shadow: 0 0 0px rgba(103, 232, 249, 0);
-    }
-}
-
-@keyframes sidebarGlow {
-    0% {
-        box-shadow: 
-            0 0 40px rgba(103, 232, 249, 0.02),
-            inset 0 0 80px rgba(103, 232, 249, 0.01);
-    }
-    50% {
-        box-shadow: 
-            0 0 60px rgba(103, 232, 249, 0.06),
-            inset 0 0 100px rgba(103, 232, 249, 0.03);
-    }
-    100% {
-        box-shadow: 
-            0 0 40px rgba(103, 232, 249, 0.02),
-            inset 0 0 80px rgba(103, 232, 249, 0.01);
-    }
-}
-
-@keyframes menuItemGlow {
-    0% {
-        border-color: rgba(103, 232, 249, 0.1);
-        box-shadow: 0 0 20px rgba(103, 232, 249, 0);
-    }
-    50% {
-        border-color: rgba(103, 232, 249, 0.3);
-        box-shadow: 0 0 30px rgba(103, 232, 249, 0.05);
-    }
-    100% {
-        border-color: rgba(103, 232, 249, 0.1);
-        box-shadow: 0 0 20px rgba(103, 232, 249, 0);
-    }
-}
-
-@keyframes selectedPulse {
-    0% {
-        box-shadow: 0 0 20px rgba(103, 232, 249, 0.2);
-    }
-    50% {
-        box-shadow: 0 0 40px rgba(103, 232, 249, 0.5);
-    }
-    100% {
-        box-shadow: 0 0 20px rgba(103, 232, 249, 0.2);
-    }
-}
-
-.bell-ring {
-    animation: bellRing 0.6s ease-in-out 3;
-}
-
-.gradient-shine {
-    animation: gradientShine 3s ease-in-out infinite;
-}
-
-.glitter-shine {
-    animation: glitterShine 4s ease-in-out infinite;
-}
-
-.shimmer-float {
-    animation: shimmerFloat 3s ease-in-out infinite;
-}
-
-.sparkle-effect {
-    animation: sparkle 2s ease-in-out infinite;
-}
-
-.gold-sparkle {
-    animation: goldSparkle 3s ease-in-out infinite;
-}
-
-.cyan-sparkle {
-    animation: cyanSparkle 2.5s ease-in-out infinite;
-}
-
-.sidebar-glow {
-    animation: sidebarGlow 4s ease-in-out infinite;
-}
-
-.menu-item-glow {
-    animation: menuItemGlow 3s ease-in-out infinite;
-}
-
-.selected-pulse {
-    animation: selectedPulse 2s ease-in-out infinite;
-}
+.bell-ring { animation: bellRing 0.6s ease-in-out 3; }
+.gradient-shine { animation: gradientShine 3s ease-in-out infinite; }
 `;
 
 // ============================================================
-// ✅ SOUND EFFECT FUNCTION
+// ✅ SOUND EFFECT
 // ============================================================
 const playNotificationSound = () => {
   try {
@@ -402,16 +197,12 @@ const playNotificationSound = () => {
 };
 
 // ============================================================
-// ✅ BROWSER NOTIFICATION FUNCTIONS
+// ✅ BROWSER NOTIFICATION
 // ============================================================
 const sendBrowserNotification = (title, message, options = {}) => {
   try {
-    if (!('Notification' in window)) {
-      return false;
-    }
-    if (Notification.permission !== 'granted') {
-      return false;
-    }
+    if (!('Notification' in window)) return false;
+    if (Notification.permission !== 'granted') return false;
     const notification = new Notification(title, {
       body: message,
       icon: '/logo192.png',
@@ -435,30 +226,6 @@ const sendBrowserNotification = (title, message, options = {}) => {
 };
 
 // ============================================================
-// ✅ MENU ITEMS - UPDATED
-// ✅ Purchase Orders REMOVED
-// ✅ Service Doc. → Documentation
-// ✅ Maintenance → Preventive Maintenance
-// ✅ Procurement KEPT (not removed)
-// ============================================================
-const menuItems = [
-  { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
-  { text: 'Hospitals', icon: <LocalHospital />, path: '/hospitals' },
-  { text: 'Equipment', icon: <MedicalServices />, path: '/equipment' },
-  { text: 'Error Logs', icon: <ErrorOutline />, path: '/errors' },
-  { text: 'Repairs', icon: <Build />, path: '/repairs' },
-  { text: 'Knowledge Base', icon: <EmojiObjects />, path: '/knowledge-base' },
-  { text: 'Reports', icon: <Assessment />, path: '/reports' },
-  { text: 'Training', icon: <School />, path: '/training' },
-  { text: 'Preventive Maintenance', icon: <Handyman />, path: '/maintenance' },
-  { text: 'Spare Parts', icon: <Inventory />, path: '/spare-parts' },
-  { text: 'Documentation', icon: <Description />, path: '/service-documentation' },
-  { text: 'AMC Contracts', icon: <Gavel />, path: '/amc' },
-  { text: 'Procurement', icon: <LocalShipping />, path: '/procurement' },
-  // ❌ Purchase Orders REMOVED
-];
-
-// ============================================================
 // ✅ MAIN COMPONENT
 // ============================================================
 const MainLayout = () => {
@@ -478,6 +245,8 @@ const MainLayout = () => {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackRating, setFeedbackRating] = useState(0);
   const [feedbackMessage, setFeedbackMessage] = useState('');
+  const [feedbackHospital, setFeedbackHospital] = useState('');
+  const [feedbackAdmin, setFeedbackAdmin] = useState('');
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
 
   const theme = useTheme();
@@ -495,29 +264,12 @@ const MainLayout = () => {
   // ============================================================
   const getFullImageUrl = (url) => {
     if (!url) return null;
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      return url;
-    }
-    if (url.startsWith('/uploads')) {
-      return `http://localhost:5000${url}`;
-    }
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    if (url.startsWith('/uploads')) return `http://localhost:5000${url}`;
     return url;
   };
 
   const profileImageUrl = user?.profile_image ? getFullImageUrl(user.profile_image) : null;
-
-  // ============================================================
-  // ✅ GET FILTERED MENU ITEMS
-  // ============================================================
-  const getFilteredMenuItems = () => {
-    const userRole = user?.role || 'ENGINEER';
-    if (userRole === 'ENGINEER' || userRole === 'SUPER_ADMIN') {
-      return menuItems;
-    }
-    return menuItems;
-  };
-
-  const filteredMenuItems = getFilteredMenuItems();
   const prevUnreadCount = useRef(unreadCount);
 
   // ============================================================
@@ -535,9 +287,7 @@ const MainLayout = () => {
       if (e.key === 'user') {
         try {
           const updatedUser = JSON.parse(e.newValue);
-          if (updatedUser) {
-            dispatch(refreshUser());
-          }
+          if (updatedUser) dispatch(refreshUser());
         } catch (error) {
           console.error('Error parsing user from storage:', error);
         }
@@ -573,14 +323,11 @@ const MainLayout = () => {
     if (unreadCount > prevUnreadCount.current) {
       setBellRing(true);
       setTimeout(() => setBellRing(false), 1500);
-      
       if (soundEnabled) playNotificationSound();
-      
       const lastNotif = notifications?.[0];
       if (browserNotificationsEnabled && lastNotif) {
         sendBrowserNotification(lastNotif.title || 'New Notification', lastNotif.message || 'You have a new notification');
       }
-      
       toast.info('🔔 You have a new notification!', {
         position: 'top-right',
         autoClose: 4000,
@@ -628,9 +375,15 @@ const MainLayout = () => {
   const handleNotificationOpen = (event) => setNotificationAnchor(event.currentTarget);
   const handleNotificationClose = () => setNotificationAnchor(null);
 
-  // ✅ Feedback Handlers
+  // ============================================================
+  // ✅ FEEDBACK HANDLERS
+  // ============================================================
   const handleFeedbackOpen = () => {
     setFeedbackOpen(true);
+    setFeedbackRating(0);
+    setFeedbackMessage('');
+    setFeedbackHospital(user?.hospital_name || '');
+    setFeedbackAdmin(user?.full_name || '');
     handleMenuClose();
   };
 
@@ -638,18 +391,52 @@ const MainLayout = () => {
     setFeedbackOpen(false);
     setFeedbackRating(0);
     setFeedbackMessage('');
+    setFeedbackHospital('');
+    setFeedbackAdmin('');
+    setFeedbackSubmitting(false);
   };
 
-  const handleFeedbackSubmit = () => {
-    if (feedbackRating === 0) {
-      toast.warning('Please select a rating!', {
-        position: 'top-right',
-        autoClose: 3000,
+  // ✅ Save feedback to localStorage (fallback)
+  const saveFeedbackToLocalStorage = (feedbackData) => {
+    try {
+      let existingFeedbacks = [];
+      const stored = localStorage.getItem('all_feedbacks');
+      if (stored) {
+        existingFeedbacks = JSON.parse(stored);
+        if (!Array.isArray(existingFeedbacks)) {
+          existingFeedbacks = [];
+        }
+      }
+      
+      feedbackData.id = Date.now() + Math.random() * 1000;
+      existingFeedbacks.push(feedbackData);
+      localStorage.setItem('all_feedbacks', JSON.stringify(existingFeedbacks));
+      localStorage.setItem('feedbacks', JSON.stringify(existingFeedbacks));
+      
+      toast.success('✨ Feedback saved locally! (Server unavailable)', {
+        style: {
+          background: colors.darkNavy,
+          color: colors.lightCyan,
+        },
       });
-      return;
+      setFeedbackOpen(false);
+      setFeedbackRating(0);
+      setFeedbackMessage('');
+      setFeedbackHospital('');
+      setFeedbackAdmin('');
+      setFeedbackSubmitting(false);
+      return true;
+    } catch (e) {
+      console.error('LocalStorage save error:', e);
+      return false;
     }
-    if (!feedbackMessage.trim()) {
-      toast.warning('Please write your feedback!', {
+  };
+
+  // ✅ Main submit handler
+  const handleFeedbackSubmit = async () => {
+    // ✅ Validation - Only message is required
+    if (!feedbackMessage || !feedbackMessage.trim()) {
+      toast.warning('⚠️ Please write your feedback!', {
         position: 'top-right',
         autoClose: 3000,
       });
@@ -658,34 +445,107 @@ const MainLayout = () => {
 
     setFeedbackSubmitting(true);
 
-    // Simulate API call or save to localStorage
-    setTimeout(() => {
+    try {
+      const token = localStorage.getItem('token');
+      
       const feedbackData = {
-        id: Date.now(),
-        user: user?.full_name || user?.email || 'Anonymous',
-        rating: feedbackRating,
+        user_name: user?.full_name || user?.email || 'Anonymous User',
+        email: user?.email || 'No email',
+        rating: feedbackRating || 0,
         message: feedbackMessage.trim(),
+        hospital_name: feedbackHospital || user?.hospital_name || '',
+        admin_name: feedbackAdmin || user?.full_name || '',
         timestamp: new Date().toISOString(),
       };
 
-      // Save to localStorage
-      const existingFeedbacks = JSON.parse(localStorage.getItem('feedbacks') || '[]');
-      existingFeedbacks.push(feedbackData);
-      localStorage.setItem('feedbacks', JSON.stringify(existingFeedbacks));
+      console.log('📤 Sending feedback to API:', feedbackData);
 
-      toast.success('✨ Thank you for your feedback!', {
-        position: 'top-right',
-        autoClose: 4000,
-        style: {
-          background: colors.darkNavy,
-          color: colors.lightCyan,
+      const response = await fetch(`${API_URL}/feedback`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
+        body: JSON.stringify(feedbackData),
       });
 
+      const data = await response.json();
+      console.log('📥 API Response:', data);
+
+      if (data.success) {
+        toast.success('✨ Thank you for your valuable feedback!', {
+          position: 'top-right',
+          autoClose: 4000,
+          style: {
+            background: colors.darkNavy,
+            color: colors.lightCyan,
+          },
+        });
+        setFeedbackOpen(false);
+        setFeedbackRating(0);
+        setFeedbackMessage('');
+        setFeedbackHospital('');
+        setFeedbackAdmin('');
+        setFeedbackSubmitting(false);
+      } else {
+        console.warn('⚠️ API returned error:', data.message);
+        const saved = saveFeedbackToLocalStorage(feedbackData);
+        if (!saved) {
+          toast.error('❌ Failed to submit feedback. Please try again.', {
+            position: 'top-right',
+            autoClose: 4000,
+          });
+        }
+        setFeedbackSubmitting(false);
+      }
+    } catch (error) {
+      console.error('❌ API Error:', error);
+      
+      const feedbackData = {
+        user_name: user?.full_name || user?.email || 'Anonymous User',
+        email: user?.email || 'No email',
+        rating: feedbackRating || 0,
+        message: feedbackMessage.trim(),
+        hospital_name: feedbackHospital || user?.hospital_name || '',
+        admin_name: feedbackAdmin || user?.full_name || '',
+        timestamp: new Date().toISOString(),
+      };
+      
+      const saved = saveFeedbackToLocalStorage(feedbackData);
+      if (!saved) {
+        toast.error('❌ Failed to submit feedback. Please try again.', {
+          position: 'top-right',
+          autoClose: 4000,
+        });
+      }
       setFeedbackSubmitting(false);
-      handleFeedbackClose();
-    }, 1000);
+    }
   };
+
+  // ============================================================
+  // ✅ MENU ITEMS
+  // ============================================================
+  const menuItems = [
+    { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
+    { text: 'Hospitals', icon: <LocalHospital />, path: '/hospitals' },
+    { text: 'Equipment', icon: <MedicalServices />, path: '/equipment' },
+    { text: 'Error Logs', icon: <ErrorOutline />, path: '/errors' },
+    { text: 'Repairs', icon: <Build />, path: '/repairs' },
+    { text: 'Knowledge Base', icon: <EmojiObjects />, path: '/knowledge-base' },
+    { text: 'Reports', icon: <Assessment />, path: '/reports' },
+    { text: 'Training', icon: <School />, path: '/training' },
+    { text: 'Preventive Maintenance', icon: <Handyman />, path: '/maintenance' },
+    { text: 'Spare Parts', icon: <Inventory />, path: '/spare-parts' },
+    { text: 'Documentation', icon: <Description />, path: '/service-documentation' },
+    { text: 'AMC Contracts', icon: <Gavel />, path: '/amc' },
+    { text: 'Procurement', icon: <LocalShipping />, path: '/procurement' },
+  ];
+
+  const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'ENGINEER';
+
+  const finalMenuItems = isAdmin 
+    ? [...menuItems, { text: 'Feedback', icon: <RateReview />, path: '/feedback' }]
+    : menuItems;
 
   // ============================================================
   // ✅ DYNAMIC DRAWER WIDTH
@@ -693,7 +553,7 @@ const MainLayout = () => {
   const drawerWidth = getDrawerWidth(isMobile, isTablet, isSmallDesktop);
 
   // ============================================================
-  // ✅ GET RESPONSIVE SIZES - TIGHT SPACING TO FIT ALL ITEMS
+  // ✅ RESPONSIVE SIZES
   // ============================================================
   const getResponsiveSizes = () => {
     if (isMobile) {
@@ -775,7 +635,7 @@ const MainLayout = () => {
   const sizes = getResponsiveSizes();
 
   // ============================================================
-  // ✨ SIDEBAR - BALANCED SPACING, NO SCROLL, PROMINENT CLICK
+  // ✨ DRAWER
   // ============================================================
   const drawer = (
     <Box
@@ -814,249 +674,8 @@ const MainLayout = () => {
             4px 0 60px rgba(103, 232, 249, 0.03)
           `,
         },
-        '& .glitter-overlay': {
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: `
-            linear-gradient(105deg,
-              transparent 30%,
-              rgba(103, 232, 249, 0.02) 35%,
-              rgba(103, 232, 249, 0.04) 40%,
-              rgba(201, 162, 39, 0.02) 42%,
-              rgba(103, 232, 249, 0.05) 45%,
-              rgba(103, 232, 249, 0.02) 48%,
-              rgba(201, 162, 39, 0.02) 50%,
-              rgba(103, 232, 249, 0.04) 52%,
-              rgba(103, 232, 249, 0.02) 55%,
-              transparent 60%
-            )
-          `,
-          backgroundSize: '300% 100%',
-          animation: 'glitterShine 6s ease-in-out infinite',
-          pointerEvents: 'none',
-          zIndex: 1,
-        },
-        '& .shimmer-overlay': {
-          position: 'absolute',
-          top: '-50%',
-          left: '-50%',
-          width: '200%',
-          height: '200%',
-          background: `
-            radial-gradient(
-              ellipse at 30% 50%,
-              rgba(103, 232, 249, 0.04) 0%,
-              transparent 50%
-            ),
-            radial-gradient(
-              ellipse at 70% 80%,
-              rgba(201, 162, 39, 0.02) 0%,
-              transparent 40%
-            ),
-            radial-gradient(
-              ellipse at 50% 20%,
-              rgba(103, 232, 249, 0.03) 0%,
-              transparent 30%
-            )
-          `,
-          animation: 'shimmerFloat 8s ease-in-out infinite',
-          pointerEvents: 'none',
-          zIndex: 1,
-        },
-        '& .sparkle-1': {
-          position: 'absolute',
-          top: '15%',
-          right: '10%',
-          width: '4px',
-          height: '4px',
-          background: colors.lightCyan,
-          borderRadius: '50%',
-          boxShadow: `0 0 20px ${colors.lightCyan}, 0 0 40px ${colors.lightCyan}`,
-          animation: 'cyanSparkle 3.5s ease-in-out infinite',
-          pointerEvents: 'none',
-          zIndex: 2,
-        },
-        '& .sparkle-2': {
-          position: 'absolute',
-          top: '40%',
-          right: '5%',
-          width: '3px',
-          height: '3px',
-          background: colors.accentGold,
-          borderRadius: '50%',
-          boxShadow: `0 0 20px ${colors.accentGold}, 0 0 40px ${colors.accentGold}`,
-          animation: 'goldSparkle 4.2s ease-in-out infinite 1s',
-          pointerEvents: 'none',
-          zIndex: 2,
-        },
-        '& .sparkle-3': {
-          position: 'absolute',
-          bottom: '30%',
-          right: '8%',
-          width: '3px',
-          height: '3px',
-          background: colors.lightCyan,
-          borderRadius: '50%',
-          boxShadow: `0 0 20px ${colors.lightCyan}, 0 0 40px ${colors.lightCyan}`,
-          animation: 'cyanSparkle 2.8s ease-in-out infinite 2s',
-          pointerEvents: 'none',
-          zIndex: 2,
-        },
-        '& .sparkle-4': {
-          position: 'absolute',
-          bottom: '55%',
-          right: '15%',
-          width: '2px',
-          height: '2px',
-          background: colors.accentGold,
-          borderRadius: '50%',
-          boxShadow: `0 0 15px ${colors.accentGold}, 0 0 30px ${colors.accentGold}`,
-          animation: 'goldSparkle 3.8s ease-in-out infinite 0.5s',
-          pointerEvents: 'none',
-          zIndex: 2,
-        },
-        '& .sparkle-5': {
-          position: 'absolute',
-          top: '70%',
-          right: '12%',
-          width: '3px',
-          height: '3px',
-          background: colors.lightCyanBright,
-          borderRadius: '50%',
-          boxShadow: `0 0 20px ${colors.lightCyanBright}, 0 0 40px ${colors.lightCyanBright}`,
-          animation: 'cyanSparkle 3.2s ease-in-out infinite 1.5s',
-          pointerEvents: 'none',
-          zIndex: 2,
-        },
-        '& .glow-border': {
-          position: 'absolute',
-          top: 0,
-          right: 0,
-          width: '3px',
-          height: '100%',
-          background: `
-            linear-gradient(180deg,
-              transparent 0%,
-              rgba(103, 232, 249, 0.3) 15%,
-              rgba(201, 162, 39, 0.2) 30%,
-              rgba(103, 232, 249, 0.4) 50%,
-              rgba(201, 162, 39, 0.2) 70%,
-              rgba(103, 232, 249, 0.3) 85%,
-              transparent 100%
-            )
-          `,
-          boxShadow: '0 0 40px rgba(103, 232, 249, 0.1)',
-          animation: 'menuItemGlow 4s ease-in-out infinite',
-          pointerEvents: 'none',
-          zIndex: 2,
-        },
-        '&::before': {
-          content: '""',
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: `
-            radial-gradient(circle at 50% 0%, rgba(103, 232, 249, 0.06) 0%, transparent 50%),
-            radial-gradient(circle at 100% 50%, rgba(201, 162, 39, 0.03) 0%, transparent 40%)
-          `,
-          pointerEvents: 'none',
-          zIndex: 0,
-        },
-        '&::after': {
-          content: '""',
-          position: 'absolute',
-          top: 0,
-          right: 0,
-          width: '1px',
-          height: '100%',
-          background: `linear-gradient(180deg, 
-            transparent, 
-            rgba(103, 232, 249, 0.15), 
-            rgba(201, 162, 39, 0.08), 
-            rgba(103, 232, 249, 0.15), 
-            transparent
-          )`,
-          animation: 'glowPulse 3s ease-in-out infinite',
-          pointerEvents: 'none',
-          zIndex: 2,
-        },
-        '& .glass-shimmer': {
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: `
-            linear-gradient(135deg,
-              transparent 0%,
-              rgba(103, 232, 249, 0.02) 20%,
-              rgba(103, 232, 249, 0.04) 40%,
-              rgba(201, 162, 39, 0.02) 50%,
-              rgba(103, 232, 249, 0.04) 60%,
-              rgba(103, 232, 249, 0.02) 80%,
-              transparent 100%
-            )
-          `,
-          backgroundSize: '200% 200%',
-          animation: 'glassShimmer 8s ease-in-out infinite',
-          pointerEvents: 'none',
-          zIndex: 0,
-        },
-        '& .cyan-glow': {
-          position: 'absolute',
-          top: '30%',
-          left: '20%',
-          width: '70%',
-          height: '50%',
-          background: `
-            radial-gradient(
-              ellipse at center,
-              rgba(103, 232, 249, 0.05) 0%,
-              transparent 60%
-            )
-          `,
-          pointerEvents: 'none',
-          borderRadius: '50%',
-          filter: 'blur(100px)',
-          zIndex: 0,
-        },
-        '& .gold-glow': {
-          position: 'absolute',
-          bottom: '20%',
-          right: '10%',
-          width: '40%',
-          height: '30%',
-          background: `
-            radial-gradient(
-              ellipse at center,
-              rgba(201, 162, 39, 0.03) 0%,
-              transparent 60%
-            )
-          `,
-          pointerEvents: 'none',
-          borderRadius: '50%',
-          filter: 'blur(80px)',
-          zIndex: 0,
-        },
       }}
     >
-      <Box className="glitter-overlay" />
-      <Box className="shimmer-overlay" />
-      <Box className="sparkle-1" />
-      <Box className="sparkle-2" />
-      <Box className="sparkle-3" />
-      <Box className="sparkle-4" />
-      <Box className="sparkle-5" />
-      <Box className="glow-border" />
-      <Box className="glass-shimmer" />
-      <Box className="cyan-glow" />
-      <Box className="gold-glow" />
-
       {/* Logo Section */}
       <Box
         sx={{
@@ -1071,20 +690,6 @@ const MainLayout = () => {
           background: 'rgba(15, 23, 42, 0.6)',
           backdropFilter: 'blur(10px)',
           zIndex: 3,
-          '&::after': {
-            content: '""',
-            position: 'absolute',
-            bottom: 0,
-            left: '8%',
-            right: '8%',
-            height: '1px',
-            background: `linear-gradient(90deg, 
-              transparent, 
-              rgba(103, 232, 249, 0.3), 
-              rgba(201, 162, 39, 0.15), 
-              transparent
-            )`,
-          },
         }}
       >
         <Box sx={{ position: 'relative' }}>
@@ -1103,30 +708,10 @@ const MainLayout = () => {
               e.target.src = '/logo.png';
             }}
           />
-          <Box
-            sx={{
-              position: 'absolute',
-              top: -25,
-              left: -25,
-              right: -25,
-              bottom: -25,
-              borderRadius: '50%',
-              background: `
-                radial-gradient(
-                  circle at center,
-                  rgba(103, 232, 249, 0.08) 0%,
-                  rgba(201, 162, 39, 0.03) 30%,
-                  transparent 70%
-                )
-              `,
-              animation: 'glowPulse 4s ease-in-out infinite',
-              pointerEvents: 'none',
-            }}
-          />
         </Box>
       </Box>
 
-      {/* ✅ MENU - TIGHT SPACING, NO SCROLL */}
+      {/* Menu */}
       <Box
         sx={{
           flex: 1,
@@ -1150,7 +735,7 @@ const MainLayout = () => {
             gap: sizes.listGap,
           }}
         >
-          {filteredMenuItems.map((item) => (
+          {finalMenuItems.map((item) => (
             <ListItem
               button
               key={item.text}
@@ -1208,21 +793,6 @@ const MainLayout = () => {
                   transform: `scale(${sizes.selectedScale})`,
                   border: `1.5px solid rgba(103, 232, 249, 0.2)`,
                   borderRadius: sizes.borderRadius,
-                  '&::before': {
-                    content: '""',
-                    position: 'absolute',
-                    inset: -1,
-                    borderRadius: sizes.borderRadius,
-                    padding: '1.5px',
-                    background: `linear-gradient(135deg, ${colors.lightCyan}, ${colors.accentGold}, ${colors.lightCyan})`,
-                    backgroundSize: '300% 300%',
-                    animation: 'gradientShine 3s ease-in-out infinite',
-                    WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
-                    WebkitMaskComposite: 'xor',
-                    maskComposite: 'exclude',
-                    pointerEvents: 'none',
-                    zIndex: 0,
-                  },
                   '& .MuiListItemIcon-root': {
                     color: colors.lightCyan,
                     animation: 'iconFloat 3s ease-in-out infinite',
@@ -1237,24 +807,6 @@ const MainLayout = () => {
                     `,
                     letterSpacing: '0.5px',
                     fontFamily: FONT_FAMILY,
-                  },
-                  '&:hover': {
-                    background: `
-                      linear-gradient(135deg, 
-                        rgba(30, 58, 95, 0.9) 0%, 
-                        rgba(103, 232, 249, 0.18) 25%,
-                        rgba(30, 58, 95, 0.8) 50%,
-                        rgba(201, 162, 39, 0.08) 75%,
-                        rgba(30, 58, 95, 0.9) 100%
-                      )
-                    `,
-                    transform: `scale(${sizes.selectedScale + 0.01})`,
-                    boxShadow: `
-                      inset 0 0 60px rgba(103, 232, 249, 0.06),
-                      0 4px 25px rgba(0,0,0,0.4),
-                      0 0 50px rgba(103, 232, 249, 0.06),
-                      inset 0 0 80px rgba(103, 232, 249, 0.03)
-                    `,
                   },
                 },
               }}
@@ -1387,7 +939,7 @@ const MainLayout = () => {
               <RateReview sx={{ fontSize: 20 }} />
             </ListItemIcon>
             <ListItemText
-              primary="Feedback"
+              primary="Give Feedback"
               primaryTypographyProps={{
                 fontFamily: FONT_FAMILY,
                 fontSize: '10px',
@@ -1400,8 +952,6 @@ const MainLayout = () => {
       </Box>
     </Box>
   );
-
-  const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'ENGINEER';
 
   // ============================================================
   // ✅ RENDER
@@ -1554,7 +1104,7 @@ const MainLayout = () => {
                 }
               }}
             >
-              {/* ✅ Feedback option in dropdown menu too */}
+              {/* Feedback option in dropdown */}
               <MenuItem onClick={handleFeedbackOpen} sx={{ 
                 '&:hover': { bgcolor: 'rgba(103, 232, 249, 0.05)' },
                 fontFamily: FONT_FAMILY,
@@ -1568,18 +1118,20 @@ const MainLayout = () => {
               <Divider sx={{ borderColor: 'rgba(103, 232, 249, 0.1)' }} />
 
               {isAdmin && (
-                <MenuItem onClick={handleUsersClick} sx={{ 
-                  '&:hover': { bgcolor: 'rgba(103, 232, 249, 0.05)' },
-                  fontFamily: FONT_FAMILY,
-                }}>
-                  <ListItemIcon>
-                    <PersonAdd sx={{ color: '#0F172A' }} fontSize="small" />
-                  </ListItemIcon>
-                  Users
-                </MenuItem>
+                <>
+                  <MenuItem onClick={handleUsersClick} sx={{ 
+                    '&:hover': { bgcolor: 'rgba(103, 232, 249, 0.05)' },
+                    fontFamily: FONT_FAMILY,
+                  }}>
+                    <ListItemIcon>
+                      <PersonAdd sx={{ color: '#0F172A' }} fontSize="small" />
+                    </ListItemIcon>
+                    Users
+                  </MenuItem>
+                  <Divider sx={{ borderColor: 'rgba(103, 232, 249, 0.1)' }} />
+                </>
               )}
 
-              <Divider sx={{ borderColor: 'rgba(103, 232, 249, 0.1)' }} />
               <MenuItem onClick={handleLogout} sx={{ 
                 color: colors.error, 
                 '&:hover': { bgcolor: `${colors.error}06` },
@@ -1659,7 +1211,7 @@ const MainLayout = () => {
         </Box>
       </Box>
 
-      {/* ✅ FEEDBACK DIALOG */}
+      {/* ✅ FEEDBACK DIALOG - With Hospital Name, Admin Name & Feedback Box */}
       <Dialog
         open={feedbackOpen}
         onClose={handleFeedbackClose}
@@ -1708,59 +1260,37 @@ const MainLayout = () => {
 
         <DialogContent sx={{ pt: 3 }}>
           <Stack spacing={3}>
-            {/* Rating Section */}
-            <Box>
+            {/* User info */}
+            <Box
+              sx={{
+                p: 2,
+                bgcolor: 'rgba(103, 232, 249, 0.05)',
+                borderRadius: 2,
+                border: `1px solid rgba(103, 232, 249, 0.1)`,
+              }}
+            >
               <Typography
                 variant="body2"
                 sx={{
-                  fontWeight: 600,
-                  color: colors.darkNavy,
-                  mb: 1.5,
+                  color: colors.lightText,
                   fontFamily: FONT_FAMILY,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
                 }}
               >
-                How would you rate your experience?
+                <Person sx={{ fontSize: 16 }} />
+                Submitting as: <strong>{user?.full_name || user?.email || 'Anonymous User'}</strong>
               </Typography>
-              <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-                <Rating
-                  value={feedbackRating}
-                  onChange={(event, newValue) => setFeedbackRating(newValue)}
-                  size="large"
-                  sx={{
-                    '& .MuiRating-iconFilled': {
-                      color: colors.accentGold,
-                    },
-                    '& .MuiRating-iconHover': {
-                      color: colors.goldLight,
-                    },
-                  }}
-                />
-              </Box>
-              {feedbackRating === 0 && (
-                <Typography
-                  variant="caption"
-                  sx={{
-                    color: colors.error,
-                    display: 'block',
-                    textAlign: 'center',
-                    mt: 0.5,
-                    fontFamily: FONT_FAMILY,
-                  }}
-                >
-                  Please select a rating
-                </Typography>
-              )}
             </Box>
 
-            {/* Message Section */}
+            {/* ✅ Hospital Name Field */}
             <TextField
               fullWidth
-              label="Your Feedback"
-              multiline
-              rows={4}
-              value={feedbackMessage}
-              onChange={(e) => setFeedbackMessage(e.target.value)}
-              placeholder="Tell us what you think about the portal, suggest improvements, or report any issues..."
+              label="Hospital Name"
+              value={feedbackHospital}
+              onChange={(e) => setFeedbackHospital(e.target.value)}
+              placeholder="Enter your hospital name"
               sx={{
                 '& .MuiOutlinedInput-root': {
                   borderRadius: 2,
@@ -1781,7 +1311,144 @@ const MainLayout = () => {
                   color: colors.darkNavy,
                 },
               }}
+              InputProps={{
+                startAdornment: (
+                  <LocalHospital sx={{ color: colors.lightText, mr: 1 }} />
+                ),
+              }}
             />
+
+            {/* ✅ Admin Name Field */}
+            <TextField
+              fullWidth
+              label="Admin Name"
+              value={feedbackAdmin}
+              onChange={(e) => setFeedbackAdmin(e.target.value)}
+              placeholder="Enter your name"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                  backgroundColor: 'rgba(255,255,255,0.8)',
+                  '&:hover fieldset': {
+                    borderColor: colors.lightCyan,
+                  },
+                  '&.Mui-focused fieldset': {
+                    borderColor: colors.lightCyanDark,
+                    borderWidth: 2,
+                  },
+                },
+                '& .MuiInputLabel-root': {
+                  fontWeight: 500,
+                  color: colors.lightText,
+                },
+                '& .MuiInputLabel-root.Mui-focused': {
+                  color: colors.darkNavy,
+                },
+              }}
+              InputProps={{
+                startAdornment: (
+                  <Person sx={{ color: colors.lightText, mr: 1 }} />
+                ),
+              }}
+            />
+
+            {/* Rating */}
+            <Box>
+              <Typography
+                variant="body2"
+                sx={{
+                  fontWeight: 600,
+                  color: colors.darkNavy,
+                  mb: 1.5,
+                  fontFamily: FONT_FAMILY,
+                }}
+              >
+                Rate your experience (Optional) ⭐
+              </Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                <Rating
+                  value={feedbackRating}
+                  onChange={(event, newValue) => {
+                    setFeedbackRating(newValue || 0);
+                  }}
+                  size="large"
+                  sx={{
+                    '& .MuiRating-iconFilled': {
+                      color: colors.accentGold,
+                    },
+                    '& .MuiRating-iconHover': {
+                      color: colors.goldLight,
+                    },
+                  }}
+                />
+              </Box>
+              {feedbackRating > 0 && (
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: colors.lightText,
+                    display: 'block',
+                    textAlign: 'center',
+                    mt: 0.5,
+                    fontFamily: FONT_FAMILY,
+                  }}
+                >
+                  You selected {feedbackRating} star{feedbackRating > 1 ? 's' : ''}
+                </Typography>
+              )}
+            </Box>
+
+            {/* ✅ Feedback Box - Main Message */}
+            <Paper
+              elevation={0}
+              sx={{
+                p: 2,
+                bgcolor: 'rgba(103, 232, 249, 0.04)',
+                borderRadius: 2,
+                border: `2px solid ${colors.lightCyan}`,
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  borderColor: colors.lightCyanDark,
+                  boxShadow: `0 0 20px ${colors.lightCyanGlow}`,
+                },
+              }}
+            >
+              <TextField
+                fullWidth
+                label="Your Feedback"
+                multiline
+                rows={5}
+                value={feedbackMessage}
+                onChange={(e) => setFeedbackMessage(e.target.value)}
+                placeholder="Please share your feedback, suggestions, or report any issues..."
+                required
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
+                    backgroundColor: 'rgba(255,255,255,0.6)',
+                    '&:hover fieldset': {
+                      borderColor: colors.lightCyanDark,
+                    },
+                    '&.Mui-focused fieldset': {
+                      borderColor: colors.lightCyanDark,
+                      borderWidth: 2,
+                    },
+                  },
+                  '& .MuiInputLabel-root': {
+                    fontWeight: 600,
+                    color: colors.darkNavy,
+                  },
+                  '& .MuiInputLabel-root.Mui-focused': {
+                    color: colors.lightCyanDark,
+                  },
+                }}
+                InputProps={{
+                  startAdornment: (
+                    <Comment sx={{ color: colors.lightCyan, mr: 1, mt: 1 }} />
+                  ),
+                }}
+              />
+            </Paper>
           </Stack>
         </DialogContent>
 
@@ -1819,7 +1486,11 @@ const MainLayout = () => {
               '&:disabled': {
                 background: colors.secondaryText,
               },
+              '& .MuiButton-startIcon': {
+                marginRight: 1,
+              },
             }}
+            startIcon={<Send />}
           >
             {feedbackSubmitting ? 'Submitting...' : 'Submit Feedback'}
           </Button>

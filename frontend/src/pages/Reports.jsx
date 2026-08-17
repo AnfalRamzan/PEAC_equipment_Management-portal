@@ -1,5 +1,5 @@
 // src/pages/Reports.jsx
-// ✅ FIXED: Stats cards with correct names: Functional, Non-Functional, Availability
+// ✅ FIXED: Stats cards removed
 
 import React, { useState, useEffect, useCallback } from 'react'
 import {
@@ -149,46 +149,6 @@ const calculateDowntimeFromErrors = (errors) => {
   return totalHours
 }
 
-const StatsCard = ({ title, value, icon, loading, color = colors.lightCyan, subtitle }) => (
-  <Grow in timeout={300}>
-    <Card sx={{
-      borderRadius: 3,
-      bgcolor: '#FFFFFF',
-      transition: 'all 0.3s ease',
-      border: `1px solid ${colors.borderColor}`,
-      '&:hover': {
-        transform: 'translateY(-4px)',
-        boxShadow: `0 8px 30px ${colors.lightCyanGlow}`,
-        borderColor: colors.lightCyan,
-      },
-      height: '100%'
-    }}>
-      <CardContent sx={{ textAlign: 'center', py: 2 }}>
-        {loading ? (
-          <CircularProgress size={30} sx={{ color: colors.lightCyan }} />
-        ) : (
-          <>
-            <Avatar sx={{ bgcolor: 'rgba(103, 232, 249, 0.08)', width: 40, height: 40, mx: 'auto', mb: 1 }}>
-              {React.cloneElement(icon, { sx: { fontSize: 22, color: color } })}
-            </Avatar>
-            <Typography variant="h4" sx={{ color: '#0F172A', fontWeight: 700 }}>
-              {value !== undefined && value !== null ? value : 0}
-            </Typography>
-            <Typography variant="body2" sx={{ color: '#64748B', fontWeight: 500 }}>
-              {title}
-            </Typography>
-            {subtitle && (
-              <Typography variant="caption" sx={{ color: '#94A3B8', display: 'block', mt: 0.5 }}>
-                {subtitle}
-              </Typography>
-            )}
-          </>
-        )}
-      </CardContent>
-    </Card>
-  </Grow>
-)
-
 // ============================================================
 // ✅ MAIN COMPONENT
 // ============================================================
@@ -224,8 +184,8 @@ const Reports = () => {
 
   const [summaryStats, setSummaryStats] = useState({
     total: 0,
-    functional: 0,      // ✅ Active equipment
-    nonFunctional: 0,   // ✅ Maintenance/Under Repair
+    functional: 0,
+    nonFunctional: 0,
     total_errors: 0,
     total_repairs: 0,
     total_downtime_days: 0,
@@ -363,13 +323,11 @@ const Reports = () => {
       
       // ✅ Calculate summary stats from filtered data
       const totalEquipment = items.length
-      // ✅ Functional = Active status
       const functionalCount = items.filter(i => 
         i.current_status === 'Active' || 
         i.current_status === 'Operational' || 
         i.current_status === 'Working'
       ).length
-      // ✅ Non-Functional = Maintenance, Under Repair, Inactive
       const nonFunctionalCount = items.filter(i => 
         i.current_status === 'Maintenance' || 
         i.current_status === 'Under Repair' || 
@@ -481,38 +439,6 @@ const Reports = () => {
   }
 
   const displayData = filteredData
-
-  // ✅ STATS CARDS - Updated with correct names
-  const statsCards = [
-    { 
-      title: 'Total Equipment', 
-      value: summaryStats.total || 0, 
-      icon: <MedicalServices />, 
-      color: colors.lightCyan,
-      subtitle: 'All equipment in system'
-    },
-    { 
-      title: 'Functional', 
-      value: summaryStats.functional || 0, 
-      icon: <CheckCircleIcon />, 
-      color: colors.success,
-      subtitle: 'Active & Working'
-    },
-    { 
-      title: 'Non-Functional', 
-      value: summaryStats.nonFunctional || 0, 
-      icon: <DoNotDisturb />, 
-      color: colors.error,
-      subtitle: 'Maintenance / Under Repair'
-    },
-    { 
-      title: 'Availability', 
-      value: summaryStats.avg_availability > 0 ? `${safeToFixed(summaryStats.avg_availability, 1)}%` : '0%', 
-      icon: <TrendingUp />, 
-      color: colors.info,
-      subtitle: 'Average uptime'
-    },
-  ]
 
   // ✅ Export functions
   const exportToCSV = () => {
@@ -1034,14 +960,7 @@ const Reports = () => {
         </Alert>
       )}
 
-      {/* ✅ STATS CARDS - 4 cards with correct names */}
-      <Grid container spacing={{ xs: 1, sm: 2 }} sx={{ mb: 3 }}>
-        {statsCards.map((card, index) => (
-          <Grid item xs={6} sm={3} key={index}>
-            <StatsCard {...card} loading={loading} />
-          </Grid>
-        ))}
-      </Grid>
+      {/* ❌ STATS CARDS REMOVED - No longer displayed */}
 
       {/* SEARCH BAR */}
       <Paper sx={{ 
