@@ -4,16 +4,22 @@ const { query } = require('../config/database');
 const { authenticate, authorize } = require('../middleware/auth');
 
 // Get all procurement requests
-// ✅ All authenticated users can view
 router.get('/', authenticate, async (req, res) => {
     try {
         let sql = `
-            SELECT p.*, h.name as hospital_name, u.full_name as requested_by_name,
-                   c.name as category_name
+            SELECT 
+                p.*, 
+                h.name as hospital_name, 
+                u.full_name as requested_by_name,
+                u2.full_name as approved_by_name,
+                u3.full_name as rejected_by_name,
+                u4.full_name as reviewed_by_name
             FROM equipment_procurement p
             LEFT JOIN hospitals h ON p.hospital_id = h.id
             LEFT JOIN users u ON p.requested_by = u.id
-            LEFT JOIN equipment_categories c ON p.category_id = c.id
+            LEFT JOIN users u2 ON p.approved_by = u2.id
+            LEFT JOIN users u3 ON p.rejected_by = u3.id
+            LEFT JOIN users u4 ON p.reviewed_by = u4.id
             WHERE 1=1
         `;
         const params = [];
@@ -32,13 +38,22 @@ router.get('/', authenticate, async (req, res) => {
     }
 });
 
-// ✅ FIXED: Create procurement request - ENGINEER can also create
+// ✅ Create procurement request - ENGINEER can also create
 router.post('/', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN', 'ENGINEER'), async (req, res) => {
     try {
         const {
-            hospital_id, equipment_name, category_id,
-            manufacturer, model, quantity, estimated_cost,
-            justification, priority, requested_by, department, attachments
+            hospital_id, 
+            equipment_name, 
+            category_name,  // ✅ Manual category name (not ID)
+            manufacturer, 
+            model, 
+            quantity, 
+            estimated_cost,
+            justification, 
+            priority, 
+            requested_by, 
+            department_name,  // ✅ department_name
+            attachments
         } = req.body;
 
         console.log('📤 Create procurement request - User:', req.user.role_name, 'ID:', req.user.id);
@@ -54,15 +69,35 @@ router.post('/', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN', 'ENGIN
             }
         }
 
+        // Validate required fields
+        if (!hospital_id || !equipment_name) {
+            return res.status(400).json({
+                success: false,
+                message: 'Hospital ID and Equipment Name are required'
+            });
+        }
+
         const result = await query(
             `INSERT INTO equipment_procurement 
-             (hospital_id, equipment_name, category_id,
+             (hospital_id, equipment_name, category_name,
               manufacturer, model, quantity, estimated_cost,
-              justification, priority, requested_by, department, attachments, status)
+              justification, priority, requested_by, department_name, attachments, status)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [hospital_id, equipment_name, category_id,
-             manufacturer, model, quantity, estimated_cost,
-             justification, priority || 'Medium', req.user.id, department || '', attachments || '', 'Requested']
+            [
+                hospital_id, 
+                equipment_name, 
+                category_name || '',  // ✅ Manual category
+                manufacturer || '', 
+                model || '', 
+                quantity || 1, 
+                estimated_cost || 0,
+                justification || '', 
+                priority || 'Medium', 
+                requested_by || req.user.id, 
+                department_name || '',  // ✅ department_name
+                attachments || '', 
+                'Requested'
+            ]
         );
 
         res.status(201).json({
@@ -76,14 +111,22 @@ router.post('/', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN', 'ENGIN
     }
 });
 
-// ✅ FIXED: Update procurement request - ONLY SUPER_ADMIN can update
+// ✅ Update procurement request - ONLY SUPER_ADMIN can update
 router.put('/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     try {
         const { id } = req.params;
         const {
-            equipment_name, category_id, manufacturer,
-            model, quantity, estimated_cost, justification, priority, status,
-            department, attachments
+            equipment_name, 
+            category_name,  // ✅ Manual category
+            manufacturer,
+            model, 
+            quantity, 
+            estimated_cost, 
+            justification, 
+            priority, 
+            status,
+            department_name,  // ✅ department_name
+            attachments
         } = req.body;
 
         // Check if request exists
@@ -106,16 +149,32 @@ router.put('/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
 
         await query(
             `UPDATE equipment_procurement SET 
-             equipment_name = ?, category_id = ?,
-             manufacturer = ?, model = ?,
-             quantity = ?, estimated_cost = ?,
-             justification = ?, priority = ?, status = ?,
-             department = ?, attachments = ?
+             equipment_name = ?, 
+             category_name = ?,
+             manufacturer = ?, 
+             model = ?,
+             quantity = ?, 
+             estimated_cost = ?,
+             justification = ?, 
+             priority = ?, 
+             status = ?,
+             department_name = ?, 
+             attachments = ?
              WHERE id = ?`,
-            [equipment_name, category_id, manufacturer,
-             model, quantity, estimated_cost,
-             justification, priority, status,
-             department || '', attachments || '', id]
+            [
+                equipment_name, 
+                category_name || '', 
+                manufacturer || '',
+                model || '', 
+                quantity || 1, 
+                estimated_cost || 0,
+                justification || '', 
+                priority || 'Medium', 
+                status || 'Requested',
+                department_name || '', 
+                attachments || '', 
+                id
+            ]
         );
 
         res.json({ success: true, message: 'Procurement request updated' });
@@ -125,12 +184,11 @@ router.put('/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     }
 });
 
-// ✅ FIXED: Delete procurement request - ONLY SUPER_ADMIN can delete
+// ✅ Delete procurement request - ONLY SUPER_ADMIN can delete
 router.delete('/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     try {
         const { id } = req.params;
         
-        // Check if request exists
         const existing = await query('SELECT * FROM equipment_procurement WHERE id = ?', [id]);
         
         if (existing.length === 0) {
@@ -140,7 +198,6 @@ router.delete('/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) =
             });
         }
 
-        // Only allow deletion if status is 'Requested' or 'Under Review'
         if (!['Requested', 'Under Review'].includes(existing[0].status)) {
             return res.status(400).json({
                 success: false,
@@ -156,12 +213,11 @@ router.delete('/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) =
     }
 });
 
-// ✅ FIXED: Approve procurement request - ONLY SUPER_ADMIN can approve
+// ✅ Approve procurement request - ONLY SUPER_ADMIN
 router.put('/:id/approve', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     try {
         const { id } = req.params;
 
-        // Check if request exists
         const existing = await query('SELECT * FROM equipment_procurement WHERE id = ?', [id]);
         if (existing.length === 0) {
             return res.status(404).json({
@@ -170,7 +226,6 @@ router.put('/:id/approve', authenticate, authorize('SUPER_ADMIN'), async (req, r
             });
         }
 
-        // Check if request is in valid status for approval
         if (existing[0].status !== 'Under Review') {
             return res.status(400).json({
                 success: false,
@@ -194,13 +249,12 @@ router.put('/:id/approve', authenticate, authorize('SUPER_ADMIN'), async (req, r
     }
 });
 
-// ✅ FIXED: Reject procurement request - ONLY SUPER_ADMIN can reject
+// ✅ Reject procurement request - ONLY SUPER_ADMIN
 router.put('/:id/reject', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     try {
         const { id } = req.params;
         const { rejection_reason } = req.body;
 
-        // Check if request exists
         const existing = await query('SELECT * FROM equipment_procurement WHERE id = ?', [id]);
         if (existing.length === 0) {
             return res.status(404).json({
@@ -209,7 +263,6 @@ router.put('/:id/reject', authenticate, authorize('SUPER_ADMIN'), async (req, re
             });
         }
 
-        // Check if request is in valid status for rejection
         if (existing[0].status !== 'Under Review') {
             return res.status(400).json({
                 success: false,
@@ -234,12 +287,11 @@ router.put('/:id/reject', authenticate, authorize('SUPER_ADMIN'), async (req, re
     }
 });
 
-// ✅ FIXED: Mark as Procured - SUPER_ADMIN and HOSPITAL_ADMIN can mark as procured
+// ✅ Mark as Procured - SUPER_ADMIN and HOSPITAL_ADMIN
 router.put('/:id/procured', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), async (req, res) => {
     try {
         const { id } = req.params;
 
-        // Check if request exists and user has access
         let checkSql = `
             SELECT p.*, h.id as hospital_id
             FROM equipment_procurement p
@@ -255,7 +307,6 @@ router.put('/:id/procured', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADM
             });
         }
 
-        // Check hospital access for Hospital Admin
         if (req.user.role_name !== 'SUPER_ADMIN') {
             if (existing[0].hospital_id !== req.user.hospital_id) {
                 return res.status(403).json({
@@ -265,7 +316,6 @@ router.put('/:id/procured', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADM
             }
         }
 
-        // Check if request is in valid status
         if (existing[0].status !== 'Approved') {
             return res.status(400).json({
                 success: false,
@@ -288,12 +338,11 @@ router.put('/:id/procured', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADM
     }
 });
 
-// ✅ FIXED: Start Review - SUPER_ADMIN and HOSPITAL_ADMIN can start review
+// ✅ Start Review - SUPER_ADMIN and HOSPITAL_ADMIN
 router.put('/:id/review', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), async (req, res) => {
     try {
         const { id } = req.params;
 
-        // Check if request exists and user has access
         let checkSql = `
             SELECT p.*, h.id as hospital_id
             FROM equipment_procurement p
@@ -309,7 +358,6 @@ router.put('/:id/review', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN
             });
         }
 
-        // Check hospital access for Hospital Admin
         if (req.user.role_name !== 'SUPER_ADMIN') {
             if (existing[0].hospital_id !== req.user.hospital_id) {
                 return res.status(403).json({
@@ -319,7 +367,6 @@ router.put('/:id/review', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN
             }
         }
 
-        // Check if request is in valid status
         if (existing[0].status !== 'Requested') {
             return res.status(400).json({
                 success: false,
@@ -340,103 +387,6 @@ router.put('/:id/review', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN
     } catch (error) {
         console.error('Review error:', error);
         res.status(500).json({ success: false, message: 'Failed to update review status' });
-    }
-});
-
-// ✅ FIXED: General status update - with role-based restrictions
-router.put('/:id/status', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { status } = req.body;
-
-        // Validate status
-        const validStatuses = ['Requested', 'Under Review', 'Approved', 'Rejected', 'Procured'];
-        if (!validStatuses.includes(status)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid status'
-            });
-        }
-
-        // Check if request exists and user has access
-        let checkSql = `
-            SELECT p.*, h.id as hospital_id
-            FROM equipment_procurement p
-            LEFT JOIN hospitals h ON p.hospital_id = h.id
-            WHERE p.id = ?
-        `;
-        const existing = await query(checkSql, [id]);
-        
-        if (existing.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: 'Procurement request not found'
-            });
-        }
-
-        // Check hospital access for Hospital Admin
-        if (req.user.role_name !== 'SUPER_ADMIN') {
-            if (existing[0].hospital_id !== req.user.hospital_id) {
-                return res.status(403).json({
-                    success: false,
-                    message: 'Access denied'
-                });
-            }
-        }
-
-        // Status transition validation
-        const currentStatus = existing[0].status;
-        const allowedTransitions = {
-            'Requested': ['Under Review'],
-            'Under Review': ['Approved', 'Rejected'],
-            'Approved': ['Procured'],
-            'Rejected': [],
-            'Procured': []
-        };
-
-        if (!allowedTransitions[currentStatus]?.includes(status)) {
-            return res.status(400).json({
-                success: false,
-                message: `Invalid status transition from '${currentStatus}' to '${status}'`
-            });
-        }
-
-        // ✅ Only SUPER_ADMIN can approve or reject
-        if ((status === 'Approved' || status === 'Rejected') && req.user.role_name !== 'SUPER_ADMIN') {
-            return res.status(403).json({
-                success: false,
-                message: 'Only Super Admin can approve or reject requests'
-            });
-        }
-
-        // ✅ Hospital Admin can only move to Under Review
-        if (req.user.role_name === 'HOSPITAL_ADMIN' && status !== 'Under Review') {
-            return res.status(403).json({
-                success: false,
-                message: 'Hospital Admin can only move requests to Under Review status'
-            });
-        }
-
-        let updateFields = 'status = ?';
-        const updateParams = [status];
-
-        if (status === 'Approved') {
-            updateFields += ', approved_by = ?, approved_at = NOW()';
-            updateParams.push(req.user.id);
-        } else if (status === 'Rejected') {
-            updateFields += ', rejected_by = ?, rejected_at = NOW()';
-            updateParams.push(req.user.id);
-        } else if (status === 'Procured') {
-            updateFields += ', procured_at = NOW()';
-        }
-
-        updateParams.push(id);
-        await query(`UPDATE equipment_procurement SET ${updateFields} WHERE id = ?`, updateParams);
-
-        res.json({ success: true, message: `Status updated to ${status}` });
-    } catch (error) {
-        console.error('Update status error:', error);
-        res.status(500).json({ success: false, message: 'Failed to update status' });
     }
 });
 

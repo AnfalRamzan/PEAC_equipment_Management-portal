@@ -72,7 +72,7 @@ import { toast } from 'react-toastify'
 import { useSelector } from 'react-redux'
 import AccessDenied from '../components/Auth/AccessDenied'
 import FileUpload from '../components/FileUpload'
-import api from '../api/axios' // ✅ Import api for direct calls
+import api from '../api/axios'
 
 // ============================================================
 // ✅ DARK NAVY + LIGHT CYAN THEME COLORS
@@ -133,7 +133,13 @@ const getFullUrl = (url) => {
   return url
 }
 
-// ✅ Status color mapping (without icons)
+// ✅ Format currency in PKR
+const formatCurrency = (amount) => {
+  if (!amount) return 'PKR 0'
+  return `PKR ${parseFloat(amount).toLocaleString('en-PK')}`
+}
+
+// ✅ Status color mapping
 const getStatusColor = (status) => {
   const colorsMap = {
     'Requested': '#F59E0B',
@@ -145,7 +151,7 @@ const getStatusColor = (status) => {
   return colorsMap[status] || '#94A3B8'
 }
 
-// ✅ Priority color mapping (without icons)
+// ✅ Priority color mapping
 const getPriorityColor = (priority) => {
   const colorsMap = {
     'Low': '#22C55E',
@@ -158,19 +164,14 @@ const getPriorityColor = (priority) => {
 
 const Procurement = () => {
   // ============================================================
-  // ✅ PERMISSIONS - Engineer can Add and View, Super Admin can Delete and Edit
+  // ✅ PERMISSIONS
   // ============================================================
   const { user } = useSelector((state) => state.auth)
 
-  // ✅ ALL ROLES can access Procurement (including Engineer)
   const canCreate = user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN' || user?.role === 'ENGINEER'
   const canView = user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN' || user?.role === 'ENGINEER'
-  
-  // ✅ ONLY Super Admin can Edit and Delete
   const canEdit = user?.role === 'SUPER_ADMIN'
   const canDelete = user?.role === 'SUPER_ADMIN'
-  
-  // ✅ Super Admin can Approve/Reject, Hospital Admin can Review
   const canApprove = user?.role === 'SUPER_ADMIN'
   const canReview = user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN'
   const canMarkProcured = user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN'
@@ -192,11 +193,12 @@ const Procurement = () => {
   })
   const [error, setError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
+  const [categoryName, setCategoryName] = useState('') // Manual category input
   
   const [formData, setFormData] = useState({
     hospital_id: '',
     equipment_name: '',
-    category_id: '',
+    category_name: '', // Manual category name (not ID)
     manufacturer: '',
     model: '',
     quantity: 1,
@@ -204,7 +206,7 @@ const Procurement = () => {
     justification: '',
     priority: 'Medium',
     requested_by: '',
-    department: '',
+    department_name: '', // Changed from department to department_name
     attachments: ''
   })
 
@@ -229,7 +231,6 @@ const Procurement = () => {
     }
   }
 
-  // ✅ FIXED: Using procurementService from services
   const fetchRequests = async () => {
     try {
       const response = await procurementService.getAll()
@@ -254,7 +255,6 @@ const Procurement = () => {
     }
   }
 
-  // ✅ FIXED: Using equipmentService from services
   const fetchEquipment = async () => {
     try {
       const response = await equipmentService.getCategories()
@@ -271,7 +271,6 @@ const Procurement = () => {
     }
   }
 
-  // ✅ FIXED: Using hospitalService from services
   const fetchHospitals = async () => {
     try {
       const response = await hospitalService.getAll()
@@ -290,7 +289,7 @@ const Procurement = () => {
     }
   }
 
-  // ✅ FIXED: Using direct API call for departments
+  // ✅ Fetch departments using department_name from backend
   const fetchDepartments = async (hospitalId) => {
     if (!hospitalId) {
       setDepartments([])
@@ -298,7 +297,6 @@ const Procurement = () => {
     }
     try {
       console.log('📤 Fetching departments for hospital:', hospitalId)
-      // ✅ Direct API call since hospitalService.getDepartments doesn't exist
       const response = await api.get(`/departments/hospital/${hospitalId}`)
       console.log('📥 Departments response:', response.data)
       
@@ -311,13 +309,11 @@ const Procurement = () => {
       }
     } catch (error) {
       console.error('❌ Fetch departments error:', error)
-      // Don't show toast error here, just log it
       setDepartments([])
     }
   }
 
   const handleOpenDialog = (request = null) => {
-    // ✅ Only Super Admin can edit
     if (request && !canEdit) {
       toast.error('Only Super Admin can edit procurement requests')
       return
@@ -328,7 +324,7 @@ const Procurement = () => {
       setFormData({
         hospital_id: request.hospital_id || '',
         equipment_name: request.equipment_name || '',
-        category_id: request.category_id || '',
+        category_name: request.category_name || '', // Use category_name
         manufacturer: request.manufacturer || '',
         model: request.model || '',
         quantity: request.quantity || 1,
@@ -336,7 +332,7 @@ const Procurement = () => {
         justification: request.justification || '',
         priority: request.priority || 'Medium',
         requested_by: request.requested_by || '',
-        department: request.department || '',
+        department_name: request.department_name || '', // Use department_name
         attachments: request.attachments || ''
       })
       if (request.hospital_id) {
@@ -348,7 +344,7 @@ const Procurement = () => {
       setFormData({
         hospital_id: defaultHospitalId,
         equipment_name: '',
-        category_id: '',
+        category_name: '',
         manufacturer: '',
         model: '',
         quantity: 1,
@@ -356,7 +352,7 @@ const Procurement = () => {
         justification: '',
         priority: 'Medium',
         requested_by: user?.full_name || user?.name || '',
-        department: '',
+        department_name: '',
         attachments: ''
       })
       if (defaultHospitalId) {
@@ -386,15 +382,12 @@ const Procurement = () => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
     
-    // Fetch departments when hospital changes
     if (name === 'hospital_id' && value) {
       fetchDepartments(value)
     }
   }
 
-  // ✅ FIXED: Using procurementService from services
   const handleSubmit = async () => {
-    // ✅ Validation
     if (!formData.hospital_id) {
       toast.error('Please select a hospital')
       return
@@ -409,15 +402,15 @@ const Procurement = () => {
       const submitData = {
         hospital_id: parseInt(formData.hospital_id),
         equipment_name: formData.equipment_name.trim(),
-        category_id: formData.category_id ? parseInt(formData.category_id) : null,
+        category_name: formData.category_name || '', // Send category_name
         manufacturer: formData.manufacturer || '',
         model: formData.model || '',
         quantity: parseInt(formData.quantity) || 1,
         estimated_cost: parseFloat(formData.estimated_cost) || 0,
         justification: formData.justification || '',
         priority: formData.priority || 'Medium',
-        requested_by: formData.requested_by || user?.full_name || user?.name || '',
-        department: formData.department || '',
+        requested_by: user?.id || null,
+        department_name: formData.department_name || '', // Send department_name
         attachments: formData.attachments || ''
       }
 
@@ -426,7 +419,6 @@ const Procurement = () => {
 
       let response
       if (editingRequest) {
-        // ✅ Only Super Admin can update
         if (!canEdit) {
           toast.error('Only Super Admin can edit requests')
           return
@@ -458,7 +450,7 @@ const Procurement = () => {
         console.error('Response status:', error.response.status)
         
         if (error.response.status === 403) {
-          errorMsg = '⚠️ You do not have permission to create procurement requests. Only Super Admin, Hospital Admin, and Engineer can create requests.'
+          errorMsg = '⚠️ You do not have permission to create procurement requests.'
         } else if (error.response.status === 401) {
           errorMsg = 'Your session has expired. Please login again.'
         } else if (error.response.data?.message) {
@@ -502,6 +494,7 @@ const Procurement = () => {
     }
   }
 
+  // ✅ Use the dedicated approve endpoint
   const handleApprove = async (id) => {
     if (!canApprove) {
       toast.error('Only Super Admin can approve requests')
@@ -509,7 +502,7 @@ const Procurement = () => {
     }
     
     try {
-      const response = await procurementService.update(id, { status: 'Approved' })
+      const response = await api.put(`/procurement/${id}/approve`)
       if (response.data && response.data.success) {
         toast.success('Procurement request approved')
         await fetchRequests()
@@ -529,6 +522,7 @@ const Procurement = () => {
     }
   }
 
+  // ✅ Use the dedicated reject endpoint
   const handleReject = async (id) => {
     if (!canApprove) {
       toast.error('Only Super Admin can reject requests')
@@ -536,7 +530,7 @@ const Procurement = () => {
     }
     
     try {
-      const response = await procurementService.update(id, { status: 'Rejected' })
+      const response = await api.put(`/procurement/${id}/reject`, { rejection_reason: 'Rejected by admin' })
       if (response.data && response.data.success) {
         toast.success('Procurement request rejected')
         await fetchRequests()
@@ -556,6 +550,7 @@ const Procurement = () => {
     }
   }
 
+  // ✅ Use the dedicated review endpoint
   const handleReview = async (id) => {
     if (!canReview) {
       toast.error('Only Super Admin or Hospital Admin can review requests')
@@ -563,7 +558,7 @@ const Procurement = () => {
     }
     
     try {
-      const response = await procurementService.update(id, { status: 'Under Review' })
+      const response = await api.put(`/procurement/${id}/review`)
       if (response.data && response.data.success) {
         toast.success('Request moved to Under Review')
         await fetchRequests()
@@ -583,6 +578,7 @@ const Procurement = () => {
     }
   }
 
+  // ✅ Use the dedicated procured endpoint
   const handleMarkProcured = async (id) => {
     if (!canMarkProcured) {
       toast.error('Only Super Admin or Hospital Admin can mark as procured')
@@ -590,7 +586,7 @@ const Procurement = () => {
     }
     
     try {
-      const response = await procurementService.update(id, { status: 'Procured' })
+      const response = await api.put(`/procurement/${id}/procured`)
       if (response.data && response.data.success) {
         toast.success('Request marked as Procured')
         await fetchRequests()
@@ -621,10 +617,11 @@ const Procurement = () => {
 
   const exportToCSV = () => {
     try {
-      const headers = ['Equipment', 'Hospital', 'Manufacturer', 'Model', 'Quantity', 'Est. Cost', 'Priority', 'Status', 'Justification']
+      const headers = ['Equipment', 'Hospital', 'Category', 'Manufacturer', 'Model', 'Quantity', 'Est. Cost (PKR)', 'Priority', 'Status', 'Justification']
       const rows = filteredRequests.map(r => [
         r.equipment_name,
         r.hospital_name || 'N/A',
+        r.category_name || '',
         r.manufacturer || '',
         r.model || '',
         r.quantity || 1,
@@ -660,10 +657,11 @@ const Procurement = () => {
         const data = filteredRequests.map(r => ({
           'Equipment': r.equipment_name,
           'Hospital': r.hospital_name || 'N/A',
+          'Category': r.category_name || '',
           'Manufacturer': r.manufacturer || '',
           'Model': r.model || '',
           'Quantity': r.quantity || 1,
-          'Est. Cost': r.estimated_cost || '',
+          'Est. Cost (PKR)': r.estimated_cost || '',
           'Priority': r.priority,
           'Status': r.status,
           'Justification': r.justification || ''
@@ -698,7 +696,8 @@ const Procurement = () => {
     const matchesSearch = request.equipment_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           request.manufacturer?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           request.model?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          request.hospital_name?.toLowerCase().includes(searchTerm.toLowerCase())
+                          request.hospital_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          request.category_name?.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = !filters.status || request.status === filters.status
     const matchesPriority = !filters.priority || request.priority === filters.priority
     return matchesSearch && matchesStatus && matchesPriority
@@ -788,7 +787,7 @@ const Procurement = () => {
               display: { xs: 'none', sm: 'block' }
             }}
           >
-            Manage equipment procurement requests
+            Manage equipment procurement requests in PKR currency
           </Typography>
         </Box>
         
@@ -1149,10 +1148,11 @@ const Procurement = () => {
             <TableRow>
               <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Equipment</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Hospital</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Category</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Manufacturer</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Model</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }} align="center">Qty</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }} align="right">Est. Cost</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }} align="right">Est. Cost (PKR)</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Priority</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Status</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }} align="center">Actions</TableCell>
@@ -1161,7 +1161,7 @@ const Procurement = () => {
           <TableBody>
             {filteredRequests.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} align="center" sx={{ py: 6 }}>
+                <TableCell colSpan={10} align="center" sx={{ py: 6 }}>
                   <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
                     <LocalShipping sx={{ fontSize: 48, color: colors.borderColor }} />
                     <Typography variant="body1" sx={{ color: colors.lightText }}>
@@ -1195,6 +1195,9 @@ const Procurement = () => {
                   <TableCell sx={{ color: colors.darkNavy, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
                     {request.hospital_name || '-'}
                   </TableCell>
+                  <TableCell sx={{ color: colors.darkNavy, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
+                    {request.category_name || '-'}
+                  </TableCell>
                   <TableCell sx={{ color: colors.lightText, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
                     {request.manufacturer || '-'}
                   </TableCell>
@@ -1205,7 +1208,7 @@ const Procurement = () => {
                     {request.quantity}
                   </TableCell>
                   <TableCell align="right" sx={{ color: colors.darkNavy, fontWeight: 500, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
-                    {request.estimated_cost ? `$${parseFloat(request.estimated_cost).toFixed(2)}` : '-'}
+                    {request.estimated_cost ? formatCurrency(request.estimated_cost) : '-'}
                   </TableCell>
                   <TableCell>
                     <Chip
@@ -1430,27 +1433,21 @@ const Procurement = () => {
                 </FormControl>
               </Grid>
               <Grid item xs={12} md={6}>
-                <FormControl fullWidth>
-                  <InputLabel sx={{ color: colors.lightText }}>Category</InputLabel>
-                  <Select
-                    name="category_id"
-                    value={formData.category_id}
-                    onChange={handleFormChange}
-                    label="Category"
-                    sx={{
+                <TextField
+                  fullWidth
+                  label="Category"
+                  name="category_name"
+                  value={formData.category_name}
+                  onChange={handleFormChange}
+                  placeholder="Enter equipment category (e.g., MRI, Ultrasound)"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
                       borderRadius: 2,
-                      '& .MuiOutlinedInput-root': {
-                        '&:hover fieldset': { borderColor: colors.lightCyan },
-                        '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                      }
-                    }}
-                  >
-                    <MenuItem value="">Select Category</MenuItem>
-                    {equipment.map(cat => (
-                      <MenuItem key={cat.id} value={cat.id}>{cat.name}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                    }
+                  }}
+                />
               </Grid>
               <Grid item xs={12}>
                 <TextField
@@ -1522,12 +1519,15 @@ const Procurement = () => {
               <Grid item xs={12} md={4}>
                 <TextField
                   fullWidth
-                  label="Estimated Cost ($)"
+                  label="Estimated Cost (PKR)"
                   name="estimated_cost"
                   type="number"
                   value={formData.estimated_cost}
                   onChange={handleFormChange}
-                  InputProps={{ inputProps: { min: 0, step: 0.01 } }}
+                  InputProps={{ 
+                    inputProps: { min: 0, step: 0.01 },
+                    startAdornment: <InputAdornment position="start">PKR</InputAdornment>
+                  }}
                   sx={{
                     '& .MuiOutlinedInput-root': {
                       borderRadius: 2,
@@ -1580,8 +1580,8 @@ const Procurement = () => {
                 <FormControl fullWidth>
                   <InputLabel sx={{ color: colors.lightText }}>Department</InputLabel>
                   <Select
-                    name="department"
-                    value={formData.department}
+                    name="department_name"
+                    value={formData.department_name}
                     onChange={handleFormChange}
                     label="Department"
                     sx={{
@@ -1594,8 +1594,10 @@ const Procurement = () => {
                   >
                     <MenuItem value="">Select Department</MenuItem>
                     {departments.map(d => (
-                      <MenuItem key={d.id} value={d.id}>{d.name}</MenuItem>
+                      <MenuItem key={d.id} value={d.name}>{d.name}</MenuItem>
                     ))}
+                    <Divider />
+                    <MenuItem value="Other">Other</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>
@@ -1875,7 +1877,7 @@ const Procurement = () => {
                   Estimated Cost
                 </Typography>
                 <Typography variant="body1" sx={{ color: colors.lightCyanDark, fontWeight: 600 }}>
-                  {viewingRequest.estimated_cost ? `$${parseFloat(viewingRequest.estimated_cost).toFixed(2)}` : '-'}
+                  {viewingRequest.estimated_cost ? formatCurrency(viewingRequest.estimated_cost) : '-'}
                 </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
@@ -1883,7 +1885,7 @@ const Procurement = () => {
                   Requested By
                 </Typography>
                 <Typography variant="body1" sx={{ color: colors.darkNavy }}>
-                  {viewingRequest.requested_by || 'N/A'}
+                  {viewingRequest.requested_by_name || viewingRequest.requested_by || 'N/A'}
                 </Typography>
               </Grid>
               <Grid item xs={12} md={6}>
@@ -1891,7 +1893,7 @@ const Procurement = () => {
                   Department
                 </Typography>
                 <Typography variant="body1" sx={{ color: colors.darkNavy }}>
-                  {viewingRequest.department || 'N/A'}
+                  {viewingRequest.department_name || 'N/A'}
                 </Typography>
               </Grid>
               <Grid item xs={12}>
