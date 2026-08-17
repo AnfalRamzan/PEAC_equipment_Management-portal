@@ -1,6 +1,7 @@
 // src/App.jsx
 // ✅ REMOVED: Profile route (page not found)
 // ✅ ADDED: Training route
+// ✅ ADDED: Feedback route
 // ✅ REMOVED: Equipment Categories route (since removed from sidebar)
 // ✅ REMOVED: Settings route
 
@@ -24,6 +25,8 @@ import Procurement from './pages/Procurement';
 import Reports from './pages/Reports';
 import Training from './pages/Training';
 import Notifications from './pages/Notifications';
+// ✅ NEW: Feedback page
+import Feedback from './pages/Feedback';
 import MainLayout from './components/Layout/MainLayout';
 
 const PrivateRoute = ({ children }) => {
@@ -59,6 +62,8 @@ const App = () => {
                     <Route path="reports" element={<Reports />} />
                     <Route path="training" element={<Training />} />
                     <Route path="notifications" element={<Notifications />} />
+                    {/* ✅ NEW: Feedback route */}
+                    <Route path="feedback" element={<Feedback />} />
                 </Route>
             </Routes>
         </BrowserRouter>

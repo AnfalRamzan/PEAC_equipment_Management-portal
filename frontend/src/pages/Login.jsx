@@ -1,5 +1,6 @@
 // src/pages/Login.jsx
 // ✅ FIXED: elevation={10} instead of {30}
+// ✅ UPDATED: "PAEC Equipment Portal" → "MEDICAL EQUIPMENT PORTAL"
 
 import React, { useState } from 'react';
 import {
@@ -354,7 +355,7 @@ const Login = () => {
                                         <Box sx={{ position: 'relative' }}>
                                             <img
                                                 src="/logoo.png"
-                                                alt="PAEC Logo"
+                                                alt="Medical Equipment Portal Logo"
                                                 style={{
                                                     height: isMobile 
                                                         ? (isLandscape ? '60px' : '80px')
@@ -453,7 +454,7 @@ const Login = () => {
                                                     display: 'inline-block',
                                                 }}
                                             >
-                                                PAEC Equipment Portal
+                                                MEDICAL EQUIPMENT PORTAL
                                             </Typography>
                                         </Box>
                                     </Fade>

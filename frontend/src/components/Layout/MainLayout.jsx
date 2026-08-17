@@ -4,6 +4,8 @@
 // ✅ UPDATED: Maintenance → Preventive Maintenance
 // ✅ Procurement KEPT (not removed)
 // ✅ DARK NAVY + LIGHT CYAN THEME - PREMIUM GLITTER EFFECT SIDEBAR
+// ✅ UPDATED: "PAEC Equipment Management" → "MEDICAL EQUIPMENT PORTAL"
+// ✅ ADDED: Feedback option with modal
 
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -27,6 +29,14 @@ import {
   useMediaQuery,
   Snackbar,
   Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Rating,
+  Button,
+  Stack,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -49,6 +59,8 @@ import {
   Gavel,
   EmojiObjects,
   School,
+  RateReview,
+  Close as CloseIcon,
 } from '@mui/icons-material';
 import { useNavigate, Outlet } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -461,6 +473,12 @@ const MainLayout = () => {
     return localStorage.getItem('browserNotifications') !== 'false';
   });
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+  
+  // ✅ Feedback states
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedbackRating, setFeedbackRating] = useState(0);
+  const [feedbackMessage, setFeedbackMessage] = useState('');
+  const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -609,6 +627,65 @@ const MainLayout = () => {
 
   const handleNotificationOpen = (event) => setNotificationAnchor(event.currentTarget);
   const handleNotificationClose = () => setNotificationAnchor(null);
+
+  // ✅ Feedback Handlers
+  const handleFeedbackOpen = () => {
+    setFeedbackOpen(true);
+    handleMenuClose();
+  };
+
+  const handleFeedbackClose = () => {
+    setFeedbackOpen(false);
+    setFeedbackRating(0);
+    setFeedbackMessage('');
+  };
+
+  const handleFeedbackSubmit = () => {
+    if (feedbackRating === 0) {
+      toast.warning('Please select a rating!', {
+        position: 'top-right',
+        autoClose: 3000,
+      });
+      return;
+    }
+    if (!feedbackMessage.trim()) {
+      toast.warning('Please write your feedback!', {
+        position: 'top-right',
+        autoClose: 3000,
+      });
+      return;
+    }
+
+    setFeedbackSubmitting(true);
+
+    // Simulate API call or save to localStorage
+    setTimeout(() => {
+      const feedbackData = {
+        id: Date.now(),
+        user: user?.full_name || user?.email || 'Anonymous',
+        rating: feedbackRating,
+        message: feedbackMessage.trim(),
+        timestamp: new Date().toISOString(),
+      };
+
+      // Save to localStorage
+      const existingFeedbacks = JSON.parse(localStorage.getItem('feedbacks') || '[]');
+      existingFeedbacks.push(feedbackData);
+      localStorage.setItem('feedbacks', JSON.stringify(existingFeedbacks));
+
+      toast.success('✨ Thank you for your feedback!', {
+        position: 'top-right',
+        autoClose: 4000,
+        style: {
+          background: colors.darkNavy,
+          color: colors.lightCyan,
+        },
+      });
+
+      setFeedbackSubmitting(false);
+      handleFeedbackClose();
+    }, 1000);
+  };
 
   // ============================================================
   // ✅ DYNAMIC DRAWER WIDTH
@@ -1013,7 +1090,7 @@ const MainLayout = () => {
         <Box sx={{ position: 'relative' }}>
           <img
             src="/logoo.png"
-            alt="PAEC Logo"
+            alt="Medical Equipment Portal Logo"
             style={{
               width: sizes.logoSize,
               height: sizes.logoSize,
@@ -1268,6 +1345,58 @@ const MainLayout = () => {
             </ListItem>
           ))}
         </List>
+
+        {/* ✅ Feedback Button at bottom of sidebar */}
+        <Box
+          sx={{
+            mt: 'auto',
+            p: 1,
+            borderTop: `1px solid rgba(103, 232, 249, 0.08)`,
+            background: 'rgba(15, 23, 42, 0.4)',
+            backdropFilter: 'blur(10px)',
+            position: 'relative',
+            zIndex: 3,
+          }}
+        >
+          <ListItem
+            button
+            onClick={handleFeedbackOpen}
+            sx={{
+              borderRadius: 1.5,
+              color: colors.secondaryText,
+              py: 0.8,
+              px: 1.2,
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                bgcolor: 'rgba(103, 232, 249, 0.1)',
+                color: colors.lightCyan,
+                transform: 'scale(1.02)',
+                '& .MuiListItemIcon-root': {
+                  color: colors.lightCyan,
+                },
+              },
+            }}
+          >
+            <ListItemIcon
+              sx={{
+                color: colors.secondaryText,
+                minWidth: 30,
+                transition: 'all 0.3s ease',
+              }}
+            >
+              <RateReview sx={{ fontSize: 20 }} />
+            </ListItemIcon>
+            <ListItemText
+              primary="Feedback"
+              primaryTypographyProps={{
+                fontFamily: FONT_FAMILY,
+                fontSize: '10px',
+                fontWeight: 500,
+                letterSpacing: '0.3px',
+              }}
+            />
+          </ListItem>
+        </Box>
       </Box>
     </Box>
   );
@@ -1338,7 +1467,7 @@ const MainLayout = () => {
                 },
               }}
             >
-              PAEC Equipment Management
+              MEDICAL EQUIPMENT PORTAL
             </Typography>
           </Box>
 
@@ -1425,6 +1554,19 @@ const MainLayout = () => {
                 }
               }}
             >
+              {/* ✅ Feedback option in dropdown menu too */}
+              <MenuItem onClick={handleFeedbackOpen} sx={{ 
+                '&:hover': { bgcolor: 'rgba(103, 232, 249, 0.05)' },
+                fontFamily: FONT_FAMILY,
+              }}>
+                <ListItemIcon>
+                  <RateReview sx={{ color: '#0F172A' }} fontSize="small" />
+                </ListItemIcon>
+                Give Feedback
+              </MenuItem>
+
+              <Divider sx={{ borderColor: 'rgba(103, 232, 249, 0.1)' }} />
+
               {isAdmin && (
                 <MenuItem onClick={handleUsersClick} sx={{ 
                   '&:hover': { bgcolor: 'rgba(103, 232, 249, 0.05)' },
@@ -1516,6 +1658,173 @@ const MainLayout = () => {
           <Outlet />
         </Box>
       </Box>
+
+      {/* ✅ FEEDBACK DIALOG */}
+      <Dialog
+        open={feedbackOpen}
+        onClose={handleFeedbackClose}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            background: `linear-gradient(135deg, 
+              rgba(255, 255, 255, 0.98) 0%, 
+              rgba(248, 250, 252, 0.95) 100%
+            )`,
+            backdropFilter: 'blur(20px)',
+            boxShadow: `0 20px 80px rgba(0,0,0,0.2)`,
+            border: `1px solid rgba(103, 232, 249, 0.15)`,
+            p: 1,
+          }
+        }}
+      >
+        <DialogTitle
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            pb: 1,
+            borderBottom: `1px solid rgba(103, 232, 249, 0.1)`,
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <RateReview sx={{ color: colors.lightCyan, fontSize: 28 }} />
+            <Typography
+              variant="h6"
+              sx={{
+                fontWeight: 700,
+                color: colors.darkNavy,
+                fontFamily: FONT_FAMILY,
+              }}
+            >
+              Share Your Feedback
+            </Typography>
+          </Box>
+          <IconButton onClick={handleFeedbackClose} size="small">
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+
+        <DialogContent sx={{ pt: 3 }}>
+          <Stack spacing={3}>
+            {/* Rating Section */}
+            <Box>
+              <Typography
+                variant="body2"
+                sx={{
+                  fontWeight: 600,
+                  color: colors.darkNavy,
+                  mb: 1.5,
+                  fontFamily: FONT_FAMILY,
+                }}
+              >
+                How would you rate your experience?
+              </Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                <Rating
+                  value={feedbackRating}
+                  onChange={(event, newValue) => setFeedbackRating(newValue)}
+                  size="large"
+                  sx={{
+                    '& .MuiRating-iconFilled': {
+                      color: colors.accentGold,
+                    },
+                    '& .MuiRating-iconHover': {
+                      color: colors.goldLight,
+                    },
+                  }}
+                />
+              </Box>
+              {feedbackRating === 0 && (
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: colors.error,
+                    display: 'block',
+                    textAlign: 'center',
+                    mt: 0.5,
+                    fontFamily: FONT_FAMILY,
+                  }}
+                >
+                  Please select a rating
+                </Typography>
+              )}
+            </Box>
+
+            {/* Message Section */}
+            <TextField
+              fullWidth
+              label="Your Feedback"
+              multiline
+              rows={4}
+              value={feedbackMessage}
+              onChange={(e) => setFeedbackMessage(e.target.value)}
+              placeholder="Tell us what you think about the portal, suggest improvements, or report any issues..."
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                  backgroundColor: 'rgba(255,255,255,0.8)',
+                  '&:hover fieldset': {
+                    borderColor: colors.lightCyan,
+                  },
+                  '&.Mui-focused fieldset': {
+                    borderColor: colors.lightCyanDark,
+                    borderWidth: 2,
+                  },
+                },
+                '& .MuiInputLabel-root': {
+                  fontWeight: 500,
+                  color: colors.lightText,
+                },
+                '& .MuiInputLabel-root.Mui-focused': {
+                  color: colors.darkNavy,
+                },
+              }}
+            />
+          </Stack>
+        </DialogContent>
+
+        <DialogActions sx={{ px: 3, pb: 3, pt: 1 }}>
+          <Button
+            onClick={handleFeedbackClose}
+            sx={{
+              color: colors.lightText,
+              fontFamily: FONT_FAMILY,
+              fontWeight: 600,
+              '&:hover': {
+                bgcolor: 'rgba(0,0,0,0.04)',
+              },
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleFeedbackSubmit}
+            variant="contained"
+            disabled={feedbackSubmitting}
+            sx={{
+              background: `linear-gradient(135deg, ${colors.darkNavy}, ${colors.darkNavyHover})`,
+              color: 'white',
+              fontWeight: 700,
+              borderRadius: 2,
+              px: 4,
+              py: 1.2,
+              fontFamily: FONT_FAMILY,
+              '&:hover': {
+                background: `linear-gradient(135deg, ${colors.darkNavyHover}, ${colors.lightCyanDark})`,
+                boxShadow: `0 4px 20px ${colors.lightCyanGlowStrong}`,
+                transform: 'scale(1.02)',
+              },
+              '&:disabled': {
+                background: colors.secondaryText,
+              },
+            }}
+          >
+            {feedbackSubmitting ? 'Submitting...' : 'Submit Feedback'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Snackbar
         open={snackbar.open}
