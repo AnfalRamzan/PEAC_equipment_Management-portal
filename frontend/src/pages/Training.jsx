@@ -1,8 +1,7 @@
 // src/pages/Training.jsx
 // ✅ COMPLETE TRAINING MANAGEMENT PAGE
 // ✅ DARK NAVY + LIGHT CYAN THEME - Matching Equipment page
-// ✅ PERMISSIONS: Super Admin & Hospital Admin = Full Access, Engineer = View Only + Self Participant
-// ✅ Engineer can add themselves WITHOUT dropdown - one-click join
+// ✅ PERMISSIONS: Only SUPER_ADMIN = Full Access, ALL users = View Only
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -469,21 +468,17 @@ const AttachmentGrid = ({ attachments }) => {
 const Training = () => {
   const { user } = useSelector((state) => state.auth);
   
-  // ✅ PERMISSIONS
+  // ✅ PERMISSIONS - FIXED
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
-  const isHospitalAdmin = user?.role === 'HOSPITAL_ADMIN';
-  const isEngineer = user?.role === 'ENGINEER';
   
-  // ✅ Super Admin & Hospital Admin have FULL access
-  const canManage = isSuperAdmin || isHospitalAdmin;
-  const canCreate = canManage;
-  const canEdit = canManage;
-  const canDelete = canManage;
-  const canAddParticipants = canManage;
-  const canRemoveParticipants = canManage;
+  // ✅ Sirf SUPER_ADMIN ko manage karne do
+  const canManage = isSuperAdmin;
+  const canCreate = isSuperAdmin;
+  const canEdit = isSuperAdmin;
+  const canDelete = isSuperAdmin;
   
-  // ✅ Engineer can ONLY view and add themselves as participant (ONE-CLICK)
-  const canSelfParticipate = isEngineer;
+  // ✅ Sabhi dekh sakte hain
+  const canView = true;
 
   const [trainings, setTrainings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -491,18 +486,13 @@ const Training = () => {
   const [tabValue, setTabValue] = useState(0);
   const [openDialog, setOpenDialog] = useState(false);
   const [openViewDialog, setOpenViewDialog] = useState(false);
-  const [openParticipantDialog, setOpenParticipantDialog] = useState(false);
   const [editingTraining, setEditingTraining] = useState(null);
   const [viewingTraining, setViewingTraining] = useState(null);
-  const [selectedTraining, setSelectedTraining] = useState(null);
   const [stats, setStats] = useState({ total: 0, pending: 0, local: 0, foreign: 0, inProgress: 0, completed: 0 });
-  const [users, setUsers] = useState([]);
-  const [selectedUserId, setSelectedUserId] = useState('');
   const [viewTabValue, setViewTabValue] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [filterAnchorEl, setFilterAnchorEl] = useState(null);
   const [exportAnchorEl, setExportAnchorEl] = useState(null);
-  const [selfJoining, setSelfJoining] = useState({});
 
   const [filters, setFilters] = useState({
     type: '',
@@ -548,21 +538,9 @@ const Training = () => {
     }
   };
 
-  const fetchUsers = async () => {
-    try {
-      const response = await api.get('/users');
-      setUsers(response.data.users || []);
-    } catch (error) {
-      console.error('Fetch users error:', error);
-    }
-  };
-
   useEffect(() => {
     fetchTrainings();
     fetchStats();
-    if (canManage) {
-      fetchUsers();
-    }
   }, []);
 
   // ============================================================
@@ -676,7 +654,7 @@ const Training = () => {
   };
 
   // ============================================================
-  // ✅ HANDLERS
+  // ✅ HANDLERS - With Permission Checks
   // ============================================================
   const handleTabChange = (event, newValue) => {
     setTabValue(newValue);
@@ -688,7 +666,7 @@ const Training = () => {
 
   const handleOpenDialog = (training = null) => {
     if (!canManage) {
-      toast.error('Only Super Admin and Hospital Admin can manage trainings');
+      toast.error('Only SUPER_ADMIN can create or edit trainings');
       return;
     }
     
@@ -743,22 +721,6 @@ const Training = () => {
     setViewTabValue(0);
   };
 
-  const handleOpenParticipantDialog = (training) => {
-    if (!canManage) {
-      toast.error('Only Super Admin and Hospital Admin can manage participants');
-      return;
-    }
-    setSelectedTraining(training);
-    setSelectedUserId('');
-    setOpenParticipantDialog(true);
-  };
-
-  const handleCloseParticipantDialog = () => {
-    setOpenParticipantDialog(false);
-    setSelectedTraining(null);
-    setSelectedUserId('');
-  };
-
   const handleFormChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
@@ -778,11 +740,11 @@ const Training = () => {
   const handleFilterClose = () => setFilterAnchorEl(null);
 
   // ============================================================
-  // ✅ CRUD OPERATIONS
+  // ✅ CRUD OPERATIONS - With Permission Checks
   // ============================================================
   const handleSubmit = async () => {
-    if (!canManage) {
-      toast.error('Only Super Admin and Hospital Admin can manage trainings');
+    if (!canCreate) {
+      toast.error('Only SUPER_ADMIN can create or edit trainings');
       return;
     }
     
@@ -829,7 +791,7 @@ const Training = () => {
 
   const handleDelete = async (id) => {
     if (!canDelete) {
-      toast.error('Only Super Admin and Hospital Admin can delete trainings');
+      toast.error('Only SUPER_ADMIN can delete trainings');
       return;
     }
     if (window.confirm('Are you sure you want to delete this training?')) {
@@ -843,73 +805,6 @@ const Training = () => {
         toast.error('Failed to delete training');
       }
     }
-  };
-
-  const handleAddParticipant = async () => {
-    if (!selectedUserId) {
-      toast.error('Please select a participant');
-      return;
-    }
-    try {
-      await api.post(`/training/${selectedTraining.id}/participants`, {
-        user_id: parseInt(selectedUserId),
-      });
-      toast.success('Participant added successfully');
-      fetchTrainings();
-      handleCloseParticipantDialog();
-    } catch (error) {
-      console.error('Add participant error:', error);
-      toast.error(error.response?.data?.message || 'Failed to add participant');
-    }
-  };
-
-  const handleRemoveParticipant = async (trainingId, userId) => {
-    if (!canManage) {
-      toast.error('Only Super Admin and Hospital Admin can remove participants');
-      return;
-    }
-    if (!window.confirm('Remove this participant?')) return;
-    try {
-      await api.delete(`/training/${trainingId}/participants/${userId}`);
-      toast.success('Participant removed successfully');
-      fetchTrainings();
-    } catch (error) {
-      console.error('Remove participant error:', error);
-      toast.error('Failed to remove participant');
-    }
-  };
-
-  // ✅ ENGINEER SELF-ADD - ONE CLICK, NO DROPDOWN
-  const handleSelfAddParticipant = async (training) => {
-    if (!isEngineer) {
-      toast.error('Only Engineers can self-add to trainings');
-      return;
-    }
-    
-    setSelfJoining(prev => ({ ...prev, [training.id]: true }));
-    
-    try {
-      await api.post(`/training/${training.id}/participants`, {
-        user_id: user.id,
-      });
-      toast.success('✅ You have been added as a participant!');
-      fetchTrainings();
-    } catch (error) {
-      console.error('Self-add error:', error);
-      if (error.response?.data?.message?.includes('already')) {
-        toast.info('You are already a participant in this training');
-      } else {
-        toast.error(error.response?.data?.message || 'Failed to add as participant');
-      }
-    } finally {
-      setSelfJoining(prev => ({ ...prev, [training.id]: false }));
-    }
-  };
-
-  // ✅ Check if engineer is already a participant
-  const isUserParticipant = (training) => {
-    if (!training || !training.participants) return false;
-    return training.participants.some(p => p.id === user?.id || p.user_id === user?.id);
   };
 
   // ============================================================
@@ -1076,32 +971,7 @@ const Training = () => {
           >
             Manage all training programs and participants
           </Typography>
-          {isEngineer && (
-            <Chip 
-              label="View Only + One-Click Join" 
-              size="small" 
-              sx={{ 
-                mt: 1, 
-                bgcolor: colors.info, 
-                color: colors.text, 
-                fontWeight: 600,
-                borderRadius: 2,
-              }} 
-            />
-          )}
-          {canManage && (
-            <Chip 
-              label="Full Access" 
-              size="small" 
-              sx={{ 
-                mt: 1, 
-                bgcolor: colors.success, 
-                color: colors.text, 
-                fontWeight: 600,
-                borderRadius: 2,
-              }} 
-            />
-          )}
+          {/* ❌ REMOVED - Full Access chip removed as requested */}
         </Box>
         
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -1170,6 +1040,7 @@ const Training = () => {
             Export
           </Button>
           
+          {/* ✅ Add Training - Sirf SUPER_ADMIN */}
           {canManage && (
             <Button
               variant="contained"
@@ -1578,93 +1449,91 @@ const Training = () => {
                 </TableCell>
               </TableRow>
             ) : (
-              filteredTrainings.map((training, index) => {
-                const isAlreadyParticipant = isUserParticipant(training);
-                const isJoining = selfJoining[training.id] || false;
-
-                return (
-                  <TableRow
-                    key={training.id}
-                    hover
-                    sx={{
-                      transition: 'all 0.2s ease',
-                      animation: `fadeInUp 0.4s ease-out ${index * 0.05}s both`,
-                      '&:hover': {
-                        backgroundColor: 'rgba(103, 232, 249, 0.04)',
-                      },
-                      '&:last-child td': { borderBottom: 0 }
-                    }}
-                  >
-                    <TableCell>
-                      <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>
-                        {training.title}
-                      </Typography>
-                      <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
-                        {training.start_date ? new Date(training.start_date).toLocaleDateString() : 'TBD'}
-                        {training.end_date && ` - ${new Date(training.end_date).toLocaleDateString()}`}
-                      </Typography>
-                      {training.attachments && training.attachments.split(',').filter(Boolean).length > 0 && (
-                        <Chip
-                          icon={<AttachFile sx={{ fontSize: 12 }} />}
-                          label={training.attachments.split(',').filter(Boolean).length}
-                          size="small"
-                          sx={{
-                            bgcolor: colors.info + '15',
-                            color: colors.info,
-                            height: 18,
-                            fontSize: '9px',
-                            fontWeight: 600,
-                            mt: 0.5,
-                            borderRadius: 2,
-                          }}
-                        />
-                      )}
-                      {isAlreadyParticipant && isEngineer && (
-                        <Chip
-                          label="✓ Joined"
-                          size="small"
-                          sx={{
-                            bgcolor: colors.success,
-                            color: colors.text,
-                            height: 18,
-                            fontSize: '9px',
-                            fontWeight: 600,
-                            mt: 0.5,
-                            ml: 0.5,
-                            borderRadius: 2,
-                          }}
-                        />
-                      )}
-                    </TableCell>
-                    <TableCell>{getTypeChip(training.type)}</TableCell>
-                    <TableCell sx={{ color: colors.lightText }}>
-                      {training.trainer_name || '-'}
-                    </TableCell>
-                    <TableCell sx={{ color: colors.lightText }}>
-                      {training.department || '-'}
-                    </TableCell>
-                    <TableCell align="center">
+              filteredTrainings.map((training, index) => (
+                <TableRow
+                  key={training.id}
+                  hover
+                  sx={{
+                    transition: 'all 0.2s ease',
+                    animation: `fadeInUp 0.4s ease-out ${index * 0.05}s both`,
+                    '&:hover': {
+                      backgroundColor: 'rgba(103, 232, 249, 0.04)',
+                    },
+                    '&:last-child td': { borderBottom: 0 }
+                  }}
+                >
+                  <TableCell>
+                    <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>
+                      {training.title}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
+                      {training.start_date ? new Date(training.start_date).toLocaleDateString() : 'TBD'}
+                      {training.end_date && ` - ${new Date(training.end_date).toLocaleDateString()}`}
+                    </Typography>
+                    {training.attachments && training.attachments.split(',').filter(Boolean).length > 0 && (
                       <Chip
-                        label={training.participants_count || 0}
+                        icon={<AttachFile sx={{ fontSize: 12 }} />}
+                        label={training.attachments.split(',').filter(Boolean).length}
                         size="small"
                         sx={{
-                          bgcolor: colors.darkNavy,
-                          color: colors.text,
+                          bgcolor: colors.info + '15',
+                          color: colors.info,
+                          height: 18,
+                          fontSize: '9px',
                           fontWeight: 600,
-                          minWidth: 30,
-                          height: 26,
+                          mt: 0.5,
                           borderRadius: 2,
                         }}
                       />
-                    </TableCell>
-                    <TableCell>{getStatusChip(training.status)}</TableCell>
-                    <TableCell align="center">
-                      <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5, flexWrap: 'wrap' }}>
-                        {/* View - Available to ALL */}
-                        <Tooltip title="View Details">
+                    )}
+                  </TableCell>
+                  <TableCell>{getTypeChip(training.type)}</TableCell>
+                  <TableCell sx={{ color: colors.lightText }}>
+                    {training.trainer_name || '-'}
+                  </TableCell>
+                  <TableCell sx={{ color: colors.lightText }}>
+                    {training.department || '-'}
+                  </TableCell>
+                  <TableCell align="center">
+                    <Chip
+                      label={training.participants_count || 0}
+                      size="small"
+                      sx={{
+                        bgcolor: colors.darkNavy,
+                        color: colors.text,
+                        fontWeight: 600,
+                        minWidth: 30,
+                        height: 26,
+                        borderRadius: 2,
+                      }}
+                    />
+                  </TableCell>
+                  <TableCell>{getStatusChip(training.status)}</TableCell>
+                  <TableCell align="center">
+                    <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+                      {/* ✅ View - Available to ALL */}
+                      <Tooltip title="View Details">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleView(training)}
+                          sx={{ 
+                            color: colors.darkNavy, 
+                            '&:hover': { 
+                              color: colors.lightCyanDark,
+                              backgroundColor: 'rgba(103, 232, 249, 0.08)'
+                            } 
+                          }}
+                        >
+                          <Visibility fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+
+                      {/* ✅ Edit - Sirf SUPER_ADMIN */}
+                      {canManage && (
+                        <Tooltip title="Edit Training">
                           <IconButton
                             size="small"
-                            onClick={() => handleView(training)}
+                            onClick={() => handleOpenDialog(training)}
                             sx={{ 
                               color: colors.darkNavy, 
                               '&:hover': { 
@@ -1673,109 +1542,32 @@ const Training = () => {
                               } 
                             }}
                           >
-                            <Visibility fontSize="small" />
+                            <Edit fontSize="small" />
                           </IconButton>
                         </Tooltip>
+                      )}
 
-                        {/* Edit - ONLY Super Admin & Hospital Admin */}
-                        {canManage && (
-                          <Tooltip title="Edit Training">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleOpenDialog(training)}
-                              sx={{ 
-                                color: colors.darkNavy, 
-                                '&:hover': { 
-                                  color: colors.lightCyanDark,
-                                  backgroundColor: 'rgba(103, 232, 249, 0.08)'
-                                } 
-                              }}
-                            >
-                              <Edit fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-
-                        {/* Add Participant - ONLY Super Admin & Hospital Admin */}
-                        {canManage && (
-                          <Tooltip title="Add Participant">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleOpenParticipantDialog(training)}
-                              sx={{ 
-                                color: colors.info, 
-                                '&:hover': { 
-                                  color: colors.lightCyanDark,
-                                  backgroundColor: 'rgba(103, 232, 249, 0.08)'
-                                } 
-                              }}
-                            >
-                              <PersonAdd fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-
-                        {/* ENGINEER ONE-CLICK SELF-ADD - NO DROPDOWN */}
-                        {isEngineer && (
-                          isAlreadyParticipant ? (
-                            <Tooltip title="You are already a participant">
-                              <IconButton
-                                size="small"
-                                disabled
-                                sx={{ 
-                                  color: colors.success, 
-                                  opacity: 0.6,
-                                }}
-                              >
-                                <CheckCircle fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                          ) : (
-                            <Tooltip title="Join as Participant (One-Click)">
-                              <IconButton
-                                size="small"
-                                onClick={() => handleSelfAddParticipant(training)}
-                                disabled={isJoining}
-                                sx={{ 
-                                  color: colors.success, 
-                                  '&:hover': { 
-                                    color: colors.lightCyanDark,
-                                    backgroundColor: 'rgba(103, 232, 249, 0.08)'
-                                  } 
-                                }}
-                              >
-                                {isJoining ? (
-                                  <CircularProgress size={18} sx={{ color: colors.success }} />
-                                ) : (
-                                  <PersonAdd fontSize="small" />
-                                )}
-                              </IconButton>
-                            </Tooltip>
-                          )
-                        )}
-
-                        {/* Delete - ONLY Super Admin & Hospital Admin */}
-                        {canDelete && (
-                          <Tooltip title="Delete Training">
-                            <IconButton
-                              size="small"
-                              color="error"
-                              onClick={() => handleDelete(training.id)}
-                              sx={{
-                                '&:hover': {
-                                  backgroundColor: 'rgba(239, 68, 68, 0.08)'
-                                }
-                              }}
-                            >
-                              <Delete fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                );
-              })
+                      {/* ✅ Delete - Sirf SUPER_ADMIN */}
+                      {canManage && (
+                        <Tooltip title="Delete Training">
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => handleDelete(training.id)}
+                            sx={{
+                              '&:hover': {
+                                backgroundColor: 'rgba(239, 68, 68, 0.08)'
+                              }
+                            }}
+                          >
+                            <Delete fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              ))
             )}
           </TableBody>
         </Table>
@@ -2310,110 +2102,6 @@ const Training = () => {
           )}
         </DialogActions>
       </Dialog>
-
-      {/* ============================================================
-          ADD PARTICIPANT DIALOG
-          ============================================================ */}
-      {canManage && (
-        <Dialog
-          open={openParticipantDialog}
-          onClose={handleCloseParticipantDialog}
-          maxWidth="sm"
-          fullWidth
-          PaperProps={{
-            sx: {
-              borderRadius: 4,
-              border: `1px solid ${colors.borderColor}`,
-              boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
-              bgcolor: colors.cardBg,
-            }
-          }}
-        >
-          <DialogTitle sx={{
-            bgcolor: colors.darkNavy,
-            color: colors.text,
-            borderRadius: '8px 8px 0 0',
-            py: 2.5,
-          }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant="h6" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                <PersonAdd sx={{ fontSize: 28 }} />
-                Add Participant
-              </Typography>
-              <IconButton onClick={handleCloseParticipantDialog} sx={{ color: colors.text, '&:hover': { color: colors.lightCyan } }}>
-                <Close />
-              </IconButton>
-            </Box>
-          </DialogTitle>
-
-          <DialogContent dividers sx={{ borderColor: colors.borderColor, px: 4, py: 3 }}>
-            <Alert severity="info" sx={{ mb: 2, borderRadius: 2 }}>
-              Add participant to: <strong>{selectedTraining?.title}</strong>
-            </Alert>
-
-            <FormControl fullWidth>
-              <InputLabel sx={{ color: colors.lightText }}>Select User</InputLabel>
-              <Select
-                value={selectedUserId}
-                onChange={(e) => setSelectedUserId(e.target.value)}
-                label="Select User"
-                sx={{
-                  borderRadius: 2,
-                  '& .MuiOutlinedInput-root': {
-                    '&:hover fieldset': { borderColor: colors.lightCyan },
-                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                  }
-                }}
-              >
-                <MenuItem value="">Select a user</MenuItem>
-                {users.map((u) => (
-                  <MenuItem key={u.id} value={u.id}>
-                    {u.full_name} ({u.email})
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </DialogContent>
-
-          <DialogActions sx={{ p: 3, gap: 1 }}>
-            <Button 
-              onClick={handleCloseParticipantDialog} 
-              sx={{ 
-                color: colors.darkNavy,
-                borderRadius: 2,
-                px: 3,
-                textTransform: 'none',
-                '&:hover': { 
-                  backgroundColor: 'rgba(103, 232, 249, 0.04)'
-                },
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="contained"
-              onClick={handleAddParticipant}
-              disabled={!selectedUserId}
-              sx={{ 
-                bgcolor: colors.darkNavy,
-                color: colors.text,
-                borderRadius: 2,
-                px: 4,
-                textTransform: 'none',
-                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
-                '&:hover': { 
-                  bgcolor: colors.darkNavyHover,
-                  boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
-                },
-                transition: 'all 0.3s ease',
-              }}
-              startIcon={<PersonAdd />}
-            >
-              Add Participant
-            </Button>
-          </DialogActions>
-        </Dialog>
-      )}
     </Box>
   );
 };

@@ -791,6 +791,7 @@ const Procurement = () => {
           </Typography>
         </Box>
         
+        {/* ✅ UPDATED: Header Buttons - Single icon only */}
         <Box sx={{ 
           display: 'flex', 
           gap: 1, 
@@ -819,8 +820,7 @@ const Procurement = () => {
               }
             }}
           >
-            <Refresh sx={{ fontSize: { xs: 16, sm: 18 }, mr: { xs: 0, sm: 0.5 } }} />
-            <Typography variant="button" sx={{ display: { xs: 'none', sm: 'inline' } }}>Refresh</Typography>
+            Refresh
           </Button>
           
           {canCreate && (
@@ -843,8 +843,7 @@ const Procurement = () => {
                 transition: 'all 0.3s ease',
               }}
             >
-              <Add sx={{ fontSize: { xs: 16, sm: 18 }, mr: { xs: 0, sm: 0.5 } }} />
-              <Typography variant="button" sx={{ display: { xs: 'none', sm: 'inline' } }}>Request Equipment</Typography>
+              Request Equipment
             </Button>
           )}
         </Box>
@@ -1060,6 +1059,7 @@ const Procurement = () => {
             </Select>
           </FormControl>
           
+          {/* ✅ UPDATED: Export Button - Single icon only */}
           <Button 
             variant="contained"
             startIcon={<Download />}
@@ -1079,8 +1079,7 @@ const Procurement = () => {
               transition: 'all 0.3s ease',
             }}
           >
-            <Download sx={{ fontSize: { xs: 16, sm: 18 }, mr: { xs: 0, sm: 0.5 } }} />
-            <Typography variant="button" sx={{ display: { xs: 'none', sm: 'inline' } }}>Export</Typography>
+            Export
           </Button>
         </Box>
       </Paper>

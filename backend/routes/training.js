@@ -1,5 +1,8 @@
 // routes/training.js
-// ✅ COMPLETE FIXED VERSION - foreign keyword fixed
+// ✅ COMPLETE FIXED VERSION
+// ✅ Only SUPER_ADMIN can CREATE, UPDATE, DELETE, ADD/REMOVE PARTICIPANTS
+// ✅ ALL users can VIEW trainings
+// ✅ ALL users can SELF-JOIN (one-click)
 
 const express = require('express');
 const router = express.Router();
@@ -78,7 +81,7 @@ const authorize = (...allowedRoles) => {
 };
 
 // ============================================================
-// ✅ GET ALL TRAININGS
+// ✅ GET ALL TRAININGS - ANY AUTHENTICATED USER
 // ============================================================
 router.get('/', authenticate, async (req, res) => {
     try {
@@ -108,7 +111,7 @@ router.get('/', authenticate, async (req, res) => {
 });
 
 // ============================================================
-// ✅ GET TRAINING STATS - FIXED
+// ✅ GET TRAINING STATS - ANY AUTHENTICATED USER
 // ============================================================
 router.get('/stats/summary', authenticate, async (req, res) => {
     try {
@@ -151,7 +154,7 @@ router.get('/stats/summary', authenticate, async (req, res) => {
 });
 
 // ============================================================
-// ✅ GET SINGLE TRAINING
+// ✅ GET SINGLE TRAINING - ANY AUTHENTICATED USER
 // ============================================================
 router.get('/:id', authenticate, async (req, res) => {
     try {
@@ -201,9 +204,9 @@ router.get('/:id', authenticate, async (req, res) => {
 });
 
 // ============================================================
-// ✅ CREATE TRAINING
+// ✅ CREATE TRAINING - ONLY SUPER_ADMIN
 // ============================================================
-router.post('/', authenticate, async (req, res) => {
+router.post('/', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     try {
         const {
             title,
@@ -291,9 +294,9 @@ router.post('/', authenticate, async (req, res) => {
 });
 
 // ============================================================
-// ✅ UPDATE TRAINING
+// ✅ UPDATE TRAINING - ONLY SUPER_ADMIN
 // ============================================================
-router.put('/:id', authenticate, async (req, res) => {
+router.put('/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     try {
         const { id } = req.params;
         const {
@@ -371,7 +374,7 @@ router.put('/:id', authenticate, async (req, res) => {
 });
 
 // ============================================================
-// ✅ DELETE TRAINING
+// ✅ DELETE TRAINING - ONLY SUPER_ADMIN
 // ============================================================
 router.delete('/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     try {
@@ -407,7 +410,7 @@ router.delete('/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) =
 });
 
 // ============================================================
-// ✅ UPDATE TRAINING STATUS
+// ✅ UPDATE TRAINING STATUS - ANY AUTHENTICATED USER
 // ============================================================
 router.patch('/:id/status', authenticate, async (req, res) => {
     try {
@@ -454,7 +457,7 @@ router.patch('/:id/status', authenticate, async (req, res) => {
 });
 
 // ============================================================
-// ✅ ADD PARTICIPANT
+// ✅ ADD PARTICIPANT - ANY AUTHENTICATED USER (Self-Join)
 // ============================================================
 router.post('/:id/participants', authenticate, async (req, res) => {
     try {
@@ -522,9 +525,9 @@ router.post('/:id/participants', authenticate, async (req, res) => {
 });
 
 // ============================================================
-// ✅ REMOVE PARTICIPANT
+// ✅ REMOVE PARTICIPANT - ONLY SUPER_ADMIN
 // ============================================================
-router.delete('/:id/participants/:userId', authenticate, async (req, res) => {
+router.delete('/:id/participants/:userId', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     try {
         const { id, userId } = req.params;
 

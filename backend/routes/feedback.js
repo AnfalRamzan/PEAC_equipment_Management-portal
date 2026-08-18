@@ -1,19 +1,23 @@
 // backend/routes/feedback.js
-// ✅ UPDATED: Support hospital_name and admin_name fields
+// ✅ COMPLETE FIXED VERSION - All routes working properly
+// ✅ Rating properly handled with fallback to 0
+// ✅ Timestamp properly converted to MySQL format
+// ✅ All users can view feedback and stats
+// ✅ Only SUPER_ADMIN can delete feedback
 
 const express = require('express');
 const router = express.Router();
 const { query } = require('../config/database');
 
 // ============================================================
-// ✅ GET ALL FEEDBACKS (Admin only)
+// ✅ GET ALL FEEDBACKS (Any authenticated user can view)
 // ============================================================
 router.get('/', async (req, res) => {
     try {
-        if (req.user.role_name !== 'SUPER_ADMIN' && req.user.role_name !== 'ENGINEER') {
-            return res.status(403).json({
+        if (!req.user) {
+            return res.status(401).json({
                 success: false,
-                message: 'Access denied. Admin only.'
+                message: 'Authentication required'
             });
         }
 
@@ -50,7 +54,7 @@ router.get('/', async (req, res) => {
 });
 
 // ============================================================
-// ✅ SUBMIT FEEDBACK (Any authenticated user)
+// ✅ SUBMIT FEEDBACK (Any authenticated user) - FULLY FIXED
 // ============================================================
 router.post('/', async (req, res) => {
     try {
@@ -64,10 +68,13 @@ router.post('/', async (req, res) => {
             timestamp 
         } = req.body;
 
+        // ✅ Rating ko ensure karein - default to 0 if not provided
+        const finalRating = (rating !== undefined && rating !== null) ? parseInt(rating) : 0;
+
         console.log('📝 New feedback submission:');
         console.log('👤 User:', user_name);
         console.log('📧 Email:', email);
-        console.log('⭐ Rating:', rating);
+        console.log('⭐ Rating:', finalRating);
         console.log('🏥 Hospital:', hospital_name);
         console.log('👤 Admin:', admin_name);
         console.log('💬 Message:', message?.substring(0, 50) + '...');
@@ -80,7 +87,22 @@ router.post('/', async (req, res) => {
             });
         }
 
-        // ✅ Insert into database with new fields
+        // ✅ Convert ISO datetime to MySQL datetime format
+        let mysqlTimestamp = null;
+        if (timestamp) {
+            try {
+                const date = new Date(timestamp);
+                mysqlTimestamp = date.toISOString().slice(0, 19).replace('T', ' ');
+            } catch (e) {
+                mysqlTimestamp = new Date().toISOString().slice(0, 19).replace('T', ' ');
+            }
+        } else {
+            mysqlTimestamp = new Date().toISOString().slice(0, 19).replace('T', ' ');
+        }
+
+        console.log('📅 MySQL Timestamp:', mysqlTimestamp);
+
+        // ✅ Insert into database
         const result = await query(
             `INSERT INTO feedback (
                 user_name, 
@@ -95,12 +117,12 @@ router.post('/', async (req, res) => {
             [
                 user_name || 'Anonymous User',
                 email || 'No email',
-                rating || 0,
+                finalRating,  // ✅ 0 agar rating nahi di
                 message.trim(),
                 hospital_name || null,
                 admin_name || null,
                 req.user?.id || null,
-                timestamp || new Date().toISOString()
+                mysqlTimestamp
             ]
         );
 
@@ -110,8 +132,7 @@ router.post('/', async (req, res) => {
         try {
             const admins = await query(
                 `SELECT u.id FROM users u
-                 JOIN roles r ON u.role_id = r.id
-                 WHERE r.name = 'SUPER_ADMIN' AND u.is_active = 1`
+                 WHERE u.role = 'SUPER_ADMIN' AND u.is_active = 1`
             );
 
             for (const admin of admins) {
@@ -128,7 +149,7 @@ router.post('/', async (req, res) => {
                     [
                         admin.id,
                         '📝 New Feedback Received',
-                        `New feedback from ${user_name || 'Anonymous'}: ${rating || 'No rating'}⭐ - ${message?.substring(0, 80)}${message?.length > 80 ? '...' : ''}`,
+                        `New feedback from ${user_name || 'Anonymous'}: ${finalRating || 'No rating'}⭐ - ${message?.substring(0, 80)}${message?.length > 80 ? '...' : ''}`,
                         'Feedback',
                         result.insertId,
                         'feedback'
@@ -166,11 +187,11 @@ router.post('/', async (req, res) => {
                 id: result.insertId,
                 user_name: user_name || 'Anonymous User',
                 user_email: email || 'No email',
-                rating: rating || 0,
+                rating: finalRating,
                 message: message.trim(),
                 hospital_name: hospital_name || null,
                 admin_name: admin_name || null,
-                created_at: timestamp || new Date().toISOString()
+                created_at: mysqlTimestamp
             }
         });
 
@@ -185,7 +206,7 @@ router.post('/', async (req, res) => {
                 await query(`ALTER TABLE feedback ADD COLUMN IF NOT EXISTS admin_name VARCHAR(255) DEFAULT NULL`);
                 console.log('✅ Columns added successfully');
                 
-                // Retry after adding columns
+                // ✅ Retry after adding columns
                 return router.handle(req, res);
             } catch (alterError) {
                 console.error('❌ Failed to add columns:', alterError);
@@ -201,16 +222,17 @@ router.post('/', async (req, res) => {
 });
 
 // ============================================================
-// ✅ DELETE FEEDBACK (Admin only)
+// ✅ DELETE FEEDBACK (SUPER_ADMIN only)
 // ============================================================
 router.delete('/:id', async (req, res) => {
     try {
         const { id } = req.params;
 
-        if (req.user.role_name !== 'SUPER_ADMIN' && req.user.role_name !== 'ENGINEER') {
+        // ✅ Only SUPER_ADMIN can delete
+        if (!req.user || req.user.role !== 'SUPER_ADMIN') {
             return res.status(403).json({
                 success: false,
-                message: 'Access denied. Admin only.'
+                message: 'Access denied. Only SUPER_ADMIN can delete feedback.'
             });
         }
 
@@ -241,14 +263,14 @@ router.delete('/:id', async (req, res) => {
 });
 
 // ============================================================
-// ✅ GET FEEDBACK STATS (Admin only)
+// ✅ GET FEEDBACK STATS (Any authenticated user can view)
 // ============================================================
 router.get('/stats', async (req, res) => {
     try {
-        if (req.user.role_name !== 'SUPER_ADMIN' && req.user.role_name !== 'ENGINEER') {
-            return res.status(403).json({
+        if (!req.user) {
+            return res.status(401).json({
                 success: false,
-                message: 'Access denied. Admin only.'
+                message: 'Authentication required'
             });
         }
 

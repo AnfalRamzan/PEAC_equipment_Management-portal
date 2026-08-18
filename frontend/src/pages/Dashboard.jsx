@@ -1,5 +1,6 @@
 // src/pages/Dashboard.jsx
 // ✅ UPDATED: Cards become prominent on click with glow & scale effect
+// ✅ FIXED: "Pending Purchase Orders" → "Purchase Orders"
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -414,11 +415,12 @@ const Dashboard = () => {
           color: colors.warning,
           show: true
         },
+        // ✅ FIXED: "Pending Purchase Orders" → "Purchase Orders"
         { 
-          title: 'Pending Purchase Orders',
+          title: 'Purchase Orders',
           value: stats.pendingPurchaseOrders || 0, 
           icon: <ShoppingCart />, 
-          path: '/purchase-orders?status=Pending',
+          path: '/purchase-orders',
           color: colors.lightCyan,
           show: true
         },

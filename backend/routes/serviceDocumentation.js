@@ -1,4 +1,4 @@
-// backend/routes/serviceDocumentation.js - FIXED VERSION
+// backend/routes/serviceDocumentation.js - COMPLETE FIXED
 
 const express = require('express');
 const router = express.Router();
@@ -67,6 +67,7 @@ const authenticate = async (req, res, next) => {
     }
 };
 
+// ✅ AUTHORIZE - ONLY SUPER_ADMIN CAN EDIT/DELETE
 const authorize = (...allowedRoles) => {
     return (req, res, next) => {
         if (!req.user) {
@@ -132,30 +133,22 @@ const upload = multer({
 });
 
 // ============================================================
-// ✅ GET all service documentation
+// ✅ GET all service documentation - ANY AUTHENTICATED USER
 // ============================================================
 router.get('/', authenticate, async (req, res) => {
     try {
-        let sql = `
-            SELECT sd.*, 
-                   e.name as equipment_name,
-                   h.name as hospital_name,
-                   u.full_name as uploaded_by_name
-            FROM service_documentation sd
-            LEFT JOIN equipment e ON sd.equipment_id = e.id
-            LEFT JOIN hospitals h ON sd.hospital_id = h.id
-            LEFT JOIN users u ON sd.uploaded_by = u.id
-            WHERE 1=1
-        `;
-        const params = [];
+        const documents = await query(
+            `SELECT sd.*, 
+                    e.name as equipment_name,
+                    h.name as hospital_name,
+                    u.full_name as uploaded_by_name
+             FROM service_documentation sd
+             LEFT JOIN equipment e ON sd.equipment_id = e.id
+             LEFT JOIN hospitals h ON sd.hospital_id = h.id
+             LEFT JOIN users u ON sd.uploaded_by = u.id
+             ORDER BY sd.created_at DESC`
+        );
 
-        if (req.user.role_name !== 'SUPER_ADMIN') {
-            sql += ' AND sd.hospital_id = ?';
-            params.push(req.user.hospital_id);
-        }
-
-        sql += ' ORDER BY sd.created_at DESC';
-        const documents = await query(sql, params);
         res.json({ success: true, documents });
     } catch (error) {
         console.error('❌ Get error:', error);
@@ -164,31 +157,25 @@ router.get('/', authenticate, async (req, res) => {
 });
 
 // ============================================================
-// ✅ GET single service documentation
+// ✅ GET single service documentation - ANY AUTHENTICATED USER
 // ============================================================
 router.get('/:id', authenticate, async (req, res) => {
     try {
         const { id } = req.params;
         
-        let sql = `
-            SELECT sd.*, 
-                   e.name as equipment_name,
-                   h.name as hospital_name,
-                   u.full_name as uploaded_by_name
-            FROM service_documentation sd
-            LEFT JOIN equipment e ON sd.equipment_id = e.id
-            LEFT JOIN hospitals h ON sd.hospital_id = h.id
-            LEFT JOIN users u ON sd.uploaded_by = u.id
-            WHERE sd.id = ?
-        `;
-        const params = [id];
+        const documents = await query(
+            `SELECT sd.*, 
+                    e.name as equipment_name,
+                    h.name as hospital_name,
+                    u.full_name as uploaded_by_name
+             FROM service_documentation sd
+             LEFT JOIN equipment e ON sd.equipment_id = e.id
+             LEFT JOIN hospitals h ON sd.hospital_id = h.id
+             LEFT JOIN users u ON sd.uploaded_by = u.id
+             WHERE sd.id = ?`,
+            [id]
+        );
 
-        if (req.user.role_name !== 'SUPER_ADMIN') {
-            sql += ' AND sd.hospital_id = ?';
-            params.push(req.user.hospital_id);
-        }
-
-        const documents = await query(sql, params);
         if (documents.length === 0) {
             return res.status(404).json({ 
                 success: false, 
@@ -204,7 +191,7 @@ router.get('/:id', authenticate, async (req, res) => {
 });
 
 // ============================================================
-// ✅ DOWNLOAD file
+// ✅ DOWNLOAD file - ANY AUTHENTICATED USER
 // ============================================================
 router.get('/:id/download', authenticate, async (req, res) => {
     try {
@@ -261,7 +248,7 @@ router.get('/:id/download', authenticate, async (req, res) => {
 });
 
 // ============================================================
-// ✅ UPLOAD file - Vercel Blob
+// ✅ UPLOAD file - ANY AUTHENTICATED USER
 // ============================================================
 router.post('/upload', authenticate, (req, res) => {
     console.log('📤 ServiceDoc Upload request received');
@@ -334,9 +321,9 @@ router.post('/upload', authenticate, (req, res) => {
 });
 
 // ============================================================
-// ✅ POST create service documentation - FIXED
+// ✅ POST create service documentation - ANY AUTHENTICATED USER
 // ============================================================
-router.post('/', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), async (req, res) => {
+router.post('/', authenticate, async (req, res) => {
     try {
         const {
             title,
@@ -385,7 +372,6 @@ router.post('/', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), async
         // ✅ Determine final hospital_id
         let finalHospitalId = hospital_id || req.user.hospital_id;
         
-        // ✅ If hospital name is provided, try to find hospital ID
         if (hospital && !hospital_id) {
             try {
                 const hospitals = await query(
@@ -400,7 +386,6 @@ router.post('/', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), async
             }
         }
 
-        // ✅ Try to find equipment ID if equipment name is provided
         let finalEquipmentId = equipment_id || null;
         if (equipment && !equipment_id) {
             try {
@@ -486,9 +471,9 @@ router.post('/', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), async
 });
 
 // ============================================================
-// ✅ PUT update service documentation - FIXED
+// ✅ PUT update service documentation - ONLY SUPER_ADMIN
 // ============================================================
-router.put('/:id', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), async (req, res) => {
+router.put('/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     try {
         const { id } = req.params;
         const {
@@ -508,8 +493,6 @@ router.put('/:id', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), asy
         } = req.body;
 
         console.log('📝 Updating service documentation:', id);
-        console.log('🔧 Equipment:', equipment);
-        console.log('🏥 Hospital:', hospital || hospital_id);
 
         const existing = await query('SELECT * FROM service_documentation WHERE id = ?', [id]);
         if (existing.length === 0) {
@@ -519,9 +502,7 @@ router.put('/:id', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), asy
             });
         }
 
-        // ✅ Determine final hospital_id
         let finalHospitalId = hospital_id || existing[0].hospital_id;
-        
         if (hospital && !hospital_id) {
             try {
                 const hospitals = await query(
@@ -536,7 +517,6 @@ router.put('/:id', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), asy
             }
         }
 
-        // ✅ Determine final equipment_id
         let finalEquipmentId = equipment_id || existing[0].equipment_id;
         if (equipment && !equipment_id) {
             try {
@@ -618,9 +598,9 @@ router.put('/:id', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), asy
 });
 
 // ============================================================
-// ✅ DELETE service documentation
+// ✅ DELETE service documentation - ONLY SUPER_ADMIN
 // ============================================================
-router.delete('/:id', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), async (req, res) => {
+router.delete('/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     try {
         const { id } = req.params;
 

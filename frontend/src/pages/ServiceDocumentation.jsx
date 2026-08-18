@@ -1,11 +1,8 @@
 // src/pages/ServiceDocumentationWithPO.jsx
-// ✅ UPDATED: Equipment and Hospital are now MANUAL TEXT INPUT fields (not dropdown)
-// ✅ UPDATED: All fields from backend are shown
-// ✅ UPDATED: Added Hospital field in Upload Document form
-// ✅ UPDATED: Attachments section improved with better frontend
-// ✅ UPDATED: Filter button icon changed to Upload
-// ✅ REMOVED: Refresh button from tabs (only Refresh All at top)
-// ✅ FIXED: Hospital icon changed to LocalHospital (MUI export fix)
+// ✅ COMPLETE FIXED VERSION - All imports included
+// ✅ All users can VIEW and UPLOAD Documents and Purchase Orders
+// ✅ Only SUPER_ADMIN can EDIT and DELETE Documents and Purchase Orders
+// ✅ Equipment and Hospital are MANUAL TEXT INPUT fields
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -31,15 +28,11 @@ import {
   Select,
   FormControl,
   InputLabel,
-  Alert,
   Snackbar,
   Tooltip,
-  Divider,
   CircularProgress,
-  Fade,
   Grow,
   Badge,
-  Stack,
   Menu,
   Tab,
   Tabs,
@@ -49,13 +42,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Switch,
-  FormControlLabel,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
-  ListItemSecondaryAction,
 } from '@mui/material'
 import {
   Upload,
@@ -69,49 +55,27 @@ import {
   VideoFile,
   InsertDriveFile,
   Close,
-  Folder,
   Image,
-  FilePresent,
-  Refresh,
-  CheckCircle,
   ErrorOutline,
   MedicalServices,
-  Build,
   CalendarToday,
   Person,
-  Engineering as EngineeringIcon,
-  AdminPanelSettings,
   AttachFile,
-  TrendingUp,
-  Verified,
   MenuBook,
-  Lightbulb,
-  FilterList,
   FileDownload,
   ShoppingCart,
   Add,
-  Cancel,
   Print,
   Business,
   Receipt,
-  LocalShipping,
-  Check,
-  Info,
-  Warning as WarningIcon,
   ChevronRight,
-  MonetizationOn,
-  CurrencyExchange,
   RestartAlt,
-  Clear,
   LocalHospital,
-  LocationCity,
-  Email,
-  Phone,
   Link as LinkIcon,
   CloudUpload,
-  FileCopy,
   DeleteOutline,
   DriveFolderUpload,
+  FilterList,  // ✅ Added missing import
 } from '@mui/icons-material'
 import { toast } from 'react-toastify'
 import { useSelector } from 'react-redux'
@@ -120,42 +84,31 @@ import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { purchaseOrderService, hospitalService, equipmentService } from '../api/services'
-import FileUpload from '../components/FileUpload'
 
 // ============================================================
 // ✅ THEME COLORS
 // ============================================================
 const colors = {
   darkNavy: '#0F172A',
-  darkNavyLight: '#1E293B',
-  darkNavyDark: '#0A0F1E',
   darkNavyHover: '#1E3A5F',
   lightCyan: '#67E8F9',
-  lightCyanBright: '#A5F3FC',
   lightCyanDark: '#22D3EE',
   lightCyanGlow: 'rgba(103, 232, 249, 0.15)',
   lightCyanGlowStrong: 'rgba(103, 232, 249, 0.3)',
   accentGold: '#C9A227',
-  goldLight: '#E8C84A',
   text: '#FFFFFF',
   secondaryText: '#94A3B8',
-  textLight: '#CBD5E1',
-  cyanText: '#67E8F9',
-  darkText: '#0F172A',
   lightText: '#64748B',
   cardBg: '#FFFFFF',
   borderColor: 'rgba(103, 232, 249, 0.1)',
   shadowColor: 'rgba(15, 23, 42, 0.08)',
-  mainBg: '#F1F5F9',
   error: '#EF4444',
   success: '#22C55E',
-  warning: '#F59E0B',
-  info: '#3B82F6',
   bgGradientStart: '#F0F4F8',
   bgGradientEnd: '#E8EEF5',
 }
 
-// ✅ Animation Styles
+// ✅ ANIMATION STYLES
 const animationStyles = `
 @keyframes fadeInUp {
   from { opacity: 0; transform: translateY(20px); }
@@ -199,7 +152,7 @@ const safeFormatDate = (date) => {
 const getFileColor = (type) => {
   switch(type) {
     case 'PDF': return colors.error
-    case 'Video': return colors.info
+    case 'Video': return '#3B82F6'
     case 'Image': return colors.success
     default: return colors.lightText
   }
@@ -208,7 +161,7 @@ const getFileColor = (type) => {
 const getFileIcon = (type) => {
   switch(type) {
     case 'PDF': return <PictureAsPdf sx={{ color: colors.error }} />
-    case 'Video': return <VideoFile sx={{ color: colors.info }} />
+    case 'Video': return <VideoFile sx={{ color: '#3B82F6' }} />
     case 'Image': return <Image sx={{ color: colors.success }} />
     default: return <InsertDriveFile sx={{ color: colors.lightText }} />
   }
@@ -225,28 +178,25 @@ const ServiceDocumentationWithPO = () => {
     return null
   }
   
+  // ✅ PERMISSIONS - FIXED
   const isSuperAdmin = user?.role === 'SUPER_ADMIN'
   
-  const canView = true
-  const canUpload = true
-  const canEdit = isSuperAdmin
-  const canDelete = isSuperAdmin
-  const canCreatePO = true
-  const canEditPO = isSuperAdmin
-  const canDeletePO = isSuperAdmin
+  // 📄 DOCUMENTS
+  const canView = true                           // ✅ Sabhi dekh sakte hain
+  const canUpload = true                         // ✅ Sabhi upload kar sakte hain
+  const canEdit = isSuperAdmin                   // ❌ Sirf Super Admin edit kar sakta hai
+  const canDelete = isSuperAdmin                 // ❌ Sirf Super Admin delete kar sakta hai
+
+  // 🛒 PURCHASE ORDERS
+  const canViewPO = true                         // ✅ Sabhi dekh sakte hain
+  const canCreatePO = true                       // ✅ Sabhi create kar sakte hain
+  const canEditPO = isSuperAdmin                 // ❌ Sirf Super Admin edit kar sakta hai
+  const canDeletePO = isSuperAdmin               // ❌ Sirf Super Admin delete kar sakta hai
 
   // ============================================================
-  // ✅ TAB STATE
+  // ✅ STATE
   // ============================================================
   const [tabValue, setTabValue] = useState(0)
-
-  const handleTabChange = (event, newValue) => {
-    setTabValue(newValue)
-  }
-
-  // ============================================================
-  // ✅ DOCUMENTS STATE
-  // ============================================================
   const [documents, setDocuments] = useState([])
   const [equipmentList, setEquipmentList] = useState([])
   const [hospitalList, setHospitalList] = useState([])
@@ -260,11 +210,11 @@ const ServiceDocumentationWithPO = () => {
   const [uploadProgress, setUploadProgress] = useState(0)
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [hospitalFilter, setHospitalFilter] = useState('all')
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' })
   const [error, setError] = useState(null)
   const [docFilterAnchorEl, setDocFilterAnchorEl] = useState(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [selectedFile, setSelectedFile] = useState(null)
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' })
 
   const [formData, setFormData] = useState({
     title: '',
@@ -281,9 +231,7 @@ const ServiceDocumentationWithPO = () => {
 
   const categories = ['All', 'Service Manual', 'Calibration', 'Repair Guide', 'User Manual', 'Warranty', 'Other']
 
-  // ============================================================
-  // ✅ PURCHASE ORDERS STATE
-  // ============================================================
+  // Purchase Orders State
   const [orders, setOrders] = useState([])
   const [loadingPO, setLoadingPO] = useState(false)
   const [openPODialog, setOpenPODialog] = useState(false)
@@ -294,11 +242,8 @@ const ServiceDocumentationWithPO = () => {
   const [poExportAnchorEl, setPoExportAnchorEl] = useState(null)
   const [searchTermPO, setSearchTermPO] = useState('')
   const [isRefreshingPO, setIsRefreshingPO] = useState(false)
-  
   const [currency, setCurrency] = useState('PKR')
-  
   const [poFilters, setPoFilters] = useState({ equipment: '', hospital: '' })
-  
   const [itemsList, setItemsList] = useState([
     { id: 1, description: '', quantity: 1, unit_price: 0, total: 0 }
   ])
@@ -320,6 +265,13 @@ const ServiceDocumentationWithPO = () => {
     documents: '',
     currency: 'PKR'
   })
+
+  // ============================================================
+  // ✅ TAB HANDLER
+  // ============================================================
+  const handleTabChange = (event, newValue) => {
+    setTabValue(newValue)
+  }
 
   // ============================================================
   // ✅ FETCH FUNCTIONS
@@ -390,7 +342,6 @@ const ServiceDocumentationWithPO = () => {
     }
   }
 
-  // ✅ Combined Refresh Function
   const handleRefresh = async () => {
     if (tabValue === 0) {
       setIsRefreshing(true)
@@ -1407,7 +1358,6 @@ const ServiceDocumentationWithPO = () => {
             }}
           />
           
-          {/* ✅ FILTER Button */}
           <Button 
             variant="contained"
             onClick={handleDocFilterClick}
@@ -1426,53 +1376,50 @@ const ServiceDocumentationWithPO = () => {
               },
             }}
           >
-            <Upload sx={{ fontSize: { xs: 18, sm: 20 } }} />
+            <FilterList sx={{ fontSize: { xs: 18, sm: 20 } }} />
             <Typography variant="button" sx={{ display: { xs: 'none', sm: 'inline' }, ml: 0.5 }}>
               Filter
             </Typography>
           </Button>
           
-          {/* ✅ UPLOAD Button */}
-          {canUpload && (
-            <Button
-              variant="contained"
-              onClick={() => {
-                setEditingDocument(false)
-                setSelectedFile(null)
-                setFormData({
-                  title: '',
-                  document_type: 'PDF',
-                  category: 'Service Manual',
-                  equipment: '',
-                  hospital: '',
-                  description: '',
-                  file: null,
-                  fileUrl: '',
-                  file_name: '',
-                  file_size: '',
-                })
-                setOpenDialog(true)
-              }}
-              sx={{ 
-                bgcolor: colors.darkNavy,
-                color: colors.text,
-                borderRadius: 2,
-                textTransform: 'none',
-                minWidth: { xs: '40px', sm: 'auto' },
-                px: { xs: 1, sm: 2 },
-                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
-                '&:hover': { 
-                  bgcolor: colors.darkNavyHover,
-                  boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
-                },
-              }}
-            >
-              <Upload sx={{ fontSize: { xs: 18, sm: 20 } }} />
-              <Typography variant="button" sx={{ display: { xs: 'none', sm: 'inline' }, ml: 0.5 }}>
-                Upload Document
-              </Typography>
-            </Button>
-          )}
+          <Button
+            variant="contained"
+            onClick={() => {
+              setEditingDocument(false)
+              setSelectedFile(null)
+              setFormData({
+                title: '',
+                document_type: 'PDF',
+                category: 'Service Manual',
+                equipment: '',
+                hospital: '',
+                description: '',
+                file: null,
+                fileUrl: '',
+                file_name: '',
+                file_size: '',
+              })
+              setOpenDialog(true)
+            }}
+            sx={{ 
+              bgcolor: colors.darkNavy,
+              color: colors.text,
+              borderRadius: 2,
+              textTransform: 'none',
+              minWidth: { xs: '40px', sm: 'auto' },
+              px: { xs: 1, sm: 2 },
+              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+              '&:hover': { 
+                bgcolor: colors.darkNavyHover,
+                boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
+              },
+            }}
+          >
+            <Upload sx={{ fontSize: { xs: 18, sm: 20 } }} />
+            <Typography variant="button" sx={{ display: { xs: 'none', sm: 'inline' }, ml: 0.5 }}>
+              Upload Document
+            </Typography>
+          </Button>
         </Box>
       </Paper>
 
@@ -1940,7 +1887,6 @@ const ServiceDocumentationWithPO = () => {
             }}
           />
           
-          {/* ✅ FILTER Button */}
           <Button 
             variant="contained"
             onClick={handlePOFilterClick}
@@ -1959,13 +1905,12 @@ const ServiceDocumentationWithPO = () => {
               },
             }}
           >
-            <Upload sx={{ fontSize: { xs: 18, sm: 20 } }} />
+            <FilterList sx={{ fontSize: { xs: 18, sm: 20 } }} />
             <Typography variant="button" sx={{ display: { xs: 'none', sm: 'inline' }, ml: 0.5 }}>
               Filter
             </Typography>
           </Button>
           
-          {/* ✅ EXPORT Button */}
           <Button 
             variant="outlined"
             onClick={handlePOExportClick}
@@ -1990,31 +1935,28 @@ const ServiceDocumentationWithPO = () => {
             </Typography>
           </Button>
           
-          {/* ✅ CREATE PURCHASE ORDER Button */}
-          {canCreatePO && (
-            <Button
-              variant="contained"
-              onClick={() => handlePOOpenDialog()}
-              sx={{ 
-                bgcolor: colors.darkNavy,
-                color: colors.text,
-                borderRadius: 2,
-                textTransform: 'none',
-                minWidth: { xs: '40px', sm: 'auto' },
-                px: { xs: 1, sm: 2 },
-                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
-                '&:hover': { 
-                  bgcolor: colors.darkNavyHover,
-                  boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
-                },
-              }}
-            >
-              <Add sx={{ fontSize: { xs: 18, sm: 20 } }} />
-              <Typography variant="button" sx={{ display: { xs: 'none', sm: 'inline' }, ml: 0.5 }}>
-                Create Purchase Order
-              </Typography>
-            </Button>
-          )}
+          <Button
+            variant="contained"
+            onClick={() => handlePOOpenDialog()}
+            sx={{ 
+              bgcolor: colors.darkNavy,
+              color: colors.text,
+              borderRadius: 2,
+              textTransform: 'none',
+              minWidth: { xs: '40px', sm: 'auto' },
+              px: { xs: 1, sm: 2 },
+              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+              '&:hover': { 
+                bgcolor: colors.darkNavyHover,
+                boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
+              },
+            }}
+          >
+            <Add sx={{ fontSize: { xs: 18, sm: 20 } }} />
+            <Typography variant="button" sx={{ display: { xs: 'none', sm: 'inline' }, ml: 0.5 }}>
+              Create Purchase Order
+            </Typography>
+          </Button>
         </Box>
       </Paper>
 
@@ -2049,31 +1991,29 @@ const ServiceDocumentationWithPO = () => {
           <Typography variant="body2" sx={{ color: colors.lightText, mb: 2 }}>
             Try adjusting your search or filters
           </Typography>
-          {canCreatePO && (
-            <Button
-              variant="contained"
-              onClick={() => handlePOOpenDialog()}
-              sx={{ 
-                mt: 2,
-                bgcolor: colors.darkNavy,
-                color: colors.text,
-                borderRadius: 2,
-                textTransform: 'none',
-                minWidth: { xs: '40px', sm: 'auto' },
-                px: { xs: 1, sm: 2 },
-                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
-                '&:hover': { 
-                  bgcolor: colors.darkNavyHover,
-                  boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
-                },
-              }}
-            >
-              <Add sx={{ fontSize: { xs: 18, sm: 20 } }} />
-              <Typography variant="button" sx={{ display: { xs: 'none', sm: 'inline' }, ml: 0.5 }}>
-                Create First Purchase Order
-              </Typography>
-            </Button>
-          )}
+          <Button
+            variant="contained"
+            onClick={() => handlePOOpenDialog()}
+            sx={{ 
+              mt: 2,
+              bgcolor: colors.darkNavy,
+              color: colors.text,
+              borderRadius: 2,
+              textTransform: 'none',
+              minWidth: { xs: '40px', sm: 'auto' },
+              px: { xs: 1, sm: 2 },
+              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+              '&:hover': { 
+                bgcolor: colors.darkNavyHover,
+                boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
+              },
+            }}
+          >
+            <Add sx={{ fontSize: { xs: 18, sm: 20 } }} />
+            <Typography variant="button" sx={{ display: { xs: 'none', sm: 'inline' }, ml: 0.5 }}>
+              Create First Purchase Order
+            </Typography>
+          </Button>
         </Paper>
       )}
 
@@ -2322,7 +2262,6 @@ const ServiceDocumentationWithPO = () => {
         </Box>
         
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-          {/* ✅ REFRESH ALL Button (Top) - ONLY REFRESH BUTTON REMAINING */}
           <Button 
             variant="contained"
             onClick={handleRefresh}
@@ -2361,7 +2300,6 @@ const ServiceDocumentationWithPO = () => {
         overflow: 'hidden',
         mb: 3,
       }}>
-        {/* ✅ UPDATED: KHULE/KHULY (EXPANDED) TABS */}
         <Tabs 
           value={tabValue} 
           onChange={handleTabChange}
@@ -2420,7 +2358,7 @@ const ServiceDocumentationWithPO = () => {
       </Paper>
 
       {/* ============================================================
-          ✅ UPLOAD/EDIT DOCUMENT DIALOG - WITH MANUAL TEXT INPUTS FOR EQUIPMENT & HOSPITAL
+          ✅ UPLOAD/EDIT DOCUMENT DIALOG
       ============================================================ */}
       <Dialog 
         open={openDialog} 
@@ -2520,7 +2458,6 @@ const ServiceDocumentationWithPO = () => {
               </FormControl>
             </Grid>
 
-            {/* ✅ EQUIPMENT Field - MANUAL TEXT INPUT (Dropdown removed) */}
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
@@ -2540,7 +2477,6 @@ const ServiceDocumentationWithPO = () => {
               />
             </Grid>
 
-            {/* ✅ HOSPITAL Field - MANUAL TEXT INPUT (Dropdown removed) */}
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
@@ -2579,7 +2515,7 @@ const ServiceDocumentationWithPO = () => {
               />
             </Grid>
 
-            {/* ✅ UPDATED: Better Attachments Section */}
+            {/* Attachments Section */}
             <Grid item xs={12}>
               <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy, mb: 1.5 }}>
                 Attachments
@@ -2939,6 +2875,7 @@ const ServiceDocumentationWithPO = () => {
                 value={poFormData.hospital}
                 onChange={handlePOFormChange}
                 required
+                placeholder="Enter hospital name"
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     borderRadius: 2,
@@ -2956,6 +2893,7 @@ const ServiceDocumentationWithPO = () => {
                 value={poFormData.equipment}
                 onChange={handlePOFormChange}
                 required
+                placeholder="Enter equipment name"
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     borderRadius: 2,
@@ -2973,6 +2911,7 @@ const ServiceDocumentationWithPO = () => {
                 value={poFormData.vendor_name}
                 onChange={handlePOFormChange}
                 required
+                placeholder="Enter vendor name"
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     borderRadius: 2,

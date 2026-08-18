@@ -1,10 +1,3 @@
-// src/App.jsx
-// ✅ REMOVED: Profile route (page not found)
-// ✅ ADDED: Training route
-// ✅ ADDED: Feedback route
-// ✅ REMOVED: Equipment Categories route (since removed from sidebar)
-// ✅ REMOVED: Settings route
-
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import Login from './pages/Login';

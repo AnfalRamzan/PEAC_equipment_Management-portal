@@ -1,14 +1,17 @@
 // backend/routes/purchaseOrders.js
-// ✅ UPDATED: Removed status column
-// ✅ UPDATED: Uses hospital (text) and equipment (text) instead of hospital_id
+// ✅ FIXED: Permissions set correctly
+// ✅ Anyone can VIEW
+// ✅ Anyone can CREATE
+// ✅ Only SUPER_ADMIN can EDIT
+// ✅ Only SUPER_ADMIN can DELETE
 
 const express = require('express');
 const router = express.Router();
 const { query } = require('../config/database');
-const { authenticate, authorize } = require('../middleware/auth');
+const { authenticate } = require('../middleware/auth');
 
 // ============================================
-// ✅ GET ALL PURCHASE ORDERS
+// ✅ GET ALL PURCHASE ORDERS - ANY AUTHENTICATED USER
 // ============================================
 router.get('/', authenticate, async (req, res) => {
     try {
@@ -21,7 +24,7 @@ router.get('/', authenticate, async (req, res) => {
         `;
         const params = [];
 
-        // Filter by hospital name for non-super admins
+        // ✅ Filter by hospital for non-super admins
         if (req.user.role_name !== 'SUPER_ADMIN' && req.user.hospital_id) {
             const hospitalResult = await query('SELECT name FROM hospitals WHERE id = ?', [req.user.hospital_id]);
             if (hospitalResult.length > 0) {
@@ -41,7 +44,7 @@ router.get('/', authenticate, async (req, res) => {
 });
 
 // ============================================
-// ✅ GET SINGLE PURCHASE ORDER
+// ✅ GET SINGLE PURCHASE ORDER - ANY AUTHENTICATED USER
 // ============================================
 router.get('/:id', authenticate, async (req, res) => {
     try {
@@ -79,7 +82,7 @@ router.get('/:id', authenticate, async (req, res) => {
 });
 
 // ============================================
-// ✅ CREATE PURCHASE ORDER - STATUS REMOVED
+// ✅ CREATE PURCHASE ORDER - ANY AUTHENTICATED USER
 // ============================================
 router.post('/', authenticate, async (req, res) => {
     try {
@@ -140,7 +143,7 @@ router.post('/', authenticate, async (req, res) => {
             });
         }
 
-        // ✅ Insert with new columns - STATUS REMOVED
+        // ✅ Insert purchase order
         const result = await query(
             `INSERT INTO purchase_orders (
                 hospital,
@@ -247,7 +250,7 @@ router.post('/', authenticate, async (req, res) => {
 });
 
 // ============================================
-// ✅ UPDATE PURCHASE ORDER - STATUS REMOVED
+// ✅ UPDATE PURCHASE ORDER - ONLY SUPER_ADMIN
 // ============================================
 router.put('/:id', authenticate, async (req, res) => {
     try {
@@ -272,14 +275,6 @@ router.put('/:id', authenticate, async (req, res) => {
 
         console.log('🔄 Updating purchase order:', id);
 
-        const existing = await query('SELECT * FROM purchase_orders WHERE id = ?', [id]);
-        if (existing.length === 0) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Purchase order not found' 
-            });
-        }
-
         // ✅ Only Super Admin can edit
         if (req.user.role_name !== 'SUPER_ADMIN') {
             return res.status(403).json({
@@ -288,7 +283,15 @@ router.put('/:id', authenticate, async (req, res) => {
             });
         }
 
-        // ✅ Update with new columns - STATUS REMOVED
+        const existing = await query('SELECT * FROM purchase_orders WHERE id = ?', [id]);
+        if (existing.length === 0) {
+            return res.status(404).json({ 
+                success: false, 
+                message: 'Purchase order not found' 
+            });
+        }
+
+        // ✅ Update purchase order
         await query(
             `UPDATE purchase_orders SET 
                 hospital = ?,
@@ -378,7 +381,7 @@ router.put('/:id', authenticate, async (req, res) => {
 });
 
 // ============================================
-// ✅ DELETE PURCHASE ORDER
+// ✅ DELETE PURCHASE ORDER - ONLY SUPER_ADMIN
 // ============================================
 router.delete('/:id', authenticate, async (req, res) => {
     try {
@@ -419,7 +422,7 @@ router.delete('/:id', authenticate, async (req, res) => {
 });
 
 // ============================================
-// ✅ GET PURCHASE ORDER ITEMS
+// ✅ GET PURCHASE ORDER ITEMS - ANY AUTHENTICATED USER
 // ============================================
 router.get('/:id/items', authenticate, async (req, res) => {
     try {
