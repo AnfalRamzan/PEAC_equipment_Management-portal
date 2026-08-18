@@ -20,18 +20,6 @@ import {
   useMediaQuery,
   Snackbar,
   Alert,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  TextField,
-  Rating,
-  Button,
-  Stack,
-  FormControl,
-  InputLabel,
-  Select,
-  Paper,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -53,10 +41,6 @@ import {
   EmojiObjects,
   School,
   RateReview,
-  Close as CloseIcon,
-  Person,
-  Comment,
-  Send,
 } from '@mui/icons-material';
 import { useNavigate, Outlet } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -166,63 +150,6 @@ const badgeStyles = `
 `;
 
 // ============================================================
-// ✅ SOUND EFFECT
-// ============================================================
-const playNotificationSound = () => {
-  try {
-    const audio = new Audio('/sounds/notification.mp3');
-    audio.volume = 0.5;
-    audio.play().catch(() => {
-      try {
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        const oscillator = audioCtx.createOscillator();
-        const gainNode = audioCtx.createGain();
-        oscillator.connect(gainNode);
-        gainNode.connect(audioCtx.destination);
-        oscillator.frequency.value = 800;
-        oscillator.type = 'sine';
-        gainNode.gain.value = 0.3;
-        oscillator.start();
-        setTimeout(() => oscillator.stop(), 200);
-      } catch (e) {
-        console.log('🔊 Sound not available');
-      }
-    });
-  } catch(e) {
-    console.log('🔊 Sound not available');
-  }
-};
-
-// ============================================================
-// ✅ BROWSER NOTIFICATION
-// ============================================================
-const sendBrowserNotification = (title, message, options = {}) => {
-  try {
-    if (!('Notification' in window)) return false;
-    if (Notification.permission !== 'granted') return false;
-    const notification = new Notification(title, {
-      body: message,
-      icon: '/logo192.png',
-      badge: '/logo192.png',
-      tag: 'paec-notification',
-      requireInteraction: true,
-      silent: true,
-      vibrate: [200, 100, 200],
-      ...options
-    });
-    notification.onclick = () => {
-      window.focus();
-      notification.close();
-    };
-    setTimeout(() => notification.close(), 10000);
-    return true;
-  } catch (error) {
-    console.error('🔔 Error sending notification:', error);
-    return false;
-  }
-};
-
-// ============================================================
 // ✅ MAIN COMPONENT
 // ============================================================
 const MainLayout = () => {
@@ -230,16 +157,7 @@ const MainLayout = () => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [notificationAnchor, setNotificationAnchor] = useState(null);
   const [bellRing, setBellRing] = useState(false);
-  const [soundEnabled, setSoundEnabled] = useState(() => {
-    return localStorage.getItem('notificationSound') !== 'false';
-  });
-  const [browserNotificationsEnabled, setBrowserNotificationsEnabled] = useState(() => {
-    return localStorage.getItem('browserNotifications') !== 'false';
-  });
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-  
-  // ✅ Feedback states (removed - no longer needed)
-  // All feedback related states and handlers removed
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -249,7 +167,7 @@ const MainLayout = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
-  const { unreadCount, notifications } = useSelector((state) => state.notifications);
+  const { unreadCount } = useSelector((state) => state.notifications);
 
   // ============================================================
   // ✅ HELPER: Get full image URL
@@ -315,11 +233,6 @@ const MainLayout = () => {
     if (unreadCount > prevUnreadCount.current) {
       setBellRing(true);
       setTimeout(() => setBellRing(false), 1500);
-      if (soundEnabled) playNotificationSound();
-      const lastNotif = notifications?.[0];
-      if (browserNotificationsEnabled && lastNotif) {
-        sendBrowserNotification(lastNotif.title || 'New Notification', lastNotif.message || 'You have a new notification');
-      }
       toast.info('🔔 You have a new notification!', {
         position: 'top-right',
         autoClose: 4000,
@@ -330,15 +243,7 @@ const MainLayout = () => {
       });
     }
     prevUnreadCount.current = unreadCount;
-  }, [unreadCount, notifications, soundEnabled, browserNotificationsEnabled]);
-
-  useEffect(() => {
-    localStorage.setItem('notificationSound', soundEnabled);
-  }, [soundEnabled]);
-
-  useEffect(() => {
-    localStorage.setItem('browserNotifications', browserNotificationsEnabled);
-  }, [browserNotificationsEnabled]);
+  }, [unreadCount]);
 
   // ============================================================
   // ✅ HANDLERS
@@ -346,7 +251,7 @@ const MainLayout = () => {
   const handleDrawerToggle = () => setMobileOpen(!mobileOpen);
   const handleMenuOpen = (event) => setAnchorEl(event.currentTarget);
   const handleMenuClose = () => setAnchorEl(null);
-  
+
   const handleLogout = async () => {
     try {
       await dispatch(logout()).unwrap();
@@ -388,7 +293,7 @@ const MainLayout = () => {
 
   const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'ENGINEER';
 
-  const finalMenuItems = isAdmin 
+  const finalMenuItems = isAdmin
     ? [...menuItems, { text: 'Feedback', icon: <RateReview />, path: '/feedback' }]
     : menuItems;
 
@@ -571,9 +476,9 @@ const MainLayout = () => {
           zIndex: 3,
         }}
       >
-        <List 
-          sx={{ 
-            p: 0, 
+        <List
+          sx={{
+            p: 0,
             m: 0,
             display: 'flex',
             flexDirection: 'column',
@@ -691,9 +596,9 @@ const MainLayout = () => {
                   letterSpacing: window.location.pathname === item.path ? '0.5px' : '0.3px',
                   transition: 'all 0.2s ease',
                 }}
-                sx={{ 
-                  margin: 0, 
-                  flex: 1, 
+                sx={{
+                  margin: 0,
+                  flex: 1,
                   minWidth: 0,
                   position: 'relative',
                   zIndex: 1,
@@ -742,9 +647,6 @@ const MainLayout = () => {
             </ListItem>
           ))}
         </List>
-
-        {/* ✅ "Give Feedback" button REMOVED from sidebar */}
-        {/* No feedback button here anymore */}
       </Box>
     </Box>
   );
@@ -756,7 +658,7 @@ const MainLayout = () => {
     <Box sx={{ display: 'flex', minHeight: '100vh', flexDirection: 'column' }}>
       <style>{badgeStyles}</style>
       <NotificationSound />
-      
+
       <AppBar
         position="fixed"
         sx={{
@@ -781,7 +683,7 @@ const MainLayout = () => {
             <IconButton
               edge="start"
               onClick={handleDrawerToggle}
-              sx={{ 
+              sx={{
                 display: { sm: 'none' },
                 color: '#0F172A',
                 '&:hover': {
@@ -820,44 +722,8 @@ const MainLayout = () => {
           <GlobalSearch />
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1.5, sm: 2 } }}>
-            <Tooltip title={unreadCount > 0 ? `${unreadCount} unread notifications` : 'No notifications'}>
-              <IconButton
-                onClick={handleNotificationOpen}
-                sx={{
-                  padding: { xs: 1, sm: 1.2 },
-                  transition: 'all 0.3s ease',
-                  '&:hover': {
-                    backgroundColor: `rgba(103, 232, 249, 0.1)`,
-                    transform: 'scale(1.05)',
-                  },
-                }}
-              >
-                <Badge
-                  badgeContent={unreadCount}
-                  color="error"
-                  max={99}
-                  className={bellRing ? 'bell-ring' : ''}
-                  sx={{
-                    '& .MuiBadge-badge': {
-                      bgcolor: colors.lightCyan,
-                      color: '#0F172A',
-                      fontSize: { xs: '9px', sm: '10px' },
-                      fontWeight: 800,
-                      minWidth: { xs: 16, sm: 20 },
-                      height: { xs: 16, sm: 20 },
-                      borderRadius: '50%',
-                      boxShadow: `0 0 20px ${colors.lightCyanGlowStrong}`,
-                      border: `2px solid white`,
-                      padding: '0 4px',
-                      animation: unreadCount > 0 ? 'badgePulse 2s ease-in-out infinite' : 'none',
-                      fontFamily: FONT_FAMILY,
-                    },
-                  }}
-                >
-                  <Notifications sx={{ fontSize: { xs: 24, sm: 30 }, color: '#0F172A' }} />
-                </Badge>
-              </IconButton>
-            </Tooltip>
+            {/* ✅ NOTIFICATION ICON - REMOVED */}
+            {/* <Tooltip title=...> ... </Tooltip> */}
 
             <IconButton onClick={handleMenuOpen} sx={{ p: { xs: 0.5, sm: 0.5 } }}>
               <Avatar
@@ -900,14 +766,9 @@ const MainLayout = () => {
                 }
               }}
             >
-              {/* ✅ "Give Feedback" option REMOVED from dropdown */}
-              {/* No feedback option here anymore */}
-
-              <Divider sx={{ borderColor: 'rgba(103, 232, 249, 0.1)' }} />
-
               {isAdmin && (
                 <>
-                  <MenuItem onClick={handleUsersClick} sx={{ 
+                  <MenuItem onClick={handleUsersClick} sx={{
                     '&:hover': { bgcolor: 'rgba(103, 232, 249, 0.05)' },
                     fontFamily: FONT_FAMILY,
                   }}>
@@ -920,8 +781,8 @@ const MainLayout = () => {
                 </>
               )}
 
-              <MenuItem onClick={handleLogout} sx={{ 
-                color: colors.error, 
+              <MenuItem onClick={handleLogout} sx={{
+                color: colors.error,
                 '&:hover': { bgcolor: `${colors.error}06` },
                 fontFamily: FONT_FAMILY,
               }}>
@@ -935,11 +796,8 @@ const MainLayout = () => {
         </Toolbar>
       </AppBar>
 
-      <NotificationsDropdown
-        open={Boolean(notificationAnchor)}
-        anchorEl={notificationAnchor}
-        onClose={handleNotificationClose}
-      />
+      {/* ✅ NOTIFICATION DROPDOWN - REMOVED */}
+      {/* <NotificationsDropdown ... /> */}
 
       <Box component="nav" sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}>
         <Drawer
@@ -999,8 +857,6 @@ const MainLayout = () => {
         </Box>
       </Box>
 
-      {/* ✅ FEEDBACK DIALOG - REMOVED completely */}
-
       <Snackbar
         open={snackbar.open}
         autoHideDuration={3000}
@@ -1008,8 +864,8 @@ const MainLayout = () => {
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
         sx={{ zIndex: 10000 }}
       >
-        <Alert 
-          severity={snackbar.severity} 
+        <Alert
+          severity={snackbar.severity}
           onClose={() => setSnackbar({ ...snackbar, open: false })}
           variant="filled"
         >
