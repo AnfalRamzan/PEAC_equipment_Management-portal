@@ -1,9 +1,6 @@
 // backend/routes/feedback.js
-// ✅ COMPLETE FIXED VERSION - All routes working properly
-// ✅ Rating properly handled with fallback to 0
-// ✅ Timestamp properly converted to MySQL format
-// ✅ All users can view feedback and stats
-// ✅ Only SUPER_ADMIN can delete feedback
+// ✅ COMPLETE FIXED VERSION - With proper role checks
+// ✅ authenticate removed from individual routes (handled by server.js)
 
 const express = require('express');
 const router = express.Router();
@@ -54,7 +51,7 @@ router.get('/', async (req, res) => {
 });
 
 // ============================================================
-// ✅ SUBMIT FEEDBACK (Any authenticated user) - FULLY FIXED
+// ✅ SUBMIT FEEDBACK (Any authenticated user)
 // ============================================================
 router.post('/', async (req, res) => {
     try {
@@ -117,7 +114,7 @@ router.post('/', async (req, res) => {
             [
                 user_name || 'Anonymous User',
                 email || 'No email',
-                finalRating,  // ✅ 0 agar rating nahi di
+                finalRating,
                 message.trim(),
                 hospital_name || null,
                 admin_name || null,
@@ -222,20 +219,40 @@ router.post('/', async (req, res) => {
 });
 
 // ============================================================
-// ✅ DELETE FEEDBACK (SUPER_ADMIN only)
+// ✅ DELETE FEEDBACK (SUPER_ADMIN only) - FIXED
 // ============================================================
 router.delete('/:id', async (req, res) => {
     try {
         const { id } = req.params;
 
+        console.log('🔍 DELETE Feedback Request:');
+        console.log('👤 User Email:', req.user?.email);
+        console.log('📌 User Role:', req.user?.role);
+        console.log('📌 User Role Name:', req.user?.role_name);
+        console.log('📌 Full User:', JSON.stringify(req.user, null, 2));
+
+        // ✅ Check if user exists
+        if (!req.user) {
+            return res.status(401).json({
+                success: false,
+                message: 'Authentication required'
+            });
+        }
+
+        // ✅ Check using role_name OR role (both)
+        const userRole = req.user.role_name || req.user.role;
+        console.log('📌 Final User Role:', userRole);
+
         // ✅ Only SUPER_ADMIN can delete
-        if (!req.user || req.user.role !== 'SUPER_ADMIN') {
+        if (userRole !== 'SUPER_ADMIN') {
+            console.log(`❌ Permission denied. User role: ${userRole}`);
             return res.status(403).json({
                 success: false,
                 message: 'Access denied. Only SUPER_ADMIN can delete feedback.'
             });
         }
 
+        // ✅ Check if feedback exists
         const existing = await query('SELECT * FROM feedback WHERE id = ?', [id]);
 
         if (existing.length === 0) {
@@ -245,6 +262,7 @@ router.delete('/:id', async (req, res) => {
             });
         }
 
+        // ✅ Delete feedback
         await query('DELETE FROM feedback WHERE id = ?', [id]);
 
         console.log(`🗑️ Feedback ${id} deleted by ${req.user.email}`);

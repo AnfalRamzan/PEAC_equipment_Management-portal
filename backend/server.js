@@ -1,6 +1,6 @@
 // backend/server.js
-// ✅ COMPLETE FIXED VERSION - WITH FEEDBACK ROUTES
-// ✅ FIXED: Feedback routes imported and registered
+// ✅ COMPLETE FIXED VERSION - WITH FEEDBACK ROUTES (NO DUPLICATE)
+// ✅ FIXED: Feedback routes imported and registered ONLY ONCE
 
 // ============================================================
 // ✅ LOAD ENVIRONMENT VARIABLES FIRST
@@ -38,7 +38,7 @@ const trainingRoutes = require('./routes/training');
 const amcRoutes = require('./routes/amc');
 const maintenanceRoutes = require('./routes/maintenance');
 const sparePartsRoutes = require('./routes/spareParts');
-// ✅ ADD THIS LINE - Feedback Routes Import
+// ✅ FEEDBACK ROUTES IMPORT - ONLY ONCE
 const feedbackRoutes = require('./routes/feedback');
 
 const app = express();
@@ -2215,7 +2215,7 @@ app.use('/api/spare-parts', sparePartsRoutes);
 console.log('🔩 Spare parts routes registered from routes/spareParts.js');
 
 // ============================================================
-// ✅ FEEDBACK ROUTES - ADDED
+// ✅ FEEDBACK ROUTES - REGISTERED ONLY ONCE (FIXED)
 // ============================================================
 app.use('/api/feedback', authenticate, feedbackRoutes);
 console.log('💬 Feedback routes registered');
@@ -4035,7 +4035,7 @@ if (require.main === module) {
     console.log('📊 Downtime Report route registered');
     console.log('📋 AMC routes registered from routes/amc.js with auto-status update');
     console.log('📊 Reports routes registered from routes/reports.js');
-    console.log('💬 Feedback routes registered');  // ✅ ADDED
+    console.log('💬 Feedback routes registered');  // ✅ ONLY ONCE
     console.log('📋 Error Logs Alias route registered (/api/error-logs)');
     console.log('📊 Spare Part Downtime route registered (/api/spare-parts/:id/downtime)');
     console.log('📦 Category routes fixed:');
