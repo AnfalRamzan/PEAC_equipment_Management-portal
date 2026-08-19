@@ -163,8 +163,8 @@ const Procurement = () => {
 
   const canCreate = user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN' || user?.role === 'ENGINEER'
   const canView = true // all logged-in users can view
-  const canEdit = user?.role === 'SUPER_ADMIN'
-  const canDelete = user?.role === 'SUPER_ADMIN'
+  const canEdit = user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN'
+  const canDelete = user?.role === 'SUPER_ADMIN' // Only SUPER_ADMIN can delete, including completed items
   const canApprove = user?.role === 'SUPER_ADMIN' // for all step advancements
   const canReview = user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN' // (not used now)
   const canMarkProcured = user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN'
@@ -305,7 +305,7 @@ const Procurement = () => {
   // ============================================================
   const handleOpenDialog = (request = null) => {
     if (request && !canEdit) {
-      toast.error('Only Super Admin can edit procurement requests')
+      toast.error('Only Admin can edit procurement requests')
       return
     }
     if (request) {
@@ -425,7 +425,7 @@ const Procurement = () => {
       let response
       if (editingRequest) {
         if (!canEdit) {
-          toast.error('Only Super Admin can edit requests')
+          toast.error('Only Admin can edit requests')
           return
         }
         response = await procurementService.update(editingRequest.id, submitData)
@@ -555,11 +555,10 @@ const Procurement = () => {
 
   const exportToCSV = () => {
     try {
-      const headers = ['Equipment', 'Hospital', 'Category', 'Manufacturers', 'Models', 'Quantity', 'Est. Cost', 'Currency', 'Priority', 'Status', 'Justification']
+      const headers = ['Equipment', 'Hospital', 'Manufacturers', 'Models', 'Quantity', 'Est. Cost', 'Currency', 'Priority', 'Status', 'Justification']
       const rows = filteredRequests.map(r => [
         r.equipment_name,
         r.hospital_name || 'N/A',
-        r.category_name || '',
         (r.manufacturer_options || []).join('; '),
         (r.model_options || []).join('; '),
         r.quantity || 1,
@@ -591,7 +590,6 @@ const Procurement = () => {
         const data = filteredRequests.map(r => ({
           'Equipment': r.equipment_name,
           'Hospital': r.hospital_name || 'N/A',
-          'Category': r.category_name || '',
           'Manufacturers': (r.manufacturer_options || []).join('; '),
           'Models': (r.model_options || []).join('; '),
           'Quantity': r.quantity || 1,
@@ -669,6 +667,7 @@ const Procurement = () => {
       borderRadius: 0,
       position: 'relative',
       overflowX: 'hidden',
+      maxWidth: '100%',
     }}>
       <style>{animationStyles}</style>
 
@@ -811,26 +810,36 @@ const Procurement = () => {
       </Menu>
 
       {/* ===== TABLE ===== */}
-      <TableContainer component={Paper} sx={{ borderRadius: 3, overflowX: 'auto', border: `1px solid ${colors.borderColor}`, boxShadow: '0 2px 12px rgba(0,0,0,0.04)', animation: 'fadeInUp 0.8s ease-out' }}>
-        <Table sx={{ minWidth: 700 }}>
+      <TableContainer component={Paper} sx={{ 
+        borderRadius: 3, 
+        overflowX: 'auto', 
+        border: `1px solid ${colors.borderColor}`, 
+        boxShadow: '0 2px 12px rgba(0,0,0,0.04)', 
+        animation: 'fadeInUp 0.8s ease-out',
+        maxWidth: '100%',
+      }}>
+        <Table sx={{ 
+          minWidth: { xs: 600, sm: 700, md: 800 },
+          maxWidth: '100%',
+          tableLayout: 'fixed',
+        }}>
           <TableHead sx={{ bgcolor: colors.darkNavy }}>
             <TableRow>
-              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Equipment</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Hospital</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Category</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Manufacturers</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Models</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }} align="center">Qty</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }} align="right">Est. Cost</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Priority</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Status</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }} align="center">Actions</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.65rem', sm: '0.75rem', md: '0.8rem' }, width: '12%' }}>Equipment</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.65rem', sm: '0.75rem', md: '0.8rem' }, width: '12%' }}>Hospital</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.65rem', sm: '0.75rem', md: '0.8rem' }, width: '14%' }}>Manufacturers</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.65rem', sm: '0.75rem', md: '0.8rem' }, width: '12%' }}>Models</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.65rem', sm: '0.75rem', md: '0.8rem' }, width: '6%' }} align="center">Qty</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.65rem', sm: '0.75rem', md: '0.8rem' }, width: '12%' }} align="right">Est. Cost</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.65rem', sm: '0.75rem', md: '0.8rem' }, width: '10%' }}>Priority</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.65rem', sm: '0.75rem', md: '0.8rem' }, width: '14%' }}>Status</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.65rem', sm: '0.75rem', md: '0.8rem' }, width: '8%' }} align="center">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {filteredRequests.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={10} align="center" sx={{ py: 6 }}>
+                <TableCell colSpan={9} align="center" sx={{ py: 6 }}>
                   <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
                     <LocalShipping sx={{ fontSize: 48, color: colors.borderColor }} />
                     <Typography variant="body1" sx={{ color: colors.lightText }}>No procurement requests found</Typography>
@@ -841,15 +850,68 @@ const Procurement = () => {
             ) : (
               filteredRequests.map((request, index) => (
                 <TableRow key={request.id} hover sx={{ transition: 'all 0.2s ease', animation: `fadeInUp 0.4s ease-out ${index * 0.05}s both`, '&:hover': { backgroundColor: 'rgba(103, 232, 249, 0.04)' }, '&:last-child td': { borderBottom: 0 } }}>
-                  <TableCell><Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>{request.equipment_name}</Typography></TableCell>
-                  <TableCell sx={{ color: colors.darkNavy, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>{request.hospital_name || '-'}</TableCell>
-                  <TableCell sx={{ color: colors.darkNavy, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>{request.category_name || '-'}</TableCell>
-                  <TableCell sx={{ color: colors.lightText, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>{(request.manufacturer_options || []).join(', ') || '-'}</TableCell>
-                  <TableCell sx={{ color: colors.lightText, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>{(request.model_options || []).join(', ') || '-'}</TableCell>
-                  <TableCell align="center" sx={{ color: colors.darkNavy, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>{request.quantity}</TableCell>
-                  <TableCell align="right" sx={{ color: colors.darkNavy, fontWeight: 500, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>{request.estimated_cost ? formatAmount(request.estimated_cost, request.currency) : '-'}</TableCell>
-                  <TableCell><Chip label={request.priority} size="small" sx={{ bgcolor: getPriorityColor(request.priority), color: 'white', fontWeight: 600, fontSize: '10px', height: 24, borderRadius: 2 }} /></TableCell>
-                  <TableCell><Chip label={request.status} size="small" sx={{ bgcolor: getStatusColor(request.status), color: 'white', fontWeight: 600, fontSize: '10px', height: 24, borderRadius: 2 }} /></TableCell>
+                  <TableCell sx={{ 
+                    color: colors.darkNavy, 
+                    fontSize: { xs: '0.7rem', sm: '0.8rem' },
+                    wordBreak: 'break-word',
+                  }}>
+                    <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy, fontSize: { xs: '0.7rem', sm: '0.8rem' }, wordBreak: 'break-word' }}>
+                      {request.equipment_name}
+                    </Typography>
+                  </TableCell>
+                  <TableCell sx={{ 
+                    color: colors.darkNavy, 
+                    fontSize: { xs: '0.65rem', sm: '0.75rem', md: '0.8rem' },
+                    wordBreak: 'break-word',
+                  }}>
+                    {request.hospital_name || '-'}
+                  </TableCell>
+                  <TableCell sx={{ 
+                    color: colors.lightText, 
+                    fontSize: { xs: '0.65rem', sm: '0.75rem', md: '0.8rem' },
+                    wordBreak: 'break-word',
+                  }}>
+                    {(request.manufacturer_options || []).join(', ') || '-'}
+                  </TableCell>
+                  <TableCell sx={{ 
+                    color: colors.lightText, 
+                    fontSize: { xs: '0.65rem', sm: '0.75rem', md: '0.8rem' },
+                    wordBreak: 'break-word',
+                  }}>
+                    {(request.model_options || []).join(', ') || '-'}
+                  </TableCell>
+                  <TableCell align="center" sx={{ color: colors.darkNavy, fontSize: { xs: '0.65rem', sm: '0.75rem', md: '0.8rem' } }}>{request.quantity}</TableCell>
+                  <TableCell align="right" sx={{ color: colors.darkNavy, fontWeight: 500, fontSize: { xs: '0.65rem', sm: '0.75rem', md: '0.8rem' } }}>
+                    {request.estimated_cost ? formatAmount(request.estimated_cost, request.currency) : '-'}
+                  </TableCell>
+                  <TableCell>
+                    <Chip 
+                      label={request.priority} 
+                      size="small" 
+                      sx={{ 
+                        bgcolor: getPriorityColor(request.priority), 
+                        color: 'white', 
+                        fontWeight: 600, 
+                        fontSize: { xs: '8px', sm: '10px' }, 
+                        height: { xs: 20, sm: 24 }, 
+                        borderRadius: 2 
+                      }} 
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Chip 
+                      label={request.status} 
+                      size="small" 
+                      sx={{ 
+                        bgcolor: getStatusColor(request.status), 
+                        color: 'white', 
+                        fontWeight: 600, 
+                        fontSize: { xs: '8px', sm: '10px' }, 
+                        height: { xs: 20, sm: 24 }, 
+                        borderRadius: 2 
+                      }} 
+                    />
+                  </TableCell>
                   <TableCell align="center">
                     <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5 }}>
                       <Tooltip title="View Details">
@@ -857,14 +919,14 @@ const Procurement = () => {
                           <Visibility fontSize="small" />
                         </IconButton>
                       </Tooltip>
-                      {canEdit && (request.status !== 'REJECTED' && request.status !== 'EQUIPMENT TESTED & COMMISSIONED FOR USE') && (
+                      {canEdit && (
                         <Tooltip title="Edit">
                           <IconButton size="small" onClick={() => handleOpenDialog(request)} sx={{ color: colors.darkNavy, '&:hover': { color: colors.lightCyanDark, backgroundColor: 'rgba(103, 232, 249, 0.08)' } }}>
                             <Edit fontSize="small" />
                           </IconButton>
                         </Tooltip>
                       )}
-                      {canDelete && (request.status !== 'REJECTED' && request.status !== 'EQUIPMENT TESTED & COMMISSIONED FOR USE') && (
+                      {canDelete && (
                         <Tooltip title="Delete">
                           <IconButton size="small" color="error" onClick={() => handleDelete(request.id)} sx={{ '&:hover': { backgroundColor: 'rgba(239, 68, 68, 0.08)' } }}>
                             <Delete fontSize="small" />

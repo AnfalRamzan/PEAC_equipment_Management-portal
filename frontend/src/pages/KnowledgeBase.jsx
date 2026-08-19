@@ -1,5 +1,5 @@
 // src/pages/KnowledgeBase.jsx
-// ✅ FIXED: Solution Card - Only View button (No Edit, No Delete)
+// ✅ FIXED: Solution Card - View, Edit (Super Admin), Delete (Super Admin)
 // ✅ FIXED: Date removed from Solution Card
 
 import React, { useState, useEffect } from 'react'
@@ -724,10 +724,12 @@ const EquipmentCard = ({ equipment, onClick }) => {
 }
 
 // ============================================================
-// ✅ SOLUTION CARD - Only View Button (No Edit, No Delete) + No Date
+// ✅ SOLUTION CARD - View, Edit (Super Admin), Delete (Super Admin) + No Date
 // ============================================================
-const SolutionCard = ({ solution, onView }) => {
+const SolutionCard = ({ solution, onView, onEdit, onDelete }) => {
   const [isHovered, setIsHovered] = useState(false)
+  const { user } = useSelector((state) => state.auth)
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN'
   
   const getAttachmentCount = (value) => {
     if (!value) return 0
@@ -816,7 +818,7 @@ const SolutionCard = ({ solution, onView }) => {
             </Box>
           </Box>
           
-          {/* ✅ ONLY VIEW BUTTON - No Edit, No Delete */}
+          {/* ✅ VIEW, EDIT (Super Admin), DELETE (Super Admin) */}
           <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
             <Tooltip title="View Details">
               <Button 
@@ -840,6 +842,41 @@ const SolutionCard = ({ solution, onView }) => {
                 View
               </Button>
             </Tooltip>
+            
+            {isSuperAdmin && (
+              <>
+                <Tooltip title="Edit Solution">
+                  <IconButton 
+                    size="small" 
+                    onClick={() => onEdit(solution)}
+                    sx={{ 
+                      color: colors.info,
+                      '&:hover': { 
+                        backgroundColor: 'rgba(59, 130, 246, 0.08)',
+                        color: colors.info,
+                      }
+                    }}
+                  >
+                    <Edit fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                <Tooltip title="Delete Solution">
+                  <IconButton 
+                    size="small" 
+                    onClick={() => onDelete(solution)}
+                    sx={{ 
+                      color: colors.error,
+                      '&:hover': { 
+                        backgroundColor: 'rgba(239, 68, 68, 0.08)',
+                        color: colors.error,
+                      }
+                    }}
+                  >
+                    <Delete fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </>
+            )}
           </Box>
         </Box>
       </Paper>
@@ -1094,6 +1131,70 @@ const KnowledgeBase = () => {
     setOpenViewDialog(true)
   }
 
+  const handleEditSolution = (solution) => {
+    setEditingSolution(solution)
+    setSparePartsList([])
+    setHasSpareParts(false)
+    
+    // Parse spare parts if any
+    if (solution.spare_parts_used) {
+      const parts = solution.spare_parts_used.split(',').filter(Boolean).map(p => {
+        const [name, qty, cost] = p.split('|')
+        return { part_name: name || '', quantity: parseInt(qty) || 1, unit_cost: parseFloat(cost) || 0 }
+      })
+      setSparePartsList(parts)
+      if (parts.length > 0) setHasSpareParts(true)
+    }
+    
+    setAddFormData({
+      equipment_id: solution.equipment_id || '',
+      error_code: solution.error_code || '',
+      error_title: solution.error_title || '',
+      error_description: solution.error_description || '',
+      root_cause: solution.root_cause || '',
+      solution: solution.solution || '',
+      repair_procedure: solution.repair_procedure || '',
+      spare_parts_used: solution.spare_parts_used || '',
+      spare_part_images: solution.spare_part_images || '',
+      before_repair_images: solution.before_repair_images || '',
+      after_repair_images: solution.after_repair_images || '',
+      images: solution.images || '',
+      attachments: solution.attachments || '',
+      repair_date: solution.repair_date || '',
+      remarks: solution.remarks || '',
+      reported_by: solution.reported_by || '',
+      engineer_name: solution.engineer_name || '',
+      hospital_name: solution.hospital_name || '',
+      department_name: solution.department_name || ''
+    })
+    setOpenAddDialog(true)
+  }
+
+  const handleDeleteSolution = (solution) => {
+    setDeletingSolution(solution)
+    setOpenDeleteDialog(true)
+  }
+
+  const confirmDeleteSolution = async () => {
+    if (!deletingSolution) return
+    setDeleteLoading(true)
+    try {
+      await api.delete(`/knowledge-base/${deletingSolution.id}`)
+      toast.success('Solution deleted successfully')
+      setOpenDeleteDialog(false)
+      setDeletingSolution(null)
+      if (selectedEquipment) {
+        await fetchSolutions(selectedEquipment.id)
+        await fetchEquipment()
+      }
+    } catch (error) {
+      console.error('Error deleting solution:', error)
+      toast.error(error.response?.data?.message || 'Failed to delete solution')
+    } finally {
+      setDeleteLoading(false)
+    }
+  }
+
   const handleTabChange = (event, newValue) => {
     setViewTabValue(newValue)
   }
@@ -1185,6 +1286,47 @@ const KnowledgeBase = () => {
       name: url.split('/').pop(),
       type: url.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i) ? 'image' :
             url.match(/\.(mp4|webm|ogg|mov)$/i) ? 'video' : 'document'
+    }))
+  }
+
+  const handleAddSparePart = () => {
+    if (!sparePartForm.part_name.trim()) {
+      toast.error('Please enter part name')
+      return
+    }
+    const qty = parseInt(sparePartForm.quantity) || 1
+    const unitCost = parseFloat(sparePartForm.unit_cost) || 0
+    const totalCost = qty * unitCost
+    
+    setSparePartsList([...sparePartsList, {
+      part_name: sparePartForm.part_name.trim(),
+      quantity: qty,
+      unit_cost: unitCost,
+      total_cost: totalCost
+    }])
+    
+    // Update spare_parts_used field
+    const partsString = sparePartsList.map(p => 
+      `${p.part_name}|${p.quantity}|${p.unit_cost}`
+    ).join(',')
+    setAddFormData(prev => ({
+      ...prev,
+      spare_parts_used: partsString
+    }))
+    
+    setSparePartForm({ part_name: '', quantity: 1, unit_cost: '', total_cost: '' })
+    toast.success('Spare part added')
+  }
+
+  const handleRemoveSparePart = (index) => {
+    const newList = sparePartsList.filter((_, i) => i !== index)
+    setSparePartsList(newList)
+    const partsString = newList.map(p => 
+      `${p.part_name}|${p.quantity}|${p.unit_cost}`
+    ).join(',')
+    setAddFormData(prev => ({
+      ...prev,
+      spare_parts_used: partsString
     }))
   }
 
@@ -1618,6 +1760,8 @@ const KnowledgeBase = () => {
                   key={sol.id}
                   solution={sol}
                   onView={handleViewSolution}
+                  onEdit={handleEditSolution}
+                  onDelete={handleDeleteSolution}
                 />
               ))}
             </Box>
@@ -2262,7 +2406,7 @@ const KnowledgeBase = () => {
                           label="Part Name"
                           name="part_name"
                           value={sparePartForm.part_name}
-                          onChange={setSparePartForm}
+                          onChange={(e) => setSparePartForm({ ...sparePartForm, part_name: e.target.value })}
                           placeholder="e.g., Motor Bearing"
                           sx={{
                             '& .MuiOutlinedInput-root': {
@@ -2280,7 +2424,15 @@ const KnowledgeBase = () => {
                           name="quantity"
                           type="number"
                           value={sparePartForm.quantity}
-                          onChange={setSparePartForm}
+                          onChange={(e) => {
+                            const qty = parseInt(e.target.value) || 1
+                            const unitCost = parseFloat(sparePartForm.unit_cost) || 0
+                            setSparePartForm({
+                              ...sparePartForm,
+                              quantity: qty,
+                              total_cost: (qty * unitCost).toFixed(2)
+                            })
+                          }}
                           inputProps={{ min: 1 }}
                           sx={{
                             '& .MuiOutlinedInput-root': {
@@ -2298,7 +2450,15 @@ const KnowledgeBase = () => {
                           name="unit_cost"
                           type="number"
                           value={sparePartForm.unit_cost}
-                          onChange={setSparePartForm}
+                          onChange={(e) => {
+                            const unitCost = parseFloat(e.target.value) || 0
+                            const qty = parseInt(sparePartForm.quantity) || 1
+                            setSparePartForm({
+                              ...sparePartForm,
+                              unit_cost: unitCost,
+                              total_cost: (qty * unitCost).toFixed(2)
+                            })
+                          }}
                           inputProps={{ min: 0, step: 0.01 }}
                           sx={{
                             '& .MuiOutlinedInput-root': {
@@ -2480,6 +2640,90 @@ const KnowledgeBase = () => {
             startIcon={editingSolution ? <Edit /> : <Add />}
           >
             {editingSolution ? 'Update Solution' : 'Add Solution'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ===== DELETE CONFIRMATION DIALOG ===== */}
+      <Dialog
+        open={openDeleteDialog}
+        onClose={() => setOpenDeleteDialog(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 4,
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          bgcolor: colors.error,
+          color: colors.text,
+          borderRadius: '8px 8px 0 0',
+          py: 2,
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <DeleteForever sx={{ fontSize: 28 }} />
+            <Typography variant="h6" fontWeight={600} sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+              Delete Solution
+            </Typography>
+          </Box>
+        </DialogTitle>
+        <DialogContent sx={{ pt: 3, px: 3 }}>
+          <Alert severity="error" sx={{ borderRadius: 2, mb: 2 }}>
+            <Typography variant="body2" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+              <strong>Warning:</strong> This action cannot be undone.
+            </Typography>
+          </Alert>
+          <Typography variant="body1" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+            Are you sure you want to delete the solution:
+          </Typography>
+          <Typography variant="subtitle1" fontWeight={600} sx={{ color: colors.error, mt: 1, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+            "{deletingSolution?.error_title}"
+          </Typography>
+          {deletingSolution?.equipment_name && (
+            <Typography variant="body2" sx={{ color: colors.lightText, mt: 0.5, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+              Equipment: {deletingSolution.equipment_name}
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 3, gap: 1 }}>
+          <Button
+            onClick={() => setOpenDeleteDialog(false)}
+            variant="outlined"
+            sx={{
+              color: colors.darkNavy,
+              borderColor: colors.borderColor,
+              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+              textTransform: 'none',
+              borderRadius: 2,
+              px: 3,
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={confirmDeleteSolution}
+            disabled={deleteLoading}
+            startIcon={deleteLoading ? <CircularProgress size={16} color="inherit" /> : <DeleteForever />}
+            sx={{
+              bgcolor: colors.error,
+              color: colors.text,
+              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+              textTransform: 'none',
+              borderRadius: 2,
+              px: 4,
+              '&:hover': {
+                bgcolor: '#DC2626',
+                boxShadow: `0 4px 20px ${colors.error}44`,
+              },
+            }}
+          >
+            {deleteLoading ? 'Deleting...' : 'Delete Permanently'}
           </Button>
         </DialogActions>
       </Dialog>

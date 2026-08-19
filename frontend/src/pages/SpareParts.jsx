@@ -534,10 +534,10 @@ const SpareParts = () => {
     status: '',
   })
   
-  // ✅ Use Part form data
+  // ✅ Use Part form data - quantity now starts empty
   const [useFormData, setUseFormData] = useState({
     partId: null,
-    quantity: 1,
+    quantity: '',  // Changed from 1 to '' so user must type
     reason: '',
   })
   
@@ -629,7 +629,6 @@ const SpareParts = () => {
   const lowStockItems = spareParts.filter(p => p.quantity <= (p.minimum_stock_level || 5) && p.quantity > 0)
   const outOfStockItems = spareParts.filter(p => p.quantity <= 0)
   const inStockItems = spareParts.filter(p => p.quantity > (p.minimum_stock_level || 5))
-  const totalDowntimeDays = spareParts.reduce((sum, p) => sum + (p.total_downtime_days || 0), 0)
 
   // ============================================================
   // ✅ USE PART HANDLERS (NEW)
@@ -637,7 +636,7 @@ const SpareParts = () => {
   const handleOpenUseDialog = (part) => {
     setUseFormData({
       partId: part.id,
-      quantity: 1,
+      quantity: '',  // Empty by default
       reason: '',
     })
     setOpenUseDialog(true)
@@ -645,15 +644,22 @@ const SpareParts = () => {
 
   const handleCloseUseDialog = () => {
     setOpenUseDialog(false)
-    setUseFormData({ partId: null, quantity: 1, reason: '' })
+    setUseFormData({ partId: null, quantity: '', reason: '' })
   }
 
   const handleUseFormChange = (e) => {
     const { name, value } = e.target
-    setUseFormData(prev => ({
-      ...prev,
-      [name]: name === 'quantity' ? Math.max(1, parseInt(value) || 1) : value
-    }))
+    if (name === 'quantity') {
+      // Allow empty string or positive integers
+      if (value === '' || (Number.isInteger(Number(value)) && Number(value) > 0)) {
+        setUseFormData(prev => ({ ...prev, quantity: value }))
+      } else if (value === '0') {
+        // ignore 0
+        return
+      }
+    } else {
+      setUseFormData(prev => ({ ...prev, [name]: value }))
+    }
   }
 
   const handleUsePart = async () => {
@@ -668,13 +674,20 @@ const SpareParts = () => {
         toast.error('Part not found')
         return
       }
-      if (quantity > part.quantity) {
+      
+      // Validate quantity
+      const qtyNum = parseInt(quantity)
+      if (!quantity || isNaN(qtyNum) || qtyNum <= 0) {
+        toast.error('Please enter a valid quantity (positive number)')
+        return
+      }
+      if (qtyNum > part.quantity) {
         toast.error(`Not enough stock. Available: ${part.quantity}`)
         return
       }
 
       // Update the part's quantity and add note
-      const newQuantity = part.quantity - quantity
+      const newQuantity = part.quantity - qtyNum
       const updateData = {
         part_name: part.part_name,
         part_number: part.part_number,
@@ -685,11 +698,11 @@ const SpareParts = () => {
         equipment_name: part.equipment_name,
         minimum_stock_level: part.minimum_stock_level || 5,
         // Append usage note to installation_notes
-        installation_notes: `${part.installation_notes || ''}\n[${new Date().toLocaleString()}] Used ${quantity} pcs. Reason: ${reason || 'No reason provided'}`.trim()
+        installation_notes: `${part.installation_notes || ''}\n[${new Date().toLocaleString()}] Used ${qtyNum} pcs. Reason: ${reason || 'No reason provided'}`.trim()
       }
 
       await sparePartService.update(partId, updateData)
-      toast.success(`${quantity} part(s) used successfully. Stock updated.`)
+      toast.success(`${qtyNum} part(s) used successfully. Stock updated.`)
       
       // Refresh list
       await fetchSpareParts()
@@ -1012,7 +1025,7 @@ const SpareParts = () => {
     return matchesSearch && matchesHospital && matchesEquipment && matchesStatus
   })
 
-  // ✅ Stats Cards
+  // ✅ Stats Cards (Downtime card removed)
   const statsCards = [
     {
       title: 'Total Parts',
@@ -1039,13 +1052,6 @@ const SpareParts = () => {
       title: 'Out of Stock',
       value: outOfStockItems.length,
       icon: <Cancel />,
-      color: colors.lightCyan,
-      bg: 'rgba(103, 232, 249, 0.08)',
-    },
-    {
-      title: 'Downtime (Days)',
-      value: totalDowntimeDays.toFixed(1),
-      icon: <TimerOff />,
       color: colors.lightCyan,
       bg: 'rgba(103, 232, 249, 0.08)',
     },
@@ -1235,7 +1241,7 @@ const SpareParts = () => {
       {/* STATS CARDS */}
       <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }} sx={{ mb: 3 }}>
         {statsCards.map((card, index) => (
-          <Grid item xs={6} sm={2.4} key={index}>
+          <Grid item xs={6} sm={3} md={3} key={index}>
             <Grow in timeout={300 + index * 100}>
               <Card sx={{ 
                 borderRadius: 3,
@@ -2470,7 +2476,7 @@ const SpareParts = () => {
       </Dialog>
 
       {/* ============================================================
-          ✅ USE PART DIALOG - NEW
+          ✅ USE PART DIALOG - NEW (with empty quantity field)
       ============================================================ */}
       <Dialog
         open={openUseDialog}
@@ -2516,6 +2522,7 @@ const SpareParts = () => {
                 onChange={handleUseFormChange}
                 InputProps={{ inputProps: { min: 1, step: 1 } }}
                 helperText={`Available: ${spareParts.find(p => p.id === useFormData.partId)?.quantity || 0}`}
+                placeholder="Enter quantity"
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     borderRadius: 2,
@@ -2564,7 +2571,6 @@ const SpareParts = () => {
           <Button
             variant="contained"
             onClick={handleUsePart}
-            color="error"
             sx={{ 
               bgcolor: colors.darkNavy,
               color: colors.text,

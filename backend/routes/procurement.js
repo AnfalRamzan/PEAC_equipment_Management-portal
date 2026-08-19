@@ -130,7 +130,8 @@ router.post('/', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN', 'ENGIN
 });
 
 // ============================================================
-// UPDATE procurement request (only SUPER_ADMIN, not rejected/commissioned)
+// UPDATE procurement request (only SUPER_ADMIN, not rejected)
+// ✅ Allow edit for completed status too
 // ============================================================
 router.put('/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
   try {
@@ -154,12 +155,12 @@ router.put('/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
       return res.status(404).json({ success: false, message: 'Procurement request not found' });
     }
 
-    // Disallow edit if rejected or commissioned
-    const disallowed = ['REJECTED', 'EQUIPMENT TESTED & COMMISSIONED FOR USE'];
-    if (disallowed.includes(existing[0].status)) {
+    // ❌ Only disallow edit if rejected
+    // ✅ Allow edit for completed/commissioned status
+    if (existing[0].status === 'REJECTED') {
       return res.status(400).json({
         success: false,
-        message: 'Cannot edit a request that is already rejected or commissioned'
+        message: 'Cannot edit a request that is already rejected'
       });
     }
 
@@ -204,7 +205,8 @@ router.put('/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
 });
 
 // ============================================================
-// DELETE procurement request (only SUPER_ADMIN, not rejected/commissioned)
+// DELETE procurement request (only SUPER_ADMIN)
+// ✅ Allow delete for completed status too
 // ============================================================
 router.delete('/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
   try {
@@ -214,11 +216,12 @@ router.delete('/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) =
       return res.status(404).json({ success: false, message: 'Procurement request not found' });
     }
 
-    const disallowed = ['REJECTED', 'EQUIPMENT TESTED & COMMISSIONED FOR USE'];
-    if (disallowed.includes(existing[0].status)) {
+    // ❌ Only disallow delete if rejected
+    // ✅ Allow delete for completed/commissioned status
+    if (existing[0].status === 'REJECTED') {
       return res.status(400).json({
         success: false,
-        message: 'Cannot delete a request that is already rejected or commissioned'
+        message: 'Cannot delete a request that is already rejected'
       });
     }
 
@@ -257,6 +260,14 @@ router.put('/:id/status', authenticate, authorize('SUPER_ADMIN'), async (req, re
       return res.status(400).json({
         success: false,
         message: 'Cannot change status of a rejected request'
+      });
+    }
+
+    // If already commissioned, cannot change (final state)
+    if (existing[0].status === 'EQUIPMENT TESTED & COMMISSIONED FOR USE') {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot change status of a commissioned request'
       });
     }
 

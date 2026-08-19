@@ -1,6 +1,7 @@
 // src/pages/Dashboard.jsx
 // ✅ UPDATED: Cards become prominent on click with glow & scale effect
 // ✅ FIXED: "Pending Purchase Orders" → "Purchase Orders"
+// ✅ ENGINEER: "My Assigned Repairs" → "Repairs", removed "Critical Errors"
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -314,7 +315,7 @@ const Dashboard = () => {
     if (isEngineer) {
       cards.push(
         { 
-          title: 'My Assigned Repairs', 
+          title: 'Repairs',  // ✅ Changed from "My Assigned Repairs" to "Repairs"
           value: stats.myAssignedRepairs || 0, 
           icon: <Engineering />, 
           path: '/repairs?assigned=true',
@@ -345,14 +346,7 @@ const Dashboard = () => {
           color: colors.info,
           show: true
         },
-        { 
-          title: 'Critical Errors',
-          value: stats.criticalErrors || 0, 
-          icon: <Warning />, 
-          path: '/errors?severity=Critical',
-          color: colors.error,
-          show: true
-        },
+        // ❌ Removed "Critical Errors" card per request
         { 
           title: 'Maintenance Due', 
           value: stats.maintenanceDue || 0, 
@@ -415,7 +409,6 @@ const Dashboard = () => {
           color: colors.warning,
           show: true
         },
-        // ✅ FIXED: "Pending Purchase Orders" → "Purchase Orders"
         { 
           title: 'Purchase Orders',
           value: stats.pendingPurchaseOrders || 0, 

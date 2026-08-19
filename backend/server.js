@@ -3672,8 +3672,8 @@ app.post('/api/procurement', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_AD
       hospital_id,
       equipment_name,
       category_name,
-      manufacturer_options, // array
-      model_options,        // array
+      manufacturer_options,
+      model_options,
       quantity,
       estimated_cost,
       justification,
@@ -3755,7 +3755,7 @@ app.post('/api/procurement', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_AD
 });
 
 // ============================================================
-// UPDATE procurement request (only SUPER_ADMIN, not rejected/commissioned)
+// ✅ UPDATE procurement request - UPDATED: Allow edit for completed
 // ============================================================
 app.put('/api/procurement/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
   try {
@@ -3779,11 +3779,12 @@ app.put('/api/procurement/:id', authenticate, authorize('SUPER_ADMIN'), async (r
       return res.status(404).json({ success: false, message: 'Procurement request not found' });
     }
 
-    const disallowed = ['REJECTED', 'EQUIPMENT TESTED & COMMISSIONED FOR USE'];
-    if (disallowed.includes(existing[0].status)) {
+    // ❌ Only disallow edit if rejected
+    // ✅ Allow edit for completed/commissioned status
+    if (existing[0].status === 'REJECTED') {
       return res.status(400).json({
         success: false,
-        message: 'Cannot edit a request that is already rejected or commissioned'
+        message: 'Cannot edit a request that is already rejected'
       });
     }
 
@@ -3828,7 +3829,7 @@ app.put('/api/procurement/:id', authenticate, authorize('SUPER_ADMIN'), async (r
 });
 
 // ============================================================
-// DELETE procurement request (only SUPER_ADMIN, not rejected/commissioned)
+// ✅ DELETE procurement request - UPDATED: Allow delete for completed
 // ============================================================
 app.delete('/api/procurement/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
   try {
@@ -3838,11 +3839,12 @@ app.delete('/api/procurement/:id', authenticate, authorize('SUPER_ADMIN'), async
       return res.status(404).json({ success: false, message: 'Procurement request not found' });
     }
 
-    const disallowed = ['REJECTED', 'EQUIPMENT TESTED & COMMISSIONED FOR USE'];
-    if (disallowed.includes(existing[0].status)) {
+    // ❌ Only disallow delete if rejected
+    // ✅ Allow delete for completed/commissioned status
+    if (existing[0].status === 'REJECTED') {
       return res.status(400).json({
         success: false,
-        message: 'Cannot delete a request that is already rejected or commissioned'
+        message: 'Cannot delete a request that is already rejected'
       });
     }
 
@@ -3856,6 +3858,7 @@ app.delete('/api/procurement/:id', authenticate, authorize('SUPER_ADMIN'), async
 
 // ============================================================
 // ✅ STATUS TRANSITION (main workflow) - only SUPER_ADMIN
+// ✅ Also prevents changing status of completed items (final state)
 // ============================================================
 app.put('/api/procurement/:id/status', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
   try {
@@ -3875,6 +3878,7 @@ app.put('/api/procurement/:id/status', authenticate, authorize('SUPER_ADMIN'), a
       return res.status(404).json({ success: false, message: 'Procurement request not found' });
     }
 
+    // If already REJECTED, cannot change
     if (existing[0].status === 'REJECTED') {
       return res.status(400).json({
         success: false,
@@ -3882,6 +3886,15 @@ app.put('/api/procurement/:id/status', authenticate, authorize('SUPER_ADMIN'), a
       });
     }
 
+    // ✅ If already commissioned, cannot change (final state)
+    if (existing[0].status === 'EQUIPMENT TESTED & COMMISSIONED FOR USE') {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot change status of a commissioned request'
+      });
+    }
+
+    // Prevent moving backwards (except to REJECTED)
     if (status !== 'REJECTED') {
       const currentIndex = STEPS.indexOf(existing[0].status);
       const newIndex = STEPS.indexOf(status);
@@ -4087,8 +4100,10 @@ app.put('/api/procurement/:id/review', authenticate, authorize('SUPER_ADMIN', 'H
   return app._router.handle(req, res, `/api/procurement/${req.params.id}/status`);
 });
 
-console.log('📦 PROCUREMENT ROUTES UPDATED WITH WORKFLOW + NOTIFICATIONS WITH ACTOR');
-
+console.log('📦 PROCUREMENT ROUTES UPDATED: Allow edit/delete for completed status');
+console.log('   ✅ PUT /api/procurement/:id - Only rejects if status is REJECTED');
+console.log('   ✅ DELETE /api/procurement/:id - Only rejects if status is REJECTED');
+console.log('   ✅ PUT /api/procurement/:id/status - Prevents changing commissioned status');
 // ============================================================
 // ✅ NOTIFICATIONS ROUTES
 // ============================================================
