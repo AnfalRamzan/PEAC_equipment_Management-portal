@@ -1,5 +1,7 @@
 // src/pages/Maintenance.jsx
-// ✅ COMPLETE FIXED VERSION
+// ✅ COMPLETE FIXED VERSION - ENGINEER can Create, Edit, Delete (Own), View
+// ✅ SUPER_ADMIN has Full Access
+// ✅ Fixed: Engineer hospital_id auto-set
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -102,16 +104,20 @@ const animationStyles = `
 const Maintenance = () => {
   const { user } = useSelector((state) => state.auth)
   
+  // ✅ Access Denied for HOSPITAL_ADMIN
   if (user?.role === 'HOSPITAL_ADMIN') {
     return <AccessDenied message="Hospital Administrators cannot access Maintenance." />
   }
   
+  // ============================================================
+  // ✅ PERMISSIONS - ENGINEER can Create, Edit, Delete (Own)
+  // ============================================================
   const isEngineer = user?.role === 'ENGINEER'
   const isSuperAdmin = user?.role === 'SUPER_ADMIN'
   
   const canCreate = isEngineer || isSuperAdmin
   const canView = isEngineer || isSuperAdmin
-  const canDelete = isSuperAdmin
+  const canDelete = isSuperAdmin || isEngineer
   const canChangeStatus = isSuperAdmin
   
   const canEdit = (schedule) => {
@@ -160,6 +166,14 @@ const Maintenance = () => {
     fetchSchedules()
     fetchEquipment()
     fetchHospitals()
+    
+    // ✅ Engineer ke liye hospital_id auto-set
+    if (isEngineer && user?.hospital_id) {
+      setFormData(prev => ({
+        ...prev,
+        hospital_id: user.hospital_id.toString()
+      }))
+    }
   }, [])
 
   // ============================================================
@@ -326,7 +340,7 @@ const Maintenance = () => {
       setEditingSchedule(null)
       setFormData({
         equipment_id: '',
-        hospital_id: '',
+        hospital_id: isEngineer && user?.hospital_id ? user.hospital_id.toString() : '',
         maintenance_type: 'Preventive',
         frequency: 'Monthly',
         last_maintenance_date: '',
@@ -377,12 +391,21 @@ const Maintenance = () => {
 
   const handleSubmit = async () => {
     try {
+      console.log('📤 Starting submit...')
+      
+      // ✅ Engineer ke liye hospital_id force karein
+      let finalHospitalId = formData.hospital_id
+      if (isEngineer && user?.hospital_id) {
+        finalHospitalId = user.hospital_id.toString()
+        console.log('🏥 Engineer hospital_id forced:', finalHospitalId)
+      }
+
       if (!formData.equipment_id) {
         toast.error('Please select equipment')
         return
       }
       
-      if (!formData.hospital_id) {
+      if (!finalHospitalId) {
         toast.error('Please select a hospital')
         return
       }
@@ -394,7 +417,7 @@ const Maintenance = () => {
 
       const submitData = {
         equipment_id: parseInt(formData.equipment_id),
-        hospital_id: parseInt(formData.hospital_id),
+        hospital_id: parseInt(finalHospitalId),
         maintenance_type: formData.maintenance_type || 'Preventive',
         frequency: formData.frequency || 'Monthly',
         last_maintenance_date: formData.last_maintenance_date || null,
@@ -407,27 +430,43 @@ const Maintenance = () => {
         engineer_name: formData.engineer_name || user?.full_name || '',
       }
 
-      console.log('📤 Submitting:', submitData)
+      console.log('📤 Submitting data:', JSON.stringify(submitData, null, 2))
 
+      let response
       if (editingSchedule) {
-        await maintenanceService.update(editingSchedule.id, submitData)
+        console.log('🔄 Updating schedule ID:', editingSchedule.id)
+        response = await maintenanceService.update(editingSchedule.id, submitData)
         toast.success('Maintenance schedule updated successfully')
       } else {
-        await maintenanceService.create(submitData)
+        console.log('➕ Creating new schedule')
+        response = await maintenanceService.create(submitData)
         toast.success('Maintenance schedule created successfully')
       }
+
+      console.log('✅ Response:', response)
       fetchSchedules()
       handleCloseDialog()
     } catch (error) {
       console.error('❌ Submit error:', error)
+      console.error('❌ Error response:', error.response?.data)
+      console.error('❌ Error status:', error.response?.status)
       toast.error(error.response?.data?.message || 'Operation failed')
     }
   }
 
   const handleDelete = async (id) => {
     if (!canDelete) {
-      toast.error('Only Super Admin can delete maintenance schedules')
+      toast.error('You do not have permission to delete maintenance schedules')
       return
+    }
+    
+    // ✅ Check if engineer owns this schedule
+    if (isEngineer) {
+      const schedule = schedules.find(s => s.id === id)
+      if (schedule && schedule.engineer_name !== user?.full_name) {
+        toast.error('You can only delete your own schedules')
+        return
+      }
     }
     
     if (window.confirm('Are you sure you want to delete this maintenance schedule?')) {
@@ -1063,6 +1102,7 @@ const Maintenance = () => {
               filteredSchedules.map((schedule, index) => {
                 const isOwnSchedule = isEngineer && schedule.engineer_name === user?.full_name
                 const isOverdueStatus = isOverdue(schedule.next_due_date) && schedule.status !== 'Completed'
+                const canDeleteSchedule = isSuperAdmin || (isEngineer && schedule.engineer_name === user?.full_name)
                 
                 return (
                   <TableRow 
@@ -1178,7 +1218,7 @@ const Maintenance = () => {
                           </Tooltip>
                         )}
                         
-                        {canDelete && (
+                        {canDeleteSchedule && (
                           <Tooltip title="Delete Schedule">
                             <IconButton 
                               size="small" 

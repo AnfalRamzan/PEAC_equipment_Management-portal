@@ -6,6 +6,7 @@
 // ✅ FIXED: Engineer report filtering
 // ✅ FIXED: Status update with resolved_at
 // ✅ FIXED: DELETE route with cascade delete for linked repairs and spare parts
+// ✅ ADDED: Support for custom resolution date from frontend
 
 const express = require('express');
 const router = express.Router();
@@ -226,7 +227,7 @@ router.post('/', authenticate, async (req, res) => {
 });
 
 // ============================================
-// ✅ UPDATE ERROR - Priority removed, resolved_at added, Completed removed
+// ✅ UPDATE ERROR - With resolved_at support
 // ============================================
 router.put('/:id', authenticate, async (req, res) => {
     try {
@@ -236,12 +237,15 @@ router.put('/:id', authenticate, async (req, res) => {
             error_title,
             error_description,
             status,
-            attachments
+            attachments,
+            resolved_at  // ✅ NEW: Accept resolution date from frontend
         } = req.body;
 
         console.log('🔄 Updating error ID:', id);
         console.log('📌 User role:', req.user.role_name);
         console.log('📌 User ID:', req.user.id);
+        console.log('📌 Status:', status);
+        console.log('📌 Resolved At:', resolved_at);
 
         // ✅ Check if error exists with equipment info
         let sql = `
@@ -348,8 +352,15 @@ router.put('/:id', authenticate, async (req, res) => {
 
                 // ✅ Set resolved_at when status is Resolved
                 if (status === 'Resolved') {
-                    updateFields.push('resolved_at = NOW()');
-                    console.log('✅ Setting resolved_at to NOW()');
+                    // ✅ Use custom resolution date if provided, otherwise NOW()
+                    if (resolved_at) {
+                        updateFields.push('resolved_at = ?');
+                        updateValues.push(resolved_at);
+                        console.log('✅ Setting resolved_at to custom date:', resolved_at);
+                    } else {
+                        updateFields.push('resolved_at = NOW()');
+                        console.log('✅ Setting resolved_at to NOW()');
+                    }
                 } else {
                     // If status changes away from Resolved, clear resolved_at
                     updateFields.push('resolved_at = NULL');
@@ -408,12 +419,12 @@ router.put('/:id', authenticate, async (req, res) => {
 });
 
 // ============================================
-// ✅ PATCH STATUS - Only 3 statuses
+// ✅ PATCH STATUS - With resolved_at support
 // ============================================
 router.patch('/:id/status', authenticate, async (req, res) => {
     try {
         const { id } = req.params;
-        const { status } = req.body;
+        const { status, resolved_at } = req.body;  // ✅ Accept resolved_at from frontend
 
         const validStatuses = ['Pending', 'In Progress', 'Resolved'];
         if (!validStatuses.includes(status)) {
@@ -473,10 +484,19 @@ router.patch('/:id/status', authenticate, async (req, res) => {
 
         // ✅ Set resolved_at when status is Resolved
         if (status === 'Resolved') {
-            updateQuery += ', resolved_at = NOW()';
+            // ✅ Use custom resolution date if provided, otherwise NOW()
+            if (resolved_at) {
+                updateQuery += ', resolved_at = ?';
+                updateParams.push(resolved_at);
+                console.log('✅ Setting resolved_at to custom date:', resolved_at);
+            } else {
+                updateQuery += ', resolved_at = NOW()';
+                console.log('✅ Setting resolved_at to NOW()');
+            }
         } else {
             // If status changes away from Resolved, clear resolved_at
             updateQuery += ', resolved_at = NULL';
+            console.log('✅ Clearing resolved_at');
         }
 
         updateQuery += ' WHERE id = ?';

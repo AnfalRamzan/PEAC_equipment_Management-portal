@@ -3,6 +3,11 @@
 // ✅ FULLY RESPONSIVE - Mobile friendly with card view
 // ✅ SIMPLIFIED TABLE - Essential columns only
 // ✅ FIXED: Duplicate icons removed from buttons
+// ✅ FIXED: Date of Installation and Date of Purchase now working correctly
+// ✅ FIXED: Date formatting in handleSubmit
+// ✅ FIXED: Serial number validation with debounce and useEffect
+// ✅ FIXED: handleFormChange safe event handling
+// ✅ FIXED: Date picker now allows previous years (2000 onwards) and future dates up to 2030
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -181,6 +186,30 @@ const animationStyles = `
   }
 }
 `
+
+// ✅ Helper function to format date for input field
+const formatDateInput = (dateStr) => {
+  if (!dateStr) return ''
+  try {
+    const date = new Date(dateStr)
+    if (isNaN(date.getTime())) return ''
+    return date.toISOString().split('T')[0]
+  } catch (e) {
+    return ''
+  }
+}
+
+// ✅ Helper function to format date for API
+const formatDateForAPI = (dateStr) => {
+  if (!dateStr) return null
+  try {
+    const date = new Date(dateStr)
+    if (isNaN(date.getTime())) return null
+    return date.toISOString().split('T')[0]
+  } catch (e) {
+    return null
+  }
+}
 
 // ✅ Status color mapping
 const getStatusColor = (status) => {
@@ -478,6 +507,21 @@ const Equipment = () => {
     serial_number: false
   })
 
+  // ✅ EFFECT: Debounced serial number validation
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const serial = formData.serial_number
+      if (serial && serial.trim() !== '') {
+        const excludeId = editingEquipment ? editingEquipment.id : null
+        checkSerialNumber(serial, excludeId)
+      } else {
+        setSerialStatus({ isValid: true, message: '', isChecking: false })
+      }
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [formData.serial_number, editingEquipment])
+
   useEffect(() => {
     fetchAllData()
   }, [])
@@ -607,6 +651,7 @@ const Equipment = () => {
     }
   }
 
+  // ✅ FIXED: checkSerialNumber now uses debounced useEffect
   const checkSerialNumber = async (serialNumber, excludeId = null) => {
     if (!serialNumber || serialNumber.trim() === '') {
       setSerialStatus({ isValid: true, message: '', isChecking: false })
@@ -892,6 +937,7 @@ const Equipment = () => {
     }
   }
 
+  // ✅ FIXED: handleOpenDialog with proper date formatting
   const handleOpenDialog = (equip = null) => {
     if (equip && !canEdit) {
       toast.error('You do not have permission to edit equipment')
@@ -911,8 +957,8 @@ const Equipment = () => {
         manufacturer: equip.manufacturer || '',
         model: equip.model || '',
         serial_number: equip.serial_number || '',
-        date_of_installation: equip.date_of_installation || '',
-        purchase_date: equip.purchase_date || '',
+        date_of_installation: equip.date_of_installation ? formatDateInput(equip.date_of_installation) : '',
+        purchase_date: equip.purchase_date ? formatDateInput(equip.purchase_date) : '',
         hospital_id: equip.hospital_id || defaultHospitalId,
         department_id: equip.department_id || '',
         location: equip.location || '',
@@ -924,11 +970,8 @@ const Equipment = () => {
         hospital_email: equip.hospital_email || '',
       })
       
-      if (equip.serial_number) {
-        checkSerialNumber(equip.serial_number, equip.id)
-      } else {
-        setSerialStatus({ isValid: true, message: '', isChecking: false })
-      }
+      // Serial status will be updated by useEffect
+      setSerialStatus({ isValid: true, message: '', isChecking: false })
       
       if (equip.image_url) {
         const existingImages = equip.image_url.split(',').filter(Boolean).map(url => ({
@@ -975,21 +1018,16 @@ const Equipment = () => {
     setSerialStatus({ isValid: true, message: '', isChecking: false })
   }
 
+  // ✅ FIXED: handleFormChange with safe event handling
   const handleFormChange = (e) => {
+    if (!e || !e.target) return
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
     setTouched(prev => ({ ...prev, [name]: true }))
-
-    if (name === 'serial_number') {
-      const excludeId = editingEquipment ? editingEquipment.id : null
-      if (value && value.trim() !== '') {
-        checkSerialNumber(value, excludeId)
-      } else {
-        setSerialStatus({ isValid: true, message: '', isChecking: false })
-      }
-    }
+    // ✅ Serial number validation is now handled by useEffect
   }
 
+  // ✅ FIXED: handleSubmit with proper date formatting
   const handleSubmit = async () => {
     try {
       if (!formData.name || formData.name.trim() === '') {
@@ -1004,6 +1042,7 @@ const Equipment = () => {
         return
       }
 
+      // ✅ Serial number check is already done via useEffect, but double-check before submit
       if (formData.serial_number && formData.serial_number.trim() !== '') {
         const isValid = await checkSerialNumber(
           formData.serial_number, 
@@ -1030,20 +1069,25 @@ const Equipment = () => {
         hospitalId = Number(hospitalId) || null
       }
 
+      const installationDate = formatDateForAPI(formData.date_of_installation)
+      const purchaseDate = formatDateForAPI(formData.purchase_date)
+
       const submitData = {
         name: formData.name.trim(),
         category_id: formData.category_id ? parseInt(formData.category_id) : null,
         manufacturer: formData.manufacturer || '',
         model: formData.model || '',
         serial_number: formData.serial_number || '',
-        date_of_installation: formData.date_of_installation || null,
-        purchase_date: formData.purchase_date || null,
+        date_of_installation: installationDate,
+        purchase_date: purchaseDate,
         hospital_id: hospitalId,
         department_id: formData.department_id ? parseInt(formData.department_id) : null,
         location: formData.location || '',
         status: formData.status || 'Warranty',
         image_url: formData.image_url || ''
       }
+
+      console.log('📤 Submitting equipment data:', submitData)
 
       if (editingEquipment) {
         await apiEndpoints.updateEquipment(editingEquipment.id, submitData)
@@ -1170,7 +1214,6 @@ const Equipment = () => {
           width: { xs: '100%', sm: 'auto' },
           justifyContent: { xs: 'flex-start', sm: 'flex-end' },
         }}>
-          {/* ✅ Refresh Button - Single Icon */}
           <Button 
             variant="outlined" 
             onClick={fetchAllData} 
@@ -1211,7 +1254,6 @@ const Equipment = () => {
             </Typography>
           </Button>
           
-          {/* ✅ Add Equipment Button - Single Icon */}
           {canCreate && (
             <Button
               variant="contained"
@@ -1458,7 +1500,6 @@ const Equipment = () => {
             width: { xs: '100%', sm: 'auto' },
             justifyContent: { xs: 'flex-start', sm: 'flex-end' }
           }}>
-            {/* ✅ Filter Button - Single Icon */}
             <Button 
               variant="contained"
               onClick={handleFilterClick}
@@ -1491,7 +1532,6 @@ const Equipment = () => {
               </Typography>
             </Button>
             
-            {/* ✅ Export Button - Single Icon */}
             <Button 
               variant="contained"
               onClick={handleExportClick}
@@ -2641,6 +2681,10 @@ const Equipment = () => {
                   value={formData.date_of_installation}
                   onChange={handleFormChange}
                   InputLabelProps={{ shrink: true }}
+                  inputProps={{
+                    min: "2000-01-01",
+                    max: "2030-12-31"
+                  }}
                   sx={{
                     '& .MuiOutlinedInput-root': {
                       borderRadius: 2,
@@ -2660,6 +2704,10 @@ const Equipment = () => {
                   value={formData.purchase_date}
                   onChange={handleFormChange}
                   InputLabelProps={{ shrink: true }}
+                  inputProps={{
+                    min: "2000-01-01",
+                    max: "2030-12-31"
+                  }}
                   sx={{
                     '& .MuiOutlinedInput-root': {
                       borderRadius: 2,

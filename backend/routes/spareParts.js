@@ -1,5 +1,6 @@
 // backend/routes/spareParts.js
-// ✅ COMPLETE FIXED VERSION - Properly returns hospital_name and equipment_name
+// ✅ COMPLETE FIXED VERSION - WITH USE PART ENDPOINT
+// ✅ Added POST /:id/use - any authenticated user can decrement quantity
 
 const express = require('express');
 const router = express.Router();
@@ -17,14 +18,12 @@ const getStatus = (quantity, minimumStockLevel) => {
 };
 
 // ============================================================
-// ✅ GET ALL SPARE PARTS - FIXED
+// ✅ GET ALL SPARE PARTS
 // ============================================================
 router.get('/', authenticate, async (req, res) => {
     try {
         console.log('🔩 Fetching spare parts...');
-        console.log('👤 User:', req.user ? req.user.email : 'No user');
         
-        // ✅ SIMPLE QUERY - Get all spare parts
         const sql = `
             SELECT 
                 id,
@@ -49,57 +48,17 @@ router.get('/', authenticate, async (req, res) => {
             ORDER BY created_at DESC
         `;
         
-        console.log('📝 Executing SQL query...');
         const parts = await query(sql, []);
-        
         console.log(`✅ Found ${parts.length} spare parts`);
         
-        // ✅ Log the first part to verify data
-        if (parts.length > 0) {
-            console.log('📊 First part from DB:', {
-                id: parts[0].id,
-                part_name: parts[0].part_name,
-                hospital_name: parts[0].hospital_name,
-                equipment_name: parts[0].equipment_name,
-                // Show all keys to verify columns
-                all_keys: Object.keys(parts[0])
-            });
-        }
-        
-        // ✅ Map parts with status - KEEP THE ORIGINAL VALUES
         const partsWithStatus = parts.map(part => ({
-            id: part.id,
-            part_name: part.part_name || '',
-            part_number: part.part_number || '',
-            quantity: part.quantity || 0,
-            unit_cost: part.unit_cost || 0,
-            total_cost: part.total_cost || 0,
-            installation_notes: part.installation_notes || '',
-            image_url: part.image_url || '',
-            minimum_stock_level: part.minimum_stock_level || 5,
-            created_at: part.created_at,
-            updated_at: part.updated_at,
-            // ✅ CRITICAL: Use the values directly from database
+            ...part,
+            status: getStatus(part.quantity, part.minimum_stock_level),
             hospital_name: part.hospital_name || 'N/A',
-            equipment_name: part.equipment_name || 'N/A',
-            brand: part.brand || '',
-            manufacturer: part.manufacturer || '',
-            compatible_equipment: part.compatible_equipment || '',
-            repair_id: part.repair_id,
-            equipment_id: part.equipment_id,
-            status: getStatus(part.quantity, part.minimum_stock_level)
+            equipment_name: part.equipment_name || 'N/A'
         }));
         
-        // ✅ Log what we're sending
-        console.log('📤 Sending to frontend:');
-        partsWithStatus.forEach(p => {
-            console.log(`  ID: ${p.id}, Hospital: "${p.hospital_name}", Equipment: "${p.equipment_name}"`);
-        });
-        
-        res.json({ 
-            success: true, 
-            spareParts: partsWithStatus 
-        });
+        res.json({ success: true, spareParts: partsWithStatus });
         
     } catch (error) {
         console.error('❌ Get spare parts error:', error);
@@ -111,12 +70,11 @@ router.get('/', authenticate, async (req, res) => {
 });
 
 // ============================================================
-// ✅ GET SINGLE SPARE PART - FIXED
+// ✅ GET SINGLE SPARE PART
 // ============================================================
 router.get('/:id', authenticate, async (req, res) => {
     try {
         const { id } = req.params;
-        
         const sql = `SELECT * FROM spare_parts WHERE id = ?`;
         const parts = await query(sql, [id]);
         
@@ -135,10 +93,7 @@ router.get('/:id', authenticate, async (req, res) => {
             equipment_name: part.equipment_name || 'N/A'
         };
         
-        res.json({ 
-            success: true, 
-            sparePart: partWithStatus 
-        });
+        res.json({ success: true, sparePart: partWithStatus });
         
     } catch (error) {
         console.error('❌ Get spare part error:', error);
@@ -150,7 +105,7 @@ router.get('/:id', authenticate, async (req, res) => {
 });
 
 // ============================================================
-// ✅ CREATE SPARE PART - FIXED
+// ✅ CREATE SPARE PART (any authenticated user)
 // ============================================================
 router.post('/', authenticate, async (req, res) => {
     try {
@@ -172,25 +127,18 @@ router.post('/', authenticate, async (req, res) => {
             equipment_id
         } = req.body;
 
-        console.log('🔩 Creating spare part:', part_name);
-        console.log('  Hospital:', hospital_name);
-        console.log('  Equipment:', equipment_name);
-
-        // ✅ Validate required fields
         if (!part_name || part_name.trim() === '') {
             return res.status(400).json({ 
                 success: false, 
                 message: 'Part name is required' 
             });
         }
-
         if (!hospital_name || hospital_name.trim() === '') {
             return res.status(400).json({ 
                 success: false, 
                 message: 'Hospital name is required' 
             });
         }
-
         if (!equipment_name || equipment_name.trim() === '') {
             return res.status(400).json({ 
                 success: false, 
@@ -202,24 +150,12 @@ router.post('/', authenticate, async (req, res) => {
         const finalUnitCost = parseFloat(unit_cost) || 0;
         const finalTotalCost = parseFloat(total_cost) || (finalQuantity * finalUnitCost);
 
-        // ✅ Insert with all fields
         const result = await query(
             `INSERT INTO spare_parts (
-                part_name,
-                part_number,
-                quantity,
-                unit_cost,
-                total_cost,
-                installation_notes,
-                image_url,
-                minimum_stock_level,
-                hospital_name,
-                equipment_name,
-                brand,
-                manufacturer,
-                compatible_equipment,
-                repair_id,
-                equipment_id
+                part_name, part_number, quantity, unit_cost, total_cost,
+                installation_notes, image_url, minimum_stock_level,
+                hospital_name, equipment_name, brand, manufacturer,
+                compatible_equipment, repair_id, equipment_id
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 part_name.trim(),
@@ -240,14 +176,7 @@ router.post('/', authenticate, async (req, res) => {
             ]
         );
 
-        console.log('✅ Spare part created. ID:', result.insertId);
-
-        // ✅ Get the created part
-        const newPart = await query(
-            'SELECT * FROM spare_parts WHERE id = ?',
-            [result.insertId]
-        );
-
+        const newPart = await query('SELECT * FROM spare_parts WHERE id = ?', [result.insertId]);
         const partWithStatus = newPart[0] ? {
             ...newPart[0],
             status: getStatus(newPart[0].quantity, newPart[0].minimum_stock_level),
@@ -271,7 +200,7 @@ router.post('/', authenticate, async (req, res) => {
 });
 
 // ============================================================
-// ✅ UPDATE SPARE PART - FIXED
+// ✅ UPDATE SPARE PART (ONLY SUPER_ADMIN)
 // ============================================================
 router.put('/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     try {
@@ -294,9 +223,6 @@ router.put('/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
             equipment_id
         } = req.body;
 
-        console.log('🔄 Updating spare part:', id);
-
-        // ✅ Check if part exists
         const existing = await query('SELECT * FROM spare_parts WHERE id = ?', [id]);
         if (existing.length === 0) {
             return res.status(404).json({ 
@@ -305,7 +231,6 @@ router.put('/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
             });
         }
 
-        // ✅ Build update query
         const updates = [];
         const params = [];
 
@@ -377,19 +302,10 @@ router.put('/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
             });
         }
 
-        // ✅ Execute update
         params.push(id);
-        await query(
-            `UPDATE spare_parts SET ${updates.join(', ')} WHERE id = ?`,
-            params
-        );
+        await query(`UPDATE spare_parts SET ${updates.join(', ')} WHERE id = ?`, params);
 
-        // ✅ Get updated part
-        const updatedPart = await query(
-            'SELECT * FROM spare_parts WHERE id = ?',
-            [id]
-        );
-
+        const updatedPart = await query('SELECT * FROM spare_parts WHERE id = ?', [id]);
         const partWithStatus = updatedPart[0] ? {
             ...updatedPart[0],
             status: getStatus(updatedPart[0].quantity, updatedPart[0].minimum_stock_level),
@@ -413,14 +329,11 @@ router.put('/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
 });
 
 // ============================================================
-// ✅ DELETE SPARE PART
+// ✅ DELETE SPARE PART (ONLY SUPER_ADMIN)
 // ============================================================
 router.delete('/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     try {
         const { id } = req.params;
-        
-        console.log('🗑️ Deleting spare part:', id);
-        
         const existing = await query('SELECT * FROM spare_parts WHERE id = ?', [id]);
         if (existing.length === 0) {
             return res.status(404).json({ 
@@ -428,9 +341,7 @@ router.delete('/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) =
                 message: 'Spare part not found' 
             });
         }
-
         await query('DELETE FROM spare_parts WHERE id = ?', [id]);
-        
         res.json({ 
             success: true, 
             message: 'Spare part deleted successfully' 
@@ -445,13 +356,87 @@ router.delete('/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) =
 });
 
 // ============================================================
-// ✅ GET DOWNTIME FOR A SPARE PART
+// ✅ USE SPARE PART (NEW) - ANY AUTHENTICATED USER
+// ============================================================
+router.post('/:id/use', authenticate, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { quantity, reason } = req.body;
+
+        // Validate quantity
+        const useQty = parseInt(quantity) || 1;
+        if (useQty <= 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Quantity must be at least 1'
+            });
+        }
+
+        // Get existing part
+        const existing = await query('SELECT * FROM spare_parts WHERE id = ?', [id]);
+        if (existing.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Spare part not found'
+            });
+        }
+
+        const part = existing[0];
+        if (useQty > part.quantity) {
+            return res.status(400).json({
+                success: false,
+                message: `Not enough stock. Available: ${part.quantity}`
+            });
+        }
+
+        // Calculate new quantity
+        const newQuantity = part.quantity - useQty;
+
+        // Append to installation_notes
+        const timestamp = new Date().toLocaleString('en-PK', { timeZone: 'Asia/Karachi' });
+        const note = `[${timestamp}] Used ${useQty} pcs. Reason: ${reason || 'No reason provided'}`;
+        const updatedNotes = part.installation_notes 
+            ? `${part.installation_notes}\n${note}`
+            : note;
+
+        // Update the part
+        await query(
+            `UPDATE spare_parts 
+             SET quantity = ?, installation_notes = ?
+             WHERE id = ?`,
+            [newQuantity, updatedNotes, id]
+        );
+
+        // Fetch updated part
+        const updatedPart = await query('SELECT * FROM spare_parts WHERE id = ?', [id]);
+        const partWithStatus = updatedPart[0] ? {
+            ...updatedPart[0],
+            status: getStatus(updatedPart[0].quantity, updatedPart[0].minimum_stock_level),
+            hospital_name: updatedPart[0].hospital_name || 'N/A',
+            equipment_name: updatedPart[0].equipment_name || 'N/A'
+        } : null;
+
+        res.json({
+            success: true,
+            message: `${useQty} part(s) used successfully. Stock updated.`,
+            sparePart: partWithStatus
+        });
+
+    } catch (error) {
+        console.error('❌ Use part error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to use part: ' + error.message
+        });
+    }
+});
+
+// ============================================================
+// ✅ GET DOWNTIME (placeholder)
 // ============================================================
 router.get('/:id/downtime', authenticate, async (req, res) => {
     try {
         const { id } = req.params;
-        
-        // Check if part exists
         const part = await query('SELECT * FROM spare_parts WHERE id = ?', [id]);
         if (part.length === 0) {
             return res.status(404).json({ 
@@ -459,7 +444,6 @@ router.get('/:id/downtime', authenticate, async (req, res) => {
                 message: 'Spare part not found' 
             });
         }
-
         res.json({
             success: true,
             data: {
@@ -469,7 +453,6 @@ router.get('/:id/downtime', authenticate, async (req, res) => {
                 total_downtime_days: 0
             }
         });
-        
     } catch (error) {
         console.error('❌ Get downtime error:', error);
         res.status(500).json({ 

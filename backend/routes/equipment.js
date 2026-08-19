@@ -4,6 +4,7 @@
 // ✅ FIXED: Removed status filter for super admins
 // ✅ FIXED: Added hospital filter for non-super admins
 // ✅ FIXED: Return hospital_name in all responses with proper fallback
+// ✅ FIXED: purchase_date properly handled
 
 const express = require('express');
 const router = express.Router();
@@ -43,7 +44,7 @@ router.get('/', authenticate, async (req, res) => {
                 h.phone as hospital_phone,
                 h.email as hospital_email
             FROM equipment e
-            LEFT JOIN categories c ON e.category_id = c.id
+            LEFT JOIN equipment_categories c ON e.category_id = c.id
             LEFT JOIN departments d ON e.department_id = d.id
             LEFT JOIN hospitals h ON e.hospital_id = h.id
             WHERE 1=1
@@ -73,6 +74,7 @@ router.get('/', authenticate, async (req, res) => {
                 name: equipment[0].name,
                 hospital_id: equipment[0].hospital_id,
                 hospital_name: equipment[0].hospital_name,
+                purchase_date: equipment[0].purchase_date,
                 all_keys: Object.keys(equipment[0])
             });
         }
@@ -127,7 +129,7 @@ router.get('/:id', authenticate, async (req, res) => {
                 h.phone as hospital_phone,
                 h.email as hospital_email
             FROM equipment e
-            LEFT JOIN categories c ON e.category_id = c.id
+            LEFT JOIN equipment_categories c ON e.category_id = c.id
             LEFT JOIN departments d ON e.department_id = d.id
             LEFT JOIN hospitals h ON e.hospital_id = h.id
             WHERE e.id = ?
@@ -190,6 +192,7 @@ router.post('/', authenticate, async (req, res) => {
         console.log('🛠️ Creating equipment:', name);
         console.log('🏥 Hospital ID:', hospital_id);
         console.log('📅 Purchase Date:', purchase_date);
+        console.log('📅 Installation Date:', date_of_installation);
         
         // Validation
         if (!name || name.trim() === '') {
@@ -281,7 +284,7 @@ router.post('/', authenticate, async (req, res) => {
                 h.phone as hospital_phone,
                 h.email as hospital_email
             FROM equipment e
-            LEFT JOIN categories c ON e.category_id = c.id
+            LEFT JOIN equipment_categories c ON e.category_id = c.id
             LEFT JOIN departments d ON e.department_id = d.id
             LEFT JOIN hospitals h ON e.hospital_id = h.id
             WHERE e.id = ?`,
@@ -325,6 +328,7 @@ router.put('/:id', authenticate, async (req, res) => {
 
         console.log('🔄 Updating equipment:', id);
         console.log('📅 Purchase Date:', purchase_date);
+        console.log('📅 Installation Date:', date_of_installation);
 
         // Check if equipment exists
         const existing = await query('SELECT * FROM equipment WHERE id = ?', [id]);
@@ -454,7 +458,7 @@ router.delete('/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) =
 // ============================================
 router.get('/categories/all', authenticate, async (req, res) => {
     try {
-        const categories = await query('SELECT * FROM categories ORDER BY name ASC');
+        const categories = await query('SELECT * FROM equipment_categories ORDER BY name ASC');
         res.json({ success: true, categories });
     } catch (error) {
         console.error('❌ Get categories error:', error);
@@ -470,7 +474,8 @@ router.get('/categories/all', authenticate, async (req, res) => {
 // ============================================
 router.post('/categories', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
     try {
-        const { name } = req.body;
+        const { name, description, is_active } = req.body;
+        
         if (!name || name.trim() === '') {
             return res.status(400).json({ 
                 success: false, 
@@ -479,12 +484,12 @@ router.post('/categories', authenticate, authorize('SUPER_ADMIN'), async (req, r
         }
 
         const result = await query(
-            'INSERT INTO categories (name) VALUES (?)',
-            [name.trim()]
+            'INSERT INTO equipment_categories (name, description, is_active) VALUES (?, ?, ?)',
+            [name.trim(), description || '', is_active !== undefined ? is_active : 1]
         );
 
         const newCategory = await query(
-            'SELECT * FROM categories WHERE id = ?',
+            'SELECT * FROM equipment_categories WHERE id = ?',
             [result.insertId]
         );
 

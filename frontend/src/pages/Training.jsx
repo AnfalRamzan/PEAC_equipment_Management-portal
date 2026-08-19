@@ -1,7 +1,5 @@
 // src/pages/Training.jsx
-// ✅ COMPLETE TRAINING MANAGEMENT PAGE
-// ✅ DARK NAVY + LIGHT CYAN THEME - Matching Equipment page
-// ✅ PERMISSIONS: Only SUPER_ADMIN = Full Access, ALL users = View Only
+// ✅ CHIP REMOVED - Sirf title aur subtitle rakhna hai
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -468,14 +466,15 @@ const AttachmentGrid = ({ attachments }) => {
 const Training = () => {
   const { user } = useSelector((state) => state.auth);
   
-  // ✅ PERMISSIONS - FIXED
+  // ✅ UPDATED PERMISSIONS - ENGINEER bhi manage kar sakta hai
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+  const isEngineer = user?.role === 'ENGINEER';
   
-  // ✅ Sirf SUPER_ADMIN ko manage karne do
-  const canManage = isSuperAdmin;
-  const canCreate = isSuperAdmin;
-  const canEdit = isSuperAdmin;
-  const canDelete = isSuperAdmin;
+  // ✅ SUPER_ADMIN aur ENGINEER dono manage kar sakte hain
+  const canManage = isSuperAdmin || isEngineer;
+  const canCreate = isSuperAdmin || isEngineer;
+  const canEdit = isSuperAdmin || isEngineer;
+  const canDelete = isSuperAdmin || isEngineer;
   
   // ✅ Sabhi dekh sakte hain
   const canView = true;
@@ -666,7 +665,7 @@ const Training = () => {
 
   const handleOpenDialog = (training = null) => {
     if (!canManage) {
-      toast.error('Only SUPER_ADMIN can create or edit trainings');
+      toast.error('Only SUPER_ADMIN and ENGINEER can create or edit trainings');
       return;
     }
     
@@ -744,7 +743,7 @@ const Training = () => {
   // ============================================================
   const handleSubmit = async () => {
     if (!canCreate) {
-      toast.error('Only SUPER_ADMIN can create or edit trainings');
+      toast.error('Only SUPER_ADMIN and ENGINEER can create or edit trainings');
       return;
     }
     
@@ -791,7 +790,7 @@ const Training = () => {
 
   const handleDelete = async (id) => {
     if (!canDelete) {
-      toast.error('Only SUPER_ADMIN can delete trainings');
+      toast.error('Only SUPER_ADMIN and ENGINEER can delete trainings');
       return;
     }
     if (window.confirm('Are you sure you want to delete this training?')) {
@@ -931,7 +930,7 @@ const Training = () => {
       <style>{animationStyles}</style>
 
       {/* ============================================================
-          HEADER
+          HEADER - ✅ CHIP REMOVED
           ============================================================ */}
       <Box sx={{ 
         display: 'flex', 
@@ -971,7 +970,7 @@ const Training = () => {
           >
             Manage all training programs and participants
           </Typography>
-          {/* ❌ REMOVED - Full Access chip removed as requested */}
+          {/* ✅ CHIP REMOVED - Sirf title aur subtitle */}
         </Box>
         
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -1040,7 +1039,7 @@ const Training = () => {
             Export
           </Button>
           
-          {/* ✅ Add Training - Sirf SUPER_ADMIN */}
+          {/* ✅ Add Training - SUPER_ADMIN aur ENGINEER dono */}
           {canManage && (
             <Button
               variant="contained"
@@ -1528,7 +1527,7 @@ const Training = () => {
                         </IconButton>
                       </Tooltip>
 
-                      {/* ✅ Edit - Sirf SUPER_ADMIN */}
+                      {/* ✅ Edit - SUPER_ADMIN aur ENGINEER dono */}
                       {canManage && (
                         <Tooltip title="Edit Training">
                           <IconButton
@@ -1547,7 +1546,7 @@ const Training = () => {
                         </Tooltip>
                       )}
 
-                      {/* ✅ Delete - Sirf SUPER_ADMIN */}
+                      {/* ✅ Delete - SUPER_ADMIN aur ENGINEER dono */}
                       {canManage && (
                         <Tooltip title="Delete Training">
                           <IconButton

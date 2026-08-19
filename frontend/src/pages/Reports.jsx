@@ -1,5 +1,5 @@
 // src/pages/Reports.jsx
-// ✅ FIXED: Stats cards removed
+// ✅ FIXED: Downtime calculation now uses working days (260 days/year) instead of calendar days
 
 import React, { useState, useEffect, useCallback } from 'react'
 import {
@@ -130,23 +130,50 @@ const getStatusColor = (status) => {
   return '#64748B'
 }
 
-// ✅ Calculate downtime from errors
+// ✅ NEW: Calculate working days between two dates (excluding weekends)
+const calculateWorkingDays = (startDate, endDate) => {
+  if (!startDate || !endDate) return 0
+  
+  const start = new Date(startDate)
+  const end = new Date(endDate)
+  
+  // If end is before start, return 0
+  if (end < start) return 0
+  
+  let workingDays = 0
+  const current = new Date(start)
+  
+  // Loop through each day and count only weekdays (Monday-Friday)
+  while (current <= end) {
+    const dayOfWeek = current.getDay() // 0 = Sunday, 6 = Saturday
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Exclude Saturday and Sunday
+      workingDays++
+    }
+    current.setDate(current.getDate() + 1)
+  }
+  
+  return workingDays
+}
+
+// ✅ NEW: Calculate downtime in working days from errors
 const calculateDowntimeFromErrors = (errors) => {
-  let totalHours = 0
+  let totalWorkingDays = 0
+  
   errors.forEach(error => {
+    // Only count resolved/closed errors for downtime
     if (error.status === 'Resolved' || error.status === 'Closed' || error.status === 'Completed') {
       const startDate = error.error_date || error.created_at
       const endDate = error.resolved_at || error.updated_at
+      
       if (startDate && endDate) {
-        const start = new Date(startDate)
-        const end = new Date(endDate)
-        const diffMs = end - start
-        const diffHours = diffMs / (1000 * 60 * 60)
-        if (diffHours > 0) totalHours += diffHours
+        // Calculate working days between start and end
+        const workingDays = calculateWorkingDays(startDate, endDate)
+        totalWorkingDays += workingDays
       }
     }
   })
-  return totalHours
+  
+  return totalWorkingDays
 }
 
 // ============================================================
@@ -246,12 +273,15 @@ const Reports = () => {
         const eqErrors = errors.filter(e => Number(e.equipment_id) === Number(eq.id))
         const eqRepairs = repairs.filter(r => Number(r.equipment_id) === Number(eq.id))
         
-        const downtimeHours = calculateDowntimeFromErrors(eqErrors)
-        const downtimeDays = downtimeHours / 24
+        // ✅ NEW: Calculate downtime in working days only
+        const downtimeWorkingDays = calculateDowntimeFromErrors(eqErrors)
         
-        const totalHours = 8760
-        const availability = totalHours > 0 
-          ? Math.max(0, Math.min(100, ((totalHours - downtimeHours) / totalHours) * 100))
+        // ✅ NEW: Total working days in a year (52 weeks × 5 working days)
+        const totalWorkingDaysInYear = 260
+        
+        // ✅ NEW: Availability based on working days
+        const availability = totalWorkingDaysInYear > 0 
+          ? Math.max(0, Math.min(100, ((totalWorkingDaysInYear - downtimeWorkingDays) / totalWorkingDaysInYear) * 100))
           : 100
 
         const resolvedErrors = eqErrors.filter(e => 
@@ -272,8 +302,7 @@ const Reports = () => {
           open_errors: eqErrors.length - resolvedErrors,
           total_repairs: eqRepairs.length,
           completed_repairs: eqRepairs.filter(r => r.status === 'Completed').length,
-          total_downtime_hours: downtimeHours,
-          total_downtime_days: downtimeDays,
+          total_downtime_days: downtimeWorkingDays, // ✅ Now in working days
           availability_percentage: availability,
           equipment_added_on: eq.created_at || eq.date_of_installation || null,
           category_name: eq.category_name || 'N/A',
@@ -444,7 +473,7 @@ const Reports = () => {
   const exportToCSV = () => {
     if (!displayData.length) { toast.warning('No data'); return }
     try {
-      const headers = ['Equipment Name', 'Model', 'Serial Number', 'Hospital', 'Department', 'Status', 'Manufacturer', 'Location', 'Total Errors', 'Resolved Errors', 'Open Errors', 'Total Repairs', 'Completed Repairs', 'Downtime (Days)', 'Availability %', 'Added On']
+      const headers = ['Equipment Name', 'Model', 'Serial Number', 'Hospital', 'Department', 'Status', 'Manufacturer', 'Location', 'Total Errors', 'Resolved Errors', 'Open Errors', 'Total Repairs', 'Completed Repairs', 'Downtime (Working Days)', 'Availability %', 'Added On']
       let csv = headers.join(',') + '\n'
       displayData.forEach(item => {
         const row = [
@@ -498,7 +527,7 @@ const Reports = () => {
         'Open Errors': item.open_errors || 0,
         'Total Repairs': item.total_repairs || 0,
         'Completed Repairs': item.completed_repairs || 0,
-        'Downtime (Days)': safeToFixed(item.total_downtime_days || 0, 2),
+        'Downtime (Working Days)': safeToFixed(item.total_downtime_days || 0, 2),
         'Availability %': safeToFixed(item.availability_percentage || 100, 1),
         'Added On': formatDate(item.equipment_added_on),
       }))
@@ -518,7 +547,7 @@ const Reports = () => {
     try {
       const printWindow = window.open('', '_blank', 'width=1200,height=800')
       if (!printWindow) { toast.warning('Please allow pop-ups'); return }
-      const headers = ['Equipment', 'Model', 'Hospital', 'Department', 'Status', 'Errors', 'Repairs', 'Downtime (Days)', 'Availability']
+      const headers = ['Equipment', 'Model', 'Hospital', 'Department', 'Status', 'Errors', 'Repairs', 'Downtime (Working Days)', 'Availability']
       const totalDowntime = displayData.reduce((sum, i) => sum + (i.total_downtime_days || 0), 0)
       const avgAvailability = displayData.length > 0 ? displayData.reduce((sum, i) => sum + (i.availability_percentage || 100), 0) / displayData.length : 100
       const rows = displayData.map(item => `
@@ -605,7 +634,7 @@ const Reports = () => {
             Equipment Report
           </Typography>
           <Typography variant="body2" sx={{ color: colors.lightText, mt: 1 }}>
-            Complete equipment analysis with advanced filtering
+            Complete equipment analysis with advanced filtering (Downtime calculated in working days only)
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
@@ -618,6 +647,8 @@ const Reports = () => {
               color: colors.lightCyan,
               borderRadius: 2,
               textTransform: 'none',
+              minWidth: { xs: '40px', sm: 'auto' },
+              px: { xs: 1, sm: 2 },
               '&:hover': { 
                 bgcolor: colors.lightCyan,
                 color: colors.darkNavy,
@@ -625,15 +656,16 @@ const Reports = () => {
                 boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
               },
             }}
-            startIcon={loading ? <CircularProgress size={18} sx={{ color: colors.darkNavy }} /> : <Refresh />}
           >
-            {loading ? 'Loading...' : 'Refresh'}
+            {loading ? <CircularProgress size={18} sx={{ color: colors.darkNavy }} /> : <Refresh />}
+            <Typography variant="button" sx={{ display: { xs: 'none', sm: 'inline' }, ml: 0.5 }}>
+              {loading ? 'Loading...' : 'Refresh'}
+            </Typography>
           </Button>
 
           <Badge badgeContent={activeFilterCount} color="error" invisible={activeFilterCount === 0}>
             <Button
               variant="contained"
-              startIcon={<FilterList />}
               onClick={handleFilterClick}
               size="small"
               sx={{ 
@@ -641,6 +673,8 @@ const Reports = () => {
                 color: colors.text,
                 borderRadius: 2,
                 textTransform: 'none',
+                minWidth: { xs: '40px', sm: 'auto' },
+                px: { xs: 1, sm: 2 },
                 boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
                 '&:hover': { 
                   bgcolor: colors.darkNavyHover,
@@ -650,14 +684,15 @@ const Reports = () => {
                 transition: 'all 0.3s ease',
               }}
             >
-              <FilterList sx={{ fontSize: { xs: 16, sm: 18 }, mr: { xs: 0, sm: 0.5 } }} />
-              <Typography variant="button" sx={{ display: { xs: 'none', sm: 'inline' } }}>Filter</Typography>
+              <FilterList sx={{ fontSize: { xs: 16, sm: 18 } }} />
+              <Typography variant="button" sx={{ display: { xs: 'none', sm: 'inline' }, ml: 0.5 }}>
+                Filter
+              </Typography>
             </Button>
           </Badge>
 
           <Button
             variant="contained"
-            startIcon={<Download />}
             onClick={(e) => setExportAnchorEl(e.currentTarget)}
             disabled={loading || displayData.length === 0}
             size="small"
@@ -666,6 +701,8 @@ const Reports = () => {
               color: colors.text,
               borderRadius: 2,
               textTransform: 'none',
+              minWidth: { xs: '40px', sm: 'auto' },
+              px: { xs: 1, sm: 2 },
               boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
               '&:hover': { 
                 bgcolor: colors.darkNavyHover,
@@ -675,8 +712,10 @@ const Reports = () => {
               transition: 'all 0.3s ease',
             }}
           >
-            <Download sx={{ fontSize: { xs: 16, sm: 18 }, mr: { xs: 0, sm: 0.5 } }} />
-            <Typography variant="button" sx={{ display: { xs: 'none', sm: 'inline' } }}>Export</Typography>
+            <Download sx={{ fontSize: { xs: 16, sm: 18 } }} />
+            <Typography variant="button" sx={{ display: { xs: 'none', sm: 'inline' }, ml: 0.5 }}>
+              Export
+            </Typography>
           </Button>
         </Box>
       </Box>
@@ -838,7 +877,7 @@ const Reports = () => {
         <TextField
           fullWidth
           size="small"
-          label="Max Downtime (Days)"
+          label="Max Downtime (Working Days)"
           name="max_downtime"
           type="number"
           value={filters.max_downtime}
@@ -870,8 +909,8 @@ const Reports = () => {
                 boxShadow: `0 4px 16px ${colors.lightCyanGlow}`
               },
             }}
-            startIcon={<FilterAlt />}
           >
+            <FilterAlt sx={{ mr: 0.5 }} />
             Apply
           </Button>
           <Button 
@@ -1008,7 +1047,7 @@ const Reports = () => {
                 <TableCell sx={{ color: 'white', fontWeight: 700, py: 2 }} align="center">Status</TableCell>
                 <TableCell sx={{ color: 'white', fontWeight: 700, py: 2 }} align="center">Errors</TableCell>
                 <TableCell sx={{ color: 'white', fontWeight: 700, py: 2 }} align="center">Repairs</TableCell>
-                <TableCell sx={{ color: 'white', fontWeight: 700, py: 2 }} align="center">Downtime (Days)</TableCell>
+                <TableCell sx={{ color: 'white', fontWeight: 700, py: 2 }} align="center">Downtime (Working Days)</TableCell>
                 <TableCell sx={{ color: 'white', fontWeight: 700, py: 2 }} align="center">Availability</TableCell>
                 <TableCell sx={{ color: 'white', fontWeight: 700, py: 2 }} align="center">Actions</TableCell>
               </TableRow>
@@ -1242,7 +1281,7 @@ const Reports = () => {
                   </Box>
                   <Divider sx={{ my: 1 }} />
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', py: 0.5 }}>
-                    <Typography variant="body2" sx={{ color: colors.lightText }}>Downtime (Days)</Typography>
+                    <Typography variant="body2" sx={{ color: colors.lightText }}>Downtime (Working Days)</Typography>
                     <Typography variant="body2" fontWeight={700} sx={{ 
                       color: selectedItem.total_downtime_days > 10 ? colors.error : 
                              selectedItem.total_downtime_days > 5 ? colors.warning : colors.darkNavy 

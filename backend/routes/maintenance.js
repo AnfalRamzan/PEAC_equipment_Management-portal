@@ -1,5 +1,5 @@
 // backend/routes/maintenance.js
-// ✅ COMPLETE FIXED VERSION - WITH HOSPITAL & EQUIPMENT NAMES
+// ✅ COMPLETE FIXED VERSION - ENGINEER can also delete
 
 const express = require('express');
 const router = express.Router();
@@ -13,7 +13,6 @@ router.get('/', authenticate, async (req, res) => {
     try {
         console.log('📊 Fetching maintenance schedules...');
         
-        // ✅ FIXED: Proper JOIN with equipment and hospitals
         let sql = `
             SELECT 
                 ms.id,
@@ -34,13 +33,11 @@ router.get('/', authenticate, async (req, res) => {
                 ms.created_at,
                 ms.updated_at,
                 
-                -- ✅ Equipment details
                 e.name AS equipment_name,
                 e.model AS equipment_model,
                 e.serial_number AS equipment_serial,
                 e.manufacturer AS equipment_manufacturer,
                 
-                -- ✅ Hospital details
                 h.name AS hospital_name,
                 h.address AS hospital_address,
                 h.phone AS hospital_phone,
@@ -55,7 +52,6 @@ router.get('/', authenticate, async (req, res) => {
         
         const params = [];
 
-        // ✅ Filter by hospital for non-super admins
         if (req.user.role_name !== 'SUPER_ADMIN') {
             sql += ' AND ms.hospital_id = ?';
             params.push(req.user.hospital_id);
@@ -67,7 +63,6 @@ router.get('/', authenticate, async (req, res) => {
         
         console.log(`📊 Found ${schedules.length} maintenance schedules`);
         
-        // ✅ Log first schedule for debugging
         if (schedules.length > 0) {
             console.log('🔍 Sample schedule:', {
                 id: schedules[0].id,
@@ -93,13 +88,13 @@ router.get('/', authenticate, async (req, res) => {
 });
 
 // ============================================
-// ✅ GET SINGLE MAINTENANCE SCHEDULE - FIXED
+// ✅ GET SINGLE MAINTENANCE SCHEDULE
 // ============================================
 router.get('/:id', authenticate, async (req, res) => {
     try {
         const { id } = req.params;
         
-        const sql = `
+        let sql = `
             SELECT 
                 ms.*,
                 e.name AS equipment_name,
@@ -138,7 +133,7 @@ router.get('/:id', authenticate, async (req, res) => {
 });
 
 // ============================================
-// ✅ CREATE MAINTENANCE SCHEDULE - FIXED
+// ✅ CREATE MAINTENANCE SCHEDULE - SUPER_ADMIN + ENGINEER
 // ============================================
 router.post('/', authenticate, async (req, res) => {
     try {
@@ -163,7 +158,6 @@ router.post('/', authenticate, async (req, res) => {
         console.log('📦 Equipment ID:', equipment_id);
         console.log('🏥 Hospital ID:', hospital_id);
 
-        // ✅ Validate required fields
         if (!equipment_id) {
             return res.status(400).json({ 
                 success: false, 
@@ -185,7 +179,6 @@ router.post('/', authenticate, async (req, res) => {
             });
         }
 
-        // ✅ Check if equipment exists and get its name
         const equipment = await query(
             'SELECT id, name, hospital_id FROM equipment WHERE id = ?',
             [equipment_id]
@@ -198,7 +191,6 @@ router.post('/', authenticate, async (req, res) => {
             });
         }
 
-        // ✅ Check if hospital exists
         const hospital = await query(
             'SELECT id, name FROM hospitals WHERE id = ?',
             [hospital_id]
@@ -211,7 +203,6 @@ router.post('/', authenticate, async (req, res) => {
             });
         }
 
-        // ✅ Permission check
         if (req.user.role_name !== 'SUPER_ADMIN') {
             if (parseInt(hospital_id) !== parseInt(req.user.hospital_id)) {
                 return res.status(403).json({ 
@@ -225,7 +216,6 @@ router.post('/', authenticate, async (req, res) => {
         const validStatuses = ['Scheduled', 'In Progress', 'Completed', 'Overdue', 'Cancelled'];
         const finalStatus = validStatuses.includes(status) ? status : 'Scheduled';
 
-        // ✅ INSERT
         const result = await query(
             `INSERT INTO maintenance_schedule (
                 equipment_id,
@@ -263,7 +253,6 @@ router.post('/', authenticate, async (req, res) => {
 
         console.log('✅ Maintenance schedule created. ID:', result.insertId);
 
-        // ✅ Fetch created schedule with names
         const newSchedule = await query(
             `SELECT 
                 ms.*,
@@ -291,7 +280,7 @@ router.post('/', authenticate, async (req, res) => {
 });
 
 // ============================================
-// ✅ UPDATE MAINTENANCE SCHEDULE - FIXED
+// ✅ UPDATE MAINTENANCE SCHEDULE - SUPER_ADMIN + ENGINEER
 // ============================================
 router.put('/:id', authenticate, async (req, res) => {
     try {
@@ -315,7 +304,6 @@ router.put('/:id', authenticate, async (req, res) => {
 
         console.log('🔄 Updating maintenance schedule:', id);
 
-        // ✅ Check if schedule exists
         const existing = await query(
             'SELECT * FROM maintenance_schedule WHERE id = ?',
             [id]
@@ -328,7 +316,6 @@ router.put('/:id', authenticate, async (req, res) => {
             });
         }
 
-        // ✅ Permission check
         if (req.user.role_name !== 'SUPER_ADMIN') {
             if (req.user.role_name === 'ENGINEER') {
                 if (existing[0].engineer_name !== req.user.full_name) {
@@ -351,7 +338,6 @@ router.put('/:id', authenticate, async (req, res) => {
             }
         }
 
-        // ✅ Verify equipment exists if being updated
         if (equipment_id) {
             const equipment = await query(
                 'SELECT id FROM equipment WHERE id = ?',
@@ -365,7 +351,6 @@ router.put('/:id', authenticate, async (req, res) => {
             }
         }
 
-        // ✅ Verify hospital exists if being updated
         if (hospital_id) {
             const hospital = await query(
                 'SELECT id FROM hospitals WHERE id = ?',
@@ -420,7 +405,6 @@ router.put('/:id', authenticate, async (req, res) => {
 
         console.log('✅ Maintenance schedule updated:', id);
 
-        // ✅ Fetch updated schedule with names
         const updatedSchedule = await query(
             `SELECT 
                 ms.*,
@@ -448,9 +432,9 @@ router.put('/:id', authenticate, async (req, res) => {
 });
 
 // ============================================
-// ✅ DELETE MAINTENANCE SCHEDULE
+// ✅ DELETE MAINTENANCE SCHEDULE - SUPER_ADMIN + ENGINEER
 // ============================================
-router.delete('/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
+router.delete('/:id', authenticate, authorize('SUPER_ADMIN', 'ENGINEER'), async (req, res) => {
     try {
         const { id } = req.params;
 
@@ -466,6 +450,16 @@ router.delete('/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) =
                 success: false, 
                 message: 'Maintenance schedule not found' 
             });
+        }
+
+        // ✅ Check if engineer owns this schedule
+        if (req.user.role_name === 'ENGINEER') {
+            if (existing[0].engineer_name !== req.user.full_name) {
+                return res.status(403).json({ 
+                    success: false, 
+                    message: 'You can only delete your own schedules' 
+                });
+            }
         }
 
         await query('DELETE FROM maintenance_schedule WHERE id = ?', [id]);
@@ -569,7 +563,7 @@ router.get('/engineer/:engineerId', authenticate, async (req, res) => {
 });
 
 // ============================================
-// ✅ UPDATE MAINTENANCE STATUS ONLY
+// ✅ UPDATE MAINTENANCE STATUS ONLY - SUPER_ADMIN ONLY
 // ============================================
 router.patch('/:id/status', authenticate, async (req, res) => {
     try {
@@ -603,21 +597,12 @@ router.patch('/:id/status', authenticate, async (req, res) => {
             });
         }
 
-        // ✅ Permission check
+        // ✅ Only SUPER_ADMIN can change status
         if (req.user.role_name !== 'SUPER_ADMIN') {
-            if (req.user.role_name === 'ENGINEER') {
-                if (existing[0].engineer_name !== req.user.full_name) {
-                    return res.status(403).json({
-                        success: false,
-                        message: 'Engineers can only update their own maintenance tasks'
-                    });
-                }
-            } else {
-                return res.status(403).json({
-                    success: false,
-                    message: 'Insufficient permissions'
-                });
-            }
+            return res.status(403).json({
+                success: false,
+                message: 'Only SUPER_ADMIN can change status'
+            });
         }
 
         await query(

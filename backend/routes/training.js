@@ -1,8 +1,6 @@
 // routes/training.js
-// ✅ COMPLETE FIXED VERSION
-// ✅ Only SUPER_ADMIN can CREATE, UPDATE, DELETE, ADD/REMOVE PARTICIPANTS
-// ✅ ALL users can VIEW trainings
-// ✅ ALL users can SELF-JOIN (one-click)
+// ✅ UPDATED: ENGINEER can also manage trainings
+// ✅ Permissions: SUPER_ADMIN + ENGINEER = Full Access
 
 const express = require('express');
 const router = express.Router();
@@ -96,7 +94,7 @@ router.get('/', authenticate, async (req, res) => {
         `;
         const params = [];
 
-        if (req.user.role_name !== 'SUPER_ADMIN') {
+        if (req.user.role_name !== 'SUPER_ADMIN' && req.user.role_name !== 'ENGINEER') {
             sql += ' AND u.hospital_id = ?';
             params.push(req.user.hospital_id);
         }
@@ -171,7 +169,7 @@ router.get('/:id', authenticate, async (req, res) => {
         `;
         const params = [id];
 
-        if (req.user.role_name !== 'SUPER_ADMIN') {
+        if (req.user.role_name !== 'SUPER_ADMIN' && req.user.role_name !== 'ENGINEER') {
             sql += ' AND u.hospital_id = ?';
             params.push(req.user.hospital_id);
         }
@@ -204,9 +202,9 @@ router.get('/:id', authenticate, async (req, res) => {
 });
 
 // ============================================================
-// ✅ CREATE TRAINING - ONLY SUPER_ADMIN
+// ✅ CREATE TRAINING - SUPER_ADMIN + ENGINEER
 // ============================================================
-router.post('/', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
+router.post('/', authenticate, authorize('SUPER_ADMIN', 'ENGINEER'), async (req, res) => {
     try {
         const {
             title,
@@ -294,9 +292,9 @@ router.post('/', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
 });
 
 // ============================================================
-// ✅ UPDATE TRAINING - ONLY SUPER_ADMIN
+// ✅ UPDATE TRAINING - SUPER_ADMIN + ENGINEER
 // ============================================================
-router.put('/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
+router.put('/:id', authenticate, authorize('SUPER_ADMIN', 'ENGINEER'), async (req, res) => {
     try {
         const { id } = req.params;
         const {
@@ -374,9 +372,9 @@ router.put('/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
 });
 
 // ============================================================
-// ✅ DELETE TRAINING - ONLY SUPER_ADMIN
+// ✅ DELETE TRAINING - SUPER_ADMIN + ENGINEER
 // ============================================================
-router.delete('/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
+router.delete('/:id', authenticate, authorize('SUPER_ADMIN', 'ENGINEER'), async (req, res) => {
     try {
         const { id } = req.params;
 
@@ -525,9 +523,9 @@ router.post('/:id/participants', authenticate, async (req, res) => {
 });
 
 // ============================================================
-// ✅ REMOVE PARTICIPANT - ONLY SUPER_ADMIN
+// ✅ REMOVE PARTICIPANT - SUPER_ADMIN + ENGINEER
 // ============================================================
-router.delete('/:id/participants/:userId', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
+router.delete('/:id/participants/:userId', authenticate, authorize('SUPER_ADMIN', 'ENGINEER'), async (req, res) => {
     try {
         const { id, userId } = req.params;
 

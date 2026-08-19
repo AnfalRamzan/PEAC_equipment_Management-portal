@@ -1,6 +1,7 @@
 // src/pages/SpareParts.jsx
-// ✅ COMPLETE FIXED VERSION - Everyone can View and Add, Only Super Admin can Edit/Delete
-// ✅ Hospital and Equipment names display correctly
+// ✅ ADDED "USE PART" FUNCTIONALITY
+// ✅ Everyone can View, Add, and Use parts
+// ✅ Only Super Admin can Edit/Delete
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -506,18 +507,21 @@ const SpareParts = () => {
   // ✅ PERMISSIONS:
   // - Everyone can VIEW all spare parts
   // - Everyone can ADD new spare parts
+  // - Everyone can USE parts (decrement quantity)
   // - Only SUPER_ADMIN can EDIT
   // - Only SUPER_ADMIN can DELETE
-  const canView = true  // Everyone can view
-  const canAdd = true   // Everyone can add
-  const canEdit = user?.role === 'SUPER_ADMIN'  // Only Super Admin can edit
-  const canDelete = user?.role === 'SUPER_ADMIN'  // Only Super Admin can delete
+  const canView = true
+  const canAdd = true
+  const canUse = true  // All authenticated users can use parts
+  const canEdit = user?.role === 'SUPER_ADMIN'
+  const canDelete = user?.role === 'SUPER_ADMIN'
 
   const [spareParts, setSpareParts] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [openDialog, setOpenDialog] = useState(false)
   const [openViewDialog, setOpenViewDialog] = useState(false)
+  const [openUseDialog, setOpenUseDialog] = useState(false) // ✅ New
   const [editingPart, setEditingPart] = useState(null)
   const [viewingPart, setViewingPart] = useState(null)
   const [viewTabValue, setViewTabValue] = useState(0)
@@ -528,6 +532,13 @@ const SpareParts = () => {
     hospital_name: '',
     equipment_name: '',
     status: '',
+  })
+  
+  // ✅ Use Part form data
+  const [useFormData, setUseFormData] = useState({
+    partId: null,
+    quantity: 1,
+    reason: '',
   })
   
   const [formData, setFormData] = useState({
@@ -555,7 +566,6 @@ const SpareParts = () => {
       console.log('📦 RAW API Response:', response)
       console.log('📦 Response data:', response.data)
       
-      // ✅ Extract parts from response
       let parts = []
       if (response.data && response.data.spareParts) {
         parts = response.data.spareParts
@@ -569,7 +579,6 @@ const SpareParts = () => {
       
       console.log('📊 Extracted parts:', parts)
       
-      // ✅ Ensure hospital_name and equipment_name are properly set
       parts = parts.map(part => ({
         ...part,
         hospital_name: part.hospital_name || 'N/A',
@@ -621,6 +630,75 @@ const SpareParts = () => {
   const outOfStockItems = spareParts.filter(p => p.quantity <= 0)
   const inStockItems = spareParts.filter(p => p.quantity > (p.minimum_stock_level || 5))
   const totalDowntimeDays = spareParts.reduce((sum, p) => sum + (p.total_downtime_days || 0), 0)
+
+  // ============================================================
+  // ✅ USE PART HANDLERS (NEW)
+  // ============================================================
+  const handleOpenUseDialog = (part) => {
+    setUseFormData({
+      partId: part.id,
+      quantity: 1,
+      reason: '',
+    })
+    setOpenUseDialog(true)
+  }
+
+  const handleCloseUseDialog = () => {
+    setOpenUseDialog(false)
+    setUseFormData({ partId: null, quantity: 1, reason: '' })
+  }
+
+  const handleUseFormChange = (e) => {
+    const { name, value } = e.target
+    setUseFormData(prev => ({
+      ...prev,
+      [name]: name === 'quantity' ? Math.max(1, parseInt(value) || 1) : value
+    }))
+  }
+
+  const handleUsePart = async () => {
+    try {
+      const { partId, quantity, reason } = useFormData
+      if (!partId) {
+        toast.error('Part not selected')
+        return
+      }
+      const part = spareParts.find(p => p.id === partId)
+      if (!part) {
+        toast.error('Part not found')
+        return
+      }
+      if (quantity > part.quantity) {
+        toast.error(`Not enough stock. Available: ${part.quantity}`)
+        return
+      }
+
+      // Update the part's quantity and add note
+      const newQuantity = part.quantity - quantity
+      const updateData = {
+        part_name: part.part_name,
+        part_number: part.part_number,
+        quantity: newQuantity,
+        unit_cost: part.unit_cost,
+        total_cost: part.total_cost,
+        hospital_name: part.hospital_name,
+        equipment_name: part.equipment_name,
+        minimum_stock_level: part.minimum_stock_level || 5,
+        // Append usage note to installation_notes
+        installation_notes: `${part.installation_notes || ''}\n[${new Date().toLocaleString()}] Used ${quantity} pcs. Reason: ${reason || 'No reason provided'}`.trim()
+      }
+
+      await sparePartService.update(partId, updateData)
+      toast.success(`${quantity} part(s) used successfully. Stock updated.`)
+      
+      // Refresh list
+      await fetchSpareParts()
+      handleCloseUseDialog()
+    } catch (error) {
+      console.error('Use part error:', error)
+      toast.error(error.response?.data?.message || 'Failed to use part')
+    }
+  }
 
   // ============================================================
   // ✅ EXPORT HANDLERS
@@ -746,7 +824,6 @@ const SpareParts = () => {
   }
 
   const handleOpenDialog = (part = null) => {
-    // ✅ Only Super Admin can edit existing parts
     if (part && !canEdit) {
       toast.error('Only Super Admin can edit spare parts')
       return
@@ -1095,7 +1172,6 @@ const SpareParts = () => {
             Export
           </Button>
           
-          {/* ✅ Everyone can add spare parts */}
           <Button
             variant="contained"
             startIcon={<Add />}
@@ -1584,6 +1660,25 @@ const SpareParts = () => {
                           </IconButton>
                         </Tooltip>
                         
+                        {/* ✅ USE PART - All users can use */}
+                        {canUse && part.quantity > 0 && (
+                          <Tooltip title="Use Part">
+                            <IconButton 
+                              size="small" 
+                              onClick={() => handleOpenUseDialog(part)}
+                              sx={{ 
+                                color: colors.warning, 
+                                '&:hover': { 
+                                  color: colors.error,
+                                  backgroundColor: 'rgba(239, 68, 68, 0.08)'
+                                } 
+                              }}
+                            >
+                              <Remove fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                        
                         {/* ✅ Only Super Admin can Edit */}
                         {canEdit && (
                           <Tooltip title="Edit">
@@ -1838,13 +1933,16 @@ const SpareParts = () => {
                     {viewingPart.installation_notes && (
                       <Grid item xs={12}>
                         <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', fontWeight: 600 }}>
-                          Installation Notes
+                          Installation Notes / Usage History
                         </Typography>
                         <Paper sx={{ 
                           p: 2, 
                           bgcolor: colors.mainBg, 
                           borderRadius: 2,
-                          border: `1px solid ${colors.borderColor}`
+                          border: `1px solid ${colors.borderColor}`,
+                          whiteSpace: 'pre-wrap',
+                          maxHeight: 200,
+                          overflow: 'auto',
                         }}>
                           <Typography variant="body2" sx={{ color: colors.darkNavy }}>
                             {viewingPart.installation_notes}
@@ -2230,13 +2328,13 @@ const SpareParts = () => {
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Installation Notes"
+                label="Installation Notes / Usage History"
                 name="installation_notes"
                 value={formData.installation_notes}
                 onChange={handleFormChange}
                 multiline
                 rows={3}
-                placeholder="Any special instructions for installation..."
+                placeholder="Any special instructions, or this will store usage history..."
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     borderRadius: 2,
@@ -2367,6 +2465,121 @@ const SpareParts = () => {
             }}
           >
             {editingPart ? 'Update' : 'Add'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ============================================================
+          ✅ USE PART DIALOG - NEW
+      ============================================================ */}
+      <Dialog
+        open={openUseDialog}
+        onClose={handleCloseUseDialog}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 4,
+            border: `1px solid ${colors.borderColor}`,
+            boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          bgcolor: colors.darkNavy, 
+          color: 'white',
+          borderRadius: '8px 8px 0 0',
+          py: 2.5,
+        }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="h6" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Remove sx={{ fontSize: 28 }} />
+              Use Spare Part
+            </Typography>
+            <IconButton onClick={handleCloseUseDialog} sx={{ color: 'white', '&:hover': { color: colors.lightCyan } }}>
+              <Close />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers sx={{ px: 4, py: 3 }}>
+          <Typography variant="body2" sx={{ color: colors.lightText, mb: 3 }}>
+            Enter the quantity of this part that has been used. Stock will be automatically reduced.
+          </Typography>
+          <Grid container spacing={2.5}>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Quantity to Use *"
+                name="quantity"
+                type="number"
+                value={useFormData.quantity}
+                onChange={handleUseFormChange}
+                InputProps={{ inputProps: { min: 1, step: 1 } }}
+                helperText={`Available: ${spareParts.find(p => p.id === useFormData.partId)?.quantity || 0}`}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                  }
+                }}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Reason / Remarks (Optional)"
+                name="reason"
+                value={useFormData.reason}
+                onChange={handleUseFormChange}
+                multiline
+                rows={3}
+                placeholder="e.g., Used in repair of X-Ray machine, or replaced faulty part..."
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                  }
+                }}
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, gap: 1 }}>
+          <Button 
+            onClick={handleCloseUseDialog} 
+            sx={{ 
+              color: colors.darkNavy,
+              borderRadius: 2,
+              px: 3,
+              textTransform: 'none',
+              '&:hover': { 
+                backgroundColor: 'rgba(103, 232, 249, 0.04)'
+              },
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleUsePart}
+            color="error"
+            sx={{ 
+              bgcolor: colors.darkNavy,
+              color: colors.text,
+              borderRadius: 2,
+              px: 4,
+              textTransform: 'none',
+              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+              '&:hover': { 
+                bgcolor: colors.darkNavyHover,
+                boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
+              },
+              transition: 'all 0.3s ease',
+            }}
+          >
+            Use Part
           </Button>
         </DialogActions>
       </Dialog>

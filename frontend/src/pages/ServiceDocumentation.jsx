@@ -1,8 +1,7 @@
 // src/pages/ServiceDocumentationWithPO.jsx
-// ✅ COMPLETE FIXED VERSION - All imports included
-// ✅ All users can VIEW and UPLOAD Documents and Purchase Orders
-// ✅ Only SUPER_ADMIN can EDIT and DELETE Documents and Purchase Orders
-// ✅ Equipment and Hospital are MANUAL TEXT INPUT fields
+// ✅ COMPLETE FIXED VERSION – Technical Specifications now working
+// ✅ All users can VIEW and UPLOAD Documents, Purchase Orders, and Technical Specifications
+// ✅ Only SUPER_ADMIN can EDIT and DELETE
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -75,7 +74,8 @@ import {
   CloudUpload,
   DeleteOutline,
   DriveFolderUpload,
-  FilterList,  // ✅ Added missing import
+  FilterList,
+  Science,
 } from '@mui/icons-material'
 import { toast } from 'react-toastify'
 import { useSelector } from 'react-redux'
@@ -178,23 +178,29 @@ const ServiceDocumentationWithPO = () => {
     return null
   }
   
-  // ✅ PERMISSIONS - FIXED
+  // ✅ PERMISSIONS
   const isSuperAdmin = user?.role === 'SUPER_ADMIN'
   
   // 📄 DOCUMENTS
-  const canView = true                           // ✅ Sabhi dekh sakte hain
-  const canUpload = true                         // ✅ Sabhi upload kar sakte hain
-  const canEdit = isSuperAdmin                   // ❌ Sirf Super Admin edit kar sakta hai
-  const canDelete = isSuperAdmin                 // ❌ Sirf Super Admin delete kar sakta hai
+  const canView = true
+  const canUpload = true
+  const canEdit = isSuperAdmin
+  const canDelete = isSuperAdmin
 
   // 🛒 PURCHASE ORDERS
-  const canViewPO = true                         // ✅ Sabhi dekh sakte hain
-  const canCreatePO = true                       // ✅ Sabhi create kar sakte hain
-  const canEditPO = isSuperAdmin                 // ❌ Sirf Super Admin edit kar sakta hai
-  const canDeletePO = isSuperAdmin               // ❌ Sirf Super Admin delete kar sakta hai
+  const canViewPO = true
+  const canCreatePO = true
+  const canEditPO = isSuperAdmin
+  const canDeletePO = isSuperAdmin
+
+  // 🔧 TECHNICAL SPECIFICATIONS
+  const canViewTech = true
+  const canUploadTech = true
+  const canEditTech = isSuperAdmin
+  const canDeleteTech = isSuperAdmin
 
   // ============================================================
-  // ✅ STATE
+  // ✅ STATE – DOCUMENTS
   // ============================================================
   const [tabValue, setTabValue] = useState(0)
   const [documents, setDocuments] = useState([])
@@ -231,7 +237,9 @@ const ServiceDocumentationWithPO = () => {
 
   const categories = ['All', 'Service Manual', 'Calibration', 'Repair Guide', 'User Manual', 'Warranty', 'Other']
 
-  // Purchase Orders State
+  // ============================================================
+  // ✅ STATE – PURCHASE ORDERS
+  // ============================================================
   const [orders, setOrders] = useState([])
   const [loadingPO, setLoadingPO] = useState(false)
   const [openPODialog, setOpenPODialog] = useState(false)
@@ -264,6 +272,35 @@ const ServiceDocumentationWithPO = () => {
     notes: '',
     documents: '',
     currency: 'PKR'
+  })
+
+  // ============================================================
+  // ✅ STATE – TECHNICAL SPECIFICATIONS
+  // ============================================================
+  const [techSpecs, setTechSpecs] = useState([])
+  const [loadingTechSpec, setLoadingTechSpec] = useState(false)
+  const [searchTermTech, setSearchTermTech] = useState('')
+  const [openTechDialog, setOpenTechDialog] = useState(false)
+  const [openTechViewDialog, setOpenTechViewDialog] = useState(false)
+  const [selectedTechSpec, setSelectedTechSpec] = useState(null)
+  const [editingTechSpec, setEditingTechSpec] = useState(false)
+  const [techSpecFilterAnchorEl, setTechSpecFilterAnchorEl] = useState(null)
+  const [isRefreshingTech, setIsRefreshingTech] = useState(false)
+  const [uploadingTech, setUploadingTech] = useState(false)
+  const [uploadProgressTech, setUploadProgressTech] = useState(0)
+  const [selectedTechFile, setSelectedTechFile] = useState(null)
+
+  const [techSpecFormData, setTechSpecFormData] = useState({
+    title: '',
+    hospital: '',
+    equipment: '',
+    specification_date: '',
+    description: '',
+    file: null,
+    fileUrl: '',
+    file_name: '',
+    file_size: '',
+    document_type: 'PDF',
   })
 
   // ============================================================
@@ -342,15 +379,38 @@ const ServiceDocumentationWithPO = () => {
     }
   }
 
+  // ✅ FETCH TECHNICAL SPECIFICATIONS - FIXED
+  const fetchTechSpecs = async () => {
+    setLoadingTechSpec(true)
+    try {
+      const response = await api.get('/technical-specifications')
+      console.log('📊 Tech Specs Response:', response.data)
+      // ✅ FIXED: Use 'specifications' instead of 'specs'
+      const specsData = response.data.specifications || response.data.specs || []
+      setTechSpecs(specsData)
+      console.log(`✅ Found ${specsData.length} technical specifications`)
+    } catch (error) {
+      console.error('❌ Fetch tech specs error:', error)
+      toast.error(error.response?.data?.message || 'Failed to fetch technical specifications')
+      setTechSpecs([])
+    } finally {
+      setLoadingTechSpec(false)
+    }
+  }
+
   const handleRefresh = async () => {
     if (tabValue === 0) {
       setIsRefreshing(true)
       await fetchDocuments()
       setTimeout(() => setIsRefreshing(false), 500)
-    } else {
+    } else if (tabValue === 1) {
       setIsRefreshingPO(true)
       await fetchOrders()
       setTimeout(() => setIsRefreshingPO(false), 500)
+    } else {
+      setIsRefreshingTech(true)
+      await fetchTechSpecs()
+      setTimeout(() => setIsRefreshingTech(false), 500)
     }
     toast.success('Refreshed successfully')
   }
@@ -368,6 +428,7 @@ const ServiceDocumentationWithPO = () => {
     fetchEquipmentList()
     fetchHospitalList()
     fetchOrders()
+    fetchTechSpecs()
   }, [])
 
   // ============================================================
@@ -1002,6 +1063,236 @@ const ServiceDocumentationWithPO = () => {
   }
 
   // ============================================================
+  // ✅ TECHNICAL SPECIFICATION HANDLERS
+  // ============================================================
+  const handleTechFilterClick = (event) => setTechSpecFilterAnchorEl(event.currentTarget)
+  const handleTechFilterClose = () => setTechSpecFilterAnchorEl(null)
+
+  const handleTechSearchChange = (e) => setSearchTermTech(e.target.value)
+
+  const clearTechFilters = () => {
+    setSearchTermTech('')
+    setTechSpecFilterAnchorEl(null)
+    toast.info('Filters cleared')
+  }
+
+  const handleTechFormChange = (e) => {
+    const { name, value } = e.target
+    setTechSpecFormData({ ...techSpecFormData, [name]: value })
+  }
+
+  const handleTechFileChange = (e) => {
+    const file = e.target.files[0]
+    if (file) {
+      if (file.size > 50 * 1024 * 1024) {
+        toast.error('File size must be less than 50MB')
+        return
+      }
+      setSelectedTechFile(file)
+      setTechSpecFormData({
+        ...techSpecFormData,
+        file: file,
+        file_name: file.name,
+        file_size: `${(file.size / 1024 / 1024).toFixed(2)} MB`
+      })
+    }
+  }
+
+  const removeSelectedTechFile = () => {
+    setSelectedTechFile(null)
+    setTechSpecFormData({
+      ...techSpecFormData,
+      file: null,
+      file_name: '',
+      file_size: '',
+    })
+  }
+
+  // ✅ TECHNICAL SPECIFICATION UPLOAD - FIXED
+  const handleTechUpload = async () => {
+    if (!techSpecFormData.title || techSpecFormData.title.trim() === '') {
+      toast.error('Please enter a title')
+      return
+    }
+    if (!techSpecFormData.equipment || techSpecFormData.equipment.trim() === '') {
+      toast.error('Please enter equipment name')
+      return
+    }
+    if (!techSpecFormData.hospital || techSpecFormData.hospital.trim() === '') {
+      toast.error('Please enter hospital name')
+      return
+    }
+
+    setUploadingTech(true)
+    setUploadProgressTech(0)
+    
+    try {
+      let fileUrl = ''
+      let fileName = ''
+      let fileSize = ''
+
+      if (techSpecFormData.file) {
+        const fileFormData = new FormData()
+        fileFormData.append('file', techSpecFormData.file)
+        
+        const uploadResponse = await api.post('/upload', fileFormData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+          onUploadProgress: (progressEvent) => {
+            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total)
+            setUploadProgressTech(percentCompleted)
+          },
+          timeout: 120000
+        })
+        
+        if (uploadResponse.data.success) {
+          fileUrl = uploadResponse.data.file.url
+          fileName = uploadResponse.data.file.name
+          fileSize = `${(uploadResponse.data.file.size / 1024 / 1024).toFixed(2)} MB`
+        } else {
+          throw new Error(uploadResponse.data.message || 'File upload failed')
+        }
+      } else if (techSpecFormData.fileUrl) {
+        fileUrl = techSpecFormData.fileUrl
+        fileName = techSpecFormData.file_name || 'document'
+        fileSize = techSpecFormData.file_size || '0 KB'
+      }
+
+      const payload = {
+        title: techSpecFormData.title.trim(),
+        hospital: techSpecFormData.hospital.trim(),
+        equipment: techSpecFormData.equipment.trim(),
+        specification_date: techSpecFormData.specification_date || null,
+        description: techSpecFormData.description || '',
+        file_url: fileUrl,
+        file_name: fileName,
+        file_size: fileSize,
+        document_type: techSpecFormData.document_type || 'PDF',
+        uploaded_by: user?.id || null,
+        uploaded_by_name: user?.full_name || ''
+      }
+
+      console.log('📤 Submitting technical spec:', payload)
+
+      let response
+      if (editingTechSpec) {
+        if (!isSuperAdmin) {
+          toast.error('Only Super Admin can edit technical specifications')
+          return
+        }
+        response = await api.put(`/technical-specifications/${selectedTechSpec.id}`, payload)
+        toast.success('Technical specification updated successfully')
+      } else {
+        response = await api.post('/technical-specifications', payload)
+        toast.success('Technical specification uploaded successfully')
+      }
+
+      console.log('✅ Upload response:', response.data)
+      
+      setOpenTechDialog(false)
+      setEditingTechSpec(false)
+      setSelectedTechFile(null)
+      setTechSpecFormData({
+        title: '',
+        hospital: '',
+        equipment: '',
+        specification_date: '',
+        description: '',
+        file: null,
+        fileUrl: '',
+        file_name: '',
+        file_size: '',
+        document_type: 'PDF',
+      })
+      setUploadProgressTech(0)
+      
+      // ✅ Refresh the list
+      await fetchTechSpecs()
+      
+    } catch (error) {
+      console.error('❌ Upload error:', error)
+      console.error('❌ Response:', error.response?.data)
+      toast.error(error.response?.data?.message || error.message || 'Operation failed')
+    } finally {
+      setUploadingTech(false)
+    }
+  }
+
+  const handleTechView = (spec) => {
+    setSelectedTechSpec(spec)
+    setOpenTechViewDialog(true)
+  }
+
+  const handleTechEdit = (spec) => {
+    if (!isSuperAdmin) {
+      toast.error('Only Super Admin can edit technical specifications')
+      return
+    }
+    setSelectedTechSpec(spec)
+    setEditingTechSpec(true)
+    setTechSpecFormData({
+      title: spec.title || '',
+      hospital: spec.hospital || '',
+      equipment: spec.equipment || '',
+      specification_date: spec.specification_date || '',
+      description: spec.description || '',
+      file: null,
+      fileUrl: spec.file_url || '',
+      file_name: spec.file_name || '',
+      file_size: spec.file_size || '',
+      document_type: spec.document_type || 'PDF',
+    })
+    setSelectedTechFile(null)
+    setOpenTechDialog(true)
+  }
+
+  const handleTechDownload = async (spec) => {
+    try {
+      if (spec.file_url) {
+        const fullUrl = spec.file_url.startsWith('http') ? spec.file_url : `http://localhost:5000${spec.file_url}`
+        window.open(fullUrl, '_blank')
+        toast.success('Download started')
+      } else {
+        const response = await api.get(`/technical-specifications/${spec.id}/download`, {
+          responseType: 'blob'
+        })
+        const url = window.URL.createObjectURL(new Blob([response.data]))
+        const link = document.createElement('a')
+        link.href = url
+        link.setAttribute('download', spec.file_name || 'document')
+        document.body.appendChild(link)
+        link.click()
+        link.remove()
+        toast.success('Download started')
+      }
+    } catch (error) {
+      toast.error('Download failed')
+    }
+  }
+
+  const handleTechDelete = async (id) => {
+    if (!isSuperAdmin) {
+      toast.error('Only Super Admin can delete technical specifications')
+      return
+    }
+    if (window.confirm('Are you sure you want to delete this technical specification?')) {
+      try {
+        await api.delete(`/technical-specifications/${id}`)
+        toast.success('Technical specification deleted successfully')
+        fetchTechSpecs()
+      } catch (error) {
+        toast.error(error.response?.data?.message || 'Delete failed')
+      }
+    }
+  }
+
+  const getTechStats = () => {
+    const total = techSpecs.length
+    return { total }
+  }
+
+  const techStats = getTechStats()
+
+  // ============================================================
   // ✅ FILTERED DATA
   // ============================================================
   const filteredDocs = documents.filter(doc => {
@@ -1025,6 +1316,13 @@ const ServiceDocumentationWithPO = () => {
     return matchesSearch && matchesEquipment && matchesHospital
   })
 
+  const filteredTechSpecs = techSpecs.filter(spec => {
+    const matchesSearch = spec.title?.toLowerCase().includes(searchTermTech.toLowerCase()) ||
+                          spec.equipment?.toLowerCase().includes(searchTermTech.toLowerCase()) ||
+                          spec.hospital?.toLowerCase().includes(searchTermTech.toLowerCase())
+    return matchesSearch
+  })
+
   // ============================================================
   // ✅ STATS
   // ============================================================
@@ -1039,6 +1337,10 @@ const ServiceDocumentationWithPO = () => {
     { title: 'PDF Files', value: docStats.pdfCount, icon: <PictureAsPdf />, color: colors.lightCyan, bg: 'rgba(103, 232, 249, 0.08)' },
     { title: 'Videos', value: docStats.videoCount, icon: <VideoFile />, color: colors.lightCyan, bg: 'rgba(103, 232, 249, 0.08)' },
     { title: 'Images', value: docStats.imageCount, icon: <Image />, color: colors.lightCyan, bg: 'rgba(103, 232, 249, 0.08)' },
+  ]
+
+  const techStatsCards = [
+    { title: 'Total Specifications', value: techStats.total, icon: <Science />, color: colors.lightCyan, bg: 'rgba(103, 232, 249, 0.08)' },
   ]
 
   // ============================================================
@@ -2174,7 +2476,859 @@ const ServiceDocumentationWithPO = () => {
   )
 
   // ============================================================
-  // ✅ RENDER
+  // ✅ RENDER TECHNICAL SPECIFICATIONS TAB
+  // ============================================================
+  const renderTechnicalSpecificationsTab = () => (
+    <>
+      <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }} sx={{ mb: 3 }}>
+        {techStatsCards.map((card, index) => (
+          <Grid item xs={6} sm={3} key={index}>
+            <Grow in timeout={300 + index * 100}>
+              <Card sx={{ 
+                borderRadius: 3,
+                border: `1px solid ${colors.borderColor}`,
+                boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+                transition: 'all 0.3s ease',
+                position: 'relative',
+                overflow: 'hidden',
+                '&:hover': {
+                  transform: 'translateY(-4px)',
+                  boxShadow: `0 8px 30px ${colors.lightCyanGlow}`,
+                  borderColor: colors.lightCyan,
+                },
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: 3,
+                  background: `linear-gradient(90deg, ${colors.lightCyan}, ${colors.accentGold})`,
+                  borderRadius: '3px 3px 0 0',
+                }
+              }}>
+                <CardContent sx={{ p: { xs: 1.5, sm: 2 }, position: 'relative' }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Box>
+                      <Typography 
+                        variant="caption" 
+                        sx={{ 
+                          color: colors.lightText,
+                          fontWeight: 500,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px',
+                          fontSize: '0.6rem',
+                        }}
+                      >
+                        {card.title}
+                      </Typography>
+                      <Typography 
+                        variant="h5" 
+                        sx={{ 
+                          fontWeight: 700,
+                          color: colors.darkNavy,
+                          fontSize: { xs: '1.3rem', sm: '1.6rem', md: '1.8rem' },
+                          mt: 0.5,
+                        }}
+                      >
+                        {card.value}
+                      </Typography>
+                    </Box>
+                    <Box
+                      sx={{
+                        background: card.bg,
+                        borderRadius: '14px',
+                        p: 1.2,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: 42,
+                        height: 42,
+                        color: card.color,
+                        transition: 'all 0.3s ease',
+                      }}
+                    >
+                      {React.cloneElement(card.icon, { 
+                        sx: { 
+                          fontSize: 22,
+                          color: card.color,
+                        } 
+                      })}
+                    </Box>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grow>
+          </Grid>
+        ))}
+      </Grid>
+
+      <Paper sx={{ 
+        p: 2, 
+        mb: 3, 
+        borderRadius: 3,
+        border: `1px solid ${colors.borderColor}`,
+        boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+        bgcolor: colors.cardBg,
+      }}>
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+          <TextField
+            size="small"
+            placeholder="Search specifications by title, equipment, hospital..."
+            value={searchTermTech}
+            onChange={handleTechSearchChange}
+            sx={{ flexGrow: 1, minWidth: 200 }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Search sx={{ color: colors.lightText, fontSize: 20 }} />
+                </InputAdornment>
+              ),
+              sx: {
+                borderRadius: 2,
+                '& .MuiOutlinedInput-root': {
+                  '&:hover fieldset': { borderColor: colors.lightCyan },
+                  '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                },
+              }
+            }}
+          />
+          
+          <Button
+            variant="contained"
+            onClick={() => {
+              setEditingTechSpec(false)
+              setSelectedTechFile(null)
+              setTechSpecFormData({
+                title: '',
+                hospital: '',
+                equipment: '',
+                specification_date: '',
+                description: '',
+                file: null,
+                fileUrl: '',
+                file_name: '',
+                file_size: '',
+                document_type: 'PDF',
+              })
+              setOpenTechDialog(true)
+            }}
+            sx={{ 
+              bgcolor: colors.darkNavy,
+              color: colors.text,
+              borderRadius: 2,
+              textTransform: 'none',
+              minWidth: { xs: '40px', sm: 'auto' },
+              px: { xs: 1, sm: 2 },
+              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+              '&:hover': { 
+                bgcolor: colors.darkNavyHover,
+                boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
+              },
+            }}
+          >
+            <Upload sx={{ fontSize: { xs: 18, sm: 20 } }} />
+            <Typography variant="button" sx={{ display: { xs: 'none', sm: 'inline' }, ml: 0.5 }}>
+              Upload Specification
+            </Typography>
+          </Button>
+        </Box>
+      </Paper>
+
+      <Grid container spacing={3}>
+        {filteredTechSpecs.map((spec) => (
+          <Grid item xs={12} sm={6} md={4} lg={3} key={spec.id}>
+            <Grow in timeout={300}>
+              <Card
+                sx={{
+                  borderRadius: 3,
+                  transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                  border: `1px solid ${colors.borderColor}`,
+                  position: 'relative',
+                  overflow: 'hidden',
+                  '&:hover': {
+                    transform: 'translateY(-4px)',
+                    boxShadow: `0 8px 30px ${colors.lightCyanGlow}`,
+                    borderColor: colors.lightCyan,
+                  },
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column'
+                }}
+              >
+                <Box sx={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: 3,
+                  background: `linear-gradient(90deg, ${colors.darkNavy}, ${colors.lightCyan})`,
+                }} />
+                
+                <CardContent sx={{ p: 3, position: 'relative', flexGrow: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+                    <Badge
+                      badgeContent={spec.document_type || 'PDF'}
+                      color="primary"
+                      sx={{
+                        '& .MuiBadge-badge': {
+                          bgcolor: getFileColor(spec.document_type),
+                          color: 'white',
+                          fontWeight: 600,
+                          fontSize: '8px',
+                          height: 18,
+                          minWidth: 18,
+                          border: `2px solid white`,
+                          textTransform: 'uppercase'
+                        }
+                      }}
+                    >
+                      <Avatar sx={{ 
+                        bgcolor: `${getFileColor(spec.document_type)}15`,
+                        width: 56,
+                        height: 56,
+                        border: `2px solid ${getFileColor(spec.document_type)}33`,
+                      }}>
+                        {getFileIcon(spec.document_type)}
+                      </Avatar>
+                    </Badge>
+                    
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography variant="h6" fontWeight={700} sx={{ color: colors.darkNavy, mb: 0.5, fontSize: '0.95rem' }}>
+                        {spec.title}
+                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                        <Chip
+                          label={spec.document_type || 'PDF'}
+                          size="small"
+                          sx={{
+                            bgcolor: colors.darkNavy + '10',
+                            color: colors.darkNavy,
+                            fontWeight: 500,
+                            fontSize: '10px',
+                            height: 20,
+                            borderRadius: 2,
+                            border: `1px solid ${colors.darkNavy}20`
+                          }}
+                        />
+                        <Box sx={{ width: 4, height: 4, borderRadius: '50%', bgcolor: colors.borderColor }} />
+                        <Typography variant="caption" sx={{ color: colors.lightText }}>
+                          {spec.file_size || '0 KB'}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  </Box>
+
+                  <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <MedicalServices sx={{ fontSize: 16, color: colors.lightText }} />
+                      <Typography variant="body2" sx={{ color: colors.lightText, fontSize: '0.8rem' }}>
+                        {spec.equipment || 'No Equipment'}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <LocalHospital sx={{ fontSize: 16, color: colors.lightText }} />
+                      <Typography variant="body2" sx={{ color: colors.lightText, fontSize: '0.8rem' }}>
+                        {spec.hospital || 'N/A'}
+                      </Typography>
+                    </Box>
+                    {spec.specification_date && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <CalendarToday sx={{ fontSize: 16, color: colors.lightText }} />
+                        <Typography variant="body2" sx={{ color: colors.lightText, fontSize: '0.8rem' }}>
+                          {formatDate(spec.specification_date)}
+                        </Typography>
+                      </Box>
+                    )}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Person sx={{ fontSize: 16, color: colors.lightText }} />
+                      <Typography variant="body2" sx={{ color: colors.lightText, fontSize: '0.8rem' }}>
+                        {spec.uploaded_by_name || spec.uploaded_by || 'System'}
+                      </Typography>
+                    </Box>
+                  </Box>
+
+                  {spec.description && (
+                    <Typography variant="body2" sx={{ 
+                      mt: 1.5, 
+                      color: colors.lightText,
+                      fontSize: '0.75rem',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden'
+                    }}>
+                      {spec.description}
+                    </Typography>
+                  )}
+                </CardContent>
+
+                <CardActions sx={{ p: 2, pt: 0, gap: 0.5, flexWrap: 'wrap' }}>
+                  <Tooltip title="View Details">
+                    <Button 
+                      size="small" 
+                      startIcon={<Visibility sx={{ fontSize: 18 }} />}
+                      onClick={() => handleTechView(spec)}
+                      sx={{ 
+                        color: colors.darkNavy,
+                        '&:hover': { 
+                          color: colors.lightCyanDark, 
+                          bgcolor: 'rgba(103, 232, 249, 0.08)' 
+                        },
+                        borderRadius: 2,
+                        textTransform: 'none',
+                        fontWeight: 500,
+                        fontSize: '0.75rem'
+                      }}
+                    >
+                      View
+                    </Button>
+                  </Tooltip>
+                  
+                  <Tooltip title="Download">
+                    <Button 
+                      size="small" 
+                      startIcon={<Download sx={{ fontSize: 18 }} />}
+                      onClick={() => handleTechDownload(spec)}
+                      sx={{ 
+                        color: colors.darkNavy,
+                        '&:hover': { 
+                          color: colors.lightCyanDark, 
+                          bgcolor: 'rgba(103, 232, 249, 0.08)' 
+                        },
+                        borderRadius: 2,
+                        textTransform: 'none',
+                        fontWeight: 500,
+                        fontSize: '0.75rem'
+                      }}
+                    >
+                      Download
+                    </Button>
+                  </Tooltip>
+                  
+                  {canEditTech && (
+                    <Tooltip title="Edit">
+                      <IconButton 
+                        size="small" 
+                        onClick={() => handleTechEdit(spec)}
+                        sx={{ 
+                          color: colors.darkNavy,
+                          '&:hover': { 
+                            color: colors.lightCyanDark, 
+                            bgcolor: 'rgba(103, 232, 249, 0.08)' 
+                          }
+                        }}
+                      >
+                        <Edit fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                  
+                  {canDeleteTech && (
+                    <Tooltip title="Delete">
+                      <IconButton 
+                        size="small" 
+                        color="error"
+                        onClick={() => handleTechDelete(spec.id)}
+                        sx={{ '&:hover': { bgcolor: `${colors.error}10` } }}
+                      >
+                        <Delete fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                </CardActions>
+              </Card>
+            </Grow>
+          </Grid>
+        ))}
+      </Grid>
+
+      {filteredTechSpecs.length === 0 && !loadingTechSpec && (
+        <Paper sx={{ 
+          p: 4, 
+          textAlign: 'center', 
+          borderRadius: 3,
+          border: `1px solid ${colors.borderColor}`,
+          bgcolor: colors.cardBg,
+        }}>
+          <Science sx={{ fontSize: 64, color: colors.lightText, opacity: 0.3 }} />
+          <Typography variant="h6" sx={{ color: colors.lightText, mt: 2 }}>
+            No technical specifications found
+          </Typography>
+          <Typography variant="body2" sx={{ color: colors.lightText, mb: 2 }}>
+            Try adjusting your search or upload a new specification
+          </Typography>
+        </Paper>
+      )}
+
+      {/* Tech Spec Upload/Edit Dialog */}
+      <Dialog 
+        open={openTechDialog} 
+        onClose={() => setOpenTechDialog(false)} 
+        maxWidth="md" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 4,
+            boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
+            border: `1px solid ${colors.borderColor}`,
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          borderBottom: `1px solid ${colors.borderColor}`,
+          px: 3,
+          py: 2,
+        }}>
+          <Typography variant="h6" fontWeight={700} sx={{ color: colors.darkNavy }}>
+            {editingTechSpec ? 'Edit Technical Specification' : 'Upload Technical Specification'}
+          </Typography>
+          <IconButton onClick={() => setOpenTechDialog(false)}>
+            <Close />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ p: 3 }}>
+          <Grid container spacing={2.5}>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Title"
+                name="title"
+                value={techSpecFormData.title}
+                onChange={handleTechFormChange}
+                required
+                placeholder="Enter specification title"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                  }
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Hospital Name"
+                name="hospital"
+                value={techSpecFormData.hospital}
+                onChange={handleTechFormChange}
+                required
+                placeholder="Enter hospital name"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                  }
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Equipment Name"
+                name="equipment"
+                value={techSpecFormData.equipment}
+                onChange={handleTechFormChange}
+                required
+                placeholder="Enter equipment name"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                  }
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Specification Date"
+                name="specification_date"
+                type="date"
+                value={techSpecFormData.specification_date}
+                onChange={handleTechFormChange}
+                InputLabelProps={{ shrink: true }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                  }
+                }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControl fullWidth>
+                <InputLabel>Document Type</InputLabel>
+                <Select
+                  name="document_type"
+                  value={techSpecFormData.document_type}
+                  onChange={handleTechFormChange}
+                  label="Document Type"
+                  sx={{
+                    borderRadius: 2,
+                    '& .MuiOutlinedInput-root': {
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                    }
+                  }}
+                >
+                  <MenuItem value="PDF">PDF</MenuItem>
+                  <MenuItem value="Video">Video</MenuItem>
+                  <MenuItem value="Image">Image</MenuItem>
+                  <MenuItem value="Other">Other</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Description"
+                name="description"
+                value={techSpecFormData.description}
+                onChange={handleTechFormChange}
+                multiline
+                rows={3}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
+                    '&:hover fieldset': { borderColor: colors.lightCyan },
+                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                  }
+                }}
+              />
+            </Grid>
+            {/* File Upload */}
+            <Grid item xs={12}>
+              <Typography variant="subtitle2" fontWeight={600} sx={{ color: colors.darkNavy, mb: 1.5 }}>
+                Attach Document
+              </Typography>
+              
+              {!selectedTechFile && !techSpecFormData.fileUrl ? (
+                <Box
+                  sx={{
+                    border: `2px dashed ${colors.borderColor}`,
+                    borderRadius: 3,
+                    p: 4,
+                    textAlign: 'center',
+                    cursor: 'pointer',
+                    transition: 'all 0.3s ease',
+                    backgroundColor: 'rgba(103, 232, 249, 0.02)',
+                    '&:hover': {
+                      borderColor: colors.lightCyan,
+                      backgroundColor: 'rgba(103, 232, 249, 0.05)',
+                      transform: 'scale(1.01)',
+                    },
+                    position: 'relative',
+                  }}
+                  onClick={() => document.getElementById('tech-file-upload-input').click()}
+                >
+                  <input
+                    id="tech-file-upload-input"
+                    type="file"
+                    hidden
+                    onChange={handleTechFileChange}
+                    accept=".pdf,.mp4,.mov,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx,.xls,.xlsx,.txt"
+                  />
+                  <CloudUpload sx={{ fontSize: 48, color: colors.lightCyanDark, opacity: 0.7, mb: 1 }} />
+                  <Typography variant="body1" fontWeight={500} sx={{ color: colors.darkNavy }}>
+                    Click to upload or drag & drop
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: colors.lightText }}>
+                    Supported: PDF, MP4, MOV, JPG, PNG, GIF, DOC, DOCX, XLS, XLSX, TXT (Max 50MB)
+                  </Typography>
+                </Box>
+              ) : (
+                <Box
+                  sx={{
+                    border: `1px solid ${colors.lightCyan}`,
+                    borderRadius: 3,
+                    p: 2,
+                    backgroundColor: 'rgba(103, 232, 249, 0.05)',
+                    animation: 'slideUp 0.3s ease-out',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Avatar
+                      sx={{
+                        bgcolor: colors.lightCyan + '15',
+                        width: 48,
+                        height: 48,
+                        border: `2px solid ${colors.lightCyan}30`,
+                      }}
+                    >
+                      <AttachFile sx={{ color: colors.lightCyanDark, fontSize: 24 }} />
+                    </Avatar>
+                    <Box>
+                      <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>
+                        {techSpecFormData.file_name || selectedTechFile?.name || 'Document'}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: colors.lightText }}>
+                        {techSpecFormData.file_size || (selectedTechFile ? `${(selectedTechFile.size / 1024 / 1024).toFixed(2)} MB` : '0 KB')}
+                      </Typography>
+                    </Box>
+                  </Box>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Tooltip title="Change File">
+                      <IconButton
+                        size="small"
+                        onClick={() => document.getElementById('tech-file-upload-input').click()}
+                        sx={{
+                          color: colors.lightCyanDark,
+                          '&:hover': { backgroundColor: 'rgba(103, 232, 249, 0.1)' }
+                        }}
+                      >
+                        <DriveFolderUpload fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Remove File">
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={removeSelectedTechFile}
+                        sx={{
+                          '&:hover': { backgroundColor: 'rgba(239, 68, 68, 0.1)' }
+                        }}
+                      >
+                        <DeleteOutline fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                </Box>
+              )}
+              
+              {techSpecFormData.fileUrl && !selectedTechFile && (
+                <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <LinkIcon sx={{ fontSize: 16, color: colors.lightText }} />
+                  <Typography variant="caption" sx={{ color: colors.lightText }}>
+                    Existing file: {techSpecFormData.file_name || 'Document'}
+                  </Typography>
+                </Box>
+              )}
+            </Grid>
+
+            {uploadingTech && (
+              <Grid item xs={12}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <LinearProgress 
+                    variant="determinate" 
+                    value={uploadProgressTech} 
+                    sx={{ 
+                      flexGrow: 1, 
+                      borderRadius: 2, 
+                      height: 8,
+                      backgroundColor: colors.borderColor,
+                      '& .MuiLinearProgress-bar': {
+                        backgroundColor: colors.lightCyan,
+                      }
+                    }} 
+                  />
+                  <Typography variant="caption" sx={{ color: colors.lightText }}>
+                    {uploadProgressTech}%
+                  </Typography>
+                </Box>
+              </Grid>
+            )}
+          </Grid>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, borderTop: `1px solid ${colors.borderColor}` }}>
+          <Button 
+            onClick={() => setOpenTechDialog(false)} 
+            sx={{ 
+              color: colors.lightText, 
+              textTransform: 'none',
+              borderRadius: 2,
+              '&:hover': { backgroundColor: 'rgba(0,0,0,0.04)' }
+            }}
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleTechUpload} 
+            variant="contained"
+            disabled={uploadingTech}
+            sx={{ 
+              bgcolor: colors.darkNavy,
+              color: colors.text,
+              borderRadius: 2,
+              textTransform: 'none',
+              px: 4,
+              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
+              '&:hover': { 
+                bgcolor: colors.darkNavyHover,
+                boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
+              }
+            }}
+          >
+            {uploadingTech ? 'Uploading...' : (editingTechSpec ? 'Update' : 'Upload')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* View Tech Spec Dialog */}
+      <Dialog 
+        open={openTechViewDialog} 
+        onClose={() => setOpenTechViewDialog(false)} 
+        maxWidth="md" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 4,
+            boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
+            border: `1px solid ${colors.borderColor}`,
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          borderBottom: `1px solid ${colors.borderColor}`,
+          px: 3,
+          py: 2,
+        }}>
+          <Typography variant="h6" fontWeight={700} sx={{ color: colors.darkNavy }}>
+            Technical Specification Details
+          </Typography>
+          <IconButton onClick={() => setOpenTechViewDialog(false)}>
+            <Close />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ p: 3 }}>
+          {selectedTechSpec && (
+            <Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, mb: 3 }}>
+                <Avatar sx={{ 
+                  width: 64, 
+                  height: 64, 
+                  bgcolor: `${getFileColor(selectedTechSpec.document_type)}15`,
+                  border: `2px solid ${getFileColor(selectedTechSpec.document_type)}33`,
+                }}>
+                  {getFileIcon(selectedTechSpec.document_type)}
+                </Avatar>
+                <Box>
+                  <Typography variant="h6" fontWeight={700} sx={{ color: colors.darkNavy }}>
+                    {selectedTechSpec.title}
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 1, mt: 0.5, flexWrap: 'wrap' }}>
+                    <Chip 
+                      label={selectedTechSpec.document_type || 'PDF'} 
+                      size="small"
+                      sx={{
+                        bgcolor: colors.darkNavy + '10',
+                        color: colors.darkNavy,
+                        fontWeight: 500,
+                        fontSize: '10px',
+                        height: 20,
+                      }}
+                    />
+                  </Box>
+                </Box>
+              </Box>
+
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
+                    Equipment
+                  </Typography>
+                  <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>
+                    {selectedTechSpec.equipment || 'N/A'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
+                    Hospital
+                  </Typography>
+                  <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>
+                    {selectedTechSpec.hospital || 'N/A'}
+                  </Typography>
+                </Grid>
+                {selectedTechSpec.specification_date && (
+                  <Grid item xs={12} sm={6}>
+                    <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
+                      Specification Date
+                    </Typography>
+                    <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>
+                      {formatDate(selectedTechSpec.specification_date)}
+                    </Typography>
+                  </Grid>
+                )}
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
+                    Uploaded By
+                  </Typography>
+                  <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>
+                    {selectedTechSpec.uploaded_by_name || selectedTechSpec.uploaded_by || 'System'}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
+                    Uploaded Date
+                  </Typography>
+                  <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>
+                    {formatDate(selectedTechSpec.created_at || selectedTechSpec.uploaded_at)}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
+                    File Size
+                  </Typography>
+                  <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy }}>
+                    {selectedTechSpec.file_size || 'N/A'}
+                  </Typography>
+                </Grid>
+                {selectedTechSpec.description && (
+                  <Grid item xs={12}>
+                    <Typography variant="caption" sx={{ color: colors.lightText, display: 'block' }}>
+                      Description
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: colors.darkNavy, mt: 0.5 }}>
+                      {selectedTechSpec.description}
+                    </Typography>
+                  </Grid>
+                )}
+                {selectedTechSpec.file_url && (
+                  <Grid item xs={12}>
+                    <Button
+                      variant="outlined"
+                      startIcon={<Download />}
+                      onClick={() => handleTechDownload(selectedTechSpec)}
+                      fullWidth
+                      sx={{
+                        borderRadius: 2,
+                        borderColor: colors.lightCyan,
+                        color: colors.darkNavy,
+                        textTransform: 'none',
+                        '&:hover': {
+                          bgcolor: 'rgba(103, 232, 249, 0.08)',
+                          borderColor: colors.lightCyanDark,
+                        }
+                      }}
+                    >
+                      Download File
+                    </Button>
+                  </Grid>
+                )}
+              </Grid>
+            </Box>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+
+  // ============================================================
+  // ✅ MAIN RENDER
   // ============================================================
   if (loading) {
     return (
@@ -2257,7 +3411,7 @@ const ServiceDocumentationWithPO = () => {
               mt: 0.5,
             }}
           >
-            Manage service manuals, calibration guides, and purchase orders
+            Manage service manuals, calibration guides, purchase orders, and technical specifications
           </Typography>
         </Box>
         
@@ -2282,11 +3436,11 @@ const ServiceDocumentationWithPO = () => {
                 bgcolor: colors.secondaryText,
               }
             }}
-            disabled={isRefreshing || isRefreshingPO}
+            disabled={isRefreshing || isRefreshingPO || isRefreshingTech}
           >
-            <RestartAlt className={isRefreshing || isRefreshingPO ? 'refresh-spin' : ''} sx={{ fontSize: { xs: 18, sm: 20 } }} />
+            <RestartAlt className={isRefreshing || isRefreshingPO || isRefreshingTech ? 'refresh-spin' : ''} sx={{ fontSize: { xs: 18, sm: 20 } }} />
             <Typography variant="button" sx={{ display: { xs: 'none', sm: 'inline' }, ml: 0.5 }}>
-              {isRefreshing || isRefreshingPO ? 'Refreshing...' : 'Refresh All'}
+              {isRefreshing || isRefreshingPO || isRefreshingTech ? 'Refreshing...' : 'Refresh All'}
             </Typography>
           </Button>
         </Box>
@@ -2334,7 +3488,7 @@ const ServiceDocumentationWithPO = () => {
               },
               '&:hover': {
                 backgroundColor: `${colors.darkNavy}80`,
-                borderColor: colors.lightCyanBright,
+                borderColor: colors.lightCyan,
               },
             },
           }}
@@ -2349,17 +3503,24 @@ const ServiceDocumentationWithPO = () => {
             iconPosition="start"
             label="Purchase Orders" 
           />
+          <Tab 
+            icon={<Science sx={{ fontSize: 22 }} />} 
+            iconPosition="start"
+            label="Technical Specifications" 
+          />
         </Tabs>
         
         <Box sx={{ p: 3 }}>
           {tabValue === 0 && renderDocumentsTab()}
           {tabValue === 1 && renderPurchaseOrdersTab()}
+          {tabValue === 2 && renderTechnicalSpecificationsTab()}
         </Box>
       </Paper>
 
       {/* ============================================================
-          ✅ UPLOAD/EDIT DOCUMENT DIALOG
+          ✅ DOCUMENT DIALOGS
       ============================================================ */}
+      {/* Upload/Edit Document Dialog */}
       <Dialog 
         open={openDialog} 
         onClose={() => setOpenDialog(false)} 
@@ -2836,6 +3997,9 @@ const ServiceDocumentationWithPO = () => {
         </DialogContent>
       </Dialog>
 
+      {/* ============================================================
+          ✅ PURCHASE ORDER DIALOGS
+      ============================================================ */}
       {/* Purchase Order Dialog */}
       <Dialog 
         open={openPODialog} 

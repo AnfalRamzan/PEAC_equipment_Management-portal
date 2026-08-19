@@ -1,20 +1,6 @@
 // src/pages/ErrorLogs.jsx
-// ✅ UPDATED: Priority Removed from filters, form, validation, table
-// ✅ ADDED: Reporting Date & Resolution Date columns
-// ✅ ADDED: Date range filters (From Date & To Date)
-// ✅ FIXED: Status Update - No frontend permission check (Backend handles it)
-// ✅ ADDED: Resolution Date in View Dialog
-// ✅ UPDATED: Status options - Pending, In Progress, Resolved (Completed removed)
-// ✅ FIXED: Status chips now match Equipment page style with proper colors
-// ✅ ADDED: Full filter menu like Equipment page (Category, Manufacturer, Status, Hospital)
-// ✅ FIXED: Filter and Export buttons moved to header next to Refresh button (like Equipment page)
-// ✅ REMOVED: CSV export option (keeping Excel and PDF only)
-// ✅ ADDED: Equipment filter in filter menu
-// ✅ ADDED: Hospital column in main table
-// ✅ ADDED: Downtime calculation - from error creation to resolution
-// ✅ UPDATED: Downtime shows ONLY days with 2 decimal places (e.g., 1.60d, 5.25d)
-// ✅ FIXED: No hours display anywhere - only days
-// ✅ REMOVED: Total Downtime stats card
+// ✅ UPDATED: Status Update with Resolution Date
+// ✅ When status is Resolved, user must select resolution date
 
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -596,6 +582,9 @@ const ErrorLogs = () => {
   const [selectedErrorForStatus, setSelectedErrorForStatus] = useState(null)
   const [newStatus, setNewStatus] = useState('')
   const [statusUpdating, setStatusUpdating] = useState(false)
+  
+  // ✅ NEW: Resolution Date State
+  const [resolutionDate, setResolutionDate] = useState('')
 
   const [errors_validation, setErrors_validation] = useState({
     equipment_id: '',
@@ -614,7 +603,6 @@ const ErrorLogs = () => {
     toDate: ''
   })
 
-  // ✅ CHANGED: Form Data - Priority removed
   const [errorFormData, setErrorFormData] = useState({
     equipment_id: '',
     error_code: '',
@@ -925,11 +913,13 @@ const ErrorLogs = () => {
   }
 
   // ============================================================
-  // ✅ STATUS UPDATE HANDLERS
+  // ✅ STATUS UPDATE HANDLERS - WITH RESOLUTION DATE
   // ============================================================
   const handleOpenStatusDialog = (error) => {
     setSelectedErrorForStatus(error)
     setNewStatus(error.status || 'Pending')
+    // ✅ Set resolution date if already resolved
+    setResolutionDate(error.resolved_at || error.updated_at || '')
     setOpenStatusDialog(true)
   }
 
@@ -937,6 +927,7 @@ const ErrorLogs = () => {
     setOpenStatusDialog(false)
     setSelectedErrorForStatus(null)
     setNewStatus('')
+    setResolutionDate('')
     setStatusUpdating(false)
   }
 
@@ -952,6 +943,12 @@ const ErrorLogs = () => {
       return
     }
 
+    // ✅ If status is Resolved, resolution date is required
+    if (newStatus === 'Resolved' && !resolutionDate) {
+      toast.error('Please select a resolution date')
+      return
+    }
+
     setStatusUpdating(true)
 
     try {
@@ -961,28 +958,32 @@ const ErrorLogs = () => {
       console.log('🔄 Updating status for error ID:', selectedErrorForStatus.id)
       console.log('📌 Old status:', selectedErrorForStatus.status)
       console.log('📌 New status:', newStatus)
+      console.log('📌 Resolution Date:', resolutionDate)
       console.log('📌 User Role:', userRole)
-      console.log('📌 User ID:', userId)
 
       let response = null;
+
+      // ✅ Prepare update data with resolution date
+      const updateData = {
+        status: newStatus
+      }
+      
+      // ✅ Add resolved_at if status is Resolved
+      if (newStatus === 'Resolved' && resolutionDate) {
+        updateData.resolved_at = resolutionDate
+      }
 
       if (userRole === 'SUPER_ADMIN') {
         try {
           console.log('📌 Trying PATCH for Super Admin...')
-          response = await api.patch(`/errors/${selectedErrorForStatus.id}/status`, {
-            status: newStatus
-          })
+          response = await api.patch(`/errors/${selectedErrorForStatus.id}/status`, updateData)
         } catch (patchError) {
           console.log('⚠️ PATCH failed, trying PUT...', patchError.message)
-          response = await api.put(`/errors/${selectedErrorForStatus.id}`, {
-            status: newStatus
-          })
+          response = await api.put(`/errors/${selectedErrorForStatus.id}`, updateData)
         }
       } else {
         console.log('📌 Using PUT for User...')
-        response = await api.put(`/errors/${selectedErrorForStatus.id}`, {
-          status: newStatus
-        })
+        response = await api.put(`/errors/${selectedErrorForStatus.id}`, updateData)
       }
 
       if (response.data.success) {
@@ -1106,7 +1107,7 @@ const ErrorLogs = () => {
   const openErrors = errors.filter(e => e.status === 'Pending' || e.status === 'In Progress').length
   const resolvedErrors = errors.filter(e => e.status === 'Resolved').length
 
-  // ✅ Stats Cards Data - REMOVED Total Downtime card
+  // ✅ Stats Cards Data
   const statsCards = [
     {
       title: 'Total Errors',
@@ -1289,7 +1290,7 @@ const ErrorLogs = () => {
         </Box>
       </Box>
 
-      {/* Stats Cards - Only 3 cards now */}
+      {/* Stats Cards */}
       <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }} sx={{ mb: 3 }}>
         {statsCards.map((card, index) => (
           <Grid item xs={4} sm={4} key={index}>
@@ -2069,7 +2070,7 @@ const ErrorLogs = () => {
         </DialogActions>
       </Dialog>
 
-      {/* VIEW ERROR DIALOG - Downtime only days */}
+      {/* VIEW ERROR DIALOG */}
       <Dialog 
         open={openViewDialog} 
         onClose={handleCloseView} 
@@ -2228,7 +2229,7 @@ const ErrorLogs = () => {
         )}
       </Dialog>
 
-      {/* STATUS UPDATE DIALOG */}
+      {/* ✅ STATUS UPDATE DIALOG - WITH RESOLUTION DATE */}
       <Dialog 
         open={openStatusDialog} 
         onClose={handleCloseStatusDialog} 
@@ -2291,7 +2292,7 @@ const ErrorLogs = () => {
                 )}
               </Alert>
               
-              <FormControl fullWidth>
+              <FormControl fullWidth sx={{ mb: 2 }}>
                 <InputLabel sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>New Status</InputLabel>
                 <Select
                   value={newStatus}
@@ -2313,6 +2314,50 @@ const ErrorLogs = () => {
                   <MenuItem value="Resolved" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>Resolved</MenuItem>
                 </Select>
               </FormControl>
+
+              {/* ✅ Resolution Date - Only show when status is Resolved */}
+              {newStatus === 'Resolved' && (
+                <TextField
+                  fullWidth
+                  label="Resolution Date"
+                  type="datetime-local"
+                  value={resolutionDate}
+                  onChange={(e) => setResolutionDate(e.target.value)}
+                  required
+                  InputLabelProps={{ shrink: true }}
+                  helperText="Select the date and time when the error was resolved"
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                      '&:hover fieldset': { borderColor: colors.lightCyan },
+                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
+                    },
+                    '& .MuiInputBase-input': {
+                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                    },
+                    '& .MuiInputLabel-root': {
+                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                    },
+                    '& .MuiFormHelperText-root': {
+                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
+                    }
+                  }}
+                />
+              )}
+
+              {/* ✅ Show current resolution date if already resolved */}
+              {newStatus === 'Resolved' && selectedErrorForStatus.resolved_at && !resolutionDate && (
+                <Typography variant="caption" sx={{ display: 'block', color: colors.lightText, mt: 1, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                  Previously resolved on: {new Date(selectedErrorForStatus.resolved_at).toLocaleString()}
+                </Typography>
+              )}
+
+              {/* ✅ Show info when status is not Resolved */}
+              {newStatus !== 'Resolved' && (
+                <Typography variant="caption" sx={{ display: 'block', color: colors.lightText, mt: 1, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
+                  {newStatus === 'Pending' ? 'Error is pending review' : 'Error is being worked on'}
+                </Typography>
+              )}
             </Box>
           )}
         </DialogContent>

@@ -1,6 +1,8 @@
 // backend/server.js
 // ✅ COMPLETE FIXED VERSION - WITH FEEDBACK ROUTES (NO DUPLICATE)
 // ✅ FIXED: Feedback routes imported and registered ONLY ONCE
+// ✅ FIXED: Removed time_taken from knowledge_base routes
+// ✅ FIXED: Added purchase_date to equipment POST and PUT routes
 
 // ============================================================
 // ✅ LOAD ENVIRONMENT VARIABLES FIRST
@@ -1906,7 +1908,7 @@ app.delete('/api/equipment/categories/:id', authenticate, authorize('SUPER_ADMIN
 });
 
 // ============================================================
-// ✅ EQUIPMENT ROUTES
+// ✅ EQUIPMENT ROUTES - WITH purchase_date FIXED
 // ============================================================
 
 app.get('/api/equipment', authenticate, async (req, res) => {
@@ -1971,11 +1973,14 @@ app.get('/api/knowledge-base/equipment-list', authenticate, async (req, res) => 
     }
 });
 
+// ✅ FIXED: POST /api/equipment - Added purchase_date
 app.post('/api/equipment', authenticate, async (req, res) => {
     try {
         const { 
             name, category_id, manufacturer, model, serial_number, 
-            date_of_installation, hospital_id, department_id, location, status,
+            date_of_installation,
+            purchase_date,
+            hospital_id, department_id, location, status,
             image_url
         } = req.body;
         
@@ -1983,6 +1988,7 @@ app.post('/api/equipment', authenticate, async (req, res) => {
         console.log('📌 Serial Number:', serial_number);
         console.log('📸 Image URL:', image_url);
         console.log('📅 Date of Installation:', date_of_installation);
+        console.log('📅 Purchase Date:', purchase_date);
         
         if (!name) {
             return res.status(400).json({ success: false, message: 'Equipment name is required' });
@@ -2014,12 +2020,27 @@ app.post('/api/equipment', authenticate, async (req, res) => {
             }
         }
         
+        // ✅ FIXED: Added purchase_date to INSERT
         const result = await query(
-            `INSERT INTO equipment (name, category_id, manufacturer, model, serial_number, date_of_installation, hospital_id, department_id, location, status, image_url)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [name, category_id || null, manufacturer || '', model || '', serial_number || '', 
-             validInstallationDate, finalHospitalId, department_id || null, location || '', status || 'Active',
-             image_url || null]
+            `INSERT INTO equipment (
+                name, category_id, manufacturer, model, serial_number, 
+                date_of_installation, purchase_date, hospital_id, department_id, 
+                location, status, image_url
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                name, 
+                category_id || null, 
+                manufacturer || '', 
+                model || '', 
+                serial_number || '', 
+                validInstallationDate,
+                purchase_date || null,
+                finalHospitalId, 
+                department_id || null, 
+                location || '', 
+                status || 'Active',
+                image_url || null
+            ]
         );
         
         console.log('✅ Equipment created:', result.insertId);
@@ -2046,18 +2067,22 @@ app.post('/api/equipment', authenticate, async (req, res) => {
     }
 });
 
+// ✅ FIXED: PUT /api/equipment/:id - Added purchase_date
 app.put('/api/equipment/:id', authenticate, async (req, res) => {
     try {
         const { id } = req.params;
         const { 
             name, category_id, manufacturer, model, serial_number, 
-            date_of_installation, department_id, location, status,
+            date_of_installation,
+            purchase_date,
+            department_id, location, status,
             image_url
         } = req.body;
         
         console.log('🔄 Updating equipment:', id);
         console.log('📸 Image URL:', image_url);
         console.log('📅 Date of Installation:', date_of_installation);
+        console.log('📅 Purchase Date:', purchase_date);
         
         let sql = 'SELECT * FROM equipment WHERE id = ?';
         let params = [id];
@@ -2091,15 +2116,27 @@ app.put('/api/equipment/:id', authenticate, async (req, res) => {
             }
         }
         
+        // ✅ FIXED: Added purchase_date to UPDATE
         await query(
             `UPDATE equipment SET 
              name = ?, category_id = ?, manufacturer = ?, model = ?, 
-             serial_number = ?, date_of_installation = ?, department_id = ?, 
-             location = ?, status = ?, image_url = ?
+             serial_number = ?, date_of_installation = ?, purchase_date = ?,
+             department_id = ?, location = ?, status = ?, image_url = ?
              WHERE id = ?`,
-            [name, category_id, manufacturer, model, serial_number, 
-             validInstallationDate, department_id, location, status,
-             image_url || null, id]
+            [
+                name, 
+                category_id, 
+                manufacturer, 
+                model, 
+                serial_number, 
+                validInstallationDate,
+                purchase_date || null,
+                department_id, 
+                location, 
+                status,
+                image_url || null, 
+                id
+            ]
         );
         res.json({ success: true, message: 'Equipment updated successfully' });
     } catch (error) {
@@ -2316,6 +2353,7 @@ app.get('/api/knowledge-base/:id', authenticate, async (req, res) => {
     }
 });
 
+// ✅ FIXED: POST /api/knowledge-base - time_taken REMOVED
 app.post('/api/knowledge-base', authenticate, async (req, res) => {
     try {
         const {
@@ -2326,7 +2364,7 @@ app.post('/api/knowledge-base', authenticate, async (req, res) => {
             root_cause,
             solution,
             repair_procedure,
-            time_taken,
+            // ⛔ time_taken REMOVED
             spare_parts_used,
             spare_part_images,
             before_repair_images,
@@ -2384,8 +2422,7 @@ app.post('/api/knowledge-base', authenticate, async (req, res) => {
                 error_description,
                 root_cause, 
                 solution, 
-                repair_procedure, 
-                time_taken,
+                repair_procedure,
                 spare_parts_used,
                 spare_part_images,
                 before_repair_images,
@@ -2399,7 +2436,7 @@ app.post('/api/knowledge-base', authenticate, async (req, res) => {
                 department_name,
                 images,
                 created_by
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 parseInt(equipment_id),
                 error_code || null,
@@ -2408,7 +2445,7 @@ app.post('/api/knowledge-base', authenticate, async (req, res) => {
                 root_cause || null,
                 solution || null,
                 repair_procedure || null,
-                time_taken ? parseInt(time_taken) : null,
+                // ⛔ time_taken REMOVED from values
                 spare_parts_used || null,
                 spare_part_images || null,
                 before_repair_images || null,
@@ -2484,6 +2521,7 @@ app.post('/api/knowledge-base', authenticate, async (req, res) => {
     }
 });
 
+// ✅ FIXED: PUT /api/knowledge-base/:id - time_taken REMOVED
 app.put('/api/knowledge-base/:id', authenticate, async (req, res) => {
     try {
         const { id } = req.params;
@@ -2494,7 +2532,7 @@ app.put('/api/knowledge-base/:id', authenticate, async (req, res) => {
             root_cause,
             solution,
             repair_procedure,
-            time_taken,
+            // ⛔ time_taken REMOVED
             spare_parts_used,
             spare_part_images,
             before_repair_images,
@@ -2555,10 +2593,7 @@ app.put('/api/knowledge-base/:id', authenticate, async (req, res) => {
             updateFields.push('repair_procedure = ?');
             updateValues.push(repair_procedure || null);
         }
-        if (time_taken !== undefined) {
-            updateFields.push('time_taken = ?');
-            updateValues.push(time_taken ? parseInt(time_taken) : null);
-        }
+        // ⛔ time_taken UPDATE BLOCK REMOVED
         if (spare_parts_used !== undefined) {
             updateFields.push('spare_parts_used = ?');
             updateValues.push(spare_parts_used || null);
@@ -3538,377 +3573,521 @@ app.delete('/api/purchase-orders/:id', authenticate, async (req, res) => {
 console.log('📦 Purchase Order routes registered (STATUS REMOVED - hospital, equipment, currency added)');
 
 // ============================================================
-// ✅ PROCUREMENT ROUTES - FIXED: department_name instead of department
+// ✅ PROCUREMENT ROUTES - NEW WORKFLOW + NOTIFICATIONS WITH ACTOR
+// ============================================================
+
+// Workflow steps (must match frontend)
+const STEPS = [
+  'PURCHASE CASE INITIATED',
+  'CASE APPROVED',
+  'P.O ISSUED',
+  'SHIPMENT ARRIVED',
+  'EQUIPMENT INSTALLED',
+  'EQUIPMENT TESTED & COMMISSIONED FOR USE'
+];
+
+// ============================================================
+// GET all procurement requests
 // ============================================================
 app.get('/api/procurement', authenticate, async (req, res) => {
-    try {
-        let sql = `
-            SELECT p.*, h.name as hospital_name, u.full_name as requested_by_name,
-                   c.name as category_name
-            FROM equipment_procurement p
-            LEFT JOIN hospitals h ON p.hospital_id = h.id
-            LEFT JOIN users u ON p.requested_by = u.id
-            LEFT JOIN equipment_categories c ON p.category_id = c.id
-            WHERE 1=1
-        `;
-        const params = [];
+  try {
+    let sql = `
+      SELECT 
+        p.*, 
+        h.name as hospital_name, 
+        u.full_name as requested_by_name,
+        u2.full_name as approved_by_name,
+        u3.full_name as rejected_by_name,
+        u4.full_name as reviewed_by_name
+      FROM equipment_procurement p
+      LEFT JOIN hospitals h ON p.hospital_id = h.id
+      LEFT JOIN users u ON p.requested_by = u.id
+      LEFT JOIN users u2 ON p.approved_by = u2.id
+      LEFT JOIN users u3 ON p.rejected_by = u3.id
+      LEFT JOIN users u4 ON p.reviewed_by = u4.id
+      WHERE 1=1
+    `;
+    const params = [];
 
-        if (req.user.role_name !== 'SUPER_ADMIN') {
-            sql += ' AND p.hospital_id = ?';
-            params.push(req.user.hospital_id);
-        }
-
-        sql += ' ORDER BY p.created_at DESC';
-        const requests = await query(sql, params);
-        res.json({ success: true, requests });
-    } catch (error) {
-        console.error('Get procurement requests error:', error);
-        res.status(500).json({ success: false, message: 'Failed to fetch procurement requests' });
+    if (req.user.role_name !== 'SUPER_ADMIN') {
+      sql += ' AND p.hospital_id = ?';
+      params.push(req.user.hospital_id);
     }
+
+    sql += ' ORDER BY p.created_at DESC';
+    const requests = await query(sql, params);
+    res.json({ success: true, requests });
+  } catch (error) {
+    console.error('Get procurement requests error:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch procurement requests' });
+  }
 });
 
+// ============================================================
+// GET single procurement request
+// ============================================================
 app.get('/api/procurement/:id', authenticate, async (req, res) => {
-    try {
-        const { id } = req.params;
-        
-        let sql = `
-            SELECT p.*, h.name as hospital_name, u.full_name as requested_by_name,
-                   c.name as category_name
-            FROM equipment_procurement p
-            LEFT JOIN hospitals h ON p.hospital_id = h.id
-            LEFT JOIN users u ON p.requested_by = u.id
-            LEFT JOIN equipment_categories c ON p.category_id = c.id
-            WHERE p.id = ?
-        `;
-        const params = [id];
+  try {
+    const { id } = req.params;
+    let sql = `
+      SELECT 
+        p.*, 
+        h.name as hospital_name, 
+        u.full_name as requested_by_name,
+        u2.full_name as approved_by_name,
+        u3.full_name as rejected_by_name,
+        u4.full_name as reviewed_by_name
+      FROM equipment_procurement p
+      LEFT JOIN hospitals h ON p.hospital_id = h.id
+      LEFT JOIN users u ON p.requested_by = u.id
+      LEFT JOIN users u2 ON p.approved_by = u2.id
+      LEFT JOIN users u3 ON p.rejected_by = u3.id
+      LEFT JOIN users u4 ON p.reviewed_by = u4.id
+      WHERE p.id = ?
+    `;
+    const params = [id];
 
-        if (req.user.role_name !== 'SUPER_ADMIN') {
-            sql += ' AND p.hospital_id = ?';
-            params.push(req.user.hospital_id);
-        }
-
-        const requests = await query(sql, params);
-        if (requests.length === 0) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Procurement request not found' 
-            });
-        }
-
-        res.json({
-            success: true,
-            request: requests[0]
-        });
-    } catch (error) {
-        console.error('Get procurement request error:', error);
-        res.status(500).json({ success: false, message: 'Failed to fetch procurement request' });
+    if (req.user.role_name !== 'SUPER_ADMIN') {
+      sql += ' AND p.hospital_id = ?';
+      params.push(req.user.hospital_id);
     }
+
+    const requests = await query(sql, params);
+    if (requests.length === 0) {
+      return res.status(404).json({ success: false, message: 'Procurement request not found' });
+    }
+    res.json({ success: true, request: requests[0] });
+  } catch (error) {
+    console.error('Get procurement request error:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch procurement request' });
+  }
 });
 
-// ✅ FIXED: SUPER_ADMIN, HOSPITAL_ADMIN, and ENGINEER can create
-// ✅ FIXED: department -> department_name
+// ============================================================
+// CREATE procurement request (SUPER_ADMIN, HOSPITAL_ADMIN, ENGINEER)
+// ============================================================
 app.post('/api/procurement', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN', 'ENGINEER'), async (req, res) => {
-    try {
-        const { 
-            hospital_id, equipment_name, category_id, manufacturer, 
-            model, quantity, estimated_cost, justification, 
-            priority, requested_by, department_name, attachments
-        } = req.body;
+  try {
+    const {
+      hospital_id,
+      equipment_name,
+      category_name,
+      manufacturer_options, // array
+      model_options,        // array
+      quantity,
+      estimated_cost,
+      justification,
+      priority,
+      requested_by,
+      department_name,
+      attachments,
+      currency
+    } = req.body;
 
-        console.log('📦 Creating procurement request by:', req.user.email, 'Role:', req.user.role_name);
-        console.log('📦 Equipment:', equipment_name);
-        console.log('📦 Department:', department_name);
+    console.log('📦 Creating procurement request by:', req.user.email, 'Role:', req.user.role_name);
 
-        if (!hospital_id) {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Hospital is required' 
-            });
-        }
-        
-        if (!equipment_name || equipment_name.trim() === '') {
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Equipment name is required' 
-            });
-        }
-
-        // Validate hospital access
-        if (req.user.role_name !== 'SUPER_ADMIN') {
-            if (parseInt(hospital_id) !== req.user.hospital_id) {
-                return res.status(403).json({
-                    success: false,
-                    message: 'Access denied: You can only create requests for your hospital'
-                });
-            }
-        }
-
-        // ✅ CORRECT: Using department_name (NOT department)
-        const result = await query(
-            `INSERT INTO equipment_procurement 
-             (hospital_id, equipment_name, category_id, manufacturer,
-              model, quantity, estimated_cost, justification,
-              priority, status, requested_by, department_name, attachments)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-                parseInt(hospital_id),
-                equipment_name.trim(),
-                category_id ? parseInt(category_id) : null,
-                manufacturer || '',
-                model || '',
-                parseInt(quantity) || 1,
-                parseFloat(estimated_cost) || 0,
-                justification || '',
-                priority || 'Medium',
-                'Requested',
-                req.user.id,
-                department_name || '',
-                attachments || ''
-            ]
-        );
-
-        console.log('✅ Procurement request created. ID:', result.insertId);
-
-        // Notify Super Admin
-        await createNotification(
-            1,
-            'New Procurement Request',
-            `Procurement request for "${equipment_name}" created by ${req.user.full_name}`,
-            'Procurement',
-            result.insertId,
-            'procurement'
-        );
-
-        res.status(201).json({
-            success: true,
-            message: 'Procurement request created successfully',
-            request_id: result.insertId
+    if (req.user.role_name !== 'SUPER_ADMIN') {
+      if (parseInt(hospital_id) !== req.user.hospital_id) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied: You can only create requests for your hospital'
         });
-
-    } catch (error) {
-        console.error('❌ Create procurement error:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: 'Database error: ' + error.message 
-        });
+      }
     }
+
+    if (!hospital_id || !equipment_name) {
+      return res.status(400).json({
+        success: false,
+        message: 'Hospital ID and Equipment Name are required'
+      });
+    }
+
+    const manOpts = JSON.stringify(manufacturer_options || []);
+    const modOpts = JSON.stringify(model_options || []);
+
+    const result = await query(
+      `INSERT INTO equipment_procurement 
+       (hospital_id, equipment_name, category_name,
+        manufacturer_options, model_options,
+        quantity, estimated_cost,
+        justification, priority, requested_by, department_name, attachments,
+        currency, status, step_comments)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        hospital_id,
+        equipment_name,
+        category_name || '',
+        manOpts,
+        modOpts,
+        quantity || 1,
+        estimated_cost || 0,
+        justification || '',
+        priority || 'Medium',
+        requested_by || req.user.id,
+        department_name || '',
+        attachments || '',
+        currency || 'PKR',
+        'PURCHASE CASE INITIATED',
+        JSON.stringify({})
+      ]
+    );
+
+    // Notify Super Admin
+    await createNotification(
+      1,
+      '🆕 New Procurement Request',
+      `"${equipment_name}" requested by ${req.user.full_name} from hospital ${req.user.hospital_id}`,
+      'Procurement',
+      result.insertId,
+      'procurement'
+    );
+
+    console.log('✅ Procurement request created. ID:', result.insertId);
+    res.status(201).json({
+      success: true,
+      message: 'Procurement request created',
+      request_id: result.insertId
+    });
+  } catch (error) {
+    console.error('❌ Create procurement error:', error);
+    res.status(500).json({ success: false, message: 'Failed to create: ' + error.message });
+  }
 });
 
-// ✅ FIXED: ONLY SUPER_ADMIN can update (edit)
-// ✅ FIXED: department -> department_name
+// ============================================================
+// UPDATE procurement request (only SUPER_ADMIN, not rejected/commissioned)
+// ============================================================
 app.put('/api/procurement/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { 
-            equipment_name, category_id, manufacturer, 
-            model, quantity, estimated_cost, justification, 
-            priority, status, department_name, attachments
-        } = req.body;
+  try {
+    const { id } = req.params;
+    const {
+      equipment_name,
+      category_name,
+      manufacturer_options,
+      model_options,
+      quantity,
+      estimated_cost,
+      justification,
+      priority,
+      department_name,
+      attachments,
+      currency
+    } = req.body;
 
-        console.log('🔄 Updating procurement request:', id);
-        console.log('📦 Department:', department_name);
-
-        const existing = await query('SELECT * FROM equipment_procurement WHERE id = ?', [id]);
-        if (existing.length === 0) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Procurement request not found' 
-            });
-        }
-
-        // Only allow editing if status is 'Requested' or 'Under Review'
-        if (!['Requested', 'Under Review'].includes(existing[0].status)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Cannot edit request that is already Approved, Rejected, or Procured'
-            });
-        }
-
-        // ✅ CORRECT: Using department_name (NOT department)
-        await query(
-            `UPDATE equipment_procurement SET 
-             equipment_name = ?, category_id = ?, manufacturer = ?,
-             model = ?, quantity = ?, estimated_cost = ?,
-             justification = ?, priority = ?, status = ?,
-             department_name = ?, attachments = ?
-             WHERE id = ?`,
-            [
-                equipment_name || existing[0].equipment_name,
-                category_id || existing[0].category_id,
-                manufacturer || existing[0].manufacturer,
-                model || existing[0].model,
-                parseInt(quantity) || existing[0].quantity,
-                parseFloat(estimated_cost) || existing[0].estimated_cost,
-                justification || existing[0].justification,
-                priority || existing[0].priority,
-                status || existing[0].status,
-                department_name || existing[0].department_name,
-                attachments || existing[0].attachments,
-                id
-            ]
-        );
-
-        console.log('✅ Procurement request updated:', id);
-        res.json({ 
-            success: true, 
-            message: 'Procurement request updated successfully' 
-        });
-
-    } catch (error) {
-        console.error('❌ Update procurement error:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: 'Failed to update procurement: ' + error.message 
-        });
+    const existing = await query('SELECT * FROM equipment_procurement WHERE id = ?', [id]);
+    if (existing.length === 0) {
+      return res.status(404).json({ success: false, message: 'Procurement request not found' });
     }
+
+    const disallowed = ['REJECTED', 'EQUIPMENT TESTED & COMMISSIONED FOR USE'];
+    if (disallowed.includes(existing[0].status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot edit a request that is already rejected or commissioned'
+      });
+    }
+
+    const manOpts = JSON.stringify(manufacturer_options || []);
+    const modOpts = JSON.stringify(model_options || []);
+
+    await query(
+      `UPDATE equipment_procurement SET 
+        equipment_name = ?,
+        category_name = ?,
+        manufacturer_options = ?,
+        model_options = ?,
+        quantity = ?,
+        estimated_cost = ?,
+        justification = ?,
+        priority = ?,
+        department_name = ?,
+        attachments = ?,
+        currency = ?
+      WHERE id = ?`,
+      [
+        equipment_name,
+        category_name || '',
+        manOpts,
+        modOpts,
+        quantity || 1,
+        estimated_cost || 0,
+        justification || '',
+        priority || 'Medium',
+        department_name || '',
+        attachments || '',
+        currency || 'PKR',
+        id
+      ]
+    );
+
+    res.json({ success: true, message: 'Procurement request updated' });
+  } catch (error) {
+    console.error('Update procurement request error:', error);
+    res.status(500).json({ success: false, message: 'Failed to update: ' + error.message });
+  }
 });
 
-// ✅ FIXED: ONLY SUPER_ADMIN can delete
+// ============================================================
+// DELETE procurement request (only SUPER_ADMIN, not rejected/commissioned)
+// ============================================================
 app.delete('/api/procurement/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
-    try {
-        const { id } = req.params;
-        console.log('🗑️ Deleting procurement request ID:', id);
-        
-        const existing = await query('SELECT * FROM equipment_procurement WHERE id = ?', [id]);
-        if (existing.length === 0) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Procurement request not found' 
-            });
-        }
-
-        // Only allow deletion if status is 'Requested' or 'Under Review'
-        if (!['Requested', 'Under Review'].includes(existing[0].status)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Cannot delete request that is already Approved, Rejected, or Procured'
-            });
-        }
-
-        await query('DELETE FROM equipment_procurement WHERE id = ?', [id]);
-
-        console.log('✅ Procurement request deleted successfully:', id);
-        res.json({ 
-            success: true, 
-            message: 'Procurement request deleted successfully' 
-        });
-    } catch (error) {
-        console.error('❌ Procurement DELETE error:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: 'Database error: ' + error.message 
-        });
+  try {
+    const { id } = req.params;
+    const existing = await query('SELECT * FROM equipment_procurement WHERE id = ?', [id]);
+    if (existing.length === 0) {
+      return res.status(404).json({ success: false, message: 'Procurement request not found' });
     }
+
+    const disallowed = ['REJECTED', 'EQUIPMENT TESTED & COMMISSIONED FOR USE'];
+    if (disallowed.includes(existing[0].status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot delete a request that is already rejected or commissioned'
+      });
+    }
+
+    await query('DELETE FROM equipment_procurement WHERE id = ?', [id]);
+    res.json({ success: true, message: 'Procurement request deleted' });
+  } catch (error) {
+    console.error('Delete procurement error:', error);
+    res.status(500).json({ success: false, message: 'Failed to delete: ' + error.message });
+  }
 });
 
-// ✅ Status update - with role-based restrictions
-app.put('/api/procurement/:id/status', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { status } = req.body;
+// ============================================================
+// ✅ STATUS TRANSITION (main workflow) - only SUPER_ADMIN
+// ============================================================
+app.put('/api/procurement/:id/status', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, comment } = req.body;
 
-        console.log('🔄 Updating procurement status:', id, '->', status);
-
-        const existing = await query('SELECT * FROM equipment_procurement WHERE id = ?', [id]);
-        if (existing.length === 0) {
-            return res.status(404).json({ 
-                success: false, 
-                message: 'Procurement request not found' 
-            });
-        }
-
-        const currentStatus = existing[0].status;
-        const hospitalId = existing[0].hospital_id;
-
-        // Validate status
-        const validStatuses = ['Requested', 'Under Review', 'Approved', 'Rejected', 'Procured'];
-        if (!validStatuses.includes(status)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid status'
-            });
-        }
-
-        // Status transition validation
-        const allowedTransitions = {
-            'Requested': ['Under Review'],
-            'Under Review': ['Approved', 'Rejected'],
-            'Approved': ['Procured'],
-            'Rejected': [],
-            'Procured': []
-        };
-
-        if (!allowedTransitions[currentStatus]?.includes(status)) {
-            return res.status(400).json({
-                success: false,
-                message: `Invalid status transition from '${currentStatus}' to '${status}'`
-            });
-        }
-
-        // ✅ ONLY SUPER_ADMIN can approve or reject
-        if ((status === 'Approved' || status === 'Rejected') && req.user.role_name !== 'SUPER_ADMIN') {
-            return res.status(403).json({
-                success: false,
-                message: 'Only Super Admin can approve or reject requests'
-            });
-        }
-
-        // ✅ Hospital Admin can only move to Under Review
-        if (req.user.role_name === 'HOSPITAL_ADMIN') {
-            if (status !== 'Under Review') {
-                return res.status(403).json({
-                    success: false,
-                    message: 'Hospital Admin can only move requests to Under Review status'
-                });
-            }
-            if (hospitalId !== req.user.hospital_id) {
-                return res.status(403).json({
-                    success: false,
-                    message: 'You can only review requests from your hospital'
-                });
-            }
-        }
-
-        // ✅ Mark as Procured - Hospital Admin can do it for their hospital
-        if (status === 'Procured' && req.user.role_name === 'HOSPITAL_ADMIN') {
-            if (hospitalId !== req.user.hospital_id) {
-                return res.status(403).json({
-                    success: false,
-                    message: 'You can only mark requests from your hospital as procured'
-                });
-            }
-        }
-
-        let updateFields = 'status = ?';
-        const updateParams = [status];
-
-        if (status === 'Approved') {
-            updateFields += ', approved_by = ?, approved_at = NOW()';
-            updateParams.push(req.user.id);
-        } else if (status === 'Rejected') {
-            updateFields += ', rejected_by = ?, rejected_at = NOW()';
-            updateParams.push(req.user.id);
-        } else if (status === 'Procured') {
-            updateFields += ', procured_at = NOW()';
-        }
-
-        updateParams.push(id);
-        await query(`UPDATE equipment_procurement SET ${updateFields} WHERE id = ?`, updateParams);
-
-        console.log('✅ Procurement status updated:', id, '->', status);
-        res.json({ 
-            success: true, 
-            message: `Status updated to ${status}` 
-        });
-
-    } catch (error) {
-        console.error('❌ Update status error:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: 'Failed to update status: ' + error.message 
-        });
+    const allowed = [...STEPS, 'REJECTED'];
+    if (!allowed.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid status. Allowed: ${allowed.join(', ')}`
+      });
     }
+
+    const existing = await query('SELECT * FROM equipment_procurement WHERE id = ?', [id]);
+    if (existing.length === 0) {
+      return res.status(404).json({ success: false, message: 'Procurement request not found' });
+    }
+
+    if (existing[0].status === 'REJECTED') {
+      return res.status(400).json({
+        success: false,
+        message: 'Cannot change status of a rejected request'
+      });
+    }
+
+    if (status !== 'REJECTED') {
+      const currentIndex = STEPS.indexOf(existing[0].status);
+      const newIndex = STEPS.indexOf(status);
+      if (newIndex <= currentIndex) {
+        return res.status(400).json({
+          success: false,
+          message: 'Cannot move to a previous or same step'
+        });
+      }
+    }
+
+    const updates = { status };
+    const now = new Date();
+
+    if (status === 'CASE APPROVED') {
+      updates.approved_by = req.user.id;
+      updates.approved_at = now;
+    } else if (status === 'REJECTED') {
+      updates.rejected_by = req.user.id;
+      updates.rejected_at = now;
+    } else if (status === 'P.O ISSUED') {
+      updates.po_issued_at = now;
+    } else if (status === 'SHIPMENT ARRIVED') {
+      updates.shipment_arrived_at = now;
+    } else if (status === 'EQUIPMENT INSTALLED') {
+      updates.equipment_installed_at = now;
+    } else if (status === 'EQUIPMENT TESTED & COMMISSIONED FOR USE') {
+      updates.commissioned_at = now;
+    }
+
+    if (comment) {
+      let stepComments = existing[0].step_comments || {};
+      if (typeof stepComments === 'string') {
+        try { stepComments = JSON.parse(stepComments); } catch { stepComments = {}; }
+      }
+      stepComments[status] = comment.trim();
+      updates.step_comments = JSON.stringify(stepComments);
+    }
+
+    const setClauses = [];
+    const values = [];
+    Object.keys(updates).forEach(key => {
+      setClauses.push(`${key} = ?`);
+      values.push(updates[key]);
+    });
+    values.push(id);
+
+    await query(`UPDATE equipment_procurement SET ${setClauses.join(', ')} WHERE id = ?`, values);
+
+    // ============================================================
+    // ✅ SEND NOTIFICATIONS WITH ACTING USER INFO
+    // ============================================================
+    try {
+      const hospitalId = existing[0].hospital_id;
+      const equipmentName = existing[0].equipment_name;
+      const actorName = req.user.full_name || 'Admin';
+      const actorRole = req.user.role_name || 'Admin';
+      
+      const usersToNotify = await query(
+        `SELECT u.id, r.name as role_name 
+         FROM users u 
+         JOIN roles r ON u.role_id = r.id 
+         WHERE u.hospital_id = ? AND r.name IN ('HOSPITAL_ADMIN', 'ENGINEER') AND u.is_active = 1`,
+        [hospitalId]
+      );
+
+      let title = '';
+      let message = '';
+
+      switch (status) {
+        case 'CASE APPROVED':
+          title = '✅ Case Approved - Issue P.O Now';
+          message = `${actorRole} ${actorName} ne "${equipmentName}" ka case approve kar liya hai. Ab P.O issue karein.`;
+          break;
+        case 'P.O ISSUED':
+          title = '📄 P.O Issued';
+          message = `${actorRole} ${actorName} ne "${equipmentName}" ke liye P.O issue kar diya hai. Shipment ka intezaar karein.`;
+          break;
+        case 'SHIPMENT ARRIVED':
+          title = '📦 Shipment Arrived';
+          message = `${actorRole} ${actorName} ne "${equipmentName}" ki shipment mark kar di hai. Installation schedule karein.`;
+          break;
+        case 'EQUIPMENT INSTALLED':
+          title = '🔧 Equipment Installed';
+          message = `${actorRole} ${actorName} ne "${equipmentName}" install kar di hai. Testing aur commissioning karein.`;
+          break;
+        case 'EQUIPMENT TESTED & COMMISSIONED FOR USE':
+          title = '🎉 Process Complete';
+          message = `${actorRole} ${actorName} ne "${equipmentName}" ko test aur commission kar diya hai. Procurement process mukammal.`;
+          break;
+        case 'REJECTED':
+          title = '❌ Case Rejected';
+          message = `${actorRole} ${actorName} ne "${equipmentName}" ka case reject kar diya hai.`;
+          break;
+        default:
+          title = `🔄 Status Updated to ${status}`;
+          message = `${actorRole} ${actorName} ne "${equipmentName}" ka status "${status}" kar diya hai.`;
+      }
+
+      for (const user of usersToNotify) {
+        await createNotification(
+          user.id,
+          title,
+          message,
+          'Procurement',
+          id,
+          'procurement'
+        );
+      }
+      console.log(`📨 Notification sent to ${usersToNotify.length} users by ${actorName}`);
+    } catch (notifError) {
+      console.error('⚠️ Notification error (non-critical):', notifError.message);
+    }
+
+    const updated = await query('SELECT step_comments FROM equipment_procurement WHERE id = ?', [id]);
+    const comments = updated[0]?.step_comments || {};
+
+    res.json({
+      success: true,
+      message: `Status updated to ${status}`,
+      step_comments: typeof comments === 'string' ? JSON.parse(comments) : comments
+    });
+  } catch (error) {
+    console.error('Status transition error:', error);
+    res.status(500).json({ success: false, message: 'Failed to update status: ' + error.message });
+  }
 });
+
+// ============================================================
+// ✅ ADD COMMENT TO CURRENT STEP
+// ============================================================
+app.post('/api/procurement/:id/comment', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN', 'ENGINEER'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { step, comment } = req.body;
+
+    if (!step || !comment || comment.trim() === '') {
+      return res.status(400).json({
+        success: false,
+        message: 'Step and comment are required'
+      });
+    }
+
+    const existing = await query('SELECT * FROM equipment_procurement WHERE id = ?', [id]);
+    if (existing.length === 0) {
+      return res.status(404).json({ success: false, message: 'Procurement request not found' });
+    }
+
+    if (step !== existing[0].status) {
+      return res.status(400).json({
+        success: false,
+        message: `Comment can only be added to the current step (${existing[0].status})`
+      });
+    }
+
+    let stepComments = existing[0].step_comments || {};
+    if (typeof stepComments === 'string') {
+      try { stepComments = JSON.parse(stepComments); } catch { stepComments = {}; }
+    }
+
+    stepComments[step] = comment.trim();
+
+    await query(
+      `UPDATE equipment_procurement SET step_comments = ? WHERE id = ?`,
+      [JSON.stringify(stepComments), id]
+    );
+
+    res.json({
+      success: true,
+      message: 'Comment added',
+      step_comments: stepComments
+    });
+  } catch (error) {
+    console.error('Add comment error:', error);
+    res.status(500).json({ success: false, message: 'Failed to add comment: ' + error.message });
+  }
+});
+
+// ============================================================
+// Legacy endpoints (now redirect to /status) - for backward compatibility
+// ============================================================
+app.put('/api/procurement/:id/approve', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
+  req.body.status = 'CASE APPROVED';
+  req.body.comment = req.body.comment || 'Approved';
+  return app._router.handle(req, res, `/api/procurement/${req.params.id}/status`);
+});
+
+app.put('/api/procurement/:id/reject', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
+  req.body.status = 'REJECTED';
+  req.body.comment = req.body.rejection_reason || 'Rejected';
+  return app._router.handle(req, res, `/api/procurement/${req.params.id}/status`);
+});
+
+app.put('/api/procurement/:id/procured', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), async (req, res) => {
+  req.body.status = 'EQUIPMENT TESTED & COMMISSIONED FOR USE';
+  req.body.comment = 'Commissioned';
+  return app._router.handle(req, res, `/api/procurement/${req.params.id}/status`);
+});
+
+app.put('/api/procurement/:id/review', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), async (req, res) => {
+  req.body.status = 'CASE APPROVED';
+  req.body.comment = req.body.comment || 'Under review';
+  return app._router.handle(req, res, `/api/procurement/${req.params.id}/status`);
+});
+
+console.log('📦 PROCUREMENT ROUTES UPDATED WITH WORKFLOW + NOTIFICATIONS WITH ACTOR');
 
 // ============================================================
 // ✅ NOTIFICATIONS ROUTES
@@ -3982,6 +4161,10 @@ app.delete('/api/notifications/:id', authenticate, async (req, res) => {
     }
 });
 
+// server.js ya app.js me add karein
+
+const technicalSpecificationsRoutes = require('./routes/technicalSpecifications');
+app.use('/api/technical-specifications', technicalSpecificationsRoutes);
 // ============================================================
 // ✅ 404 HANDLER
 // ============================================================
@@ -4053,5 +4236,7 @@ if (require.main === module) {
     console.log('📅 Maintenance routes modularized in routes/maintenance.js');
     console.log('🔩 Spare parts routes modularized in routes/spareParts.js');
     console.log('📦 PROCUREMENT ROUTES FIXED: department -> department_name');
+    console.log('✅ FIXED: time_taken removed from knowledge_base POST and PUT routes');
+    console.log('✅ FIXED: purchase_date added to equipment POST and PUT routes');
     console.log('========================================');
 }

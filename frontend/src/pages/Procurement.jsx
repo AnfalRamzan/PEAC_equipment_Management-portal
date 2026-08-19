@@ -50,50 +50,37 @@ import {
   Cancel,
   Refresh,
   FileDownload,
-  TrendingUp,
-  TrendingDown,
   Warning,
   Info,
-  Check,
-  Clear,
   Description,
-  Assignment,
   Person,
   Business,
   AttachFile,
-  Print,
-  PriorityHigh,
   Image,
   PictureAsPdf,
   ErrorOutline,
+  Comment,
+  Send,
 } from '@mui/icons-material'
 import { procurementService, equipmentService, hospitalService } from '../api/services'
 import { toast } from 'react-toastify'
 import { useSelector } from 'react-redux'
-import AccessDenied from '../components/Auth/AccessDenied'
 import FileUpload from '../components/FileUpload'
 import api from '../api/axios'
 
 // ============================================================
-// ✅ DARK NAVY + LIGHT CYAN THEME COLORS
+// ✅ THEME COLORS
 // ============================================================
 const colors = {
   darkNavy: '#0F172A',
-  darkNavyLight: '#1E293B',
-  darkNavyDark: '#0A0F1E',
   darkNavyHover: '#1E3A5F',
   lightCyan: '#67E8F9',
-  lightCyanBright: '#A5F3FC',
   lightCyanDark: '#22D3EE',
   lightCyanGlow: 'rgba(103, 232, 249, 0.15)',
   lightCyanGlowStrong: 'rgba(103, 232, 249, 0.3)',
   accentGold: '#C9A227',
-  goldLight: '#E8C84A',
   text: '#FFFFFF',
   secondaryText: '#94A3B8',
-  textLight: '#CBD5E1',
-  cyanText: '#67E8F9',
-  darkText: '#0F172A',
   lightText: '#64748B',
   cardBg: '#FFFFFF',
   borderColor: 'rgba(103, 232, 249, 0.1)',
@@ -110,48 +97,44 @@ const colors = {
 // ✅ Animation Styles
 const animationStyles = `
 @keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 `
 
 // ==================== HELPER FUNCTIONS ====================
 const getFullUrl = (url) => {
   if (!url) return ''
-  if (url.startsWith('http://') || url.startsWith('https://')) {
-    return url
-  }
-  if (url.startsWith('/uploads')) {
-    return `http://localhost:5000${url}`
-  }
+  if (url.startsWith('http://') || url.startsWith('https://')) return url
+  if (url.startsWith('/uploads')) return `http://localhost:5000${url}`
   return url
 }
 
-// ✅ Format currency in PKR
-const formatCurrency = (amount) => {
-  if (!amount) return 'PKR 0'
-  return `PKR ${parseFloat(amount).toLocaleString('en-PK')}`
+// ✅ Format amount in Millions if >= 1,000,000
+const formatAmount = (amount, currency = 'PKR') => {
+  if (!amount) return `${currency} 0`
+  const num = parseFloat(amount)
+  if (isNaN(num)) return `${currency} 0`
+  if (num >= 1000000) {
+    return `${currency} ${(num / 1000000).toFixed(1)} Million`
+  }
+  return `${currency} ${num.toLocaleString('en-PK')}`
 }
 
-// ✅ Status color mapping
+// ✅ Status color mapping (workflow steps)
 const getStatusColor = (status) => {
   const colorsMap = {
-    'Requested': '#F59E0B',
-    'Under Review': '#3B82F6',
-    'Approved': '#22C55E',
-    'Rejected': '#EF4444',
-    'Procured': '#8B5CF6'
+    'PURCHASE CASE INITIATED': '#F59E0B',
+    'CASE APPROVED': '#3B82F6',
+    'P.O ISSUED': '#8B5CF6',
+    'SHIPMENT ARRIVED': '#22C55E',
+    'EQUIPMENT INSTALLED': '#14B8A6',
+    'EQUIPMENT TESTED & COMMISSIONED FOR USE': '#06B6D4',
+    'REJECTED': '#EF4444'
   }
   return colorsMap[status] || '#94A3B8'
 }
 
-// ✅ Priority color mapping
 const getPriorityColor = (priority) => {
   const colorsMap = {
     'Low': '#22C55E',
@@ -162,6 +145,16 @@ const getPriorityColor = (priority) => {
   return colorsMap[priority] || '#94A3B8'
 }
 
+// ✅ Workflow steps (must match backend)
+const STEPS = [
+  'PURCHASE CASE INITIATED',
+  'CASE APPROVED',
+  'P.O ISSUED',
+  'SHIPMENT ARRIVED',
+  'EQUIPMENT INSTALLED',
+  'EQUIPMENT TESTED & COMMISSIONED FOR USE'
+]
+
 const Procurement = () => {
   // ============================================================
   // ✅ PERMISSIONS
@@ -169,13 +162,17 @@ const Procurement = () => {
   const { user } = useSelector((state) => state.auth)
 
   const canCreate = user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN' || user?.role === 'ENGINEER'
-  const canView = user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN' || user?.role === 'ENGINEER'
+  const canView = true // all logged-in users can view
   const canEdit = user?.role === 'SUPER_ADMIN'
   const canDelete = user?.role === 'SUPER_ADMIN'
-  const canApprove = user?.role === 'SUPER_ADMIN'
-  const canReview = user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN'
+  const canApprove = user?.role === 'SUPER_ADMIN' // for all step advancements
+  const canReview = user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN' // (not used now)
   const canMarkProcured = user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN'
+  const canComment = user?.role === 'SUPER_ADMIN' || user?.role === 'HOSPITAL_ADMIN' || user?.role === 'ENGINEER'
 
+  // ============================================================
+  // ✅ STATE
+  // ============================================================
   const [requests, setRequests] = useState([])
   const [equipment, setEquipment] = useState([])
   const [hospitals, setHospitals] = useState([])
@@ -187,29 +184,31 @@ const Procurement = () => {
   const [viewingRequest, setViewingRequest] = useState(null)
   const [editingRequest, setEditingRequest] = useState(null)
   const [exportAnchorEl, setExportAnchorEl] = useState(null)
-  const [filters, setFilters] = useState({
-    status: '',
-    priority: ''
-  })
+  const [filters, setFilters] = useState({ status: '', priority: '' })
   const [error, setError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
-  const [categoryName, setCategoryName] = useState('') // Manual category input
-  
+  const [stepComment, setStepComment] = useState('') // for comment input in view dialog
+
+  // Form data
   const [formData, setFormData] = useState({
     hospital_id: '',
     equipment_name: '',
-    category_name: '', // Manual category name (not ID)
-    manufacturer: '',
-    model: '',
+    category_name: '',
+    manufacturer_options: ['', '', ''],
+    model_options: ['', '', ''],
     quantity: 1,
     estimated_cost: '',
     justification: '',
     priority: 'Medium',
     requested_by: '',
-    department_name: '', // Changed from department to department_name
-    attachments: ''
+    department_name: '',
+    attachments: '',
+    currency: 'PKR',
   })
 
+  // ============================================================
+  // ✅ FETCH DATA
+  // ============================================================
   useEffect(() => {
     fetchAllData()
   }, [])
@@ -218,11 +217,7 @@ const Procurement = () => {
     setLoading(true)
     setError(null)
     try {
-      await Promise.all([
-        fetchRequests(),
-        fetchEquipment(),
-        fetchHospitals(),
-      ])
+      await Promise.all([fetchRequests(), fetchEquipment(), fetchHospitals()])
     } catch (error) {
       console.error('Error fetching data:', error)
       setError('Failed to load data. Please refresh the page.')
@@ -234,8 +229,6 @@ const Procurement = () => {
   const fetchRequests = async () => {
     try {
       const response = await procurementService.getAll()
-      console.log('📊 Procurement response:', response.data)
-      
       if (response.data && response.data.success) {
         setRequests(response.data.requests || [])
       } else if (Array.isArray(response.data)) {
@@ -274,8 +267,6 @@ const Procurement = () => {
   const fetchHospitals = async () => {
     try {
       const response = await hospitalService.getAll()
-      console.log('🏥 Hospitals response:', response.data)
-      
       if (response.data && response.data.success) {
         setHospitals(response.data.hospitals || [])
       } else if (Array.isArray(response.data)) {
@@ -289,17 +280,13 @@ const Procurement = () => {
     }
   }
 
-  // ✅ Fetch departments using department_name from backend
   const fetchDepartments = async (hospitalId) => {
     if (!hospitalId) {
       setDepartments([])
       return
     }
     try {
-      console.log('📤 Fetching departments for hospital:', hospitalId)
       const response = await api.get(`/departments/hospital/${hospitalId}`)
-      console.log('📥 Departments response:', response.data)
-      
       if (response.data && response.data.success) {
         setDepartments(response.data.departments || [])
       } else if (Array.isArray(response.data)) {
@@ -313,31 +300,36 @@ const Procurement = () => {
     }
   }
 
+  // ============================================================
+  // ✅ DIALOG HANDLERS
+  // ============================================================
   const handleOpenDialog = (request = null) => {
     if (request && !canEdit) {
       toast.error('Only Super Admin can edit procurement requests')
       return
     }
-    
     if (request) {
       setEditingRequest(request)
+      const manOpts = request.manufacturer_options || ['', '', '']
+      const modOpts = request.model_options || ['', '', '']
+      while (manOpts.length < 3) manOpts.push('')
+      while (modOpts.length < 3) modOpts.push('')
       setFormData({
         hospital_id: request.hospital_id || '',
         equipment_name: request.equipment_name || '',
-        category_name: request.category_name || '', // Use category_name
-        manufacturer: request.manufacturer || '',
-        model: request.model || '',
+        category_name: request.category_name || '',
+        manufacturer_options: manOpts,
+        model_options: modOpts,
         quantity: request.quantity || 1,
         estimated_cost: request.estimated_cost || '',
         justification: request.justification || '',
         priority: request.priority || 'Medium',
         requested_by: request.requested_by || '',
-        department_name: request.department_name || '', // Use department_name
-        attachments: request.attachments || ''
+        department_name: request.department_name || '',
+        attachments: request.attachments || '',
+        currency: request.currency || 'PKR',
       })
-      if (request.hospital_id) {
-        fetchDepartments(request.hospital_id)
-      }
+      if (request.hospital_id) fetchDepartments(request.hospital_id)
     } else {
       setEditingRequest(null)
       const defaultHospitalId = user?.hospital_id || ''
@@ -345,19 +337,18 @@ const Procurement = () => {
         hospital_id: defaultHospitalId,
         equipment_name: '',
         category_name: '',
-        manufacturer: '',
-        model: '',
+        manufacturer_options: ['', '', ''],
+        model_options: ['', '', ''],
         quantity: 1,
         estimated_cost: '',
         justification: '',
         priority: 'Medium',
         requested_by: user?.full_name || user?.name || '',
         department_name: '',
-        attachments: ''
+        attachments: '',
+        currency: 'PKR',
       })
-      if (defaultHospitalId) {
-        fetchDepartments(defaultHospitalId)
-      }
+      if (defaultHospitalId) fetchDepartments(defaultHospitalId)
     }
     setOpenDialog(true)
   }
@@ -370,6 +361,7 @@ const Procurement = () => {
 
   const handleView = (request) => {
     setViewingRequest(request)
+    setStepComment('')
     setOpenViewDialog(true)
   }
 
@@ -381,12 +373,24 @@ const Procurement = () => {
   const handleFormChange = (e) => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
-    
-    if (name === 'hospital_id' && value) {
-      fetchDepartments(value)
-    }
+    if (name === 'hospital_id' && value) fetchDepartments(value)
   }
 
+  const handleManOptionChange = (index, value) => {
+    const newOpts = [...formData.manufacturer_options]
+    newOpts[index] = value
+    setFormData(prev => ({ ...prev, manufacturer_options: newOpts }))
+  }
+
+  const handleModelOptionChange = (index, value) => {
+    const newOpts = [...formData.model_options]
+    newOpts[index] = value
+    setFormData(prev => ({ ...prev, model_options: newOpts }))
+  }
+
+  // ============================================================
+  // ✅ SUBMIT / UPDATE
+  // ============================================================
   const handleSubmit = async () => {
     if (!formData.hospital_id) {
       toast.error('Please select a hospital')
@@ -399,23 +403,24 @@ const Procurement = () => {
 
     setSubmitting(true)
     try {
+      const manOpts = formData.manufacturer_options.filter(s => s.trim() !== '')
+      const modOpts = formData.model_options.filter(s => s.trim() !== '')
+
       const submitData = {
         hospital_id: parseInt(formData.hospital_id),
         equipment_name: formData.equipment_name.trim(),
-        category_name: formData.category_name || '', // Send category_name
-        manufacturer: formData.manufacturer || '',
-        model: formData.model || '',
+        category_name: formData.category_name || '',
+        manufacturer_options: manOpts,
+        model_options: modOpts,
         quantity: parseInt(formData.quantity) || 1,
         estimated_cost: parseFloat(formData.estimated_cost) || 0,
         justification: formData.justification || '',
         priority: formData.priority || 'Medium',
         requested_by: user?.id || null,
-        department_name: formData.department_name || '', // Send department_name
-        attachments: formData.attachments || ''
+        department_name: formData.department_name || '',
+        attachments: formData.attachments || '',
+        currency: formData.currency || 'PKR',
       }
-
-      console.log('📤 Submitting procurement data:', submitData)
-      console.log('👤 Current user role:', user?.role)
 
       let response
       if (editingRequest) {
@@ -437,18 +442,12 @@ const Procurement = () => {
           throw new Error(response.data?.message || 'Creation failed')
         }
       }
-      
       await fetchRequests()
       handleCloseDialog()
     } catch (error) {
       console.error('❌ Submit error:', error)
-      
       let errorMsg = 'Operation failed. Please try again.'
-      
       if (error.response) {
-        console.error('Response data:', error.response.data)
-        console.error('Response status:', error.response.status)
-        
         if (error.response.status === 403) {
           errorMsg = '⚠️ You do not have permission to create procurement requests.'
         } else if (error.response.status === 401) {
@@ -459,7 +458,6 @@ const Procurement = () => {
       } else if (error.message) {
         errorMsg = error.message
       }
-      
       toast.error(errorMsg)
     } finally {
       setSubmitting(false)
@@ -471,7 +469,6 @@ const Procurement = () => {
       toast.error('Only Super Admin can delete procurement requests')
       return
     }
-    
     if (window.confirm('Are you sure you want to delete this procurement request?')) {
       try {
         const response = await procurementService.delete(id)
@@ -494,148 +491,86 @@ const Procurement = () => {
     }
   }
 
-  // ✅ Use the dedicated approve endpoint
-  const handleApprove = async (id) => {
-    if (!canApprove) {
-      toast.error('Only Super Admin can approve requests')
-      return
-    }
-    
+  // ============================================================
+  // ✅ STATUS TRANSITION (UNIFIED)
+  // ============================================================
+  const transitionStatus = async (id, newStatus, comment = '') => {
     try {
-      const response = await api.put(`/procurement/${id}/approve`)
+      const payload = { status: newStatus }
+      if (comment) payload.comment = comment
+      const response = await api.put(`/procurement/${id}/status`, payload)
       if (response.data && response.data.success) {
-        toast.success('Procurement request approved')
+        toast.success(`Status updated to ${newStatus}`)
         await fetchRequests()
+        // Update viewing request if open
+        if (viewingRequest && viewingRequest.id === id) {
+          setViewingRequest(prev => ({ ...prev, status: newStatus, step_comments: response.data.step_comments }))
+        }
         handleCloseView()
       } else {
-        throw new Error(response.data?.message || 'Approval failed')
+        throw new Error(response.data?.message || 'Status update failed')
       }
     } catch (error) {
-      console.error('❌ Approve error:', error)
-      let errorMsg = 'Failed to approve request'
-      if (error.response?.status === 403) {
-        errorMsg = 'You do not have permission to approve requests'
-      } else if (error.response?.data?.message) {
-        errorMsg = error.response.data.message
-      }
+      console.error('❌ Status transition error:', error)
+      let errorMsg = 'Failed to update status'
+      if (error.response?.data?.message) errorMsg = error.response.data.message
       toast.error(errorMsg)
     }
   }
 
-  // ✅ Use the dedicated reject endpoint
-  const handleReject = async (id) => {
-    if (!canApprove) {
-      toast.error('Only Super Admin can reject requests')
+  // ============================================================
+  // ✅ ADD COMMENT
+  // ============================================================
+  const handleAddComment = async () => {
+    if (!viewingRequest) return
+    if (!stepComment.trim()) {
+      toast.error('Please enter a comment')
       return
     }
-    
+    const currentStep = viewingRequest.status
     try {
-      const response = await api.put(`/procurement/${id}/reject`, { rejection_reason: 'Rejected by admin' })
+      const response = await api.post(`/procurement/${viewingRequest.id}/comment`, {
+        step: currentStep,
+        comment: stepComment.trim()
+      })
       if (response.data && response.data.success) {
-        toast.success('Procurement request rejected')
+        toast.success('Comment added')
+        setViewingRequest(prev => ({ ...prev, step_comments: response.data.step_comments }))
+        setStepComment('')
         await fetchRequests()
-        handleCloseView()
       } else {
-        throw new Error(response.data?.message || 'Rejection failed')
+        throw new Error(response.data?.message || 'Failed to add comment')
       }
     } catch (error) {
-      console.error('❌ Reject error:', error)
-      let errorMsg = 'Failed to reject request'
-      if (error.response?.status === 403) {
-        errorMsg = 'You do not have permission to reject requests'
-      } else if (error.response?.data?.message) {
-        errorMsg = error.response.data.message
-      }
-      toast.error(errorMsg)
+      console.error('❌ Comment error:', error)
+      toast.error(error.response?.data?.message || 'Failed to add comment')
     }
   }
 
-  // ✅ Use the dedicated review endpoint
-  const handleReview = async (id) => {
-    if (!canReview) {
-      toast.error('Only Super Admin or Hospital Admin can review requests')
-      return
-    }
-    
-    try {
-      const response = await api.put(`/procurement/${id}/review`)
-      if (response.data && response.data.success) {
-        toast.success('Request moved to Under Review')
-        await fetchRequests()
-        handleCloseView()
-      } else {
-        throw new Error(response.data?.message || 'Review update failed')
-      }
-    } catch (error) {
-      console.error('❌ Review error:', error)
-      let errorMsg = 'Failed to update review status'
-      if (error.response?.status === 403) {
-        errorMsg = 'You do not have permission to review requests'
-      } else if (error.response?.data?.message) {
-        errorMsg = error.response.data.message
-      }
-      toast.error(errorMsg)
-    }
-  }
-
-  // ✅ Use the dedicated procured endpoint
-  const handleMarkProcured = async (id) => {
-    if (!canMarkProcured) {
-      toast.error('Only Super Admin or Hospital Admin can mark as procured')
-      return
-    }
-    
-    try {
-      const response = await api.put(`/procurement/${id}/procured`)
-      if (response.data && response.data.success) {
-        toast.success('Request marked as Procured')
-        await fetchRequests()
-        handleCloseView()
-      } else {
-        throw new Error(response.data?.message || 'Update failed')
-      }
-    } catch (error) {
-      console.error('❌ Mark Procured error:', error)
-      let errorMsg = 'Failed to mark as procured'
-      if (error.response?.status === 403) {
-        errorMsg = 'You do not have permission to mark requests as procured'
-      } else if (error.response?.data?.message) {
-        errorMsg = error.response.data.message
-      }
-      toast.error(errorMsg)
-    }
-  }
-
-  // ============ EXPORT FUNCTIONS ============
-  const handleExportClick = (event) => {
-    setExportAnchorEl(event.currentTarget)
-  }
-
-  const handleExportClose = () => {
-    setExportAnchorEl(null)
-  }
+  // ============================================================
+  // ✅ EXPORT FUNCTIONS
+  // ============================================================
+  const handleExportClick = (event) => setExportAnchorEl(event.currentTarget)
+  const handleExportClose = () => setExportAnchorEl(null)
 
   const exportToCSV = () => {
     try {
-      const headers = ['Equipment', 'Hospital', 'Category', 'Manufacturer', 'Model', 'Quantity', 'Est. Cost (PKR)', 'Priority', 'Status', 'Justification']
+      const headers = ['Equipment', 'Hospital', 'Category', 'Manufacturers', 'Models', 'Quantity', 'Est. Cost', 'Currency', 'Priority', 'Status', 'Justification']
       const rows = filteredRequests.map(r => [
         r.equipment_name,
         r.hospital_name || 'N/A',
         r.category_name || '',
-        r.manufacturer || '',
-        r.model || '',
+        (r.manufacturer_options || []).join('; '),
+        (r.model_options || []).join('; '),
         r.quantity || 1,
         r.estimated_cost || '',
+        r.currency || 'PKR',
         r.priority,
         r.status,
         r.justification || ''
       ])
-      
       let csv = headers.join(',') + '\n'
-      rows.forEach(row => {
-        csv += row.join(',') + '\n'
-      })
-      
+      rows.forEach(row => { csv += row.join(',') + '\n' })
       const blob = new Blob([csv], { type: 'text/csv' })
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -643,7 +578,6 @@ const Procurement = () => {
       a.download = `procurement_requests_${new Date().toISOString().split('T')[0]}.csv`
       a.click()
       window.URL.revokeObjectURL(url)
-      
       toast.success('CSV exported successfully!')
       handleExportClose()
     } catch (error) {
@@ -658,44 +592,42 @@ const Procurement = () => {
           'Equipment': r.equipment_name,
           'Hospital': r.hospital_name || 'N/A',
           'Category': r.category_name || '',
-          'Manufacturer': r.manufacturer || '',
-          'Model': r.model || '',
+          'Manufacturers': (r.manufacturer_options || []).join('; '),
+          'Models': (r.model_options || []).join('; '),
           'Quantity': r.quantity || 1,
-          'Est. Cost (PKR)': r.estimated_cost || '',
+          'Est. Cost': r.estimated_cost || '',
+          'Currency': r.currency || 'PKR',
           'Priority': r.priority,
           'Status': r.status,
           'Justification': r.justification || ''
         }))
-        
         const ws = XLSX.utils.json_to_sheet(data)
         const wb = XLSX.utils.book_new()
         XLSX.utils.book_append_sheet(wb, ws, 'Procurement')
         XLSX.writeFile(wb, `procurement_requests_${new Date().toISOString().split('T')[0]}.xlsx`)
-        
         toast.success('Excel exported successfully!')
         handleExportClose()
-      }).catch(() => {
-        toast.error('Excel library not loaded')
-      })
+      }).catch(() => toast.error('Excel library not loaded'))
     } catch (error) {
       toast.error('Failed to export Excel')
     }
   }
 
-  const getStatusSteps = () => {
-    return ['Requested', 'Under Review', 'Approved', 'Procured']
-  }
-
+  // ============================================================
+  // ✅ HELPERS
+  // ============================================================
   const getCurrentStep = (status) => {
-    const steps = getStatusSteps()
-    const index = steps.indexOf(status)
+    const index = STEPS.indexOf(status)
     return index !== -1 ? index : 0
   }
 
+  // ============================================================
+  // ✅ FILTERS & STATS
+  // ============================================================
   const filteredRequests = requests.filter(request => {
     const matchesSearch = request.equipment_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          request.manufacturer?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          request.model?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          (request.manufacturer_options || []).some(m => m.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                          (request.model_options || []).some(m => m.toLowerCase().includes(searchTerm.toLowerCase())) ||
                           request.hospital_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           request.category_name?.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = !filters.status || request.status === filters.status
@@ -703,13 +635,15 @@ const Procurement = () => {
     return matchesSearch && matchesStatus && matchesPriority
   })
 
-  // Stats
   const totalRequests = requests.length
-  const pendingRequests = requests.filter(r => r.status === 'Requested' || r.status === 'Under Review').length
-  const approvedRequests = requests.filter(r => r.status === 'Approved' || r.status === 'Procured').length
-  const rejectedRequests = requests.filter(r => r.status === 'Rejected').length
-  const urgentRequests = requests.filter(r => r.priority === 'Urgent' && r.status !== 'Rejected').length
+  const pendingRequests = requests.filter(r => r.status !== 'REJECTED' && r.status !== 'EQUIPMENT TESTED & COMMISSIONED FOR USE').length
+  const completedRequests = requests.filter(r => r.status === 'EQUIPMENT TESTED & COMMISSIONED FOR USE').length
+  const rejectedRequests = requests.filter(r => r.status === 'REJECTED').length
+  const urgentRequests = requests.filter(r => r.priority === 'Urgent' && r.status !== 'REJECTED').length
 
+  // ============================================================
+  // ✅ RENDER
+  // ============================================================
   if (loading) {
     return <LinearProgress sx={{ bgcolor: colors.borderColor, '& .MuiLinearProgress-bar': { bgcolor: colors.lightCyan } }} />
   }
@@ -720,16 +654,7 @@ const Procurement = () => {
         <ErrorOutline sx={{ fontSize: 64, color: colors.error, mb: 2 }} />
         <Typography variant="h6" sx={{ color: colors.darkNavy, mb: 1 }}>Something went wrong</Typography>
         <Typography variant="body2" sx={{ color: colors.lightText, mb: 2 }}>{error}</Typography>
-        <Button 
-          variant="contained" 
-          onClick={fetchAllData}
-          sx={{ 
-            bgcolor: colors.darkNavy,
-            color: colors.text,
-            borderRadius: 2,
-            '&:hover': { bgcolor: colors.darkNavyHover }
-          }}
-        >
+        <Button variant="contained" onClick={fetchAllData} sx={{ bgcolor: colors.darkNavy, color: colors.text, borderRadius: 2, '&:hover': { bgcolor: colors.darkNavyHover } }}>
           Retry
         </Button>
       </Box>
@@ -779,71 +704,17 @@ const Procurement = () => {
             <LocalShipping sx={{ mr: 1, verticalAlign: 'middle', color: colors.lightCyanDark }} />
             Equipment Procurement
           </Typography>
-          <Typography 
-            variant="body2" 
-            sx={{ 
-              color: colors.lightText,
-              mt: 0.5,
-              display: { xs: 'none', sm: 'block' }
-            }}
-          >
-            Manage equipment procurement requests in PKR currency
+          <Typography variant="body2" sx={{ color: colors.lightText, mt: 0.5, display: { xs: 'none', sm: 'block' } }}>
+            Manage procurement requests with full workflow tracking
           </Typography>
         </Box>
-        
-        {/* ✅ UPDATED: Header Buttons - Single icon only */}
-        <Box sx={{ 
-          display: 'flex', 
-          gap: 1, 
-          flexWrap: 'wrap',
-          width: { xs: '100%', sm: 'auto' },
-          justifyContent: { xs: 'flex-start', sm: 'flex-end' },
-        }}>
-          <Button 
-            variant="outlined" 
-            startIcon={<Refresh />} 
-            onClick={fetchAllData} 
-            size="small"
-            sx={{ 
-              borderColor: colors.lightCyan,
-              color: colors.lightCyan,
-              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-              textTransform: 'none',
-              borderRadius: 2,
-              transition: 'all 0.3s ease',
-              '&:hover': { 
-                bgcolor: colors.lightCyan,
-                color: colors.darkNavy,
-                borderColor: colors.lightCyan,
-                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
-                transform: 'translateY(-2px)',
-              }
-            }}
-          >
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', width: { xs: '100%', sm: 'auto' }, justifyContent: { xs: 'flex-start', sm: 'flex-end' } }}>
+          <Button variant="outlined" startIcon={<Refresh />} onClick={fetchAllData} size="small" sx={{ borderColor: colors.lightCyan, color: colors.lightCyan, textTransform: 'none', borderRadius: 2, '&:hover': { bgcolor: colors.lightCyan, color: colors.darkNavy, borderColor: colors.lightCyan, boxShadow: `0 4px 16px ${colors.lightCyanGlow}`, transform: 'translateY(-2px)' } }}>
             Refresh
           </Button>
-          
           {canCreate && (
-            <Button
-              variant="contained"
-              startIcon={<Add />}
-              onClick={() => handleOpenDialog()}
-              size="small"
-              sx={{ 
-                bgcolor: colors.darkNavy,
-                color: colors.text,
-                borderRadius: 2,
-                textTransform: 'none',
-                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
-                '&:hover': { 
-                  bgcolor: colors.darkNavyHover,
-                  boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
-                  transform: 'translateY(-2px)',
-                },
-                transition: 'all 0.3s ease',
-              }}
-            >
-              Request Equipment
+            <Button variant="contained" startIcon={<Add />} onClick={() => handleOpenDialog()} size="small" sx={{ bgcolor: colors.darkNavy, color: colors.text, borderRadius: 2, textTransform: 'none', boxShadow: `0 4px 16px ${colors.lightCyanGlow}`, '&:hover': { bgcolor: colors.darkNavyHover, boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`, transform: 'translateY(-2px)' }, transition: 'all 0.3s ease' }}>
+              New Procurement Request
             </Button>
           )}
         </Box>
@@ -852,205 +723,68 @@ const Procurement = () => {
       {/* ===== STATS CARDS ===== */}
       <Grid container spacing={{ xs: 1.5, sm: 2, md: 2.5 }} sx={{ mb: 3 }}>
         <Grid item xs={6} sm={2.4}>
-          <Card sx={{ 
-            borderRadius: 3,
-            border: `1px solid ${colors.borderColor}`,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-            transition: 'all 0.3s ease',
-            '&:hover': {
-              boxShadow: `0 8px 30px ${colors.lightCyanGlow}`,
-              transform: 'translateY(-4px)',
-            }
-          }}>
+          <Card sx={{ borderRadius: 3, border: `1px solid ${colors.borderColor}`, boxShadow: '0 2px 12px rgba(0,0,0,0.04)', transition: 'all 0.3s ease', '&:hover': { boxShadow: `0 8px 30px ${colors.lightCyanGlow}`, transform: 'translateY(-4px)' } }}>
             <CardContent sx={{ textAlign: 'center', py: 2.5 }}>
-              <Typography variant="h4" sx={{ color: colors.darkNavy, fontWeight: 700 }}>
-                {totalRequests}
-              </Typography>
+              <Typography variant="h4" sx={{ color: colors.darkNavy, fontWeight: 700 }}>{totalRequests}</Typography>
               <Typography variant="body2" sx={{ color: colors.lightText }}>Total Requests</Typography>
             </CardContent>
           </Card>
         </Grid>
         <Grid item xs={6} sm={2.4}>
-          <Card sx={{ 
-            borderRadius: 3,
-            border: `1px solid ${colors.borderColor}`,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-            transition: 'all 0.3s ease',
-            '&:hover': {
-              boxShadow: `0 8px 30px ${colors.lightCyanGlow}`,
-              transform: 'translateY(-4px)',
-            }
-          }}>
+          <Card sx={{ borderRadius: 3, border: `1px solid ${colors.borderColor}`, boxShadow: '0 2px 12px rgba(0,0,0,0.04)', transition: 'all 0.3s ease', '&:hover': { boxShadow: `0 8px 30px ${colors.lightCyanGlow}`, transform: 'translateY(-4px)' } }}>
             <CardContent sx={{ textAlign: 'center', py: 2.5 }}>
-              <Typography variant="h4" sx={{ color: colors.warning, fontWeight: 700 }}>
-                {pendingRequests}
-              </Typography>
-              <Typography variant="body2" sx={{ color: colors.lightText }}>Pending Review</Typography>
+              <Typography variant="h4" sx={{ color: colors.warning, fontWeight: 700 }}>{pendingRequests}</Typography>
+              <Typography variant="body2" sx={{ color: colors.lightText }}>In Progress</Typography>
             </CardContent>
           </Card>
         </Grid>
         <Grid item xs={6} sm={2.4}>
-          <Card sx={{ 
-            borderRadius: 3,
-            border: `1px solid ${colors.borderColor}`,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-            transition: 'all 0.3s ease',
-            '&:hover': {
-              boxShadow: `0 8px 30px ${colors.lightCyanGlow}`,
-              transform: 'translateY(-4px)',
-            }
-          }}>
+          <Card sx={{ borderRadius: 3, border: `1px solid ${colors.borderColor}`, boxShadow: '0 2px 12px rgba(0,0,0,0.04)', transition: 'all 0.3s ease', '&:hover': { boxShadow: `0 8px 30px ${colors.lightCyanGlow}`, transform: 'translateY(-4px)' } }}>
             <CardContent sx={{ textAlign: 'center', py: 2.5 }}>
-              <Typography variant="h4" sx={{ color: colors.success, fontWeight: 700 }}>
-                {approvedRequests}
-              </Typography>
-              <Typography variant="body2" sx={{ color: colors.lightText }}>Approved/Procured</Typography>
+              <Typography variant="h4" sx={{ color: colors.success, fontWeight: 700 }}>{completedRequests}</Typography>
+              <Typography variant="body2" sx={{ color: colors.lightText }}>Commissioned</Typography>
             </CardContent>
           </Card>
         </Grid>
         <Grid item xs={6} sm={2.4}>
-          <Card sx={{ 
-            borderRadius: 3,
-            border: `1px solid ${colors.borderColor}`,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-            transition: 'all 0.3s ease',
-            '&:hover': {
-              boxShadow: `0 8px 30px ${colors.lightCyanGlow}`,
-              transform: 'translateY(-4px)',
-            }
-          }}>
+          <Card sx={{ borderRadius: 3, border: `1px solid ${colors.borderColor}`, boxShadow: '0 2px 12px rgba(0,0,0,0.04)', transition: 'all 0.3s ease', '&:hover': { boxShadow: `0 8px 30px ${colors.lightCyanGlow}`, transform: 'translateY(-4px)' } }}>
             <CardContent sx={{ textAlign: 'center', py: 2.5 }}>
-              <Typography variant="h4" sx={{ color: colors.error, fontWeight: 700 }}>
-                {rejectedRequests}
-              </Typography>
+              <Typography variant="h4" sx={{ color: colors.error, fontWeight: 700 }}>{rejectedRequests}</Typography>
               <Typography variant="body2" sx={{ color: colors.lightText }}>Rejected</Typography>
             </CardContent>
           </Card>
         </Grid>
         <Grid item xs={6} sm={2.4}>
-          <Card sx={{ 
-            borderRadius: 3,
-            border: `1px solid ${colors.borderColor}`,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-            transition: 'all 0.3s ease',
-            '&:hover': {
-              boxShadow: `0 8px 30px ${colors.lightCyanGlow}`,
-              transform: 'translateY(-4px)',
-            }
-          }}>
+          <Card sx={{ borderRadius: 3, border: `1px solid ${colors.borderColor}`, boxShadow: '0 2px 12px rgba(0,0,0,0.04)', transition: 'all 0.3s ease', '&:hover': { boxShadow: `0 8px 30px ${colors.lightCyanGlow}`, transform: 'translateY(-4px)' } }}>
             <CardContent sx={{ textAlign: 'center', py: 2.5 }}>
-              <Typography variant="h4" sx={{ color: colors.error, fontWeight: 700 }}>
-                {urgentRequests}
-              </Typography>
+              <Typography variant="h4" sx={{ color: colors.error, fontWeight: 700 }}>{urgentRequests}</Typography>
               <Typography variant="body2" sx={{ color: colors.lightText }}>Urgent</Typography>
             </CardContent>
           </Card>
         </Grid>
       </Grid>
 
-      {/* Urgent Alert */}
       {urgentRequests > 0 && (
-        <Alert 
-          severity="error" 
-          sx={{ 
-            mb: 2, 
-            borderRadius: 2,
-            border: `1px solid ${colors.borderColor}`,
-          }}
-          icon={<Warning />}
-          action={
-            <Button 
-              color="error" 
-              size="small"
-              onClick={() => setFilters({ ...filters, priority: 'Urgent' })}
-              sx={{ textTransform: 'none' }}
-            >
-              View Urgent
-            </Button>
-          }
-        >
-          <Typography variant="body2">
-            <strong>{urgentRequests}</strong> urgent procurement request{urgentRequests > 1 ? 's' : ''} need{urgentRequests === 1 ? 's' : ''} immediate attention!
-          </Typography>
+        <Alert severity="error" sx={{ mb: 2, borderRadius: 2, border: `1px solid ${colors.borderColor}` }} icon={<Warning />} action={<Button color="error" size="small" onClick={() => setFilters({ ...filters, priority: 'Urgent' })} sx={{ textTransform: 'none' }}>View Urgent</Button>}>
+          <Typography variant="body2"><strong>{urgentRequests}</strong> urgent procurement request{urgentRequests > 1 ? 's' : ''} need{urgentRequests === 1 ? 's' : ''} immediate attention!</Typography>
         </Alert>
       )}
 
       {/* ===== SEARCH & FILTERS ===== */}
-      <Paper sx={{ 
-        p: { xs: 1.5, sm: 2 }, 
-        mb: 3, 
-        borderRadius: 3,
-        border: `1px solid ${colors.borderColor}`,
-        boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-        bgcolor: colors.cardBg,
-        animation: 'fadeInUp 0.7s ease-out',
-      }}>
-        <Box sx={{ 
-          display: 'flex', 
-          flexDirection: { xs: 'column', sm: 'row' },
-          gap: 2, 
-          flexWrap: 'wrap', 
-          alignItems: 'center' 
-        }}>
-          <TextField
-            size="small"
-            placeholder="Search requests..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            sx={{ flexGrow: 1, minWidth: { xs: '100%', sm: 200 }, width: { xs: '100%', sm: 'auto' } }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Search sx={{ color: colors.lightText, fontSize: 20 }} />
-                </InputAdornment>
-              ),
-              sx: {
-                borderRadius: 2,
-                '& .MuiOutlinedInput-root': {
-                  '&:hover fieldset': { borderColor: colors.lightCyan },
-                  '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                }
-              }
-            }}
-          />
-          
+      <Paper sx={{ p: { xs: 1.5, sm: 2 }, mb: 3, borderRadius: 3, border: `1px solid ${colors.borderColor}`, boxShadow: '0 2px 12px rgba(0,0,0,0.04)', bgcolor: colors.cardBg, animation: 'fadeInUp 0.7s ease-out' }}>
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+          <TextField size="small" placeholder="Search requests..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} sx={{ flexGrow: 1, minWidth: { xs: '100%', sm: 200 }, width: { xs: '100%', sm: 'auto' } }} InputProps={{ startAdornment: <InputAdornment position="start"><Search sx={{ color: colors.lightText, fontSize: 20 }} /></InputAdornment>, sx: { borderRadius: 2, '& .MuiOutlinedInput-root': { '&:hover fieldset': { borderColor: colors.lightCyan }, '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark } } } }} />
           <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 150 }, width: { xs: '100%', sm: 'auto' } }}>
             <InputLabel sx={{ color: colors.lightText }}>Status</InputLabel>
-            <Select
-              value={filters.status}
-              onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-              label="Status"
-              sx={{
-                borderRadius: 2,
-                '& .MuiOutlinedInput-root': {
-                  '&:hover fieldset': { borderColor: colors.lightCyan },
-                  '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                }
-              }}
-            >
+            <Select value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })} label="Status" sx={{ borderRadius: 2, '& .MuiOutlinedInput-root': { '&:hover fieldset': { borderColor: colors.lightCyan }, '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark } } }}>
               <MenuItem value="">All</MenuItem>
-              <MenuItem value="Requested">Requested</MenuItem>
-              <MenuItem value="Under Review">Under Review</MenuItem>
-              <MenuItem value="Approved">Approved</MenuItem>
-              <MenuItem value="Rejected">Rejected</MenuItem>
-              <MenuItem value="Procured">Procured</MenuItem>
+              {STEPS.map(step => <MenuItem key={step} value={step}>{step}</MenuItem>)}
+              <MenuItem value="REJECTED">REJECTED</MenuItem>
             </Select>
           </FormControl>
-          
           <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 150 }, width: { xs: '100%', sm: 'auto' } }}>
             <InputLabel sx={{ color: colors.lightText }}>Priority</InputLabel>
-            <Select
-              value={filters.priority}
-              onChange={(e) => setFilters({ ...filters, priority: e.target.value })}
-              label="Priority"
-              sx={{
-                borderRadius: 2,
-                '& .MuiOutlinedInput-root': {
-                  '&:hover fieldset': { borderColor: colors.lightCyan },
-                  '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                }
-              }}
-            >
+            <Select value={filters.priority} onChange={(e) => setFilters({ ...filters, priority: e.target.value })} label="Priority" sx={{ borderRadius: 2, '& .MuiOutlinedInput-root': { '&:hover fieldset': { borderColor: colors.lightCyan }, '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark } } }}>
               <MenuItem value="">All</MenuItem>
               <MenuItem value="Low">Low</MenuItem>
               <MenuItem value="Medium">Medium</MenuItem>
@@ -1058,100 +792,36 @@ const Procurement = () => {
               <MenuItem value="Urgent">Urgent</MenuItem>
             </Select>
           </FormControl>
-          
-          {/* ✅ UPDATED: Export Button - Single icon only */}
-          <Button 
-            variant="contained"
-            startIcon={<Download />}
-            onClick={handleExportClick}
-            size="small"
-            sx={{ 
-              bgcolor: colors.darkNavy,
-              color: colors.text,
-              borderRadius: 2,
-              textTransform: 'none',
-              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
-              '&:hover': { 
-                bgcolor: colors.darkNavyHover,
-                boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
-                transform: 'translateY(-2px)',
-              },
-              transition: 'all 0.3s ease',
-            }}
-          >
+          <Button variant="contained" startIcon={<Download />} onClick={handleExportClick} size="small" sx={{ bgcolor: colors.darkNavy, color: colors.text, borderRadius: 2, textTransform: 'none', boxShadow: `0 4px 16px ${colors.lightCyanGlow}`, '&:hover': { bgcolor: colors.darkNavyHover, boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`, transform: 'translateY(-2px)' }, transition: 'all 0.3s ease' }}>
             Export
           </Button>
         </Box>
       </Paper>
 
       {/* Export Menu */}
-      <Menu
-        anchorEl={exportAnchorEl}
-        open={Boolean(exportAnchorEl)}
-        onClose={handleExportClose}
-        PaperProps={{ 
-          sx: { 
-            p: 1, 
-            width: 200,
-            border: `1px solid ${colors.borderColor}`,
-            boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
-            borderRadius: 3,
-          } 
-        }}
-      >
-        <MenuItem 
-          onClick={exportToCSV} 
-          sx={{ 
-            borderRadius: 1,
-            '&:hover': { 
-              bgcolor: 'rgba(103, 232, 249, 0.08)',
-            } 
-          }}
-        >
+      <Menu anchorEl={exportAnchorEl} open={Boolean(exportAnchorEl)} onClose={handleExportClose} PaperProps={{ sx: { p: 1, width: 200, border: `1px solid ${colors.borderColor}`, boxShadow: '0 8px 40px rgba(0,0,0,0.08)', borderRadius: 3 } }}>
+        <MenuItem onClick={exportToCSV} sx={{ borderRadius: 1, '&:hover': { bgcolor: 'rgba(103, 232, 249, 0.08)' } }}>
           <FileDownload sx={{ mr: 1.5, fontSize: 20, color: colors.lightCyanDark }} />
-          <Box>
-            <Typography variant="body2" fontWeight={500}>CSV</Typography>
-            <Typography variant="caption" sx={{ color: colors.lightText }}>Comma separated</Typography>
-          </Box>
+          <Box><Typography variant="body2" fontWeight={500}>CSV</Typography><Typography variant="caption" sx={{ color: colors.lightText }}>Comma separated</Typography></Box>
         </MenuItem>
-        <MenuItem 
-          onClick={exportToExcel} 
-          sx={{ 
-            borderRadius: 1,
-            '&:hover': { 
-              bgcolor: 'rgba(103, 232, 249, 0.08)',
-            } 
-          }}
-        >
+        <MenuItem onClick={exportToExcel} sx={{ borderRadius: 1, '&:hover': { bgcolor: 'rgba(103, 232, 249, 0.08)' } }}>
           <FileDownload sx={{ mr: 1.5, fontSize: 20, color: colors.lightCyanDark }} />
-          <Box>
-            <Typography variant="body2" fontWeight={500}>Excel</Typography>
-            <Typography variant="caption" sx={{ color: colors.lightText }}>.xlsx format</Typography>
-          </Box>
+          <Box><Typography variant="body2" fontWeight={500}>Excel</Typography><Typography variant="caption" sx={{ color: colors.lightText }}>.xlsx format</Typography></Box>
         </MenuItem>
       </Menu>
 
       {/* ===== TABLE ===== */}
-      <TableContainer 
-        component={Paper} 
-        sx={{ 
-          borderRadius: 3, 
-          overflowX: 'auto', 
-          border: `1px solid ${colors.borderColor}`,
-          boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-          animation: 'fadeInUp 0.8s ease-out',
-        }}
-      >
+      <TableContainer component={Paper} sx={{ borderRadius: 3, overflowX: 'auto', border: `1px solid ${colors.borderColor}`, boxShadow: '0 2px 12px rgba(0,0,0,0.04)', animation: 'fadeInUp 0.8s ease-out' }}>
         <Table sx={{ minWidth: 700 }}>
           <TableHead sx={{ bgcolor: colors.darkNavy }}>
             <TableRow>
               <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Equipment</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Hospital</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Category</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Manufacturer</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Model</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Manufacturers</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Models</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }} align="center">Qty</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }} align="right">Est. Cost (PKR)</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }} align="right">Est. Cost</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Priority</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>Status</TableCell>
               <TableCell sx={{ color: 'white', fontWeight: 600, py: 2, fontSize: { xs: '0.7rem', sm: '0.8rem' } }} align="center">Actions</TableCell>
@@ -1163,203 +833,41 @@ const Procurement = () => {
                 <TableCell colSpan={10} align="center" sx={{ py: 6 }}>
                   <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
                     <LocalShipping sx={{ fontSize: 48, color: colors.borderColor }} />
-                    <Typography variant="body1" sx={{ color: colors.lightText }}>
-                      No procurement requests found
-                    </Typography>
-                    <Typography variant="caption" sx={{ color: colors.lightText }}>
-                      Try adjusting your search or filters
-                    </Typography>
+                    <Typography variant="body1" sx={{ color: colors.lightText }}>No procurement requests found</Typography>
+                    <Typography variant="caption" sx={{ color: colors.lightText }}>Try adjusting your search or filters</Typography>
                   </Box>
                 </TableCell>
               </TableRow>
             ) : (
               filteredRequests.map((request, index) => (
-                <TableRow 
-                  key={request.id} 
-                  hover
-                  sx={{
-                    transition: 'all 0.2s ease',
-                    animation: `fadeInUp 0.4s ease-out ${index * 0.05}s both`,
-                    '&:hover': {
-                      backgroundColor: 'rgba(103, 232, 249, 0.04)',
-                    },
-                    '&:last-child td': { borderBottom: 0 }
-                  }}
-                >
-                  <TableCell>
-                    <Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
-                      {request.equipment_name}
-                    </Typography>
-                  </TableCell>
-                  <TableCell sx={{ color: colors.darkNavy, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
-                    {request.hospital_name || '-'}
-                  </TableCell>
-                  <TableCell sx={{ color: colors.darkNavy, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
-                    {request.category_name || '-'}
-                  </TableCell>
-                  <TableCell sx={{ color: colors.lightText, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
-                    {request.manufacturer || '-'}
-                  </TableCell>
-                  <TableCell sx={{ color: colors.lightText, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
-                    {request.model || '-'}
-                  </TableCell>
-                  <TableCell align="center" sx={{ color: colors.darkNavy, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
-                    {request.quantity}
-                  </TableCell>
-                  <TableCell align="right" sx={{ color: colors.darkNavy, fontWeight: 500, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>
-                    {request.estimated_cost ? formatCurrency(request.estimated_cost) : '-'}
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={request.priority}
-                      size="small"
-                      sx={{
-                        bgcolor: getPriorityColor(request.priority),
-                        color: 'white',
-                        fontWeight: 600,
-                        fontSize: '10px',
-                        height: 24,
-                        borderRadius: 2,
-                      }}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Chip
-                      label={request.status}
-                      size="small"
-                      sx={{
-                        bgcolor: getStatusColor(request.status),
-                        color: 'white',
-                        fontWeight: 600,
-                        fontSize: '10px',
-                        height: 24,
-                        borderRadius: 2,
-                      }}
-                    />
-                  </TableCell>
+                <TableRow key={request.id} hover sx={{ transition: 'all 0.2s ease', animation: `fadeInUp 0.4s ease-out ${index * 0.05}s both`, '&:hover': { backgroundColor: 'rgba(103, 232, 249, 0.04)' }, '&:last-child td': { borderBottom: 0 } }}>
+                  <TableCell><Typography variant="body2" fontWeight={500} sx={{ color: colors.darkNavy, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>{request.equipment_name}</Typography></TableCell>
+                  <TableCell sx={{ color: colors.darkNavy, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>{request.hospital_name || '-'}</TableCell>
+                  <TableCell sx={{ color: colors.darkNavy, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>{request.category_name || '-'}</TableCell>
+                  <TableCell sx={{ color: colors.lightText, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>{(request.manufacturer_options || []).join(', ') || '-'}</TableCell>
+                  <TableCell sx={{ color: colors.lightText, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>{(request.model_options || []).join(', ') || '-'}</TableCell>
+                  <TableCell align="center" sx={{ color: colors.darkNavy, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>{request.quantity}</TableCell>
+                  <TableCell align="right" sx={{ color: colors.darkNavy, fontWeight: 500, fontSize: { xs: '0.7rem', sm: '0.8rem' } }}>{request.estimated_cost ? formatAmount(request.estimated_cost, request.currency) : '-'}</TableCell>
+                  <TableCell><Chip label={request.priority} size="small" sx={{ bgcolor: getPriorityColor(request.priority), color: 'white', fontWeight: 600, fontSize: '10px', height: 24, borderRadius: 2 }} /></TableCell>
+                  <TableCell><Chip label={request.status} size="small" sx={{ bgcolor: getStatusColor(request.status), color: 'white', fontWeight: 600, fontSize: '10px', height: 24, borderRadius: 2 }} /></TableCell>
                   <TableCell align="center">
                     <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5 }}>
-                      {/* ✅ View - All users can view */}
                       <Tooltip title="View Details">
-                        <IconButton 
-                          size="small" 
-                          onClick={() => handleView(request)}
-                          sx={{ 
-                            color: colors.darkNavy, 
-                            '&:hover': { 
-                              color: colors.lightCyanDark,
-                              backgroundColor: 'rgba(103, 232, 249, 0.08)'
-                            } 
-                          }}
-                        >
+                        <IconButton size="small" onClick={() => handleView(request)} sx={{ color: colors.darkNavy, '&:hover': { color: colors.lightCyanDark, backgroundColor: 'rgba(103, 232, 249, 0.08)' } }}>
                           <Visibility fontSize="small" />
                         </IconButton>
                       </Tooltip>
-                      
-                      {/* ✅ Edit - Only Super Admin can edit */}
-                      {canEdit && (request.status === 'Requested' || request.status === 'Under Review') && (
+                      {canEdit && (request.status !== 'REJECTED' && request.status !== 'EQUIPMENT TESTED & COMMISSIONED FOR USE') && (
                         <Tooltip title="Edit">
-                          <IconButton 
-                            size="small" 
-                            onClick={() => handleOpenDialog(request)}
-                            sx={{ 
-                              color: colors.darkNavy, 
-                              '&:hover': { 
-                                color: colors.lightCyanDark,
-                                backgroundColor: 'rgba(103, 232, 249, 0.08)'
-                              } 
-                            }}
-                          >
+                          <IconButton size="small" onClick={() => handleOpenDialog(request)} sx={{ color: colors.darkNavy, '&:hover': { color: colors.lightCyanDark, backgroundColor: 'rgba(103, 232, 249, 0.08)' } }}>
                             <Edit fontSize="small" />
                           </IconButton>
                         </Tooltip>
                       )}
-                      
-                      {/* ✅ Delete - Only Super Admin can delete */}
-                      {canDelete && (request.status === 'Requested' || request.status === 'Under Review') && (
+                      {canDelete && (request.status !== 'REJECTED' && request.status !== 'EQUIPMENT TESTED & COMMISSIONED FOR USE') && (
                         <Tooltip title="Delete">
-                          <IconButton 
-                            size="small" 
-                            color="error" 
-                            onClick={() => handleDelete(request.id)}
-                            sx={{
-                              '&:hover': {
-                                backgroundColor: 'rgba(239, 68, 68, 0.08)'
-                              }
-                            }}
-                          >
+                          <IconButton size="small" color="error" onClick={() => handleDelete(request.id)} sx={{ '&:hover': { backgroundColor: 'rgba(239, 68, 68, 0.08)' } }}>
                             <Delete fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      
-                      {/* Start Review - Super Admin & Hospital Admin */}
-                      {request.status === 'Requested' && canReview && (
-                        <Tooltip title="Start Review">
-                          <IconButton 
-                            size="small" 
-                            onClick={() => handleReview(request.id)}
-                            sx={{ 
-                              color: colors.info, 
-                              '&:hover': { 
-                                color: colors.lightCyanDark,
-                                backgroundColor: 'rgba(103, 232, 249, 0.08)'
-                              } 
-                            }}
-                          >
-                            <Info fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      
-                      {/* Approve/Reject - Super Admin only */}
-                      {request.status === 'Under Review' && canApprove && (
-                        <>
-                          <Tooltip title="Approve">
-                            <IconButton 
-                              size="small" 
-                              onClick={() => handleApprove(request.id)}
-                              sx={{ 
-                                color: colors.success, 
-                                '&:hover': { 
-                                  backgroundColor: 'rgba(34, 197, 94, 0.08)'
-                                } 
-                              }}
-                            >
-                              <CheckCircle fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Reject">
-                            <IconButton 
-                              size="small" 
-                              onClick={() => handleReject(request.id)}
-                              sx={{ 
-                                color: colors.error, 
-                                '&:hover': { 
-                                  backgroundColor: 'rgba(239, 68, 68, 0.08)'
-                                } 
-                              }}
-                            >
-                              <Cancel fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        </>
-                      )}
-                      
-                      {/* Mark as Procured - Super Admin & Hospital Admin */}
-                      {request.status === 'Approved' && canMarkProcured && (
-                        <Tooltip title="Mark as Procured">
-                          <IconButton 
-                            size="small" 
-                            onClick={() => handleMarkProcured(request.id)}
-                            sx={{ 
-                              color: colors.success, 
-                              '&:hover': { 
-                                backgroundColor: 'rgba(34, 197, 94, 0.08)'
-                              } 
-                            }}
-                          >
-                            <CheckCircle fontSize="small" />
                           </IconButton>
                         </Tooltip>
                       )}
@@ -1374,34 +882,14 @@ const Procurement = () => {
 
       {/* ===== ADD/EDIT DIALOG ===== */}
       {canCreate && (
-        <Dialog 
-          open={openDialog} 
-          onClose={handleCloseDialog} 
-          maxWidth="md" 
-          fullWidth
-          PaperProps={{
-            sx: {
-              borderRadius: 4,
-              border: `1px solid ${colors.borderColor}`,
-              boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
-              margin: { xs: 1, sm: 2 },
-            }
-          }}
-        >
-          <DialogTitle sx={{ 
-            bgcolor: colors.darkNavy, 
-            color: 'white',
-            borderRadius: '8px 8px 0 0',
-            py: { xs: 2, sm: 2.5 },
-          }}>
+        <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: 4, border: `1px solid ${colors.borderColor}`, boxShadow: '0 8px 40px rgba(0,0,0,0.08)', margin: { xs: 1, sm: 2 } } }}>
+          <DialogTitle sx={{ bgcolor: colors.darkNavy, color: 'white', borderRadius: '8px 8px 0 0', py: { xs: 2, sm: 2.5 } }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Typography variant="h6" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, fontSize: { xs: '1rem', sm: '1.25rem' } }}>
                 <LocalShipping sx={{ fontSize: { xs: 22, sm: 28 } }} />
                 {editingRequest ? 'Edit Procurement Request' : 'New Procurement Request'}
               </Typography>
-              <IconButton onClick={handleCloseDialog} sx={{ color: 'white', '&:hover': { color: colors.lightCyan } }}>
-                <Close />
-              </IconButton>
+              <IconButton onClick={handleCloseDialog} sx={{ color: 'white', '&:hover': { color: colors.lightCyan } }}><Close /></IconButton>
             </Box>
           </DialogTitle>
           <DialogContent dividers sx={{ px: { xs: 2, sm: 4 }, py: { xs: 2, sm: 3 } }}>
@@ -1409,149 +897,58 @@ const Procurement = () => {
               <Grid item xs={12} md={6}>
                 <FormControl fullWidth>
                   <InputLabel sx={{ color: colors.lightText }}>Hospital *</InputLabel>
-                  <Select
-                    name="hospital_id"
-                    value={formData.hospital_id}
-                    onChange={handleFormChange}
-                    label="Hospital *"
-                    required
-                    disabled={user?.role === 'HOSPITAL_ADMIN'}
-                    sx={{
-                      borderRadius: 2,
-                      '& .MuiOutlinedInput-root': {
-                        '&:hover fieldset': { borderColor: colors.lightCyan },
-                        '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                      }
-                    }}
-                  >
+                  <Select name="hospital_id" value={formData.hospital_id} onChange={handleFormChange} label="Hospital *" required disabled={user?.role === 'HOSPITAL_ADMIN'} sx={{ borderRadius: 2, '& .MuiOutlinedInput-root': { '&:hover fieldset': { borderColor: colors.lightCyan }, '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark } } }}>
                     <MenuItem value="">Select Hospital</MenuItem>
-                    {hospitals.map(h => (
-                      <MenuItem key={h.id} value={h.id}>{h.name}</MenuItem>
-                    ))}
+                    {hospitals.map(h => <MenuItem key={h.id} value={h.id}>{h.name}</MenuItem>)}
                   </Select>
                 </FormControl>
               </Grid>
               <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Category"
-                  name="category_name"
-                  value={formData.category_name}
-                  onChange={handleFormChange}
-                  placeholder="Enter equipment category (e.g., MRI, Ultrasound)"
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: 2,
-                      '&:hover fieldset': { borderColor: colors.lightCyan },
-                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                    }
-                  }}
-                />
+                <TextField fullWidth label="Category" name="category_name" value={formData.category_name} onChange={handleFormChange} placeholder="Enter equipment category (e.g., MRI, Ultrasound)" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, '&:hover fieldset': { borderColor: colors.lightCyan }, '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark } } }} />
               </Grid>
               <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Equipment Name *"
-                  name="equipment_name"
-                  value={formData.equipment_name}
-                  onChange={handleFormChange}
-                  required
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: 2,
-                      '&:hover fieldset': { borderColor: colors.lightCyan },
-                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                    }
-                  }}
-                />
+                <TextField fullWidth label="Equipment Name *" name="equipment_name" value={formData.equipment_name} onChange={handleFormChange} required sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, '&:hover fieldset': { borderColor: colors.lightCyan }, '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark } } }} />
               </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Manufacturer"
-                  name="manufacturer"
-                  value={formData.manufacturer}
-                  onChange={handleFormChange}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: 2,
-                      '&:hover fieldset': { borderColor: colors.lightCyan },
-                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                    }
-                  }}
-                />
+              <Grid item xs={12}>
+                <Typography variant="subtitle2" sx={{ color: colors.lightText, fontWeight: 600, mb: 1 }}>Manufacturer Options (up to 3, optional)</Typography>
+                <Grid container spacing={1}>
+                  {[0,1,2].map(idx => (
+                    <Grid item xs={12} sm={4} key={idx}>
+                      <TextField fullWidth size="small" label={`Option ${idx+1}`} value={formData.manufacturer_options[idx] || ''} onChange={(e) => handleManOptionChange(idx, e.target.value)} placeholder="Manufacturer name" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, '&:hover fieldset': { borderColor: colors.lightCyan }, '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark } } }} />
+                    </Grid>
+                  ))}
+                </Grid>
               </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Model"
-                  name="model"
-                  value={formData.model}
-                  onChange={handleFormChange}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: 2,
-                      '&:hover fieldset': { borderColor: colors.lightCyan },
-                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                    }
-                  }}
-                />
+              <Grid item xs={12}>
+                <Typography variant="subtitle2" sx={{ color: colors.lightText, fontWeight: 600, mb: 1 }}>Model Options (up to 3, optional)</Typography>
+                <Grid container spacing={1}>
+                  {[0,1,2].map(idx => (
+                    <Grid item xs={12} sm={4} key={idx}>
+                      <TextField fullWidth size="small" label={`Option ${idx+1}`} value={formData.model_options[idx] || ''} onChange={(e) => handleModelOptionChange(idx, e.target.value)} placeholder="Model name" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, '&:hover fieldset': { borderColor: colors.lightCyan }, '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark } } }} />
+                    </Grid>
+                  ))}
+                </Grid>
               </Grid>
               <Grid item xs={12} md={4}>
-                <TextField
-                  fullWidth
-                  label="Quantity"
-                  name="quantity"
-                  type="number"
-                  value={formData.quantity}
-                  onChange={handleFormChange}
-                  InputProps={{ inputProps: { min: 1 } }}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: 2,
-                      '&:hover fieldset': { borderColor: colors.lightCyan },
-                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                    }
-                  }}
-                />
+                <TextField fullWidth label="Quantity" name="quantity" type="number" value={formData.quantity} onChange={handleFormChange} InputProps={{ inputProps: { min: 1 } }} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, '&:hover fieldset': { borderColor: colors.lightCyan }, '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark } } }} />
               </Grid>
               <Grid item xs={12} md={4}>
-                <TextField
-                  fullWidth
-                  label="Estimated Cost (PKR)"
-                  name="estimated_cost"
-                  type="number"
-                  value={formData.estimated_cost}
-                  onChange={handleFormChange}
-                  InputProps={{ 
-                    inputProps: { min: 0, step: 0.01 },
-                    startAdornment: <InputAdornment position="start">PKR</InputAdornment>
-                  }}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: 2,
-                      '&:hover fieldset': { borderColor: colors.lightCyan },
-                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                    }
-                  }}
-                />
+                <TextField fullWidth label="Estimated Cost" name="estimated_cost" type="number" value={formData.estimated_cost} onChange={handleFormChange} InputProps={{ inputProps: { min: 0, step: 0.01 } }} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, '&:hover fieldset': { borderColor: colors.lightCyan }, '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark } } }} />
               </Grid>
               <Grid item xs={12} md={4}>
                 <FormControl fullWidth>
+                  <InputLabel sx={{ color: colors.lightText }}>Currency</InputLabel>
+                  <Select name="currency" value={formData.currency} onChange={handleFormChange} label="Currency" sx={{ borderRadius: 2, '& .MuiOutlinedInput-root': { '&:hover fieldset': { borderColor: colors.lightCyan }, '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark } } }}>
+                    <MenuItem value="PKR">PKR (Pakistani Rupee)</MenuItem>
+                    <MenuItem value="USD">USD (US Dollar)</MenuItem>
+                    <MenuItem value="EUR">EUR (Euro)</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth>
                   <InputLabel sx={{ color: colors.lightText }}>Priority</InputLabel>
-                  <Select
-                    name="priority"
-                    value={formData.priority}
-                    onChange={handleFormChange}
-                    label="Priority"
-                    sx={{
-                      borderRadius: 2,
-                      '& .MuiOutlinedInput-root': {
-                        '&:hover fieldset': { borderColor: colors.lightCyan },
-                        '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                      }
-                    }}
-                  >
+                  <Select name="priority" value={formData.priority} onChange={handleFormChange} label="Priority" sx={{ borderRadius: 2, '& .MuiOutlinedInput-root': { '&:hover fieldset': { borderColor: colors.lightCyan }, '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark } } }}>
                     <MenuItem value="Low">Low</MenuItem>
                     <MenuItem value="Medium">Medium</MenuItem>
                     <MenuItem value="High">High</MenuItem>
@@ -1560,73 +957,27 @@ const Procurement = () => {
                 </FormControl>
               </Grid>
               <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="Requested By"
-                  name="requested_by"
-                  value={formData.requested_by}
-                  onChange={handleFormChange}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: 2,
-                      '&:hover fieldset': { borderColor: colors.lightCyan },
-                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                    }
-                  }}
-                />
+                <TextField fullWidth label="Requested By" name="requested_by" value={formData.requested_by} onChange={handleFormChange} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, '&:hover fieldset': { borderColor: colors.lightCyan }, '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark } } }} />
               </Grid>
-              <Grid item xs={12} md={6}>
+              <Grid item xs={12}>
                 <FormControl fullWidth>
                   <InputLabel sx={{ color: colors.lightText }}>Department</InputLabel>
-                  <Select
-                    name="department_name"
-                    value={formData.department_name}
-                    onChange={handleFormChange}
-                    label="Department"
-                    sx={{
-                      borderRadius: 2,
-                      '& .MuiOutlinedInput-root': {
-                        '&:hover fieldset': { borderColor: colors.lightCyan },
-                        '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                      }
-                    }}
-                  >
+                  <Select name="department_name" value={formData.department_name} onChange={handleFormChange} label="Department" sx={{ borderRadius: 2, '& .MuiOutlinedInput-root': { '&:hover fieldset': { borderColor: colors.lightCyan }, '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark } } }}>
                     <MenuItem value="">Select Department</MenuItem>
-                    {departments.map(d => (
-                      <MenuItem key={d.id} value={d.name}>{d.name}</MenuItem>
-                    ))}
+                    {departments.map(d => <MenuItem key={d.id} value={d.name}>{d.name}</MenuItem>)}
                     <Divider />
                     <MenuItem value="Other">Other</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>
               <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Justification"
-                  name="justification"
-                  value={formData.justification}
-                  onChange={handleFormChange}
-                  multiline
-                  rows={3}
-                  placeholder="Explain why this equipment is needed..."
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      borderRadius: 2,
-                      '&:hover fieldset': { borderColor: colors.lightCyan },
-                      '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                    }
-                  }}
-                />
+                <TextField fullWidth label="Justification" name="justification" value={formData.justification} onChange={handleFormChange} multiline rows={3} placeholder="Explain why this equipment is needed..." sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, '&:hover fieldset': { borderColor: colors.lightCyan }, '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark } } }} />
               </Grid>
-
-              {/* Attachments */}
               <Grid item xs={12}>
                 <Typography variant="subtitle2" sx={{ color: colors.lightText, fontWeight: 600 }} gutterBottom>
                   <AttachFile sx={{ fontSize: 18, verticalAlign: 'middle', mr: 1 }} />
                   Attach Documents (Quotes, Specifications, etc.)
                 </Typography>
-                
                 <FileUpload
                   endpoint="/api/upload"
                   accept=".pdf,.doc,.docx,.xls,.xlsx,image/*"
@@ -1636,77 +987,32 @@ const Procurement = () => {
                   maxSize={20}
                   showPreview={true}
                   onUploadComplete={(files) => {
-                    console.log('📄 Documents uploaded:', files)
                     const urls = files.map(f => f.url || f.fileUrl).filter(Boolean)
                     const currentFiles = formData.attachments ? formData.attachments.split(',') : []
                     const updatedFiles = [...currentFiles, ...urls]
-                    setFormData(prev => ({
-                      ...prev,
-                      attachments: updatedFiles.join(',')
-                    }))
+                    setFormData(prev => ({ ...prev, attachments: updatedFiles.join(',') }))
                     toast.success(`${files.length} document(s) uploaded successfully`)
                   }}
                   onUploadError={(error) => toast.error('Upload failed: ' + error)}
                   onDelete={(file) => {
                     const currentFiles = formData.attachments?.split(',') || []
                     const updatedFiles = currentFiles.filter(f => f !== file.url)
-                    setFormData(prev => ({
-                      ...prev,
-                      attachments: updatedFiles.join(',')
-                    }))
+                    setFormData(prev => ({ ...prev, attachments: updatedFiles.join(',') }))
                     toast.info('Document removed')
                   }}
-                  existingFiles={formData.attachments ? formData.attachments.split(',').filter(Boolean).map(url => ({
-                    url: url,
-                    name: url.split('/').pop(),
-                    type: 'document'
-                  })) : []}
+                  existingFiles={formData.attachments ? formData.attachments.split(',').filter(Boolean).map(url => ({ url, name: url.split('/').pop(), type: 'document' })) : []}
                 />
-                
                 {formData.attachments && formData.attachments.split(',').filter(Boolean).length > 0 && (
                   <Box sx={{ mt: 1 }}>
-                    <Typography variant="caption" sx={{ color: colors.lightText }}>
-                      {formData.attachments.split(',').filter(Boolean).length} document(s) attached
-                    </Typography>
+                    <Typography variant="caption" sx={{ color: colors.lightText }}>{formData.attachments.split(',').filter(Boolean).length} document(s) attached</Typography>
                   </Box>
                 )}
               </Grid>
             </Grid>
           </DialogContent>
           <DialogActions sx={{ p: { xs: 2, sm: 3 }, gap: 1 }}>
-            <Button 
-              onClick={handleCloseDialog} 
-              sx={{ 
-                color: colors.darkNavy,
-                borderRadius: 2,
-                px: 3,
-                textTransform: 'none',
-                '&:hover': { 
-                  backgroundColor: 'rgba(103, 232, 249, 0.04)'
-                },
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="contained"
-              onClick={handleSubmit}
-              disabled={submitting}
-              sx={{
-                bgcolor: colors.darkNavy,
-                color: colors.text,
-                borderRadius: 2,
-                px: 4,
-                textTransform: 'none',
-                boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
-                '&:hover': { 
-                  bgcolor: colors.darkNavyHover,
-                  boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
-                },
-                '&.Mui-disabled': { bgcolor: '#bdbdbd' },
-                transition: 'all 0.3s ease',
-              }}
-            >
+            <Button onClick={handleCloseDialog} sx={{ color: colors.darkNavy, borderRadius: 2, px: 3, textTransform: 'none', '&:hover': { backgroundColor: 'rgba(103, 232, 249, 0.04)' } }}>Cancel</Button>
+            <Button variant="contained" onClick={handleSubmit} disabled={submitting} sx={{ bgcolor: colors.darkNavy, color: colors.text, borderRadius: 2, px: 4, textTransform: 'none', boxShadow: `0 4px 16px ${colors.lightCyanGlow}`, '&:hover': { bgcolor: colors.darkNavyHover, boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}` }, '&.Mui-disabled': { bgcolor: '#bdbdbd' }, transition: 'all 0.3s ease' }}>
               {submitting ? <CircularProgress size={24} sx={{ color: 'white' }} /> : (editingRequest ? 'Update' : 'Submit Request')}
             </Button>
           </DialogActions>
@@ -1714,34 +1020,14 @@ const Procurement = () => {
       )}
 
       {/* ===== VIEW DETAILS DIALOG ===== */}
-      <Dialog 
-        open={openViewDialog} 
-        onClose={handleCloseView} 
-        maxWidth="md" 
-        fullWidth
-        PaperProps={{
-          sx: {
-            borderRadius: 4,
-            border: `1px solid ${colors.borderColor}`,
-            boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
-            margin: { xs: 1, sm: 2 },
-          }
-        }}
-      >
-        <DialogTitle sx={{ 
-          bgcolor: colors.darkNavy, 
-          color: 'white',
-          borderRadius: '8px 8px 0 0',
-          py: { xs: 2, sm: 2.5 },
-        }}>
+      <Dialog open={openViewDialog} onClose={handleCloseView} maxWidth="md" fullWidth PaperProps={{ sx: { borderRadius: 4, border: `1px solid ${colors.borderColor}`, boxShadow: '0 8px 40px rgba(0,0,0,0.08)', margin: { xs: 1, sm: 2 } } }}>
+        <DialogTitle sx={{ bgcolor: colors.darkNavy, color: 'white', borderRadius: '8px 8px 0 0', py: { xs: 2, sm: 2.5 } }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6" fontWeight={600} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, fontSize: { xs: '1rem', sm: '1.25rem' } }}>
               <LocalShipping sx={{ fontSize: { xs: 22, sm: 28 } }} />
               Procurement Request Details
             </Typography>
-            <IconButton onClick={handleCloseView} sx={{ color: 'white', '&:hover': { color: colors.lightCyan } }}>
-              <Close />
-            </IconButton>
+            <IconButton onClick={handleCloseView} sx={{ color: 'white', '&:hover': { color: colors.lightCyan } }}><Close /></IconButton>
           </Box>
         </DialogTitle>
         <DialogContent dividers sx={{ px: { xs: 2, sm: 4 }, py: { xs: 2, sm: 3 } }}>
@@ -1749,166 +1035,98 @@ const Procurement = () => {
             <Grid container spacing={2.5} sx={{ mt: 0 }}>
               <Grid item xs={12}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
-                  <Typography variant="h6" fontWeight={700} sx={{ color: colors.darkNavy }}>
-                    {viewingRequest.equipment_name}
-                  </Typography>
+                  <Typography variant="h6" fontWeight={700} sx={{ color: colors.darkNavy }}>{viewingRequest.equipment_name}</Typography>
                   <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                    <Chip
-                      label={viewingRequest.status}
-                      size="small"
-                      sx={{
-                        bgcolor: getStatusColor(viewingRequest.status),
-                        color: 'white',
-                        fontWeight: 600,
-                        fontSize: '11px',
-                        height: 26,
-                        borderRadius: 2,
-                      }}
-                    />
-                    <Chip
-                      label={viewingRequest.priority}
-                      size="small"
-                      sx={{
-                        bgcolor: getPriorityColor(viewingRequest.priority),
-                        color: 'white',
-                        fontWeight: 600,
-                        fontSize: '11px',
-                        height: 26,
-                        borderRadius: 2,
-                      }}
-                    />
+                    <Chip label={viewingRequest.status} size="small" sx={{ bgcolor: getStatusColor(viewingRequest.status), color: 'white', fontWeight: 600, fontSize: '11px', height: 26, borderRadius: 2 }} />
+                    <Chip label={viewingRequest.priority} size="small" sx={{ bgcolor: getPriorityColor(viewingRequest.priority), color: 'white', fontWeight: 600, fontSize: '11px', height: 26, borderRadius: 2 }} />
                   </Box>
                 </Box>
               </Grid>
-              <Grid item xs={12}>
-                <Divider sx={{ borderColor: colors.borderColor }} />
-              </Grid>
+              <Grid item xs={12}><Divider sx={{ borderColor: colors.borderColor }} /></Grid>
 
-              {/* Status Timeline */}
+              {/* Status Timeline with Comments */}
               <Grid item xs={12}>
-                <Typography variant="subtitle2" sx={{ color: colors.lightText, fontWeight: 600, mb: 2 }}>
-                  Request Status Timeline
-                </Typography>
+                <Typography variant="subtitle2" sx={{ color: colors.lightText, fontWeight: 600, mb: 2 }}>Workflow Progress</Typography>
                 <Stepper activeStep={getCurrentStep(viewingRequest.status)} orientation="vertical">
-                  {getStatusSteps().map((step, index) => (
-                    <Step key={step}>
-                      <StepLabel
-                        StepIconComponent={({ active, completed }) => {
-                          const stepColors = {
-                            'Requested': '#F59E0B',
-                            'Under Review': '#3B82F6',
-                            'Approved': '#22C55E',
-                            'Procured': '#8B5CF6'
-                          }
-                          return (
-                            <Avatar sx={{
-                              bgcolor: active || completed ? stepColors[step] : '#e0e0e0',
-                              width: 24,
-                              height: 24,
-                              fontSize: 14,
-                              color: 'white'
-                            }}>
-                              {index + 1}
-                            </Avatar>
-                          )
-                        }}
-                      >
-                        {step}
-                      </StepLabel>
-                      <StepContent>
-                        <Typography variant="caption" sx={{ color: colors.lightText }}>
-                          {step === viewingRequest.status ? 'Current status' :
-                            getCurrentStep(viewingRequest.status) > index ? 'Completed' : 'Pending'}
-                        </Typography>
-                      </StepContent>
-                    </Step>
-                  ))}
+                  {STEPS.map((step, index) => {
+                    const isActive = index === getCurrentStep(viewingRequest.status)
+                    const isCompleted = index < getCurrentStep(viewingRequest.status)
+                    const comment = viewingRequest.step_comments?.[step] || ''
+                    return (
+                      <Step key={step} active={isActive || isCompleted} completed={isCompleted}>
+                        <StepLabel StepIconComponent={() => (
+                          <Avatar sx={{ bgcolor: isActive || isCompleted ? getStatusColor(step) : '#e0e0e0', width: 24, height: 24, fontSize: 14, color: 'white' }}>
+                            {index + 1}
+                          </Avatar>
+                        )}>
+                          {step}
+                          {isActive && <Chip label="Current" size="small" sx={{ ml: 1, bgcolor: colors.lightCyan, color: colors.darkNavy, height: 18, fontSize: '10px' }} />}
+                        </StepLabel>
+                        <StepContent>
+                          {comment && (
+                            <Paper variant="outlined" sx={{ p: 1.5, mb: 1, bgcolor: colors.mainBg, borderRadius: 2, borderColor: colors.borderColor }}>
+                              <Typography variant="caption" sx={{ color: colors.lightText, display: 'block', mb: 0.5 }}>
+                                <Comment sx={{ fontSize: 14, verticalAlign: 'middle', mr: 0.5 }} /> Comment:
+                              </Typography>
+                              <Typography variant="body2" sx={{ color: colors.darkNavy }}>{comment}</Typography>
+                            </Paper>
+                          )}
+                          {isActive && viewingRequest.status !== 'REJECTED' && viewingRequest.status !== 'EQUIPMENT TESTED & COMMISSIONED FOR USE' && canComment && (
+                            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mt: 1 }}>
+                              <TextField size="small" placeholder="Add a comment (reason if stuck)..." value={stepComment} onChange={(e) => setStepComment(e.target.value)} fullWidth sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, '&:hover fieldset': { borderColor: colors.lightCyan }, '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark } } }} />
+                              <IconButton color="primary" onClick={handleAddComment} disabled={!stepComment.trim()} sx={{ bgcolor: colors.darkNavy, color: 'white', '&:hover': { bgcolor: colors.darkNavyHover }, '&.Mui-disabled': { bgcolor: colors.borderColor, color: colors.lightText } }}>
+                                <Send fontSize="small" />
+                              </IconButton>
+                            </Box>
+                          )}
+                        </StepContent>
+                      </Step>
+                    )
+                  })}
                 </Stepper>
               </Grid>
 
-              <Grid item xs={12}>
-                <Divider sx={{ borderColor: colors.borderColor }} />
-              </Grid>
+              <Grid item xs={12}><Divider sx={{ borderColor: colors.borderColor }} /></Grid>
 
               {/* Details */}
               <Grid item xs={12} md={6}>
-                <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600, display: 'block' }}>
-                  Hospital
-                </Typography>
-                <Typography variant="body1" sx={{ color: colors.darkNavy, fontWeight: 500 }}>
-                  {viewingRequest.hospital_name || 'N/A'}
-                </Typography>
+                <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600, display: 'block' }}>Hospital</Typography>
+                <Typography variant="body1" sx={{ color: colors.darkNavy, fontWeight: 500 }}>{viewingRequest.hospital_name || 'N/A'}</Typography>
               </Grid>
               <Grid item xs={12} md={6}>
-                <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600, display: 'block' }}>
-                  Category
-                </Typography>
-                <Typography variant="body1" sx={{ color: colors.darkNavy }}>
-                  {viewingRequest.category_name || 'N/A'}
-                </Typography>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600, display: 'block' }}>
-                  Manufacturer
-                </Typography>
-                <Typography variant="body1" sx={{ color: colors.darkNavy }}>
-                  {viewingRequest.manufacturer || 'N/A'}
-                </Typography>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600, display: 'block' }}>
-                  Model
-                </Typography>
-                <Typography variant="body1" sx={{ color: colors.darkNavy }}>
-                  {viewingRequest.model || 'N/A'}
-                </Typography>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600, display: 'block' }}>
-                  Quantity
-                </Typography>
-                <Typography variant="body1" sx={{ color: colors.darkNavy }}>
-                  {viewingRequest.quantity}
-                </Typography>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600, display: 'block' }}>
-                  Estimated Cost
-                </Typography>
-                <Typography variant="body1" sx={{ color: colors.lightCyanDark, fontWeight: 600 }}>
-                  {viewingRequest.estimated_cost ? formatCurrency(viewingRequest.estimated_cost) : '-'}
-                </Typography>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600, display: 'block' }}>
-                  Requested By
-                </Typography>
-                <Typography variant="body1" sx={{ color: colors.darkNavy }}>
-                  {viewingRequest.requested_by_name || viewingRequest.requested_by || 'N/A'}
-                </Typography>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600, display: 'block' }}>
-                  Department
-                </Typography>
-                <Typography variant="body1" sx={{ color: colors.darkNavy }}>
-                  {viewingRequest.department_name || 'N/A'}
-                </Typography>
+                <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600, display: 'block' }}>Category</Typography>
+                <Typography variant="body1" sx={{ color: colors.darkNavy }}>{viewingRequest.category_name || 'N/A'}</Typography>
               </Grid>
               <Grid item xs={12}>
-                <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600, display: 'block' }}>
-                  Justification
+                <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600, display: 'block' }}>Manufacturer Options</Typography>
+                <Typography variant="body1" sx={{ color: colors.darkNavy }}>{(viewingRequest.manufacturer_options || []).join(', ') || 'None specified'}</Typography>
+              </Grid>
+              <Grid item xs={12}>
+                <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600, display: 'block' }}>Model Options</Typography>
+                <Typography variant="body1" sx={{ color: colors.darkNavy }}>{(viewingRequest.model_options || []).join(', ') || 'None specified'}</Typography>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600, display: 'block' }}>Quantity</Typography>
+                <Typography variant="body1" sx={{ color: colors.darkNavy }}>{viewingRequest.quantity}</Typography>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600, display: 'block' }}>Estimated Cost</Typography>
+                <Typography variant="body1" sx={{ color: colors.lightCyanDark, fontWeight: 600 }}>
+                  {viewingRequest.estimated_cost ? formatAmount(viewingRequest.estimated_cost, viewingRequest.currency) : '-'}
                 </Typography>
-                <Paper variant="outlined" sx={{ 
-                  p: 2, 
-                  mt: 0.5, 
-                  bgcolor: colors.mainBg,
-                  borderRadius: 2,
-                  borderColor: colors.borderColor,
-                }}>
-                  <Typography variant="body2" sx={{ color: colors.darkNavy }}>
-                    {viewingRequest.justification || 'No justification provided'}
-                  </Typography>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600, display: 'block' }}>Requested By</Typography>
+                <Typography variant="body1" sx={{ color: colors.darkNavy }}>{viewingRequest.requested_by_name || viewingRequest.requested_by || 'N/A'}</Typography>
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600, display: 'block' }}>Department</Typography>
+                <Typography variant="body1" sx={{ color: colors.darkNavy }}>{viewingRequest.department_name || 'N/A'}</Typography>
+              </Grid>
+              <Grid item xs={12}>
+                <Typography variant="caption" sx={{ color: colors.lightText, fontWeight: 600, display: 'block' }}>Justification</Typography>
+                <Paper variant="outlined" sx={{ p: 2, mt: 0.5, bgcolor: colors.mainBg, borderRadius: 2, borderColor: colors.borderColor }}>
+                  <Typography variant="body2" sx={{ color: colors.darkNavy }}>{viewingRequest.justification || 'No justification provided'}</Typography>
                 </Paper>
               </Grid>
 
@@ -1924,26 +1142,8 @@ const Procurement = () => {
                     {viewingRequest.attachments.split(',').filter(Boolean).map((url, index) => {
                       const isImage = url.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i)
                       const isPDF = url.match(/\.(pdf)$/i)
-                      
                       return (
-                        <Button
-                          key={index}
-                          variant="outlined"
-                          size="small"
-                          startIcon={isImage ? <Image /> : isPDF ? <PictureAsPdf /> : <Description />}
-                          href={getFullUrl(url)}
-                          target="_blank"
-                          sx={{ 
-                            textTransform: 'none',
-                            borderRadius: 2,
-                            borderColor: colors.borderColor,
-                            color: colors.darkNavy,
-                            '&:hover': {
-                              borderColor: colors.lightCyan,
-                              backgroundColor: 'rgba(103, 232, 249, 0.04)'
-                            }
-                          }}
-                        >
+                        <Button key={index} variant="outlined" size="small" startIcon={isImage ? <Image /> : isPDF ? <PictureAsPdf /> : <Description />} href={getFullUrl(url)} target="_blank" sx={{ textTransform: 'none', borderRadius: 2, borderColor: colors.borderColor, color: colors.darkNavy, '&:hover': { borderColor: colors.lightCyan, backgroundColor: 'rgba(103, 232, 249, 0.04)' } }}>
                           {url.split('/').pop().substring(0, 25)}
                         </Button>
                       )
@@ -1952,92 +1152,42 @@ const Procurement = () => {
                 </Grid>
               )}
 
-              {/* Status Update Actions */}
-              {viewingRequest.status !== 'Rejected' && viewingRequest.status !== 'Procured' && (
+              {/* ============================================================
+                  ✅ STATUS TRANSITION BUTTONS (NEW WORKFLOW)
+              ============================================================ */}
+              {viewingRequest.status !== 'REJECTED' && viewingRequest.status !== 'EQUIPMENT TESTED & COMMISSIONED FOR USE' && (
                 <Grid item xs={12}>
                   <Divider sx={{ my: 2, borderColor: colors.borderColor }} />
-                  <Typography variant="subtitle2" sx={{ color: colors.lightText, fontWeight: 600, mb: 1 }}>
-                    Update Status
-                  </Typography>
+                  <Typography variant="subtitle2" sx={{ color: colors.lightText, fontWeight: 600, mb: 1 }}>Advance Workflow</Typography>
                   <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                    {viewingRequest.status === 'Requested' && canReview && (
-                      <Button
-                        size="small"
-                        variant="contained"
-                        onClick={() => handleReview(viewingRequest.id)}
-                        startIcon={<Info />}
-                        sx={{
-                          bgcolor: colors.info,
-                          color: 'white',
-                          borderRadius: 2,
-                          textTransform: 'none',
-                          '&:hover': { 
-                            bgcolor: '#2563EB',
-                            boxShadow: `0 4px 16px ${colors.lightCyanGlow}`
-                          },
-                        }}
-                      >
-                        Start Review
+                    {viewingRequest.status === 'PURCHASE CASE INITIATED' && canApprove && (
+                      <Button size="small" variant="contained" onClick={() => transitionStatus(viewingRequest.id, 'CASE APPROVED')} startIcon={<CheckCircle />} sx={{ bgcolor: colors.success, color: 'white', borderRadius: 2, textTransform: 'none', '&:hover': { bgcolor: '#16A34A', boxShadow: `0 4px 16px rgba(34, 197, 94, 0.3)` } }}>
+                        Approve Case
                       </Button>
                     )}
-                    {viewingRequest.status === 'Under Review' && canApprove && (
-                      <>
-                        <Button
-                          size="small"
-                          variant="contained"
-                          onClick={() => handleApprove(viewingRequest.id)}
-                          startIcon={<CheckCircle />}
-                          sx={{
-                            bgcolor: colors.success,
-                            color: 'white',
-                            borderRadius: 2,
-                            textTransform: 'none',
-                            '&:hover': { 
-                              bgcolor: '#16A34A',
-                              boxShadow: `0 4px 16px rgba(34, 197, 94, 0.3)`
-                            },
-                          }}
-                        >
-                          Approve
-                        </Button>
-                        <Button
-                          size="small"
-                          variant="contained"
-                          onClick={() => handleReject(viewingRequest.id)}
-                          startIcon={<Cancel />}
-                          sx={{
-                            bgcolor: colors.error,
-                            color: 'white',
-                            borderRadius: 2,
-                            textTransform: 'none',
-                            '&:hover': { 
-                              bgcolor: '#DC2626',
-                              boxShadow: `0 4px 16px rgba(239, 68, 68, 0.3)`
-                            },
-                          }}
-                        >
-                          Reject
-                        </Button>
-                      </>
+                    {viewingRequest.status === 'CASE APPROVED' && canApprove && (
+                      <Button size="small" variant="contained" onClick={() => transitionStatus(viewingRequest.id, 'P.O ISSUED')} startIcon={<Description />} sx={{ bgcolor: colors.info, color: 'white', borderRadius: 2, textTransform: 'none', '&:hover': { bgcolor: '#2563EB', boxShadow: `0 4px 16px rgba(59, 130, 246, 0.3)` } }}>
+                        Issue P.O
+                      </Button>
                     )}
-                    {viewingRequest.status === 'Approved' && canMarkProcured && (
-                      <Button
-                        size="small"
-                        variant="contained"
-                        onClick={() => handleMarkProcured(viewingRequest.id)}
-                        startIcon={<CheckCircle />}
-                        sx={{
-                          bgcolor: colors.success,
-                          color: 'white',
-                          borderRadius: 2,
-                          textTransform: 'none',
-                          '&:hover': { 
-                            bgcolor: '#16A34A',
-                            boxShadow: `0 4px 16px rgba(34, 197, 94, 0.3)`
-                          },
-                        }}
-                      >
-                        Mark as Procured
+                    {viewingRequest.status === 'P.O ISSUED' && canApprove && (
+                      <Button size="small" variant="contained" onClick={() => transitionStatus(viewingRequest.id, 'SHIPMENT ARRIVED')} startIcon={<LocalShipping />} sx={{ bgcolor: colors.success, color: 'white', borderRadius: 2, textTransform: 'none', '&:hover': { bgcolor: '#16A34A', boxShadow: `0 4px 16px rgba(34, 197, 94, 0.3)` } }}>
+                        Shipment Arrived
+                      </Button>
+                    )}
+                    {viewingRequest.status === 'SHIPMENT ARRIVED' && canApprove && (
+                      <Button size="small" variant="contained" onClick={() => transitionStatus(viewingRequest.id, 'EQUIPMENT INSTALLED')} startIcon={<CheckCircle />} sx={{ bgcolor: colors.success, color: 'white', borderRadius: 2, textTransform: 'none', '&:hover': { bgcolor: '#16A34A', boxShadow: `0 4px 16px rgba(34, 197, 94, 0.3)` } }}>
+                        Equipment Installed
+                      </Button>
+                    )}
+                    {viewingRequest.status === 'EQUIPMENT INSTALLED' && canApprove && (
+                      <Button size="small" variant="contained" onClick={() => transitionStatus(viewingRequest.id, 'EQUIPMENT TESTED & COMMISSIONED FOR USE')} startIcon={<CheckCircle />} sx={{ bgcolor: colors.success, color: 'white', borderRadius: 2, textTransform: 'none', '&:hover': { bgcolor: '#16A34A', boxShadow: `0 4px 16px rgba(34, 197, 94, 0.3)` } }}>
+                        Test & Commission
+                      </Button>
+                    )}
+                    {canApprove && viewingRequest.status !== 'REJECTED' && viewingRequest.status !== 'EQUIPMENT TESTED & COMMISSIONED FOR USE' && (
+                      <Button size="small" variant="contained" color="error" onClick={() => transitionStatus(viewingRequest.id, 'REJECTED')} startIcon={<Cancel />} sx={{ bgcolor: colors.error, color: 'white', borderRadius: 2, textTransform: 'none', '&:hover': { bgcolor: '#DC2626', boxShadow: `0 4px 16px rgba(239, 68, 68, 0.3)` } }}>
+                        Reject
                       </Button>
                     )}
                   </Box>
@@ -2047,23 +1197,7 @@ const Procurement = () => {
           )}
         </DialogContent>
         <DialogActions sx={{ p: { xs: 2, sm: 3 }, gap: 1 }}>
-          <Button 
-            onClick={handleCloseView} 
-            variant="contained" 
-            sx={{ 
-              bgcolor: colors.darkNavy,
-              color: colors.text,
-              borderRadius: 2,
-              px: { xs: 3, sm: 4 },
-              textTransform: 'none',
-              boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
-              '&:hover': { 
-                bgcolor: colors.darkNavyHover,
-                boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}`,
-              },
-              transition: 'all 0.3s ease',
-            }}
-          >
+          <Button onClick={handleCloseView} variant="contained" sx={{ bgcolor: colors.darkNavy, color: colors.text, borderRadius: 2, px: { xs: 3, sm: 4 }, textTransform: 'none', boxShadow: `0 4px 16px ${colors.lightCyanGlow}`, '&:hover': { bgcolor: colors.darkNavyHover, boxShadow: `0 6px 24px ${colors.lightCyanGlowStrong}` }, transition: 'all 0.3s ease' }}>
             Close
           </Button>
         </DialogActions>

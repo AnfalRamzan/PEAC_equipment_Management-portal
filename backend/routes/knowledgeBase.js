@@ -1,10 +1,70 @@
 // backend/routes/knowledgeBase.js
-// ✅ FIXED: Remove hospital filter for GET /equipment/:equipmentId
+// ✅ FIXED: Remove time_taken field completely
+// ✅ ADDED: /equipment-list endpoint for equipment cards
+// ✅ FIXED: Equipment list only returns equipment fields (no solution data mixing)
 
 const express = require('express');
 const router = express.Router();
 const { query } = require('../config/database');
 const { authenticate, authorize } = require('../middleware/auth');
+
+// ============================================================
+// ✅ GET EQUIPMENT LIST FOR KNOWLEDGE BASE CARDS
+// ✅ Returns only equipment fields with solution count
+// ✅ No solution data mixed in (error_code, created_by_name, etc.)
+// ============================================================
+router.get('/equipment-list', authenticate, async (req, res) => {
+    try {
+        // ✅ Get all equipment with solution count
+        const sql = `
+            SELECT 
+                e.id,
+                e.name,
+                e.model,
+                e.manufacturer,
+                e.category_id,
+                e.hospital_id,
+                e.department_id,
+                c.name as category_name,
+                h.name as hospital_name,
+                d.name as department_name,
+                (
+                    SELECT COUNT(*) 
+                    FROM knowledge_base kb 
+                    WHERE kb.equipment_id = e.id
+                ) as solution_count
+            FROM equipment e
+            LEFT JOIN categories c ON e.category_id = c.id
+            LEFT JOIN hospitals h ON e.hospital_id = h.id
+            LEFT JOIN departments d ON e.department_id = d.id
+            WHERE e.is_active = 1
+            ORDER BY e.name ASC
+        `;
+        
+        const equipment = await query(sql);
+        
+        console.log(`📦 Found ${equipment.length} equipment for knowledge base`);
+        
+        res.json({ 
+            success: true, 
+            equipment: equipment.map(eq => ({
+                id: eq.id,
+                name: eq.name,
+                model: eq.model || 'No Model',
+                manufacturer: eq.manufacturer || 'No Manufacturer',
+                category_name: eq.category_name || '',
+                hospital_name: eq.hospital_name || 'No Hospital Assigned',
+                solution_count: parseInt(eq.solution_count) || 0
+            }))
+        });
+    } catch (error) {
+        console.error('Get equipment list error:', error);
+        res.status(500).json({ 
+            success: false, 
+            message: 'Failed to fetch equipment list' 
+        });
+    }
+});
 
 // ============================================================
 // ✅ GET KNOWLEDGE BASE BY EQUIPMENT - FIXED
@@ -14,9 +74,16 @@ router.get('/equipment/:equipmentId', authenticate, async (req, res) => {
     try {
         const { equipmentId } = req.params;
         
-        // ✅ REMOVED hospital_id filter - all users can see all solutions
+        // ✅ REMOVED time_taken from SELECT
         const sql = `
-            SELECT kb.*, 
+            SELECT kb.id, kb.equipment_id, kb.error_code, kb.error_title, 
+                   kb.error_description, kb.root_cause, kb.solution, 
+                   kb.repair_procedure, kb.spare_parts_used, 
+                   kb.spare_part_images, kb.before_repair_images, 
+                   kb.after_repair_images, kb.attachments, 
+                   kb.repair_date, kb.remarks, kb.reported_by, 
+                   kb.engineer_name, kb.hospital_name, kb.department_name,
+                   kb.created_by, kb.created_at, kb.updated_at,
                    u.full_name as created_by_name,
                    e.name as equipment_name,
                    e.model as equipment_model,
@@ -52,9 +119,16 @@ router.get('/equipment/:equipmentId', authenticate, async (req, res) => {
 // ============================================================
 router.get('/', authenticate, async (req, res) => {
     try {
-        // ✅ REMOVED hospital_id filter - all users can see all solutions
+        // ✅ REMOVED time_taken from SELECT
         const sql = `
-            SELECT kb.*, 
+            SELECT kb.id, kb.equipment_id, kb.error_code, kb.error_title, 
+                   kb.error_description, kb.root_cause, kb.solution, 
+                   kb.repair_procedure, kb.spare_parts_used, 
+                   kb.spare_part_images, kb.before_repair_images, 
+                   kb.after_repair_images, kb.attachments, 
+                   kb.repair_date, kb.remarks, kb.reported_by, 
+                   kb.engineer_name, kb.hospital_name, kb.department_name,
+                   kb.created_by, kb.created_at, kb.updated_at,
                    e.name as equipment_name,
                    e.model as equipment_model,
                    e.manufacturer as equipment_manufacturer,
@@ -87,8 +161,16 @@ router.get('/:id', authenticate, async (req, res) => {
     try {
         const { id } = req.params;
         
+        // ✅ REMOVED time_taken from SELECT
         const sql = `
-            SELECT kb.*, 
+            SELECT kb.id, kb.equipment_id, kb.error_code, kb.error_title, 
+                   kb.error_description, kb.root_cause, kb.solution, 
+                   kb.repair_procedure, kb.spare_parts_used, 
+                   kb.spare_part_images, kb.before_repair_images, 
+                   kb.after_repair_images, kb.attachments, 
+                   kb.repair_date, kb.remarks, kb.reported_by, 
+                   kb.engineer_name, kb.hospital_name, kb.department_name,
+                   kb.created_by, kb.created_at, kb.updated_at,
                    u.full_name as created_by_name,
                    e.name as equipment_name,
                    e.model as equipment_model,
@@ -123,7 +205,7 @@ router.get('/:id', authenticate, async (req, res) => {
 });
 
 // ============================================================
-// ✅ CREATE KNOWLEDGE BASE ENTRY - (No changes needed)
+// ✅ CREATE KNOWLEDGE BASE ENTRY - REMOVED time_taken
 // ============================================================
 router.post('/', authenticate, async (req, res) => {
     try {
@@ -137,7 +219,6 @@ router.post('/', authenticate, async (req, res) => {
             root_cause,
             solution,
             repair_procedure,
-            time_taken,
             spare_parts_used,
             spare_part_images,
             before_repair_images,
@@ -184,16 +265,16 @@ router.post('/', authenticate, async (req, res) => {
         // ✅ Get hospital_id from equipment
         const hospitalId = equipment[0].hospital_id;
 
-        // ✅ INSERT QUERY
+        // ✅ INSERT QUERY - REMOVED time_taken
         const result = await query(
             `INSERT INTO knowledge_base 
              (equipment_id, error_code, error_title, error_description,
-              root_cause, solution, repair_procedure, time_taken,
+              root_cause, solution, repair_procedure,
               spare_parts_used, spare_part_images, before_repair_images,
               after_repair_images, attachments, repair_date, remarks,
               reported_by, engineer_name, hospital_name, department_name,
               created_by)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 equipment_id,
                 error_code || null,
@@ -202,7 +283,6 @@ router.post('/', authenticate, async (req, res) => {
                 root_cause || null,
                 solution || null,
                 repair_procedure || null,
-                time_taken ? parseInt(time_taken) : null,
                 spare_parts_used || null,
                 spare_part_images || null,
                 before_repair_images || null,
@@ -220,9 +300,16 @@ router.post('/', authenticate, async (req, res) => {
 
         console.log('✅ Knowledge base entry created. ID:', result.insertId);
 
-        // ✅ GET THE NEW ENTRY
+        // ✅ GET THE NEW ENTRY - REMOVED time_taken
         const newEntry = await query(
-            `SELECT kb.*, 
+            `SELECT kb.id, kb.equipment_id, kb.error_code, kb.error_title, 
+                    kb.error_description, kb.root_cause, kb.solution, 
+                    kb.repair_procedure, kb.spare_parts_used, 
+                    kb.spare_part_images, kb.before_repair_images, 
+                    kb.after_repair_images, kb.attachments, 
+                    kb.repair_date, kb.remarks, kb.reported_by, 
+                    kb.engineer_name, kb.hospital_name, kb.department_name,
+                    kb.created_by, kb.created_at, kb.updated_at,
                     u.full_name as created_by_name,
                     e.name as equipment_name,
                     h.name as hospital_name
@@ -266,7 +353,7 @@ router.post('/', authenticate, async (req, res) => {
 });
 
 // ============================================================
-// ✅ UPDATE KNOWLEDGE BASE ENTRY - (No changes needed)
+// ✅ UPDATE KNOWLEDGE BASE ENTRY - REMOVED time_taken
 // ============================================================
 router.put('/:id', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), async (req, res) => {
     try {
@@ -278,7 +365,6 @@ router.put('/:id', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), asy
             root_cause,
             solution,
             repair_procedure,
-            time_taken,
             spare_parts_used,
             spare_part_images,
             before_repair_images,
@@ -305,7 +391,7 @@ router.put('/:id', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), asy
             });
         }
 
-        // ✅ Update query
+        // ✅ Update query - REMOVED time_taken
         await query(
             `UPDATE knowledge_base SET 
              error_code = ?, 
@@ -314,7 +400,6 @@ router.put('/:id', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), asy
              root_cause = ?, 
              solution = ?, 
              repair_procedure = ?,
-             time_taken = ?, 
              spare_parts_used = ?,
              spare_part_images = ?,
              before_repair_images = ?,
@@ -334,7 +419,6 @@ router.put('/:id', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_ADMIN'), asy
                 root_cause || null,
                 solution || null,
                 repair_procedure || null,
-                time_taken ? parseInt(time_taken) : null,
                 spare_parts_used || null,
                 spare_part_images || null,
                 before_repair_images || null,

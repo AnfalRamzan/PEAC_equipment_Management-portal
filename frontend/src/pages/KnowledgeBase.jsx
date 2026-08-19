@@ -1,10 +1,6 @@
 // src/pages/KnowledgeBase.jsx
-// ✅ DARK NAVY + LIGHT CYAN THEME - Matching Sidebar
-// ✅ ANY USER CAN VIEW + ADD SOLUTIONS (except Hospital Admin)
-// ✅ WITH ATTACHMENT TAB VIEW + PREVIEW
-// ✅ FIXED: Equipment ID handling and permission checks
-// ✅ FIXED: Using new /knowledge-base/equipment-list endpoint
-// ✅ ADDED: Export functionality (Excel & PDF only, no CSV)
+// ✅ FIXED: Solution Card - Only View button (No Edit, No Delete)
+// ✅ FIXED: Date removed from Solution Card
 
 import React, { useState, useEffect } from 'react'
 import {
@@ -165,27 +161,6 @@ const animationStyles = `
     opacity: 1;
     transform: translateY(0);
   }
-}
-
-@keyframes prominentGlow {
-  0% {
-    box-shadow: 0 0 20px rgba(103, 232, 249, 0.2), 0 0 40px rgba(103, 232, 249, 0.1);
-    border-color: rgba(103, 232, 249, 0.3);
-  }
-  50% {
-    box-shadow: 0 0 40px rgba(103, 232, 249, 0.4), 0 0 80px rgba(103, 232, 249, 0.2);
-    border-color: rgba(103, 232, 249, 0.6);
-  }
-  100% {
-    box-shadow: 0 0 20px rgba(103, 232, 249, 0.2), 0 0 40px rgba(103, 232, 249, 0.1);
-    border-color: rgba(103, 232, 249, 0.3);
-  }
-}
-
-@keyframes gradientShine {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
 }
 `
 
@@ -517,9 +492,9 @@ const formatDate = (dateString) => {
 }
 
 // ============================================================
-// ✅ ENHANCED STAT CARD COMPONENT - Border style with theme colors
+// ✅ ENHANCED STAT CARD COMPONENT
 // ============================================================
-const StatCard = ({ title, value, icon, color, bgColor, subtext }) => (
+const StatCard = ({ title, value, icon, subtext }) => (
   <Grow in timeout={300}>
     <Card sx={{ 
       borderRadius: 3,
@@ -601,38 +576,13 @@ const StatCard = ({ title, value, icon, color, bgColor, subtext }) => (
             })}
           </Box>
         </Box>
-        
-        {/* Indicator dots */}
-        <Box sx={{ display: 'flex', gap: 0.5, mt: 1 }}>
-          <Box sx={{
-            width: 6,
-            height: 6,
-            borderRadius: '50%',
-            bgcolor: colors.lightCyan,
-            opacity: 0.4,
-          }} />
-          <Box sx={{
-            width: 6,
-            height: 6,
-            borderRadius: '50%',
-            bgcolor: colors.lightCyan,
-            opacity: 0.2,
-          }} />
-          <Box sx={{
-            width: 6,
-            height: 6,
-            borderRadius: '50%',
-            bgcolor: colors.lightCyan,
-            opacity: 0.1,
-          }} />
-        </Box>
       </CardContent>
     </Card>
   </Grow>
 )
 
 // ============================================================
-// ✅ ENHANCED EQUIPMENT CARD - Border style with theme colors
+// ✅ EQUIPMENT CARD - ONLY EQUIPMENT DATA (NO System Admin, NO Date)
 // ============================================================
 const EquipmentCard = ({ equipment, onClick }) => {
   const [isHovered, setIsHovered] = useState(false)
@@ -722,7 +672,6 @@ const EquipmentCard = ({ equipment, onClick }) => {
                 fontWeight: 600,
                 fontSize: '11px',
                 borderRadius: 2,
-                '& .MuiChip-label': { px: 1.5 }
               }}
               icon={hasSolutions ? <Verified sx={{ fontSize: 14, color: colors.lightCyan }} /> : <FolderOpen sx={{ fontSize: 14, color: colors.text }} />}
             />
@@ -736,7 +685,6 @@ const EquipmentCard = ({ equipment, onClick }) => {
                   color: colors.lightText,
                   fontSize: '11px',
                   borderRadius: 2,
-                  '& .MuiChip-label': { px: 1.5 }
                 }}
               />
             )}
@@ -776,9 +724,9 @@ const EquipmentCard = ({ equipment, onClick }) => {
 }
 
 // ============================================================
-// ✅ SOLUTION CARD COMPONENT - Updated with theme colors
+// ✅ SOLUTION CARD - Only View Button (No Edit, No Delete) + No Date
 // ============================================================
-const SolutionCard = ({ solution, onView, onEdit, onDelete, isOwner, canEdit, canDelete, userRole, canAdd }) => {
+const SolutionCard = ({ solution, onView }) => {
   const [isHovered, setIsHovered] = useState(false)
   
   const getAttachmentCount = (value) => {
@@ -825,20 +773,6 @@ const SolutionCard = ({ solution, onView, onEdit, onDelete, isOwner, canEdit, ca
               <Typography variant="subtitle1" fontWeight={600} sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
                 {solution.error_title}
               </Typography>
-              {isOwner && (
-                <Chip 
-                  label="My Solution" 
-                  size="small" 
-                  sx={{ 
-                    bgcolor: colors.lightCyan, 
-                    color: colors.darkNavy,
-                    height: 20,
-                    fontSize: '9px',
-                    fontWeight: 600,
-                    borderRadius: 2,
-                  }}
-                />
-              )}
               {totalAttachments > 0 && (
                 <Chip
                   icon={<AttachFile sx={{ fontSize: 12 }} />}
@@ -856,6 +790,7 @@ const SolutionCard = ({ solution, onView, onEdit, onDelete, isOwner, canEdit, ca
               )}
             </Box>
             
+            {/* ✅ Code aur System Admin show - DATE REMOVE */}
             <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', ml: 5 }}>
               {solution.error_code && (
                 <Chip 
@@ -877,74 +812,34 @@ const SolutionCard = ({ solution, onView, onEdit, onDelete, isOwner, canEdit, ca
                   {solution.created_by_name || 'Unknown'}
                 </Typography>
               </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <CalendarToday sx={{ fontSize: 13, color: colors.lightText }} />
-                <Typography variant="caption" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                  {formatDate(solution.created_at)}
-                </Typography>
-              </Box>
-              {solution.time_taken && (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <AccessTime sx={{ fontSize: 13, color: colors.lightText }} />
-                  <Typography variant="caption" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                    {solution.time_taken} min
-                  </Typography>
-                </Box>
-              )}
+              {/* ⛔ DATE REMOVED - YAHAN SE DATE HATAYA */}
             </Box>
           </Box>
           
+          {/* ✅ ONLY VIEW BUTTON - No Edit, No Delete */}
           <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
             <Tooltip title="View Details">
-              <IconButton 
+              <Button 
                 size="small" 
+                variant="outlined"
+                startIcon={<Visibility />}
                 onClick={() => onView(solution)}
                 sx={{ 
                   color: colors.darkNavy,
+                  borderColor: colors.lightCyan,
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
                   '&:hover': { 
                     color: colors.lightCyanDark,
+                    borderColor: colors.lightCyanDark,
                     backgroundColor: 'rgba(103, 232, 249, 0.08)'
                   }
                 }}
               >
-                <Visibility fontSize="small" />
-              </IconButton>
+                View
+              </Button>
             </Tooltip>
-            
-            {canEdit && (
-              <Tooltip title="Edit (Super Admin Only)">
-                <IconButton 
-                  size="small" 
-                  onClick={() => onEdit(solution)}
-                  sx={{ 
-                    color: colors.darkNavy,
-                    '&:hover': { 
-                      color: colors.lightCyanDark,
-                      backgroundColor: 'rgba(103, 232, 249, 0.08)'
-                    }
-                  }}
-                >
-                  <Edit fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            )}
-            
-            {canDelete && (
-              <Tooltip title="Delete (Super Admin Only)">
-                <IconButton 
-                  size="small" 
-                  color="error" 
-                  onClick={() => onDelete(solution)}
-                  sx={{
-                    '&:hover': {
-                      backgroundColor: 'rgba(239, 68, 68, 0.08)'
-                    }
-                  }}
-                >
-                  <Delete fontSize="small" />
-                </IconButton>
-              </Tooltip>
-            )}
           </Box>
         </Box>
       </Paper>
@@ -996,7 +891,6 @@ const KnowledgeBase = () => {
   const [sparePartsList, setSparePartsList] = useState([])
   const [hasSpareParts, setHasSpareParts] = useState(false)
 
-  // ✅ Export Menu State
   const [exportAnchorEl, setExportAnchorEl] = useState(null)
 
   const [addFormData, setAddFormData] = useState({
@@ -1007,7 +901,6 @@ const KnowledgeBase = () => {
     root_cause: '',
     solution: '',
     repair_procedure: '',
-    time_taken: '',
     spare_parts_used: '',
     spare_part_images: '',
     before_repair_images: '',
@@ -1034,7 +927,7 @@ const KnowledgeBase = () => {
   }, [])
 
   // ============================================================
-  // ✅ EXPORT HANDLERS - Excel & PDF only (no CSV)
+  // ✅ EXPORT HANDLERS
   // ============================================================
   const handleExportClick = (event) => setExportAnchorEl(event.currentTarget)
   const handleExportClose = () => setExportAnchorEl(null)
@@ -1048,8 +941,7 @@ const KnowledgeBase = () => {
         'Error Description': s.error_description || '',
         'Root Cause': s.root_cause || '',
         'Solution': s.solution || '',
-        'Repair Procedure': s.repair_procedure || '',
-        'Time Taken (min)': s.time_taken || '',
+        'Reference Document Number': s.repair_procedure || '',
         'Spare Parts Used': s.spare_parts_used || '',
         'Remarks': s.remarks || '',
         'Reported By': s.reported_by || '',
@@ -1136,7 +1028,18 @@ const KnowledgeBase = () => {
     setLoading(true)
     try {
       const response = await api.get('/knowledge-base/equipment-list')
-      const equipment = response.data.equipment || []
+      let equipment = response.data.equipment || []
+      
+      equipment = equipment.map(eq => ({
+        id: eq.id,
+        name: eq.name,
+        model: eq.model || 'No Model',
+        manufacturer: eq.manufacturer || 'No Manufacturer',
+        category_name: eq.category_name || '',
+        hospital_name: eq.hospital_name || 'No Hospital Assigned',
+        solution_count: eq.solution_count || 0,
+      }))
+      
       setEquipmentList(equipment)
       
       let totalSol = 0
@@ -1201,10 +1104,7 @@ const KnowledgeBase = () => {
       return
     }
     
-    // Get equipment ID from selected equipment
     let equipmentId = selectedEquipment?.id
-    
-    console.log('📌 Opening Add Dialog for equipment:', selectedEquipment?.name, 'ID:', equipmentId)
     
     if (!equipmentId) {
       toast.error('Please select an equipment first')
@@ -1215,7 +1115,6 @@ const KnowledgeBase = () => {
     setSparePartsList([])
     setHasSpareParts(false)
     
-    // Get the equipment details to pre-fill hospital name
     const equipment = equipmentList.find(eq => eq.id === parseInt(equipmentId))
     
     setAddFormData({
@@ -1226,14 +1125,13 @@ const KnowledgeBase = () => {
       root_cause: '',
       solution: '',
       repair_procedure: '',
-      time_taken: '',
       spare_parts_used: '',
       spare_part_images: '',
       before_repair_images: '',
       after_repair_images: '',
       images: '',
       attachments: '',
-      repair_date: new Date().toISOString().split('T')[0],
+      repair_date: '',
       remarks: '',
       reported_by: user?.full_name || '',
       engineer_name: user?.full_name || '',
@@ -1243,138 +1141,6 @@ const KnowledgeBase = () => {
       created_by_name: user?.full_name || ''
     })
     setOpenAddDialog(true)
-  }
-
-  const handleEditSolution = (solution) => {
-    if (!canEdit) {
-      toast.error('Only Super Admin can edit solutions')
-      return
-    }
-    
-    setEditingSolution(solution)
-    
-    if (solution.spare_parts_used && solution.spare_parts_used.trim() !== '') {
-      setHasSpareParts(true)
-      try {
-        const parts = solution.spare_parts_used.split(',').filter(Boolean).map(p => {
-          const [name, qty, cost] = p.split('|')
-          return {
-            part_name: name || '',
-            quantity: parseInt(qty) || 1,
-            unit_cost: parseFloat(cost) || 0,
-            total_cost: (parseInt(qty) || 1) * (parseFloat(cost) || 0)
-          }
-        })
-        setSparePartsList(parts)
-      } catch (e) {
-        setSparePartsList([])
-      }
-    } else {
-      setHasSpareParts(false)
-      setSparePartsList([])
-    }
-    
-    setAddFormData({
-      equipment_id: solution.equipment_id || '',
-      error_code: solution.error_code || '',
-      error_title: solution.error_title || '',
-      error_description: solution.error_description || '',
-      root_cause: solution.root_cause || '',
-      solution: solution.solution || '',
-      repair_procedure: solution.repair_procedure || '',
-      time_taken: solution.time_taken || '',
-      spare_parts_used: solution.spare_parts_used || '',
-      spare_part_images: solution.spare_part_images || '',
-      before_repair_images: solution.before_repair_images || '',
-      after_repair_images: solution.after_repair_images || '',
-      images: solution.images || '',
-      attachments: solution.attachments || '',
-      repair_date: solution.repair_date || new Date().toISOString().split('T')[0],
-      remarks: solution.remarks || '',
-      reported_by: solution.reported_by || user?.full_name || '',
-      engineer_name: solution.engineer_name || '',
-      hospital_name: solution.hospital_name || user?.hospital_name || '',
-      department_name: solution.department_name || '',
-      created_by: solution.created_by || user?.id || null,
-      created_by_name: solution.created_by_name || user?.full_name || ''
-    })
-    setOpenAddDialog(true)
-  }
-
-  const handleSparePartChange = (e) => {
-    const { name, value } = e.target
-    setSparePartForm(prev => {
-      const updated = { ...prev, [name]: value }
-      if (name === 'quantity' || name === 'unit_cost') {
-        const qty = parseFloat(updated.quantity) || 0
-        const cost = parseFloat(updated.unit_cost) || 0
-        updated.total_cost = qty * cost
-      }
-      return updated
-    })
-  }
-
-  const handleAddSparePart = () => {
-    if (!sparePartForm.part_name || sparePartForm.part_name.trim() === '') {
-      toast.error('Please enter a part name')
-      return
-    }
-    if (!sparePartForm.quantity || sparePartForm.quantity < 1) {
-      toast.error('Please enter a valid quantity')
-      return
-    }
-
-    setSparePartsList(prev => [...prev, { ...sparePartForm }])
-    setSparePartForm({
-      part_name: '',
-      quantity: 1,
-      unit_cost: '',
-      total_cost: ''
-    })
-    toast.success('Spare part added to list')
-  }
-
-  const handleRemoveSparePart = (index) => {
-    setSparePartsList(prev => prev.filter((_, i) => i !== index))
-    toast.info('Spare part removed')
-  }
-
-  const formatSparePartsForDB = () => {
-    if (sparePartsList.length === 0) return ''
-    return sparePartsList.map(p => 
-      `${p.part_name}|${p.quantity}|${p.unit_cost}`
-    ).join(',')
-  }
-
-  const handleDeleteClick = (solution) => {
-    if (!canDelete) {
-      toast.error('Only Super Admin can delete solutions')
-      return
-    }
-    setDeletingSolution(solution)
-    setOpenDeleteDialog(true)
-  }
-
-  const handleConfirmDelete = async () => {
-    if (!deletingSolution) return
-    
-    setDeleteLoading(true)
-    try {
-      await api.delete(`/knowledge-base/${deletingSolution.id}`)
-      toast.success('Solution deleted successfully!')
-      setOpenDeleteDialog(false)
-      setDeletingSolution(null)
-      
-      if (selectedEquipment) {
-        fetchSolutions(selectedEquipment.id)
-        fetchEquipment()
-      }
-    } catch (error) {
-      console.error('Error deleting solution:', error)
-      toast.error(error.response?.data?.message || 'Failed to delete solution')
-    } finally {
-      setDeleteLoading(false)
-    }
   }
 
   const handleAddFormChange = (e) => {
@@ -1441,17 +1207,6 @@ const KnowledgeBase = () => {
         return
       }
 
-      try {
-        const checkEquip = await api.get(`/equipment/${equipmentId}`)
-        console.log('✅ Equipment exists:', checkEquip.data.equipment?.name)
-      } catch (checkError) {
-        console.error('❌ Equipment check failed:', checkError)
-        toast.error('Equipment not found. Please refresh and try again.')
-        return
-      }
-
-      const sparePartsString = hasSpareParts ? formatSparePartsForDB() : ''
-
       const payload = {
         equipment_id: parseInt(equipmentId),
         error_code: addFormData.error_code || null,
@@ -1460,8 +1215,7 @@ const KnowledgeBase = () => {
         root_cause: addFormData.root_cause || null,
         solution: addFormData.solution || null,
         repair_procedure: addFormData.repair_procedure || null,
-        time_taken: addFormData.time_taken ? parseInt(addFormData.time_taken) : null,
-        spare_parts_used: sparePartsString || addFormData.spare_parts_used || null,
+        spare_parts_used: addFormData.spare_parts_used || null,
         spare_part_images: addFormData.spare_part_images || null,
         before_repair_images: addFormData.before_repair_images || null,
         after_repair_images: addFormData.after_repair_images || null,
@@ -1493,20 +1247,14 @@ const KnowledgeBase = () => {
       setOpenAddDialog(false)
       setSparePartsList([])
       setHasSpareParts(false)
+      
       if (selectedEquipment) {
         await fetchSolutions(selectedEquipment.id)
         await fetchEquipment()
       }
     } catch (error) {
       console.error('❌ Error saving solution:', error)
-      
-      if (error.response?.status === 404) {
-        toast.error('Equipment not found. Please refresh and try again.')
-      } else if (error.response?.data?.message) {
-        toast.error(error.response.data.message)
-      } else {
-        toast.error('Failed to save solution: ' + error.message)
-      }
+      toast.error(error.response?.data?.message || 'Failed to save solution')
     }
   }
 
@@ -1518,7 +1266,6 @@ const KnowledgeBase = () => {
     return matchesSearch && matchesFilter
   })
 
-  // ✅ Stats Cards - All icons same theme color
   const statsCards = [
     {
       title: 'Total Solutions',
@@ -1610,7 +1357,6 @@ const KnowledgeBase = () => {
               fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
               textTransform: 'none',
               borderRadius: 2,
-              transition: 'all 0.3s ease',
               '&:hover': { 
                 bgcolor: colors.lightCyan,
                 color: colors.darkNavy,
@@ -1618,12 +1364,6 @@ const KnowledgeBase = () => {
                 boxShadow: `0 4px 16px ${colors.lightCyanGlow}`,
                 transform: 'translateY(-2px)',
               },
-              '&:active': {
-                bgcolor: colors.lightCyan,
-                color: colors.darkNavy,
-                borderColor: colors.lightCyan,
-                transform: 'scale(0.96)',
-              }
             }}
           >
             Refresh
@@ -1652,7 +1392,7 @@ const KnowledgeBase = () => {
         </Box>
       </Box>
 
-      {/* EXPORT MENU - Excel & PDF only */}
+      {/* EXPORT MENU */}
       <Menu
         anchorEl={exportAnchorEl}
         open={Boolean(exportAnchorEl)}
@@ -1743,10 +1483,6 @@ const KnowledgeBase = () => {
                   '&:hover fieldset': { borderColor: colors.lightCyan },
                   '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                 },
-                '& .MuiInputBase-input': {
-                  fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  fontSize: '0.9rem',
-                }
               }
             }}
           />
@@ -1762,9 +1498,6 @@ const KnowledgeBase = () => {
                   '&:hover fieldset': { borderColor: colors.lightCyan },
                   '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                 },
-                '& .MuiSelect-select': {
-                  fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                }
               }}
             >
               <MenuItem value="" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>All Equipment</MenuItem>
@@ -1885,13 +1618,6 @@ const KnowledgeBase = () => {
                   key={sol.id}
                   solution={sol}
                   onView={handleViewSolution}
-                  onEdit={handleEditSolution}
-                  onDelete={handleDeleteClick}
-                  isOwner={isEngineer && (sol.created_by === user?.id || sol.created_by_name === user?.full_name)}
-                  canEdit={canEdit}
-                  canDelete={canDelete}
-                  userRole={user?.role}
-                  canAdd={canAdd}
                 />
               ))}
             </Box>
@@ -2024,19 +1750,10 @@ const KnowledgeBase = () => {
                   
                   <Grid item xs={12}>
                     <Typography variant="caption" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                      Repair Procedure
+                      Reference Document Number
                     </Typography>
                     <Typography variant="body2" sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", bgcolor: colors.mainBg, p: 2, borderRadius: 2 }}>
-                      {selectedSolution.repair_procedure || 'No repair procedure provided'}
-                    </Typography>
-                  </Grid>
-                  
-                  <Grid item xs={12} md={6}>
-                    <Typography variant="caption" sx={{ color: colors.lightText, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                      Time Taken
-                    </Typography>
-                    <Typography variant="body1" fontWeight={600} sx={{ color: colors.darkNavy, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                      {selectedSolution.time_taken ? `${selectedSolution.time_taken} minutes` : 'N/A'}
+                      {selectedSolution.repair_procedure || 'No reference number provided'}
                     </Typography>
                   </Grid>
                   
@@ -2144,15 +1861,6 @@ const KnowledgeBase = () => {
                       No spare parts listed
                     </Typography>
                   )}
-                  
-                  {selectedSolution.spare_part_images && (
-                    <Box sx={{ mt: 3 }}>
-                      <Typography variant="subtitle2" sx={{ color: colors.darkNavy, fontWeight: 600, mb: 1, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-                        Spare Parts Images
-                      </Typography>
-                      <AttachmentGrid attachments={selectedSolution.spare_part_images.split(',').filter(Boolean)} />
-                    </Box>
-                  )}
                 </Box>
               )}
             </>
@@ -2177,78 +1885,6 @@ const KnowledgeBase = () => {
             }}
           >
             Close
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* ===== DELETE CONFIRMATION DIALOG ===== */}
-      <Dialog
-        open={openDeleteDialog}
-        onClose={() => setOpenDeleteDialog(false)}
-        PaperProps={{
-          sx: {
-            borderRadius: 4,
-            border: `1px solid ${colors.borderColor}`,
-            boxShadow: '0 8px 40px rgba(0,0,0,0.08)',
-          }
-        }}
-      >
-        <DialogTitle sx={{ 
-          bgcolor: colors.error, 
-          color: colors.text,
-          borderRadius: '8px 8px 0 0',
-          py: 2.5,
-        }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <DeleteForever sx={{ fontSize: 28 }} />
-            <Typography variant="h6" fontWeight={600} sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-              Delete Solution
-            </Typography>
-          </Box>
-        </DialogTitle>
-        <DialogContent sx={{ px: 4, py: 3 }}>
-          <Typography variant="body1" sx={{ fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif", mb: 2 }}>
-            Are you sure you want to delete this solution?
-          </Typography>
-          {deletingSolution && (
-            <Alert severity="warning" sx={{ borderRadius: 2, fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif" }}>
-              <strong>"{deletingSolution.error_title}"</strong> will be permanently removed.
-            </Alert>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ p: 3, gap: 1 }}>
-          <Button 
-            onClick={() => setOpenDeleteDialog(false)}
-            variant="outlined"
-            sx={{ 
-              color: colors.darkNavy, 
-              borderColor: colors.borderColor,
-              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-              textTransform: 'none',
-              borderRadius: 2,
-              px: 3,
-              '&:hover': { 
-                borderColor: colors.lightCyan,
-                backgroundColor: 'rgba(103, 232, 249, 0.04)'
-              },
-            }}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            color="error"
-            onClick={handleConfirmDelete}
-            disabled={deleteLoading}
-            sx={{
-              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-              textTransform: 'none',
-              borderRadius: 2,
-              px: 4,
-            }}
-            startIcon={deleteLoading ? <CircularProgress size={20} color="inherit" /> : <Delete />}
-          >
-            {deleteLoading ? 'Deleting...' : 'Delete'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -2309,9 +1945,6 @@ const KnowledgeBase = () => {
                       '&:hover fieldset': { borderColor: colors.lightCyan },
                       '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                     },
-                    '& .MuiSelect-select': {
-                      fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                    }
                   }}
                 >
                   {equipmentList.map(eq => (
@@ -2337,12 +1970,6 @@ const KnowledgeBase = () => {
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   },
-                  '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  },
-                  '& .MuiInputLabel-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  }
                 }}
               />
             </Grid>
@@ -2370,12 +1997,6 @@ const KnowledgeBase = () => {
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   },
-                  '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  },
-                  '& .MuiInputLabel-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  }
                 }}
               />
             </Grid>
@@ -2396,12 +2017,6 @@ const KnowledgeBase = () => {
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   },
-                  '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  },
-                  '& .MuiInputLabel-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  }
                 }}
               />
             </Grid>
@@ -2422,37 +2037,6 @@ const KnowledgeBase = () => {
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   },
-                  '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  },
-                  '& .MuiInputLabel-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  }
-                }}
-              />
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Time Taken (minutes)"
-                name="time_taken"
-                type="number"
-                value={addFormData.time_taken || ''}
-                onChange={handleAddFormChange}
-                placeholder="e.g., 30"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                    '&:hover fieldset': { borderColor: colors.lightCyan },
-                    '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
-                  },
-                  '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  },
-                  '& .MuiInputLabel-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  }
                 }}
               />
             </Grid>
@@ -2482,12 +2066,6 @@ const KnowledgeBase = () => {
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   },
-                  '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  },
-                  '& .MuiInputLabel-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  }
                 }}
               />
             </Grid>
@@ -2495,25 +2073,19 @@ const KnowledgeBase = () => {
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Repair Procedure"
+                label="Reference Document Number"
                 name="repair_procedure"
                 value={addFormData.repair_procedure || ''}
                 onChange={handleAddFormChange}
                 multiline
                 rows={3}
-                placeholder="Step-by-step repair procedure"
+                placeholder="Enter reference document number (e.g., REF-12345)"
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     borderRadius: 2,
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   },
-                  '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  },
-                  '& .MuiInputLabel-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  }
                 }}
               />
             </Grid>
@@ -2527,18 +2099,16 @@ const KnowledgeBase = () => {
                 value={addFormData.repair_date || ''}
                 onChange={handleAddFormChange}
                 InputLabelProps={{ shrink: true }}
+                inputProps={{
+                  min: "2000-01-01",
+                  max: "2030-12-31"
+                }}
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     borderRadius: 2,
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   },
-                  '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  },
-                  '& .MuiInputLabel-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  }
                 }}
               />
             </Grid>
@@ -2559,12 +2129,6 @@ const KnowledgeBase = () => {
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   },
-                  '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  },
-                  '& .MuiInputLabel-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  }
                 }}
               />
             </Grid>
@@ -2591,12 +2155,6 @@ const KnowledgeBase = () => {
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   },
-                  '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  },
-                  '& .MuiInputLabel-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  }
                 }}
               />
             </Grid>
@@ -2615,12 +2173,6 @@ const KnowledgeBase = () => {
                     '&:hover fieldset': { borderColor: colors.lightCyan },
                     '&.Mui-focused fieldset': { borderColor: colors.lightCyanDark }
                   },
-                  '& .MuiInputBase-input': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  },
-                  '& .MuiInputLabel-root': {
-                    fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                  }
                 }}
               />
             </Grid>
@@ -2710,19 +2262,13 @@ const KnowledgeBase = () => {
                           label="Part Name"
                           name="part_name"
                           value={sparePartForm.part_name}
-                          onChange={handleSparePartChange}
+                          onChange={setSparePartForm}
                           placeholder="e.g., Motor Bearing"
                           sx={{
                             '& .MuiOutlinedInput-root': {
                               borderRadius: 2,
                               '&:hover fieldset': { borderColor: colors.lightCyan },
                             },
-                            '& .MuiInputBase-input': {
-                              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                            },
-                            '& .MuiInputLabel-root': {
-                              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                            }
                           }}
                         />
                       </Grid>
@@ -2734,19 +2280,13 @@ const KnowledgeBase = () => {
                           name="quantity"
                           type="number"
                           value={sparePartForm.quantity}
-                          onChange={handleSparePartChange}
+                          onChange={setSparePartForm}
                           inputProps={{ min: 1 }}
                           sx={{
                             '& .MuiOutlinedInput-root': {
                               borderRadius: 2,
                               '&:hover fieldset': { borderColor: colors.lightCyan },
                             },
-                            '& .MuiInputBase-input': {
-                              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                            },
-                            '& .MuiInputLabel-root': {
-                              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                            }
                           }}
                         />
                       </Grid>
@@ -2758,19 +2298,13 @@ const KnowledgeBase = () => {
                           name="unit_cost"
                           type="number"
                           value={sparePartForm.unit_cost}
-                          onChange={handleSparePartChange}
+                          onChange={setSparePartForm}
                           inputProps={{ min: 0, step: 0.01 }}
                           sx={{
                             '& .MuiOutlinedInput-root': {
                               borderRadius: 2,
                               '&:hover fieldset': { borderColor: colors.lightCyan },
                             },
-                            '& .MuiInputBase-input': {
-                              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                            },
-                            '& .MuiInputLabel-root': {
-                              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                            }
                           }}
                         />
                       </Grid>
@@ -2787,12 +2321,6 @@ const KnowledgeBase = () => {
                               borderRadius: 2,
                               '&:hover fieldset': { borderColor: colors.lightCyan },
                             },
-                            '& .MuiInputBase-input': {
-                              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                            },
-                            '& .MuiInputLabel-root': {
-                              fontFamily: "'Satoshi', 'Segoe UI', 'Roboto', sans-serif",
-                            }
                           }}
                         />
                       </Grid>
