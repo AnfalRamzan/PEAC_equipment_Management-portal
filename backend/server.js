@@ -1,17 +1,15 @@
 // backend/server.js
-// ✅ COMPLETE FIXED VERSION - WITH FEEDBACK ROUTES (NO DUPLICATE)
-// ✅ FIXED: Feedback routes imported and registered ONLY ONCE
-// ✅ FIXED: Removed time_taken from knowledge_base routes
-// ✅ FIXED: Added purchase_date to equipment POST and PUT routes
+// ✅ COMPLETE FIXED VERSION - WITH AVAILABILITY REMOVED FROM VIEW
+// ✅ availability_percentage removed from individual equipment responses
+// ✅ functional_status added (Functional/Non-Functional)
 
 // ============================================================
-// ✅ LOAD ENVIRONMENT VARIABLES FIRST
+// ✅ LOAD ENVIRONMENT VARIABLES FIRST (ABSOLUTE FIRST LINE)
 // ============================================================
-console.log('🔍 Loading environment variables...');
 require('dotenv').config();
 
 // ✅ Check if .env loaded properly
-console.log('✅ Environment loaded');
+console.log('🔍 Environment loaded');
 console.log('🔐 BLOB_READ_WRITE_TOKEN status:', process.env.BLOB_READ_WRITE_TOKEN ? '✅ Set' : '❌ MISSING');
 console.log('🔐 BLOB_STORE_ID:', process.env.BLOB_STORE_ID || 'blob_store_default');
 console.log('🔐 JWT_SECRET status:', process.env.JWT_SECRET ? '✅ Set' : '❌ MISSING');
@@ -40,7 +38,6 @@ const trainingRoutes = require('./routes/training');
 const amcRoutes = require('./routes/amc');
 const maintenanceRoutes = require('./routes/maintenance');
 const sparePartsRoutes = require('./routes/spareParts');
-// ✅ FEEDBACK ROUTES IMPORT - ONLY ONCE
 const feedbackRoutes = require('./routes/feedback');
 
 const app = express();
@@ -183,7 +180,7 @@ const formatDateForMySQL = (date) => {
 };
 
 // ============================================================
-// ✅ DOWNTIME REPORT HELPER FUNCTION
+// ✅ DOWNTIME REPORT HELPER FUNCTION - UPDATED (NO AVAILABILITY)
 // ============================================================
 const buildDowntimeRows = (equipment, errors, repairs) => {
   return equipment.map((eq) => {
@@ -211,7 +208,7 @@ const buildDowntimeRows = (equipment, errors, repairs) => {
       }
     });
 
-    // Calculate availability using date_of_installation
+    // Calculate availability internally (not shown to user)
     let ageInYears = 1;
     if (eq.date_of_installation) {
       const installDate = new Date(eq.date_of_installation);
@@ -222,6 +219,9 @@ const buildDowntimeRows = (equipment, errors, repairs) => {
     const availability = monitoredHours > 0 
       ? Math.max(0, Math.min(100, ((monitoredHours - totalDowntime) / monitoredHours) * 100))
       : 100;
+
+    // ✅ NEW: Determine functional status
+    const isFunctional = availability >= 90;
 
     return {
       'Equipment Name': eq.name || 'N/A',
@@ -236,7 +236,8 @@ const buildDowntimeRows = (equipment, errors, repairs) => {
       'Resolution Rate': eqErrors.length > 0 ? `${((resolved.length / eqErrors.length) * 100).toFixed(1)}%` : '0.0%',
       'Maintenance Events': eqRepairs.length,
       'Total Downtime (Hours)': totalDowntime.toFixed(1),
-      'Availability %': `${availability.toFixed(1)}%`
+      // ✅ NEW: Functional Status instead of Availability %
+      'Functional Status': isFunctional ? 'Functional' : 'Non-Functional'
     };
   }).filter(r => r['Total Failures'] > 0 || parseFloat(r['Total Downtime (Hours)']) > 0);
 };
@@ -2020,7 +2021,6 @@ app.post('/api/equipment', authenticate, async (req, res) => {
             }
         }
         
-        // ✅ FIXED: Added purchase_date to INSERT
         const result = await query(
             `INSERT INTO equipment (
                 name, category_id, manufacturer, model, serial_number, 
@@ -2116,7 +2116,6 @@ app.put('/api/equipment/:id', authenticate, async (req, res) => {
             }
         }
         
-        // ✅ FIXED: Added purchase_date to UPDATE
         await query(
             `UPDATE equipment SET 
              name = ?, category_id = ?, manufacturer = ?, model = ?, 
@@ -2252,7 +2251,7 @@ app.use('/api/spare-parts', sparePartsRoutes);
 console.log('🔩 Spare parts routes registered from routes/spareParts.js');
 
 // ============================================================
-// ✅ FEEDBACK ROUTES - REGISTERED ONLY ONCE (FIXED)
+// ✅ FEEDBACK ROUTES - REGISTERED ONLY ONCE
 // ============================================================
 app.use('/api/feedback', authenticate, feedbackRoutes);
 console.log('💬 Feedback routes registered');
@@ -2364,7 +2363,6 @@ app.post('/api/knowledge-base', authenticate, async (req, res) => {
             root_cause,
             solution,
             repair_procedure,
-            // ⛔ time_taken REMOVED
             spare_parts_used,
             spare_part_images,
             before_repair_images,
@@ -2445,7 +2443,6 @@ app.post('/api/knowledge-base', authenticate, async (req, res) => {
                 root_cause || null,
                 solution || null,
                 repair_procedure || null,
-                // ⛔ time_taken REMOVED from values
                 spare_parts_used || null,
                 spare_part_images || null,
                 before_repair_images || null,
@@ -2532,7 +2529,6 @@ app.put('/api/knowledge-base/:id', authenticate, async (req, res) => {
             root_cause,
             solution,
             repair_procedure,
-            // ⛔ time_taken REMOVED
             spare_parts_used,
             spare_part_images,
             before_repair_images,
@@ -2593,7 +2589,6 @@ app.put('/api/knowledge-base/:id', authenticate, async (req, res) => {
             updateFields.push('repair_procedure = ?');
             updateValues.push(repair_procedure || null);
         }
-        // ⛔ time_taken UPDATE BLOCK REMOVED
         if (spare_parts_used !== undefined) {
             updateFields.push('spare_parts_used = ?');
             updateValues.push(spare_parts_used || null);
@@ -2715,7 +2710,7 @@ app.delete('/api/knowledge-base/:id', authenticate, async (req, res) => {
 });
 
 // ============================================================
-// ✅ DOWNTIME REPORT ROUTE
+// ✅ DOWNTIME REPORT ROUTE - UPDATED (NO AVAILABILITY)
 // ============================================================
 app.post('/api/reports/downtime', authenticate, async (req, res) => {
   try {
@@ -3755,7 +3750,7 @@ app.post('/api/procurement', authenticate, authorize('SUPER_ADMIN', 'HOSPITAL_AD
 });
 
 // ============================================================
-// ✅ UPDATE procurement request - UPDATED: Allow edit for completed
+// UPDATE procurement request (only SUPER_ADMIN, not rejected/commissioned)
 // ============================================================
 app.put('/api/procurement/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
   try {
@@ -3779,12 +3774,11 @@ app.put('/api/procurement/:id', authenticate, authorize('SUPER_ADMIN'), async (r
       return res.status(404).json({ success: false, message: 'Procurement request not found' });
     }
 
-    // ❌ Only disallow edit if rejected
-    // ✅ Allow edit for completed/commissioned status
-    if (existing[0].status === 'REJECTED') {
+    const disallowed = ['REJECTED', 'EQUIPMENT TESTED & COMMISSIONED FOR USE'];
+    if (disallowed.includes(existing[0].status)) {
       return res.status(400).json({
         success: false,
-        message: 'Cannot edit a request that is already rejected'
+        message: 'Cannot edit a request that is already rejected or commissioned'
       });
     }
 
@@ -3829,7 +3823,7 @@ app.put('/api/procurement/:id', authenticate, authorize('SUPER_ADMIN'), async (r
 });
 
 // ============================================================
-// ✅ DELETE procurement request - UPDATED: Allow delete for completed
+// DELETE procurement request (only SUPER_ADMIN, not rejected/commissioned)
 // ============================================================
 app.delete('/api/procurement/:id', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
   try {
@@ -3839,12 +3833,11 @@ app.delete('/api/procurement/:id', authenticate, authorize('SUPER_ADMIN'), async
       return res.status(404).json({ success: false, message: 'Procurement request not found' });
     }
 
-    // ❌ Only disallow delete if rejected
-    // ✅ Allow delete for completed/commissioned status
-    if (existing[0].status === 'REJECTED') {
+    const disallowed = ['REJECTED', 'EQUIPMENT TESTED & COMMISSIONED FOR USE'];
+    if (disallowed.includes(existing[0].status)) {
       return res.status(400).json({
         success: false,
-        message: 'Cannot delete a request that is already rejected'
+        message: 'Cannot delete a request that is already rejected or commissioned'
       });
     }
 
@@ -3858,7 +3851,6 @@ app.delete('/api/procurement/:id', authenticate, authorize('SUPER_ADMIN'), async
 
 // ============================================================
 // ✅ STATUS TRANSITION (main workflow) - only SUPER_ADMIN
-// ✅ Also prevents changing status of completed items (final state)
 // ============================================================
 app.put('/api/procurement/:id/status', authenticate, authorize('SUPER_ADMIN'), async (req, res) => {
   try {
@@ -3878,7 +3870,6 @@ app.put('/api/procurement/:id/status', authenticate, authorize('SUPER_ADMIN'), a
       return res.status(404).json({ success: false, message: 'Procurement request not found' });
     }
 
-    // If already REJECTED, cannot change
     if (existing[0].status === 'REJECTED') {
       return res.status(400).json({
         success: false,
@@ -3886,15 +3877,6 @@ app.put('/api/procurement/:id/status', authenticate, authorize('SUPER_ADMIN'), a
       });
     }
 
-    // ✅ If already commissioned, cannot change (final state)
-    if (existing[0].status === 'EQUIPMENT TESTED & COMMISSIONED FOR USE') {
-      return res.status(400).json({
-        success: false,
-        message: 'Cannot change status of a commissioned request'
-      });
-    }
-
-    // Prevent moving backwards (except to REJECTED)
     if (status !== 'REJECTED') {
       const currentIndex = STEPS.indexOf(existing[0].status);
       const newIndex = STEPS.indexOf(status);
@@ -4100,10 +4082,8 @@ app.put('/api/procurement/:id/review', authenticate, authorize('SUPER_ADMIN', 'H
   return app._router.handle(req, res, `/api/procurement/${req.params.id}/status`);
 });
 
-console.log('📦 PROCUREMENT ROUTES UPDATED: Allow edit/delete for completed status');
-console.log('   ✅ PUT /api/procurement/:id - Only rejects if status is REJECTED');
-console.log('   ✅ DELETE /api/procurement/:id - Only rejects if status is REJECTED');
-console.log('   ✅ PUT /api/procurement/:id/status - Prevents changing commissioned status');
+console.log('📦 PROCUREMENT ROUTES UPDATED WITH WORKFLOW + NOTIFICATIONS WITH ACTOR');
+
 // ============================================================
 // ✅ NOTIFICATIONS ROUTES
 // ============================================================
@@ -4176,10 +4156,13 @@ app.delete('/api/notifications/:id', authenticate, async (req, res) => {
     }
 });
 
-// server.js ya app.js me add karein
-
+// ============================================================
+// ✅ TECHNICAL SPECIFICATIONS ROUTES
+// ============================================================
 const technicalSpecificationsRoutes = require('./routes/technicalSpecifications');
 app.use('/api/technical-specifications', technicalSpecificationsRoutes);
+console.log('📋 Technical Specifications routes registered');
+
 // ============================================================
 // ✅ 404 HANDLER
 // ============================================================
@@ -4233,7 +4216,7 @@ if (require.main === module) {
     console.log('📊 Downtime Report route registered');
     console.log('📋 AMC routes registered from routes/amc.js with auto-status update');
     console.log('📊 Reports routes registered from routes/reports.js');
-    console.log('💬 Feedback routes registered');  // ✅ ONLY ONCE
+    console.log('💬 Feedback routes registered');
     console.log('📋 Error Logs Alias route registered (/api/error-logs)');
     console.log('📊 Spare Part Downtime route registered (/api/spare-parts/:id/downtime)');
     console.log('📦 Category routes fixed:');
@@ -4253,5 +4236,7 @@ if (require.main === module) {
     console.log('📦 PROCUREMENT ROUTES FIXED: department -> department_name');
     console.log('✅ FIXED: time_taken removed from knowledge_base POST and PUT routes');
     console.log('✅ FIXED: purchase_date added to equipment POST and PUT routes');
+    console.log('✅ FIXED: availability_percentage removed from report responses');
+    console.log('✅ ADDED: functional_status (Functional/Non-Functional) to report responses');
     console.log('========================================');
 }
